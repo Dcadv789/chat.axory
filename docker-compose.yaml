@@ -1,0 +1,91 @@
+services:
+  api:
+    build:
+      context: ./axchat-api
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3001}
+      APP_URL: ${APP_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      # Postgres do Axdeal (mesma rede Docker, banco logico axchat_db).
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-7d}
+      # Redis do Axdeal (mesma rede Docker).
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      UPLOADS_DIR: /app/uploads
+      # LLM: DeepSeek principal, Claude para visao, OpenAI/Whisper para audio.
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_DEFAULT_MODEL_ID: ${AI_DEFAULT_MODEL_ID:-deepseek-chat}
+      AI_VISION_FALLBACK_MODEL_ID: ${AI_VISION_FALLBACK_MODEL_ID:-claude-haiku-4-5}
+      # Integracoes opcionais usadas por algumas built-in tools.
+      HOPPE_API_KEY: ${HOPPE_API_KEY:-}
+      HOPPE_BASE_URL: ${HOPPE_BASE_URL:-}
+      MEMBERS_TRIVAPP_URL: ${MEMBERS_TRIVAPP_URL:-}
+    volumes:
+      - api_uploads:/app/uploads
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
+    networks:
+      - axdeal-shared
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./axchat-web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    expose:
+      - "3000"
+    depends_on:
+      - api
+    networks:
+      - axdeal-shared
+    restart: unless-stopped
+
+  mcp:
+    build:
+      context: ./axchat-mcp
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3110
+      CHAT_BULLQ_BASE_URL: ${CHAT_BULLQ_BASE_URL}
+      CHAT_BULLQ_API_KEY: ${CHAT_BULLQ_API_KEY:-}
+    expose:
+      - "3110"
+    depends_on:
+      - api
+    networks:
+      - axdeal-shared
+    restart: unless-stopped
+
+volumes:
+  api_uploads:
+
+networks:
+  # Rede Docker JA existente do Axdeal/Coolify (Postgres/Redis/MinIO vivem nela).
+  # Confirmado via: docker inspect do8sok00k84gswgggccogoko -> rede "coolify".
+  axdeal-shared:
+    external: true
+    name: coolify
