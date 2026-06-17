@@ -1,0 +1,64 @@
+services:
+  api:
+    build:
+      context: ./chat-bullq-api-main
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3001}
+      APP_URL: ${APP_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-7d}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      UPLOADS_DIR: /app/uploads
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      HOPPE_API_KEY: ${HOPPE_API_KEY:-}
+      HOPPE_BASE_URL: ${HOPPE_BASE_URL:-}
+      MEMBERS_TRIVAPP_URL: ${MEMBERS_TRIVAPP_URL:-}
+    volumes:
+      - api_uploads:/app/uploads
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./chat-bullq-web-main
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    expose:
+      - "3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  mcp:
+    build:
+      context: ./chat-bullq-mcp-main
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3110
+      CHAT_BULLQ_BASE_URL: ${CHAT_BULLQ_BASE_URL}
+      CHAT_BULLQ_API_KEY: ${CHAT_BULLQ_API_KEY:-}
+    expose:
+      - "3110"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  api_uploads:

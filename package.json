@@ -1,0 +1,20 @@
+{
+  "name": "chat-axory",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Monorepo wrapper for Chat BullQ web, API and MCP services.",
+  "scripts": {
+    "install:all": "npm --prefix chat-bullq-api-main install && npm --prefix chat-bullq-web-main install && npm --prefix chat-bullq-mcp-main install",
+    "build": "npm --prefix chat-bullq-api-main run build && npm --prefix chat-bullq-web-main run build && npm --prefix chat-bullq-mcp-main run build",
+    "build:api": "npm --prefix chat-bullq-api-main run build",
+    "build:web": "npm --prefix chat-bullq-web-main run build",
+    "build:mcp": "npm --prefix chat-bullq-mcp-main run build",
+    "dev": "npm --prefix chat-bullq-web-main run dev -- -p 3015",
+    "dev:api": "npm --prefix chat-bullq-api-main run start:dev",
+    "dev:web": "npm --prefix chat-bullq-web-main run dev -- -p 3015",
+    "dev:mcp": "npm --prefix chat-bullq-mcp-main run dev",
+    "prisma:generate": "npm --prefix chat-bullq-api-main run prisma:generate",
+    "prisma:migrate": "npm --prefix chat-bullq-api-main run prisma:migrate",
+    "prisma:seed": "npm --prefix chat-bullq-api-main run prisma:seed"
+  }
+}
