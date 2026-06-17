@@ -19,6 +19,7 @@ import {
 } from '../../iam/channel-access/channel-access.service';
 import { AgentRouterService } from '../../ai-agents/router/agent-router.service';
 import { AiAgentRunnerService } from '../../ai-agents/runner/agent-runner.service';
+import { syncNotSupportedMessage } from '../../channel-hub/sync/sync-messages.util';
 
 const SYNC_MESSAGE_PAGE_SIZE = 50;
 const SYNC_MAX_PAGES = 4;
@@ -555,9 +556,7 @@ export class ConversationsService {
 
     const adapter = this.adapterRegistry.getHistorySync(conversation.channel.type);
     if (!adapter) {
-      throw new BadRequestException(
-        `Channel type ${conversation.channel.type} does not support sync`,
-      );
+      throw new BadRequestException(syncNotSupportedMessage(conversation.channel.type));
     }
 
     const externalId = this.resolveExternalConversationId(conversation);

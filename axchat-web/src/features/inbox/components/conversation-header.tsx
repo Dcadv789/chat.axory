@@ -19,6 +19,10 @@ import { AssignmentPopover } from './assignment-popover';
 import { AgentPinPopover } from './agent-pin-popover';
 import { PipelinePopover } from './pipeline-popover';
 import { inboxService, type Conversation } from '../services/inbox.service';
+import {
+  conversationSupportsSync,
+  getApiErrorMessage,
+} from '../utils/inbox-errors';
 
 interface ConversationHeaderProps {
   conversation: Conversation;
@@ -104,6 +108,7 @@ export function ConversationHeader({
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const supportsSync = conversationSupportsSync(conversation.channel.type);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -121,7 +126,7 @@ export function ConversationHeader({
         toast.success('Tudo em dia — nenhuma mensagem nova');
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao sincronizar');
+      toast.error(getApiErrorMessage(err, 'Erro ao sincronizar'));
     } finally {
       setIsSyncing(false);
     }
@@ -189,14 +194,16 @@ export function ConversationHeader({
             }, 'IA engajada — vai responder em segundos');
           }}
         />
-        <button
-          onClick={handleSync}
-          disabled={isSyncing}
-          title="Sincronizar mensagens"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-        </button>
+        {supportsSync && (
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            title="Sincronizar mensagens"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+          </button>
+        )}
         {onToggleAgentLogs && (
           <button
             onClick={onToggleAgentLogs}

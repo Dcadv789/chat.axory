@@ -16,6 +16,7 @@ import { WhatsAppOfficialHttpClient } from '../adapters/whatsapp-official/whatsa
 import { InstagramHttpClient } from '../adapters/instagram/instagram.http-client';
 import { TelegramHttpClient } from '../adapters/telegram/telegram.http-client';
 import { ChannelSyncOrchestrator } from '../sync/channel-sync.orchestrator';
+import { syncNotSupportedMessage } from '../sync/sync-messages.util';
 import {
   ChannelAccessService,
   type ChannelAccess,
@@ -287,7 +288,7 @@ export class ChannelsService {
     if (!this.adapterRegistry.hasHistorySync(channel.type)) {
       return {
         success: false,
-        error: `Sync not supported for channel type ${channel.type}`,
+        error: syncNotSupportedMessage(channel.type),
       };
     }
 

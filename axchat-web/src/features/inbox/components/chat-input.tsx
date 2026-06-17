@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Paperclip, Mic, Trash2, Square, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAudioRecorder } from '../hooks/use-audio-recorder';
@@ -37,6 +37,16 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recorder = useAudioRecorder();
+  const canRecord = !!onSendAudio;
+
+  useEffect(() => {
+    if (!canRecord) return;
+    void recorder.refreshDevices(true);
+  }, [canRecord, recorder.refreshDevices]);
+
+  const handleMicSelectFocus = useCallback(() => {
+    void recorder.refreshDevices(true);
+  }, [recorder.refreshDevices]);
 
   const handleSubmit = useCallback(async () => {
     const trimmed = text.trim();
@@ -69,6 +79,10 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
 
   const handleSendAudio = useCallback(async () => {
     if (!recorder.blob || !onSendAudio) return;
+    if (recorder.blob.size === 0) {
+      toast.error('Nenhum áudio capturado. Tente outro microfone.');
+      return;
+    }
     setIsSendingAudio(true);
     try {
       await onSendAudio(recorder.blob);
@@ -110,6 +124,30 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  const micSelector = canRecord ? (
+    <select
+      value={recorder.selectedDeviceId}
+      onChange={(e) => recorder.setSelectedDeviceId(e.target.value)}
+      onFocus={handleMicSelectFocus}
+      disabled={recorder.state === 'recording' || recorder.isLoadingDevices}
+      className="mb-1 max-w-[220px] truncate rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-2 text-xs text-zinc-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+      aria-label="Selecionar microfone"
+      title="Microfone"
+    >
+      {recorder.devices.length === 0 ? (
+        <option value="">
+          {recorder.isLoadingDevices ? 'Carregando microfones…' : 'Nenhum microfone encontrado'}
+        </option>
+      ) : (
+        recorder.devices.map((device) => (
+          <option key={device.deviceId} value={device.deviceId}>
+            {device.label}
+          </option>
+        ))
+      )}
+    </select>
+  ) : null;
+
   if (disabled) {
     return (
       <div className="border-t border-zinc-200 bg-zinc-50 px-4 py-3 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50">
@@ -122,6 +160,9 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   if (recorder.state === 'recording') {
     return (
       <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="mb-2 flex items-center gap-2">
+          {micSelector}
+        </div>
         <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-900/40 dark:bg-red-500/10">
           <button
             onClick={recorder.cancel}
@@ -155,6 +196,9 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     const audioSrc = URL.createObjectURL(recorder.blob);
     return (
       <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="mb-2 flex items-center gap-2">
+          {micSelector}
+        </div>
         <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900">
           <button
             onClick={recorder.cancel}
@@ -186,11 +230,15 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   }
 
   // IDLE MODE: text input + mic button.
-  const canRecord = !!onSendAudio;
   const showMic = canRecord && !text.trim();
 
   return (
     <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+      {showMic && (
+        <div className="mb-2 flex items-center gap-2">
+          {micSelector}
+        </div>
+      )}
       <div className="flex items-end gap-2">
         <input
           ref={fileInputRef}
