@@ -337,13 +337,15 @@ export const inboxService = {
     return data.data;
   },
 
-  async uploadAudio(blob: Blob, filename = 'audio.webm'): Promise<{
+  async uploadAudio(blob: Blob, filename?: string): Promise<{
     url: string;
     mimeType: string;
     size: number;
   }> {
+    const mime = (blob.type || 'audio/webm').split(';')[0];
+    const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
     const form = new FormData();
-    form.append('file', blob, filename);
+    form.append('file', blob, filename || `audio.${ext}`);
     const { data } = await api.post('/messages/uploads/audio', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

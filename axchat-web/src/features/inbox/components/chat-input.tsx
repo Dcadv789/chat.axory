@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Paperclip, Mic, Trash2, Square, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAudioRecorder } from '../hooks/use-audio-recorder';
+import { MicSettingsButton } from './mic-settings-button';
 
 interface ChatInputProps {
   onSend: (text: string) => Promise<void>;
@@ -12,8 +13,6 @@ interface ChatInputProps {
   disabled?: boolean;
 }
 
-// Espelha o whitelist do backend (UploadsService.ALLOWED_MEDIA_MIME) — o
-// accept é só UX; a validação real acontece no upload.
 const FILE_ACCEPT = [
   'image/*',
   'video/*',
@@ -29,6 +28,49 @@ const FILE_ACCEPT = [
   '.zip',
 ].join(',');
 
+function AudioPreview({ blob, onSend, onDiscard, isSending }: {
+  blob: Blob;
+  onSend: () => void;
+  onDiscard: () => void;
+  isSending: boolean;
+}) {
+  const [audioSrc, setAudioSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(blob);
+    setAudioSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, [blob]);
+
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900">
+      <button
+        onClick={onDiscard}
+        type="button"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-zinc-800"
+        aria-label="Descartar áudio"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+      {audioSrc ? (
+        <audio controls src={audioSrc} className="h-9 min-w-0 flex-1" />
+      ) : (
+        <div className="h-9 flex-1" />
+      )}
+      <button
+        onClick={onSend}
+        disabled={isSending}
+        type="button"
+        className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+        aria-label="Enviar áudio"
+      >
+        {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        Enviar
+      </button>
+    </div>
+  );
+}
+
 export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInputProps) {
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -39,12 +81,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   const recorder = useAudioRecorder();
   const canRecord = !!onSendAudio;
 
-  useEffect(() => {
-    if (!canRecord) return;
-    void recorder.refreshDevices(true);
-  }, [canRecord, recorder.refreshDevices]);
-
-  const handleMicSelectFocus = useCallback(() => {
+  const handleOpenMicSettings = useCallback(() => {
     void recorder.refreshDevices(true);
   }, [recorder.refreshDevices]);
 
@@ -79,8 +116,8 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
 
   const handleSendAudio = useCallback(async () => {
     if (!recorder.blob || !onSendAudio) return;
-    if (recorder.blob.size === 0) {
-      toast.error('Nenhum áudio capturado. Tente outro microfone.');
+    if (recorder.blob.size < 200) {
+      toast.error('Nenhum áudio capturado. Escolha outro microfone nas configurações.');
       return;
     }
     setIsSendingAudio(true);
@@ -99,8 +136,6 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      // Limpa o value pra permitir reenviar o MESMO arquivo em seguida —
-      // sem isso o onChange não dispara na segunda escolha.
       e.target.value = '';
       if (!file || !onSendFile) return;
       setIsSendingFile(true);
@@ -124,28 +159,25 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const micSelector = canRecord ? (
-    <select
-      value={recorder.selectedDeviceId}
-      onChange={(e) => recorder.setSelectedDeviceId(e.target.value)}
-      onFocus={handleMicSelectFocus}
-      disabled={recorder.state === 'recording' || recorder.isLoadingDevices}
-      className="mb-1 max-w-[220px] truncate rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-2 text-xs text-zinc-600 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-      aria-label="Selecionar microfone"
-      title="Microfone"
-    >
-      {recorder.devices.length === 0 ? (
-        <option value="">
-          {recorder.isLoadingDevices ? 'Carregando microfones…' : 'Nenhum microfone encontrado'}
-        </option>
-      ) : (
-        recorder.devices.map((device) => (
-          <option key={device.deviceId} value={device.deviceId}>
-            {device.label}
-          </option>
-        ))
-      )}
-    </select>
+  const micControls = canRecord ? (
+    <>
+      <button
+        onClick={() => void recorder.start()}
+        type="button"
+        className="mb-1 rounded-lg bg-zinc-100 p-2.5 text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        aria-label="Gravar áudio"
+      >
+        <Mic className="h-5 w-5" />
+      </button>
+      <MicSettingsButton
+        devices={recorder.devices}
+        selectedDeviceId={recorder.selectedDeviceId}
+        isLoading={recorder.isLoadingDevices}
+        disabled={recorder.state === 'recording'}
+        onSelect={recorder.selectDevice}
+        onOpen={handleOpenMicSettings}
+      />
+    </>
   ) : null;
 
   if (disabled) {
@@ -156,31 +188,39 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     );
   }
 
-  // RECORDING MODE: shows a big bar with a pulsing red dot and the timer.
   if (recorder.state === 'recording') {
+    const levelPct = Math.min(100, Math.round(recorder.audioLevel * 100));
+
     return (
       <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mb-2 flex items-center gap-2">
-          {micSelector}
-        </div>
         <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-900/40 dark:bg-red-500/10">
           <button
             onClick={recorder.cancel}
+            type="button"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20"
             aria-label="Cancelar gravação"
           >
             <Trash2 className="h-4 w-4" />
           </button>
-          <div className="flex flex-1 items-center gap-2 text-sm text-red-700 dark:text-red-300">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
-            </span>
-            <span className="font-medium tabular-nums">{formatElapsed(recorder.elapsedMs)}</span>
-            <span className="text-xs opacity-70">Gravando…</span>
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+              </span>
+              <span className="font-medium tabular-nums">{formatElapsed(recorder.elapsedMs)}</span>
+              <span className="text-xs opacity-70">Gravando…</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-red-200/70 dark:bg-red-900/40">
+              <div
+                className="h-full rounded-full bg-red-500 transition-[width] duration-100"
+                style={{ width: `${Math.max(4, levelPct)}%` }}
+              />
+            </div>
           </div>
           <button
             onClick={recorder.stop}
+            type="button"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-500 text-white hover:bg-red-600"
             aria-label="Parar gravação"
           >
@@ -191,37 +231,15 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     );
   }
 
-  // PREVIEW MODE: the recording finished, user can listen/discard/send.
   if (recorder.state === 'stopped' && recorder.blob) {
-    const audioSrc = URL.createObjectURL(recorder.blob);
     return (
       <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="mb-2 flex items-center gap-2">
-          {micSelector}
-        </div>
-        <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900">
-          <button
-            onClick={recorder.cancel}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-zinc-800"
-            aria-label="Descartar áudio"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-          <audio
-            controls
-            src={audioSrc}
-            className="h-9 flex-1 min-w-0"
-          />
-          <button
-            onClick={handleSendAudio}
-            disabled={isSendingAudio}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-            aria-label="Enviar áudio"
-          >
-            {isSendingAudio ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Enviar
-          </button>
-        </div>
+        <AudioPreview
+          blob={recorder.blob}
+          onSend={() => void handleSendAudio()}
+          onDiscard={recorder.cancel}
+          isSending={isSendingAudio}
+        />
         {recorder.error && (
           <p className="mt-1 text-xs text-red-500">{recorder.error}</p>
         )}
@@ -229,16 +247,10 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     );
   }
 
-  // IDLE MODE: text input + mic button.
   const showMic = canRecord && !text.trim();
 
   return (
     <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-      {showMic && (
-        <div className="mb-2 flex items-center gap-2">
-          {micSelector}
-        </div>
-      )}
       <div className="flex items-end gap-2">
         <input
           ref={fileInputRef}
@@ -271,18 +283,12 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
           className="max-h-40 min-h-[40px] flex-1 resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm placeholder:text-zinc-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
         {showMic ? (
-          <button
-            onClick={recorder.start}
-            type="button"
-            className="mb-1 rounded-lg bg-zinc-100 p-2.5 text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-            aria-label="Gravar áudio"
-          >
-            <Mic className="h-5 w-5" />
-          </button>
+          micControls
         ) : (
           <button
             onClick={handleSubmit}
             disabled={!text.trim() || isSending}
+            type="button"
             className="mb-1 rounded-lg bg-primary p-2.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             aria-label="Enviar mensagem"
           >
