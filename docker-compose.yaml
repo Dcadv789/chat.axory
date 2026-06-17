@@ -10,6 +10,7 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN}
       # Postgres do Axdeal (mesma rede Docker, banco logico axchat_db).
       DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-7d}
