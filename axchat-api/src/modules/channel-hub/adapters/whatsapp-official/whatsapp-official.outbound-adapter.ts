@@ -1,7 +1,12 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ChannelType, Channel } from '@prisma/client';
 import { OutboundChannelPort, ResolveMediaHint } from '../../ports/outbound-channel.port';
-import { NormalizedOutboundMessage, SendResult, RateLimitConfig } from '../../ports/types';
+import {
+  NormalizedOutboundMessage,
+  SendResult,
+  RateLimitConfig,
+  MessageContentType,
+} from '../../ports/types';
 import { WhatsAppOfficialMessageMapper } from './whatsapp-official.message-mapper';
 import { WhatsAppOfficialHttpClient } from './whatsapp-official.http-client';
 import { UploadsService } from '../../../messaging/messages/uploads.service';
@@ -22,12 +27,57 @@ export class WhatsAppOfficialOutboundAdapter implements OutboundChannelPort {
     contactExternalId: string,
     message: NormalizedOutboundMessage,
   ): Promise<SendResult> {
-    const payload = this.mapper.denormalize(message, contactExternalId);
+    const prepared = await this.prepareOutboundMedia(channel, message);
+    const payload = this.mapper.denormalize(prepared, contactExternalId);
     const response = await this.httpClient.sendMessage(channel, payload);
 
     return {
       externalId: response?.messages?.[0]?.id || '',
       providerResponse: response,
+    };
+  }
+
+  /**
+   * WhatsApp Cloud API accepts media via public `link`, but Meta's fetch is
+   * flaky (firewall, timing, SSL). Upload the bytes directly and send by id.
+   */
+  private async prepareOutboundMedia(
+    channel: Channel,
+    message: NormalizedOutboundMessage,
+  ): Promise<NormalizedOutboundMessage> {
+    const mediaTypes = new Set<MessageContentType>([
+      MessageContentType.AUDIO,
+      MessageContentType.IMAGE,
+      MessageContentType.VIDEO,
+      MessageContentType.DOCUMENT,
+      MessageContentType.STICKER,
+    ]);
+    if (!mediaTypes.has(message.type)) return message;
+
+    const mediaUrl = message.content?.mediaUrl;
+    if (!mediaUrl) return message;
+
+    const { buffer, mimeType, filename } = await this.uploads.readByPublicUrl(
+      mediaUrl,
+      message.content?.mimeType,
+    );
+    const mediaId = await this.httpClient.uploadMedia(
+      channel,
+      buffer,
+      mimeType,
+      filename,
+    );
+
+    this.logger.log(
+      `WA Official media uploaded: type=${message.type} id=${mediaId} bytes=${buffer.byteLength}`,
+    );
+
+    return {
+      ...message,
+      content: {
+        ...message.content,
+        mediaId,
+      },
     };
   }
 

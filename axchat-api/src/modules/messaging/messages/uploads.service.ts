@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -236,6 +237,7 @@ export class UploadsService {
             '-ac', '1',
             '-ar', '48000',
             '-application', 'voip',
+            '-f', 'ogg',
             oggPath,
           ],
           { timeout: 30_000 },
@@ -254,6 +256,96 @@ export class UploadsService {
     const url = `${this.publicBaseUrl}/audio/${dateFolder}/${finalName}`;
     this.logger.log(`Audio saved: ${finalPath} -> ${url}`);
     return { url, mimeType: finalMime, size: finalSize, filename: finalName };
+  }
+
+  /**
+   * Maps a public `/api/v1/uploads/...` URL back to a local file path.
+   * Returns null when the URL is external or unsafe.
+   */
+  resolveLocalPathFromPublicUrl(url: string): string | null {
+    const prefix = `${this.publicBaseUrl}/`;
+    if (!url.startsWith(prefix)) return null;
+
+    const relative = url.slice(prefix.length);
+    const segments = relative.split('/').filter(Boolean);
+    if (segments.length === 0) return null;
+    const full = path.resolve(this.rootDir, ...segments);
+    const rootWithSep = this.rootDir.endsWith(path.sep)
+      ? this.rootDir
+      : this.rootDir + path.sep;
+    if (!full.startsWith(rootWithSep) && full !== this.rootDir) {
+      return null;
+    }
+    return full;
+  }
+
+  /**
+   * Reads an uploaded file by its public URL. Prefers the local disk path
+   * (reliable inside Docker) and falls back to HTTP for external URLs.
+   */
+  async readByPublicUrl(
+    url: string,
+    mimeTypeHint?: string | null,
+  ): Promise<{ buffer: Buffer; mimeType: string; filename: string }> {
+    const localPath = this.resolveLocalPathFromPublicUrl(url);
+    if (localPath && fs.existsSync(localPath)) {
+      const buffer = await fs.promises.readFile(localPath);
+      if (!buffer.byteLength) {
+        throw new BadRequestException('Uploaded media file is empty');
+      }
+      return {
+        buffer,
+        mimeType: mimeTypeHint || this.mimeFromExt(path.extname(localPath)),
+        filename: path.basename(localPath),
+      };
+    }
+
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 60_000,
+      maxContentLength: UploadsService.MAX_INBOUND_BYTES,
+      validateStatus: (s) => s >= 200 && s < 300,
+    });
+    const buffer = Buffer.from(response.data);
+    if (!buffer.byteLength) {
+      throw new BadRequestException('Remote media file is empty');
+    }
+    const contentType = String(response.headers['content-type'] || '').split(';')[0].trim();
+    return {
+      buffer,
+      mimeType: mimeTypeHint || contentType || 'application/octet-stream',
+      filename: path.basename(new URL(url).pathname) || 'media.bin',
+    };
+  }
+
+  private mimeFromExt(ext: string): string {
+    switch (ext.toLowerCase()) {
+      case '.ogg':
+        return 'audio/ogg';
+      case '.webm':
+        return 'audio/webm';
+      case '.m4a':
+        return 'audio/mp4';
+      case '.mp3':
+        return 'audio/mpeg';
+      case '.wav':
+        return 'audio/wav';
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.png':
+        return 'image/png';
+      case '.gif':
+        return 'image/gif';
+      case '.webp':
+        return 'image/webp';
+      case '.mp4':
+        return 'video/mp4';
+      case '.pdf':
+        return 'application/pdf';
+      default:
+        return 'application/octet-stream';
+    }
   }
 
   private extFor(mime: string, originalFilename?: string | null): string {

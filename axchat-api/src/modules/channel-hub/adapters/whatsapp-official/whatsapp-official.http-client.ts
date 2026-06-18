@@ -68,6 +68,45 @@ export class WhatsAppOfficialHttpClient {
     return Buffer.from(response.data);
   }
 
+  /**
+   * Uploads media bytes to Meta's servers and returns the media id.
+   * Prefer this over `link` in outbound messages — Meta's crawler often
+   * fails to fetch our public URL in time, which leaves the recipient
+   * with "this audio is no longer available".
+   */
+  async uploadMedia(
+    channel: Channel,
+    buffer: Buffer,
+    mimeType: string,
+    filename: string,
+  ): Promise<string> {
+    const cfg = this.getConfig(channel);
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('type', mimeType.split(';')[0].trim());
+    form.append('file', new Blob([new Uint8Array(buffer)], { type: mimeType }), filename);
+
+    const response = await fetch(
+      `https://graph.facebook.com/${cfg.apiVersion}/${cfg.phoneNumberId}/media`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cfg.accessToken}`,
+        },
+        body: form,
+      },
+    );
+
+    const data = (await response.json()) as { id?: string; error?: { message?: string } };
+    if (!response.ok || !data.id) {
+      const msg = data.error?.message || `HTTP ${response.status}`;
+      this.logger.error(`WA Official media upload failed: ${msg}`);
+      throw new Error(`Failed to upload media to WhatsApp: ${msg}`);
+    }
+
+    return data.id;
+  }
+
   async verifyPhoneNumber(channel: Channel): Promise<any> {
     const cfg = this.getConfig(channel);
     const client = this.createClient(channel);

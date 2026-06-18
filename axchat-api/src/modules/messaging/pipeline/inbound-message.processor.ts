@@ -384,6 +384,19 @@ export class InboundMessageProcessor extends WorkerHost {
       if (!isEcho && existing.status === MessageStatus.QUEUED) {
         patch.status = MessageStatus.DELIVERED;
       }
+
+      const existingContent = (existing.content ?? {}) as Record<string, any>;
+      const incomingContent = (message.content ?? {}) as Record<string, any>;
+      if (existingContent.mediaUrl && !incomingContent.mediaUrl) {
+        patch.content = {
+          ...incomingContent,
+          mediaUrl: existingContent.mediaUrl,
+          mimeType: existingContent.mimeType ?? incomingContent.mimeType,
+          fileSize: existingContent.fileSize ?? incomingContent.fileSize,
+          fileName: existingContent.fileName ?? incomingContent.fileName,
+        };
+      }
+
       if (Object.keys(patch).length === 0) {
         return { message: existing, isNew: false };
       }

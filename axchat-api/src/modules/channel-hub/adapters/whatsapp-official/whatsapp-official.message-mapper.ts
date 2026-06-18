@@ -81,45 +81,59 @@ export class WhatsAppOfficialMessageMapper {
         return {
           ...base,
           type: 'image',
-          image: {
-            link: message.content.mediaUrl,
-            caption: message.content.caption,
-          },
+          image: message.content.mediaId
+            ? { id: message.content.mediaId, caption: message.content.caption }
+            : {
+                link: message.content.mediaUrl,
+                caption: message.content.caption,
+              },
         };
 
       case MessageContentType.AUDIO:
         return {
           ...base,
           type: 'audio',
-          audio: { link: message.content.mediaUrl },
+          audio: message.content.mediaId
+            ? { id: message.content.mediaId }
+            : { link: message.content.mediaUrl },
         };
 
       case MessageContentType.VIDEO:
         return {
           ...base,
           type: 'video',
-          video: {
-            link: message.content.mediaUrl,
-            caption: message.content.caption,
-          },
+          video: message.content.mediaId
+            ? { id: message.content.mediaId, caption: message.content.caption }
+            : {
+                link: message.content.mediaUrl,
+                caption: message.content.caption,
+              },
         };
 
       case MessageContentType.DOCUMENT:
         return {
           ...base,
           type: 'document',
-          document: {
-            link: message.content.mediaUrl,
-            filename: message.content.fileName,
-            caption: message.content.caption,
-          },
+          document: message.content.mediaId
+            ? {
+                id: message.content.mediaId,
+                filename: message.content.fileName,
+                caption: message.content.caption,
+              }
+            : {
+                link: message.content.mediaUrl,
+                filename: message.content.fileName,
+                caption: message.content.caption,
+              },
         };
 
       case MessageContentType.STICKER:
         return {
           ...base,
           type: 'sticker',
-          sticker: { link: message.content.mediaUrl },
+          sticker: message.content.mediaId
+            ? { id: message.content.mediaId }
+            : { link: message.content.mediaUrl },
         };
 
       case MessageContentType.LOCATION:
