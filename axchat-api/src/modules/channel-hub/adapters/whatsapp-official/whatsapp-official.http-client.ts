@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Channel } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
-import FormData from 'form-data';
+import FormDataLib = require('form-data');
 import { whatsappMediaUploadMeta } from './whatsapp-media.util';
+
+const FormData = (FormDataLib as any).default || FormDataLib;
 
 interface WaOfficialConfig {
   accessToken: string;
