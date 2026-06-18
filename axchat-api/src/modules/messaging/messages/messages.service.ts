@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { randomUUID } from 'crypto';
 import {
   MessageDirection,
   MessageContentType,
@@ -121,12 +122,17 @@ export class MessagesService {
       replyTo = { externalMessageId: dto.replyTo.externalMessageId };
     }
 
+    const isInternalNote = dto.type === 'INTERNAL_NOTE';
+
     const message = await this.repository.create({
       conversationId: conversation.id,
       direction: MessageDirection.OUTBOUND,
       type: dto.type as MessageContentType,
       content: dto.content,
-      status: MessageStatus.QUEUED,
+      status: isInternalNote ? MessageStatus.SENT : MessageStatus.QUEUED,
+      // Internal notes live only in our DB — give them a synthetic externalId
+      // so delete/UI treat them as already "delivered" without hitting any provider.
+      externalId: isInternalNote ? `internal-${randomUUID()}` : undefined,
       senderId,
       // metadata.replyTo é consumido pela UI pra renderizar a quote box
       // em cima da bolha — sem isso o quote só apareceria no app do
@@ -374,6 +380,18 @@ export class MessagesService {
         'Mensagem ainda não foi entregue ao provider — não tem como deletar pra todos. ' +
           'Tente de novo em alguns segundos ou apague localmente.',
       );
+    }
+
+    // Internal notes never went to any provider — skip remote delete.
+    if (message.type === 'INTERNAL_NOTE') {
+      const revokedAt = new Date();
+      await this.prisma.message.update({
+        where: { id: message.id },
+        data: { revokedAt, revokedBy: actorId, revokeSucceededRemote: true },
+      });
+      const payload = { messageId: message.id, revokedAt, revokedBy: actorId };
+      this.realtimeGateway.emitToConversation(message.conversation.id, 'message:revoked', payload);
+      return { messageId: message.id, revokedAt, revokedBy: actorId, succeededRemote: true, remoteError: null };
     }
 
     const channel = await this.prisma.channel.findUnique({

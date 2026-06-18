@@ -39,6 +39,11 @@ export class UpdateChannelDto {
   @IsBoolean()
   aiEnabled?: boolean | null;
 
+  @ApiPropertyOptional({ description: 'ID do orquestrador padrão deste canal' })
+  @IsOptional()
+  @IsString()
+  defaultOrchestratorId?: string | null;
+
   /**
    * Visibility scope:
    * - ORG     → todos os membros da org enxergam (default).

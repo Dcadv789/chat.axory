@@ -22,6 +22,10 @@ export class RolesGuard implements CanActivate {
     if (!requiredRoles || requiredRoles.length === 0) return true;
 
     const request = context.switchToHttp().getRequest();
+
+    // Super admins podem operar qualquer org (ex.: settings de clientes).
+    if (request.user?.isSuperAdmin) return true;
+
     const userRole = request.organization?.userRole;
 
     if (!userRole) return false;

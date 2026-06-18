@@ -111,6 +111,14 @@ const filterOptions: { label: string; value: ListFilter; icon: React.ElementType
   },
 ];
 
+const statusOptions: { value: string; label: string; colorClass: string }[] = [
+  { value: 'PENDING', label: 'Pendente', colorClass: 'bg-amber-400' },
+  { value: 'BOT', label: 'Bot', colorClass: 'bg-blue-400' },
+  { value: 'OPEN', label: 'Aberta', colorClass: 'bg-emerald-400' },
+  { value: 'WAITING', label: 'Aguardando', colorClass: 'bg-violet-400' },
+  { value: 'CLOSED', label: 'Fechada', colorClass: 'bg-zinc-300 dark:bg-zinc-600' },
+];
+
 interface ConversationListProps {
   activeId: string | null;
   onSelect: (conversation: Conversation) => void;
@@ -140,6 +148,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
   const [showGroups, setShowGroups] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState('');
   // showGroups conta como filtro ativo SÓ quando ON (default OFF é o
   // comportamento padrão, não merece badge). Tags contam 1 por tag.
@@ -147,7 +156,8 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
     (unreadOnly ? 1 : 0) +
     (archivedOnly ? 1 : 0) +
     (showGroups ? 1 : 0) +
-    selectedTagIds.length;
+    selectedTagIds.length +
+    selectedStatuses.length;
   const [scope, setScope] = useState<ScopeFilter>('ALL');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -184,6 +194,9 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
     if (Array.isArray(savedPrefs.tagIds)) {
       setSelectedTagIds(savedPrefs.tagIds);
     }
+    if (Array.isArray(savedPrefs.statusFilters)) {
+      setSelectedStatuses(savedPrefs.statusFilters);
+    }
   }, [prefsLoaded, savedPrefs]);
 
   const toggleListFilter = useCallback(
@@ -216,11 +229,13 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
     setArchivedOnly(false);
     setShowGroups(false);
     setSelectedTagIds([]);
+    setSelectedStatuses([]);
     updatePrefs({
       unreadOnly: false,
       archivedOnly: false,
       showGroups: false,
       tagIds: [],
+      statusFilters: [],
     });
   }, [updatePrefs]);
 
@@ -231,6 +246,19 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
           ? prev.filter((id) => id !== tagId)
           : [...prev, tagId];
         updatePrefs({ tagIds: next });
+        return next;
+      });
+    },
+    [updatePrefs],
+  );
+
+  const toggleStatusFilter = useCallback(
+    (status: string) => {
+      setSelectedStatuses((prev) => {
+        const next = prev.includes(status)
+          ? prev.filter((s) => s !== status)
+          : [...prev, status];
+        updatePrefs({ statusFilters: next });
         return next;
       });
     },
@@ -257,7 +285,11 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
     () => [...selectedTagIds].sort().join(','),
     [selectedTagIds],
   );
-  const filterKey = `${unreadOnly ? 'u' : ''}|${archivedOnly ? 'a' : ''}|${showGroups ? 'g' : ''}|t:${tagsKey}`;
+  const statusesKey = useMemo(
+    () => [...selectedStatuses].sort().join(','),
+    [selectedStatuses],
+  );
+  const filterKey = `${unreadOnly ? 'u' : ''}|${archivedOnly ? 'a' : ''}|${showGroups ? 'g' : ''}|t:${tagsKey}|s:${statusesKey}`;
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -339,6 +371,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
       if (debouncedSearch) params.search = debouncedSearch;
       if (selectedChannelId) params.channelId = selectedChannelId;
       if (selectedTagIds.length > 0) params.tagIds = selectedTagIds.join(',');
+      if (selectedStatuses.length > 0) params.status = selectedStatuses.join(',');
       if (scope === 'MINE' && currentUserId) params.assignedToId = currentUserId;
       if (viewId) {
         return inboxViewsService.getConversations(viewId, params);
@@ -713,6 +746,35 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
     }
   }, [selectedIds, clearSelection, queryClient, router]);
 
+  const handleSaveAsView = useCallback(async () => {
+    const defaultName = `Filtro ${new Date().toLocaleDateString('pt-BR')}`;
+    const name = window.prompt(
+      'Nome da nova inbox com os filtros atuais:',
+      defaultName,
+    );
+    if (!name || !name.trim()) return;
+    const filters: Record<string, any> = {};
+    if (selectedStatuses.length > 0) filters.statuses = selectedStatuses;
+    if (selectedChannelId) filters.channelIds = [selectedChannelId];
+    if (selectedTagIds.length > 0) filters.tagIds = selectedTagIds;
+    if (unreadOnly) filters.unreadOnly = true;
+    if (archivedOnly) filters.archived = 'only';
+    if (scope === 'MINE') filters.assignedTo = 'me';
+    try {
+      const view = await inboxViewsService.create({
+        name: name.trim(),
+        icon: 'Inbox',
+        color: 'blue',
+        filters,
+      });
+      toast.success(`Inbox "${view.name}" criada com os filtros atuais`);
+      queryClient.invalidateQueries({ queryKey: ['inbox-views'] });
+      router.push(`/inbox?view=${view.id}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao criar inbox');
+    }
+  }, [selectedStatuses, selectedChannelId, selectedTagIds, unreadOnly, archivedOnly, scope, queryClient, router]);
+
   const getLastMessagePreview = (conv: Conversation) => {
     const last = conv.messages[0];
     if (!last) return 'Sem mensagens';
@@ -941,6 +1003,48 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                   </button>
                 );
               })}
+              {/* Status */}
+              <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
+              <div className="flex items-center justify-between px-2.5 py-1.5">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  Status
+                </p>
+                {selectedStatuses.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSelectedStatuses([]);
+                      updatePrefs({ statusFilters: [] });
+                    }}
+                    className="text-[10px] text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+              {statusOptions.map((opt) => {
+                const isActive = selectedStatuses.includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => toggleStatusFilter(opt.value)}
+                    className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                      isActive
+                        ? 'bg-primary/[0.06] font-medium text-primary dark:bg-primary/10'
+                        : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                      isActive
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-zinc-300 dark:border-zinc-600'
+                    }`}>
+                      {isActive && <Check className="h-2.5 w-2.5" />}
+                    </div>
+                    <div className={`h-2 w-2 shrink-0 rounded-full ${opt.colorClass}`} />
+                    <span className="flex-1">{opt.label}</span>
+                  </button>
+                );
+              })}
               {tags.length > 0 && (
                 <>
                   <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
@@ -1040,6 +1144,14 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                   </button>
                 </>
               )}
+              <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
+              <button
+                onClick={handleSaveAsView}
+                className="flex w-full items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] text-primary transition-colors hover:bg-primary/[0.06] dark:hover:bg-primary/10"
+              >
+                <FolderPlus className="h-3 w-3" />
+                Salvar filtros como inbox
+              </button>
             </div>
           </PopoverPanel>
         </Popover>
@@ -1065,6 +1177,25 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                 )}
                 <button
                   onClick={() => toggleListFilter(option.value)}
+                  className="rounded-full p-0.5 transition-colors hover:bg-primary/20 dark:hover:bg-primary/30"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            );
+          })}
+          {selectedStatuses.map((s) => {
+            const opt = statusOptions.find((o) => o.value === s);
+            if (!opt) return null;
+            return (
+              <span
+                key={s}
+                className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary dark:bg-primary/20"
+              >
+                <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${opt.colorClass}`} />
+                {opt.label}
+                <button
+                  onClick={() => toggleStatusFilter(s)}
                   className="rounded-full p-0.5 transition-colors hover:bg-primary/20 dark:hover:bg-primary/30"
                 >
                   <X className="h-2.5 w-2.5" />

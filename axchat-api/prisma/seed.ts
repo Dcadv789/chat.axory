@@ -14,8 +14,7 @@ async function main() {
 
   if (existing) {
     console.log(`✓ Usuário admin já existe: ${adminEmail}`);
-    return;
-  }
+  } else {
 
   const hashedPassword = await bcrypt.hash(adminPassword, 12);
 
@@ -84,6 +83,19 @@ async function main() {
   console.log(`  Slug:     ${result.organization.slug}`);
   console.log(`  Role:     OWNER (permissão total)`);
   console.log('═══════════════════════════════════════════');
+  }
+
+  // ─── Seeder global departments ─────────────────────
+  const defaultDepartments = ['VENDAS', 'SUPORTE', 'CS', 'CONTABIL', 'JURIDICO', 'OPERACOES', 'TECNOLOGIA', 'MARKETING', 'OUTRO'];
+  const existingDeps = await prisma.globalDepartment.count();
+  if (existingDeps === 0) {
+    await prisma.globalDepartment.createMany({
+      data: defaultDepartments.map((name, idx) => ({ name, sortOrder: idx })),
+    });
+    console.log(`✓ ${defaultDepartments.length} departamentos globais criados`);
+  } else {
+    console.log(`✓ ${existingDeps} departamentos globais já existem`);
+  }
 }
 
 main()

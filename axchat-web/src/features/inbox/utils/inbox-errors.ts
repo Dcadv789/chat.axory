@@ -1,3 +1,5 @@
+import type { Message } from '../services/inbox.service';
+
 const HISTORY_SYNC_CHANNEL_TYPES = new Set(['WHATSAPP_ZAPPFY', 'INSTAGRAM']);
 
 export function conversationSupportsSync(channelType: string): boolean {
@@ -23,20 +25,43 @@ export function getApiErrorMessage(err: unknown, fallback: string): string {
  */
 export function formatPhone(phone: string | null | undefined): string {
   if (!phone) return '';
-  // Remove tudo que não é dígito
   const digits = phone.replace(/\D/g, '');
-  // Brasileiro com código do país: 55 + DDD + número (10 ou 11 dígitos após o 55)
   if (digits.length === 13 && digits.startsWith('55')) {
-    // 55 11 95377-9696
     return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
   }
   if (digits.length === 12 && digits.startsWith('55')) {
-    // 55 11 3030-3030
     return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8)}`;
   }
-  // Tenta formato internacional genérico
   if (digits.length > 10) {
     return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
   }
   return phone;
+}
+
+/**
+ * Verifica se a janela de 24h do WhatsApp Oficial expirou.
+ * Só se aplica a canais WHATSAPP_OFFICIAL.
+ * A contagem começa da última mensagem INBOUND (do cliente).
+ */
+export function getEngagementWindowStatus(
+  channelType: string,
+  messages: Message[],
+): { expired: boolean; ageLabel: string | null } {
+  if (channelType !== 'WHATSAPP_OFFICIAL' || messages.length === 0) {
+    return { expired: false, ageLabel: null };
+  }
+
+  const lastInbound = [...messages].reverse().find((m) => m.direction === 'INBOUND');
+  if (!lastInbound) return { expired: false, ageLabel: null };
+
+  const ageMs = Date.now() - new Date(lastInbound.createdAt).getTime();
+  const ageHours = ageMs / (60 * 60 * 1000);
+  if (ageHours < 24) return { expired: false, ageLabel: null };
+
+  const ageLabel =
+    ageHours < 48
+      ? `${Math.floor(ageHours)}h`
+      : `${Math.floor(ageHours / 24)} dias`;
+
+  return { expired: true, ageLabel };
 }

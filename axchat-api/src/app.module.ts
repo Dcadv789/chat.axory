@@ -24,6 +24,7 @@ import { PipelinesModule } from './modules/pipelines/pipelines.module';
 import { AutomationsModule } from './modules/automations/automations.module';
 import { SuperAdminModule } from './modules/super-admin/super-admin.module';
 import { HealthModule } from './modules/health/health.module';
+import { AgentSectorsModule } from './modules/agent-sectors/agent-sectors.module';
 // ProductsModule removido — catálogo agora vive no Trivapp e é consumido
 // via skill HTTP getProductPitch + CatalogSyncService. Tabela `products`
 // fica órfã no DB (cleanup futuro). Não importar aqui.
@@ -67,6 +68,7 @@ import redisConfig from './config/redis.config';
     PipelinesModule,
     SuperAdminModule,
     HealthModule,
+    AgentSectorsModule,
   ],
 })
 export class AppModule {}

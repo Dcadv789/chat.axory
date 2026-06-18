@@ -671,6 +671,339 @@ export class SuperAdminService {
     });
   }
 
+  // ─── AI Agents Management (Super Admin) ─────────────────
+
+  async listAllAgents(actorId: string, organizationId?: string) {
+    const where: Prisma.AiAgentWhereInput = { deletedAt: null };
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+    const agents = await this.prisma.aiAgent.findMany({
+      where,
+      include: {
+        organization: { select: { id: true, name: true } },
+        channels: {
+          include: { channel: { select: { id: true, name: true, type: true } } },
+        },
+        _count: { select: { runs: true } },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+    await this.audit(actorId, 'LIST_AGENTS', 'platform', null, null);
+    return agents;
+  }
+
+  async copyAgent(actorId: string, agentId: string, targetOrgId: string) {
+    const agent = await this.prisma.aiAgent.findUnique({
+      where: { id: agentId },
+      include: {
+        sectorMemberships: { include: { sector: true } },
+      },
+    });
+    if (!agent) throw new NotFoundException('Agent not found');
+    if (agent.organizationId === targetOrgId) {
+      throw new BadRequestException('Source and target organization are the same');
+    }
+
+    const targetOrg = await this.prisma.organization.findUnique({
+      where: { id: targetOrgId },
+    });
+    if (!targetOrg) throw new NotFoundException('Target organization not found');
+
+    const newAgent = await this.prisma.aiAgent.create({
+      data: {
+        organizationId: targetOrgId,
+        name: agent.name,
+        description: agent.description,
+        avatarUrl: agent.avatarUrl,
+        kind: agent.kind,
+        category: agent.category,
+        capabilities: agent.capabilities,
+        modelId: agent.modelId,
+        modelParams: (agent.modelParams ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        systemPrompt: agent.systemPrompt,
+        temperature: agent.temperature,
+        maxTokens: agent.maxTokens,
+        canRespondDirectly: agent.canRespondDirectly,
+        isActive: agent.isActive,
+        parentAgentId: null,
+        department: agent.department,
+        squad: agent.squad,
+        operationalContext: null,
+      },
+    });
+
+    // Copia vínculos de setores (cria setor no destino se não existir)
+    for (const membership of agent.sectorMemberships) {
+      const sourceSector = membership.sector;
+      let targetSector = await this.prisma.agentSector.findFirst({
+        where: { organizationId: targetOrgId, name: sourceSector.name },
+      });
+      if (!targetSector) {
+        targetSector = await this.prisma.agentSector.create({
+          data: {
+            organizationId: targetOrgId,
+            name: sourceSector.name,
+            description: sourceSector.description,
+            icon: sourceSector.icon,
+            color: sourceSector.color,
+            order: sourceSector.order,
+          },
+        });
+      }
+      await this.prisma.agentSectorAgent
+        .create({
+          data: { sectorId: targetSector.id, agentId: newAgent.id },
+        })
+        .catch(() => undefined);
+    }
+
+    await this.audit(actorId, 'COPY_AGENT', 'aiAgent', newAgent.id, targetOrgId, {
+      sourceAgentId: agentId,
+      sourceOrgId: agent.organizationId,
+      agentName: agent.name,
+    });
+
+    return newAgent;
+  }
+
+  async copyAgentsBulk(actorId: string, sourceOrgId: string, targetOrgId: string) {
+    if (sourceOrgId === targetOrgId) {
+      throw new BadRequestException('Source and target organization are the same');
+    }
+
+    // 1. Copia setores de operação
+    const sourceSectors = await this.prisma.agentSector.findMany({
+      where: { organizationId: sourceOrgId },
+      include: { agents: true },
+      orderBy: { order: 'asc' },
+    });
+
+    const sectorIdMap = new Map<string, string>();
+    for (const sector of sourceSectors) {
+      let targetSector = await this.prisma.agentSector.findFirst({
+        where: { organizationId: targetOrgId, name: sector.name },
+      });
+      if (!targetSector) {
+        targetSector = await this.prisma.agentSector.create({
+          data: {
+            organizationId: targetOrgId,
+            name: sector.name,
+            description: sector.description,
+            icon: sector.icon,
+            color: sector.color,
+            order: sector.order,
+          },
+        });
+      } else {
+        targetSector = await this.prisma.agentSector.update({
+          where: { id: targetSector.id },
+          data: {
+            description: sector.description,
+            icon: sector.icon,
+            color: sector.color,
+            order: sector.order,
+          },
+        });
+      }
+      sectorIdMap.set(sector.id, targetSector.id);
+    }
+
+    // 2. Copia agentes
+    const agents = await this.prisma.aiAgent.findMany({
+      where: { organizationId: sourceOrgId, deletedAt: null },
+    });
+
+    const agentIdMap = new Map<string, string>();
+    const created = [];
+    for (const agent of agents) {
+      const newAgent = await this.prisma.aiAgent.create({
+        data: {
+          organizationId: targetOrgId,
+          name: agent.name,
+          description: agent.description,
+          avatarUrl: agent.avatarUrl,
+          kind: agent.kind,
+          category: agent.category,
+          capabilities: agent.capabilities,
+          modelId: agent.modelId,
+          modelParams: (agent.modelParams ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          systemPrompt: agent.systemPrompt,
+          temperature: agent.temperature,
+          maxTokens: agent.maxTokens,
+          canRespondDirectly: agent.canRespondDirectly,
+          isActive: agent.isActive,
+          parentAgentId: null,
+          department: agent.department,
+          squad: agent.squad,
+          operationalContext: null,
+        },
+      });
+      agentIdMap.set(agent.id, newAgent.id);
+      created.push({ id: newAgent.id, name: newAgent.name });
+    }
+
+    // 3. Recria vínculos agente ↔ setor
+    for (const sector of sourceSectors) {
+      const targetSectorId = sectorIdMap.get(sector.id);
+      if (!targetSectorId) continue;
+      for (const link of sector.agents) {
+        const newAgentId = agentIdMap.get(link.agentId);
+        if (!newAgentId) continue;
+        await this.prisma.agentSectorAgent
+          .create({
+            data: { sectorId: targetSectorId, agentId: newAgentId },
+          })
+          .catch(() => undefined);
+      }
+    }
+
+    await this.audit(actorId, 'BULK_COPY_AGENTS', 'platform', null, targetOrgId, {
+      sourceOrgId,
+      count: created.length,
+      sectorsCopied: sourceSectors.length,
+      agentIds: created.map((a) => a.id),
+    });
+
+    return { copied: created.length, sectorsCopied: sourceSectors.length, agents: created };
+  }
+
+  async updateAgent(actorId: string, id: string, dto: Record<string, any>) {
+    const agent = await this.prisma.aiAgent.findUnique({
+      where: { id },
+      select: { id: true, organizationId: true },
+    });
+    if (!agent) throw new NotFoundException('Agent not found');
+
+    const safe: Record<string, any> = {};
+    const allowedFields = ['name', 'description', 'modelId', 'systemPrompt', 'temperature',
+      'parentAgentId', 'department', 'squad', 'operationalContext', 'isActive',
+      'category', 'maxTokens', 'canRespondDirectly'];
+    for (const field of allowedFields) {
+      if (dto[field] !== undefined) safe[field] = dto[field];
+    }
+
+    const updated = await this.prisma.aiAgent.update({
+      where: { id },
+      data: safe,
+    });
+
+    await this.audit(actorId, 'UPDATE_AGENT', 'aiAgent', id, agent.organizationId, {
+      changedFields: Object.keys(safe),
+    });
+
+    return updated;
+  }
+
+  async listOrgModels(actorId: string, organizationId: string) {
+    const models = await this.prisma.aiModelProvider.findMany({
+      where: { organizationId },
+      orderBy: [{ provider: 'asc' }, { name: 'asc' }],
+    });
+    await this.audit(actorId, 'LIST_ORG_MODELS', 'organization', organizationId, organizationId);
+    return models;
+  }
+
+  // ─── Global Departments ─────────────────────────────
+
+  async listDepartments(actorId: string) {
+    const deps = await this.prisma.globalDepartment.findMany({
+      orderBy: { sortOrder: 'asc' },
+    });
+    await this.audit(actorId, 'LIST_DEPARTMENTS', 'platform', null, null);
+    return deps;
+  }
+
+  async createDepartment(actorId: string, name: string) {
+    const trimmed = name.trim().toUpperCase();
+    if (!trimmed) throw new BadRequestException('Department name is required');
+    const existing = await this.prisma.globalDepartment.findUnique({ where: { name: trimmed } });
+    if (existing) throw new ConflictException('Department already exists');
+    const max = await this.prisma.globalDepartment.aggregate({ _max: { sortOrder: true } });
+    const dept = await this.prisma.globalDepartment.create({
+      data: { name: trimmed, sortOrder: (max._max.sortOrder ?? -1) + 1 },
+    });
+    await this.audit(actorId, 'CREATE_DEPARTMENT', 'platform', null, null, { name: trimmed });
+    return dept;
+  }
+
+  async updateDepartment(actorId: string, id: string, name: string) {
+    const trimmed = name.trim().toUpperCase();
+    if (!trimmed) throw new BadRequestException('Department name is required');
+    const existing = await this.prisma.globalDepartment.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Department not found');
+    const dup = await this.prisma.globalDepartment.findUnique({ where: { name: trimmed } });
+    if (dup && dup.id !== id) throw new ConflictException('Another department already has this name');
+    const dept = await this.prisma.globalDepartment.update({
+      where: { id },
+      data: { name: trimmed },
+    });
+    await this.audit(actorId, 'UPDATE_DEPARTMENT', 'platform', null, null, { id, name: trimmed });
+    return dept;
+  }
+
+  async removeDepartment(actorId: string, id: string) {
+    const existing = await this.prisma.globalDepartment.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Department not found');
+    await this.prisma.globalDepartment.delete({ where: { id } });
+    await this.audit(actorId, 'DELETE_DEPARTMENT', 'platform', null, null, { id, name: existing.name });
+    return { success: true };
+  }
+
+  // ─── Agent Sectors (Super Admin) ────────────────────
+
+  async listOrgSectors(actorId: string, organizationId: string) {
+    const sectors = await this.prisma.agentSector.findMany({
+      where: { organizationId },
+      orderBy: { order: 'asc' },
+      include: {
+        agents: {
+          include: {
+            agent: {
+              select: { id: true, name: true, kind: true, department: true, modelId: true, isActive: true },
+            },
+          },
+          orderBy: { agent: { name: 'asc' } },
+        },
+      },
+    });
+    await this.audit(actorId, 'LIST_ORG_SECTORS', 'organization', organizationId, organizationId);
+    return sectors;
+  }
+
+  async addAgentToSector(actorId: string, sectorId: string, agentId: string) {
+    const sector = await this.prisma.agentSector.findUnique({ where: { id: sectorId } });
+    if (!sector) throw new NotFoundException('Setor não encontrado');
+
+    const agent = await this.prisma.aiAgent.findUnique({ where: { id: agentId } });
+    if (!agent) throw new NotFoundException('Agente não encontrado');
+
+    const existing = await this.prisma.agentSectorAgent.findUnique({
+      where: { sectorId_agentId: { sectorId, agentId } },
+    });
+    if (existing) throw new ConflictException('Agente já está neste setor');
+
+    await this.prisma.agentSectorAgent.create({ data: { sectorId, agentId } });
+    await this.audit(actorId, 'ADD_AGENT_TO_SECTOR', 'agent_sector', sectorId, sector.organizationId, { agentId });
+    return { success: true };
+  }
+
+  async removeAgentFromSector(actorId: string, sectorId: string, agentId: string) {
+    const sector = await this.prisma.agentSector.findUnique({ where: { id: sectorId } });
+    if (!sector) throw new NotFoundException('Setor não encontrado');
+
+    const link = await this.prisma.agentSectorAgent.findUnique({
+      where: { sectorId_agentId: { sectorId, agentId } },
+    });
+    if (!link) throw new NotFoundException('Agente não está neste setor');
+
+    await this.prisma.agentSectorAgent.delete({
+      where: { sectorId_agentId: { sectorId, agentId } },
+    });
+    await this.audit(actorId, 'REMOVE_AGENT_FROM_SECTOR', 'agent_sector', sectorId, sector.organizationId, { agentId });
+    return { success: true };
+  }
+
   private async ensureOrganization(id: string) {
     const organization = await this.prisma.organization.findUnique({ where: { id } });
     if (!organization || organization.deletedAt) {

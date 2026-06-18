@@ -34,6 +34,8 @@ import {
   type SuperAdminOverview,
 } from '@/features/super-admin/services/super-admin.service';
 import { EditUserDialog } from '@/features/super-admin/components/edit-user-dialog';
+import { AgentsPanel } from '@/features/super-admin/components/agents-panel';
+import { DepartmentsPanel } from '@/features/super-admin/components/departments-panel';
 import { useAuthStore } from '@/stores/auth-store';
 
 const planOptions = ['free', 'starter', 'pro', 'enterprise'];
@@ -42,7 +44,7 @@ const billingStatusOptions: BillingStatus[] = ['TRIALING', 'ACTIVE', 'PAST_DUE',
 export default function SuperAdminPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<'organizations' | 'users' | 'plans' | 'audit'>('organizations');
+  const [tab, setTab] = useState<'organizations' | 'users' | 'agents' | 'departments' | 'plans' | 'audit'>('organizations');
   const [search, setSearch] = useState('');
 
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -74,6 +76,7 @@ export default function SuperAdminPage() {
     queryClient.invalidateQueries({ queryKey: ['super-admin-organizations'] });
     queryClient.invalidateQueries({ queryKey: ['super-admin-users'] });
     queryClient.invalidateQueries({ queryKey: ['super-admin-audit-logs'] });
+    queryClient.invalidateQueries({ queryKey: ['super-admin-departments'] });
   };
 
   if (!user?.isSuperAdmin) {
@@ -126,6 +129,8 @@ export default function SuperAdminPage() {
           <div className="flex flex-wrap gap-2">
             <Tab active={tab === 'organizations'} onClick={() => setTab('organizations')}>Empresas</Tab>
             <Tab active={tab === 'users'} onClick={() => setTab('users')}>Usuarios</Tab>
+            <Tab active={tab === 'agents'} onClick={() => setTab('agents')}>Agentes</Tab>
+            <Tab active={tab === 'departments'} onClick={() => setTab('departments')}>Departamentos</Tab>
             <Tab active={tab === 'plans'} onClick={() => setTab('plans')}>Planos</Tab>
             <Tab active={tab === 'audit'} onClick={() => setTab('audit')}>Auditoria</Tab>
           </div>
@@ -145,6 +150,16 @@ export default function SuperAdminPage() {
             loading={loadingUsers}
             onChanged={refresh}
           />
+        )}
+        {tab === 'agents' && (
+          <AgentsPanel
+            organizations={organizations}
+            loading={loadingOrgs}
+            onChanged={refresh}
+          />
+        )}
+        {tab === 'departments' && (
+          <DepartmentsPanel onChanged={refresh} />
         )}
         {tab === 'plans' && <PlansPanel overview={overview} onChanged={refresh} />}
         {tab === 'audit' && <AuditPanel logs={auditLogs} loading={loadingAudit} />}

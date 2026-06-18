@@ -91,6 +91,35 @@ export interface SuperAdminPlanTemplate {
   };
 }
 
+export interface SuperAdminAgent {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string | null;
+  avatarUrl: string | null;
+  kind: string;
+  category: string | null;
+  capabilities: string[];
+  modelId: string;
+  systemPrompt: string;
+  temperature: number;
+  maxTokens: number | null;
+  canRespondDirectly: boolean;
+  parentAgentId: string | null;
+  isActive: boolean;
+  department: string | null;
+  squad: string | null;
+  operationalContext: string | null;
+  operationalContextUpdatedAt: string | null;
+  createdAt: string;
+  organization: { id: string; name: string };
+  channels: Array<{
+    channel: { id: string; name: string; type: string };
+    mode: string;
+  }>;
+  _count: { runs: number };
+}
+
 export const DEFAULT_PLAN_TEMPLATES: SuperAdminPlanTemplate[] = [
   { plan: 'free', count: 0, settings: { maxAgents: 2, maxChannels: 1, maxDepartments: 1 } },
   { plan: 'starter', count: 0, settings: { maxAgents: 5, maxChannels: 2, maxDepartments: 3 } },
@@ -303,4 +332,95 @@ export const superAdminService = {
     const { data } = await api.patch(`/super-admin/users/${id}`, payload);
     return data.data as SuperAdminUser;
   },
+
+  // ─── AI Agents ──────────────────────────────────────
+
+  async listAllAgents(organizationId?: string) {
+    const { data } = await api.get<{ data: SuperAdminAgent[] }>('/super-admin/agents', {
+      params: organizationId ? { organizationId } : undefined,
+    });
+    return data.data;
+  },
+
+  async copyAgent(id: string, targetOrgId: string) {
+    const { data } = await api.post(`/super-admin/agents/${id}/copy`, { targetOrgId });
+    return data.data;
+  },
+
+  async copyAgentsBulk(sourceOrgId: string, targetOrgId: string) {
+    const { data } = await api.post<{ data: { copied: number; sectorsCopied?: number; agents: Array<{ id: string; name: string }> } }>(
+      '/super-admin/agents/copy-bulk',
+      { sourceOrgId, targetOrgId },
+    );
+    return data.data;
+  },
+
+  async updateAgent(id: string, payload: Record<string, any>) {
+    const { data } = await api.patch(`/super-admin/agents/${id}`, payload);
+    return data.data;
+  },
+
+  async listOrgModels(organizationId: string) {
+    const { data } = await api.get<{ data: AiModelProvider[] }>(
+      `/super-admin/organizations/${organizationId}/ai-models`,
+    );
+    return data.data;
+  },
+
+  // ─── Global Departments ─────────────────────────────
+
+  async listDepartments(): Promise<GlobalDepartment[]> {
+    const { data } = await api.get<{ data: GlobalDepartment[] }>('/super-admin/departments');
+    return data.data;
+  },
+
+  async createDepartment(name: string): Promise<GlobalDepartment> {
+    const { data } = await api.post('/super-admin/departments', { name });
+    return data.data ?? data;
+  },
+
+  async updateDepartment(id: string, name: string): Promise<GlobalDepartment> {
+    const { data } = await api.patch(`/super-admin/departments/${id}`, { name });
+    return data.data ?? data;
+  },
+
+  async removeDepartment(id: string): Promise<void> {
+    await api.delete(`/super-admin/departments/${id}`);
+  },
+
+  // ─── Agent Sectors ────────────────────────────────
+
+  async listOrgSectors(organizationId: string) {
+    const { data } = await api.get(`/super-admin/organizations/${organizationId}/sectors`);
+    return data.data ?? data;
+  },
+
+  async addAgentToSector(sectorId: string, agentId: string) {
+    const { data } = await api.post(`/super-admin/sectors/${sectorId}/agents`, { agentId });
+    return data.data ?? data;
+  },
+
+  async removeAgentFromSector(sectorId: string, agentId: string) {
+    await api.delete(`/super-admin/sectors/${sectorId}/agents/${agentId}`);
+  },
 };
+
+export interface GlobalDepartment {
+  id: string;
+  name: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface AiModelProvider {
+  id: string;
+  organizationId: string;
+  provider: string;
+  name: string;
+  modelId: string;
+  apiKey: string | null;
+  baseUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

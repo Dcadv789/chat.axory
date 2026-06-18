@@ -21,6 +21,11 @@ import {
   type AiAgent,
   DEPARTMENT_COLORS,
 } from '../services/ai-agents.service';
+import { agentSectorsService } from '../services/agent-sectors.service';
+import {
+  filterAgentsForOrganogram,
+  type SectorFilter,
+} from './agents-sector-utils';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { CreateAgentDialog } from './create-agent-dialog';
 import { EditAgentDialog } from './edit-agent-dialog';
@@ -111,7 +116,7 @@ function layoutOrganogram(agents: AiAgent[]): {
   return { nodes, edges };
 }
 
-export function AgentsList() {
+export function AgentsList({ sectorFilter = 'all' }: { sectorFilter?: SectorFilter }) {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
@@ -121,6 +126,11 @@ export function AgentsList() {
   const { data: agents, isLoading } = useQuery({
     queryKey: ['ai-agents', orgId],
     queryFn: () => aiAgentsService.list(),
+  });
+
+  const { data: sectors = [] } = useQuery({
+    queryKey: ['agent-sectors'],
+    queryFn: () => agentSectorsService.list(),
   });
 
   const refresh = () =>
@@ -150,9 +160,12 @@ export function AgentsList() {
 
   const filtered = useMemo(() => {
     if (!agents) return [];
-    if (!deptFilter) return agents;
-    return agents.filter((a) => a.department === deptFilter);
-  }, [agents, deptFilter]);
+    let list = filterAgentsForOrganogram(agents, sectors, sectorFilter);
+    if (deptFilter) {
+      list = list.filter((a) => a.department === deptFilter);
+    }
+    return list;
+  }, [agents, sectors, sectorFilter, deptFilter]);
 
   const { nodes, edges } = useMemo(() => {
     const out = layoutOrganogram(filtered);

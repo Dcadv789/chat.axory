@@ -46,6 +46,8 @@ export class LlmService {
   private readonly deepseekBaseURL: string;
   /** Cache de providers DeepSeek por-org, indexado pela própria chave. */
   private readonly deepseekByKey = new Map<string, OpenAiCompatProvider>();
+  /** Cache de providers custom (OpenRouter/outros) por chave API. */
+  private readonly customByKey = new Map<string, OpenAiCompatProvider>();
 
   constructor(
     config: ConfigService,
@@ -118,10 +120,56 @@ export class LlmService {
   }
 
   /**
+   * Busca um modelo customizado registrado pela organização (AiModelProvider)
+   * que tenha apiKey própria. Usa OpenAiCompatProvider para suportar
+   * OpenRouter, proxies, etc. Retorna undefined se não achar.
+   */
+  private async resolveCustomProvider(
+    organizationId: string,
+    modelId: string,
+  ): Promise<OpenAiCompatProvider | undefined> {
+    try {
+      const registered = await this.prisma.aiModelProvider.findUnique({
+        where: { organizationId_modelId: { organizationId, modelId } },
+      });
+      if (!registered || !registered.apiKey) return undefined;
+
+      const label = registered.provider;
+      const cachedKey = `${label}::${registered.apiKey}`;
+      const cached = this.customByKey.get(cachedKey);
+      if (cached) return cached;
+
+      const provider = new OpenAiCompatProvider(
+        {
+          apiKey: registered.apiKey,
+          baseURL: registered.baseUrl ?? undefined,
+          label,
+        },
+        this.logger,
+      );
+      this.customByKey.set(cachedKey, provider);
+      return provider;
+    } catch (err) {
+      this.logger.warn(
+        `Falha ao buscar modelo customizado ${modelId} da org ${organizationId}: ${(err as Error).message}`,
+      );
+      return undefined;
+    }
+  }
+
+  /**
    * Entrada pública: resolve o provider pelo `modelId` e despacha. Trata o
    * caso de imagem em provider sem visão (DeepSeek) roteando pro Claude.
    */
   async complete(req: LlmCompletionRequest): Promise<LlmCompletionResponse> {
+    // 1. Tenta provider customizado registrado pela organização (OpenRouter, etc.)
+    if (req.organizationId) {
+      const custom = await this.resolveCustomProvider(req.organizationId, req.modelId);
+      if (custom) {
+        return custom.complete(req, this.stripProviderPrefix(req.modelId));
+      }
+    }
+
     const provider = this.resolveProvider(req.modelId);
 
     if (provider === 'deepseek') {

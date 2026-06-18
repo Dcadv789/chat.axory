@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard, SuperAdminGuard } from '../../common/guards';
 import { AddOrganizationMemberDto } from './dto/add-organization-member.dto';
@@ -160,5 +160,122 @@ export class SuperAdminController {
     @Body() dto: UpdateSuperUserDto,
   ) {
     return this.service.updateUser(actorId, id, dto);
+  }
+
+  // ─── AI Agents ──────────────────────────────────────
+
+  @Get('agents')
+  @ApiOperation({ summary: 'List all AI agents across all organizations.' })
+  listAllAgents(
+    @CurrentUser('id') actorId: string,
+    @Query('organizationId') organizationId?: string,
+  ) {
+    return this.service.listAllAgents(actorId, organizationId);
+  }
+
+  @Post('agents/:id/copy')
+  @ApiOperation({ summary: 'Copy an agent to another organization.' })
+  copyAgent(
+    @CurrentUser('id') actorId: string,
+    @Param('id') id: string,
+    @Body('targetOrgId') targetOrgId: string,
+  ) {
+    return this.service.copyAgent(actorId, id, targetOrgId);
+  }
+
+  @Post('agents/copy-bulk')
+  @ApiOperation({ summary: 'Copy all agents from one organization to another.' })
+  copyAgentsBulk(
+    @CurrentUser('id') actorId: string,
+    @Body('sourceOrgId') sourceOrgId: string,
+    @Body('targetOrgId') targetOrgId: string,
+  ) {
+    return this.service.copyAgentsBulk(actorId, sourceOrgId, targetOrgId);
+  }
+
+  @Patch('agents/:id')
+  @ApiOperation({ summary: 'Update an AI agent (super admin override).' })
+  updateAgent(
+    @CurrentUser('id') actorId: string,
+    @Param('id') id: string,
+    @Body() dto: Record<string, any>,
+  ) {
+    return this.service.updateAgent(actorId, id, dto);
+  }
+
+  @Get('organizations/:orgId/ai-models')
+  @ApiOperation({ summary: 'List AI model providers for a specific organization.' })
+  listOrgModels(
+    @CurrentUser('id') actorId: string,
+    @Param('orgId') orgId: string,
+  ) {
+    return this.service.listOrgModels(actorId, orgId);
+  }
+
+  // ─── Global Departments ─────────────────────────────
+
+  @Get('departments')
+  @ApiOperation({ summary: 'List all global departments.' })
+  listDepartments(@CurrentUser('id') actorId: string) {
+    return this.service.listDepartments(actorId);
+  }
+
+  @Post('departments')
+  @ApiOperation({ summary: 'Create a new global department.' })
+  createDepartment(
+    @CurrentUser('id') actorId: string,
+    @Body('name') name: string,
+  ) {
+    return this.service.createDepartment(actorId, name);
+  }
+
+  @Patch('departments/:id')
+  @ApiOperation({ summary: 'Rename a global department.' })
+  updateDepartment(
+    @CurrentUser('id') actorId: string,
+    @Param('id') id: string,
+    @Body('name') name: string,
+  ) {
+    return this.service.updateDepartment(actorId, id, name);
+  }
+
+  @Delete('departments/:id')
+  @ApiOperation({ summary: 'Delete a global department.' })
+  removeDepartment(
+    @CurrentUser('id') actorId: string,
+    @Param('id') id: string,
+  ) {
+    return this.service.removeDepartment(actorId, id);
+  }
+
+  // ─── Agent Sectors ───────────────────────────────────
+
+  @Get('organizations/:orgId/sectors')
+  @ApiOperation({ summary: 'List agent sectors for a specific organization.' })
+  listOrgSectors(
+    @CurrentUser('id') actorId: string,
+    @Param('orgId') orgId: string,
+  ) {
+    return this.service.listOrgSectors(actorId, orgId);
+  }
+
+  @Post('sectors/:sectorId/agents')
+  @ApiOperation({ summary: 'Add an agent to a sector (super admin).' })
+  addAgentToSector(
+    @CurrentUser('id') actorId: string,
+    @Param('sectorId') sectorId: string,
+    @Body('agentId') agentId: string,
+  ) {
+    return this.service.addAgentToSector(actorId, sectorId, agentId);
+  }
+
+  @Delete('sectors/:sectorId/agents/:agentId')
+  @ApiOperation({ summary: 'Remove an agent from a sector (super admin).' })
+  removeAgentFromSector(
+    @CurrentUser('id') actorId: string,
+    @Param('sectorId') sectorId: string,
+    @Param('agentId') agentId: string,
+  ) {
+    return this.service.removeAgentFromSector(actorId, sectorId, agentId);
   }
 }

@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Sparkles, Plus, Trash2, ShieldAlert, Link2, KeyRound } from 'lucide-react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
+import { Sparkles, Plus, Trash2, ShieldAlert, Link2, KeyRound, Cpu, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   aiSettingsService,
@@ -13,6 +13,14 @@ import {
   type WatchdogConfig,
   type Weekday,
 } from '@/features/ai-agents/services/ai-settings.service';
+import {
+  aiModelProvidersService,
+  type AiModelProvider,
+} from '@/features/settings/services/ai-model-providers.service';
+import {
+  agentSectorsService,
+  type AgentSector,
+} from '@/features/ai-agents/services/agent-sectors.service';
 import { channelsService, type Channel } from '@/features/channels/services/channels.service';
 
 const TIMEZONES = [
@@ -301,6 +309,12 @@ export default function SettingsAiPage() {
           </div>
         </div>
       </section>
+
+      {/* ─── Modelos de IA cadastrados ──────────────── */}
+      <AiModelProvidersSection />
+
+      {/* ─── Setores de Operação ────────────────────── */}
+      <AgentSectorsSection />
 
       {/* Override por canal */}
       <ChannelAiOverrides />
@@ -907,5 +921,469 @@ function ChannelOverrideRow({
         })}
       </div>
     </div>
+  );
+}
+
+// ─── AI Model Providers section ─────────────────────────
+const PROVIDER_OPTIONS = [
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'google', label: 'Google' },
+  { value: 'deepseek', label: 'DeepSeek' },
+  { value: 'custom', label: 'Custom (OpenRouter / outro)' },
+];
+
+function AiModelProvidersSection() {
+  const qc = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [provider, setProvider] = useState('anthropic');
+  const [name, setName] = useState('');
+  const [modelId, setModelId] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+
+  const { data: models = [], isLoading } = useQuery({
+    queryKey: ['ai-model-providers'],
+    queryFn: () => aiModelProvidersService.list(),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      aiModelProvidersService.create({ provider, name: name.trim(), modelId: modelId.trim(), apiKey: apiKey.trim() || undefined, baseUrl: baseUrl.trim() || undefined }),
+    onSuccess: () => {
+      toast.success('Modelo cadastrado');
+      qc.invalidateQueries({ queryKey: ['ai-model-providers'] });
+      resetForm();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Erro ao cadastrar'),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      aiModelProvidersService.update(editingId!, { provider, name: name.trim(), modelId: modelId.trim(), apiKey: apiKey.trim() || null, baseUrl: baseUrl.trim() || null, isActive: true }),
+    onSuccess: () => {
+      toast.success('Modelo atualizado');
+      qc.invalidateQueries({ queryKey: ['ai-model-providers'] });
+      resetForm();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Erro ao atualizar'),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => aiModelProvidersService.remove(id),
+    onSuccess: () => {
+      toast.success('Modelo removido');
+      qc.invalidateQueries({ queryKey: ['ai-model-providers'] });
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Erro ao remover'),
+  });
+
+  const resetForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setProvider('anthropic');
+    setName('');
+    setModelId('');
+    setApiKey('');
+    setBaseUrl('');
+  };
+
+  const startEdit = (m: AiModelProvider) => {
+    setEditingId(m.id);
+    setProvider(m.provider);
+    setName(m.name);
+    setModelId(m.modelId);
+    setApiKey(m.apiKey ?? '');
+    setBaseUrl(m.baseUrl ?? '');
+    setShowForm(true);
+  };
+
+  const handleSave = () => {
+    if (!name.trim() || !modelId.trim()) {
+      toast.error('Nome e ID do modelo são obrigatórios');
+      return;
+    }
+    if (editingId) {
+      updateMutation.mutate();
+    } else {
+      createMutation.mutate();
+    }
+  };
+
+  const inputCls =
+    'w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-primary dark:border-white/15 dark:bg-black dark:text-zinc-100 dark:placeholder:text-zinc-500';
+
+  return (
+    <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Cpu className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
+          <div>
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              Modelos de IA cadastrados
+            </p>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              Registre os modelos que sua empresa pode usar nos agentes. 
+              Só modelos cadastrados aparecem como opção na configuração dos agentes.
+            </p>
+          </div>
+        </div>
+        {!showForm && (
+          <button
+            onClick={() => { resetForm(); setShowForm(true); }}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" /> Novo modelo
+          </button>
+        )}
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">Provider</label>
+              <select value={provider} onChange={(e) => setProvider(e.target.value)} className={inputCls}>
+                {PROVIDER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">Nome</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Claude Sonnet 4.6" className={inputCls} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">Model ID</label>
+              <input value={modelId} onChange={(e) => setModelId(e.target.value)} placeholder="Ex: anthropic/claude-sonnet-4-6" className={inputCls} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">API Key</label>
+              <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..." className={inputCls} />
+            </div>
+            <div className="sm:col-span-2 lg:col-span-4">
+              <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                Base URL <span className="text-zinc-400">(opcional — OpenRouter ou proxy custom)</span>
+              </label>
+              <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://openrouter.ai/api/v1" className={inputCls} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {editingId ? 'Atualizar modelo' : 'Cadastrar modelo'}
+            </button>
+            <button onClick={resetForm} className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/5">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* List */}
+      <div className="mt-4 space-y-2">
+        {isLoading ? (
+          <div className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-black" />
+        ) : models.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center text-sm text-zinc-500 dark:border-white/15 dark:bg-white/5">
+            Nenhum modelo cadastrado. Clique em &quot;Novo modelo&quot; para adicionar.
+          </p>
+        ) : (
+          models.map((m) => (
+            <div
+              key={m.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-black"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className={`inline-block h-2 w-2 rounded-full ${m.isActive ? 'bg-emerald-500' : 'bg-zinc-300'}`} />
+                  <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{m.name}</p>
+                  <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium uppercase text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                    {m.provider}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  <code className="font-mono">{m.modelId}</code>
+                  {m.apiKey && <span className="ml-2 text-emerald-600 dark:text-emerald-400">🔑 chave configurada</span>}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => startEdit(m)}
+                  className="rounded p-1.5 text-xs text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                  title="Editar"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Remover "${m.name}"?`)) removeMutation.mutate(m.id);
+                  }}
+                  className="rounded p-1.5 text-xs text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  title="Remover"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ─── Agent Sectors section ────────────────────────────
+const SECTOR_ICONS = [
+  'Briefcase', 'Headphones', 'Megaphone', 'Users', 'BarChart3',
+  'ShieldCheck', 'Wrench', 'ShoppingCart', 'GraduationCap',
+];
+
+const SECTOR_COLORS = [
+  '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
+  '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1',
+];
+
+function AgentSectorsSection() {
+  const qc = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [sectorName, setSectorName] = useState('');
+  const [sectorDescription, setSectorDescription] = useState('');
+  const [sectorIcon, setSectorIcon] = useState('Briefcase');
+  const [sectorColor, setSectorColor] = useState('#8b5cf6');
+
+  const { data: sectors = [], isLoading } = useQuery({
+    queryKey: ['agent-sectors'],
+    queryFn: () => agentSectorsService.list(),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      agentSectorsService.create({
+        name: sectorName.trim(),
+        description: sectorDescription.trim() || undefined,
+        icon: sectorIcon,
+        color: sectorColor,
+      }),
+    onSuccess: () => {
+      toast.success('Setor criado');
+      qc.invalidateQueries({ queryKey: ['agent-sectors'] });
+      resetForm();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Erro ao criar'),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      agentSectorsService.update(editingId!, {
+        name: sectorName.trim(),
+        description: sectorDescription.trim() || undefined,
+        icon: sectorIcon,
+        color: sectorColor,
+      }),
+    onSuccess: () => {
+      toast.success('Setor atualizado');
+      qc.invalidateQueries({ queryKey: ['agent-sectors'] });
+      resetForm();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Erro ao atualizar'),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => agentSectorsService.remove(id),
+    onSuccess: () => {
+      toast.success('Setor removido');
+      qc.invalidateQueries({ queryKey: ['agent-sectors'] });
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Erro ao remover'),
+  });
+
+  const resetForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setSectorName('');
+    setSectorDescription('');
+    setSectorIcon('Briefcase');
+    setSectorColor('#8b5cf6');
+  };
+
+  const startEdit = (s: AgentSector) => {
+    setEditingId(s.id);
+    setSectorName(s.name);
+    setSectorDescription(s.description ?? '');
+    setSectorIcon(s.icon ?? 'Briefcase');
+    setSectorColor(s.color ?? '#8b5cf6');
+    setShowForm(true);
+  };
+
+  const handleSave = () => {
+    if (!sectorName.trim()) {
+      toast.error('Nome do setor é obrigatório');
+      return;
+    }
+    if (editingId) {
+      updateMutation.mutate();
+    } else {
+      createMutation.mutate();
+    }
+  };
+
+  const inputCls =
+    'w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-primary dark:border-white/15 dark:bg-black dark:text-zinc-100 dark:placeholder:text-zinc-500';
+
+  return (
+    <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Layers className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
+          <div>
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              Setores de Operação
+            </p>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              Organize seus agentes em setores (ex: Suporte, Marketing, Vendas).
+              Cada agente pode pertencer a múltiplos setores.
+            </p>
+          </div>
+        </div>
+        {!showForm && (
+          <button
+            onClick={() => { resetForm(); setShowForm(true); }}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" /> Novo setor
+          </button>
+        )}
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">Nome do setor *</label>
+              <input
+                type="text"
+                value={sectorName}
+                onChange={(e) => setSectorName(e.target.value)}
+                placeholder="Ex: Suporte"
+                className={inputCls}
+              />
+            </div>
+            <div className="sm:col-span-2 lg:col-span-2">
+              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">Descrição</label>
+              <input
+                type="text"
+                value={sectorDescription}
+                onChange={(e) => setSectorDescription(e.target.value)}
+                placeholder="Ex: Agentes que atendem dúvidas técnicas e pós-venda"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">Ícone</label>
+              <select
+                value={sectorIcon}
+                onChange={(e) => setSectorIcon(e.target.value)}
+                className={inputCls}
+              >
+                {SECTOR_ICONS.map((ico) => (
+                  <option key={ico} value={ico}>{ico}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">Cor</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="color"
+                  value={sectorColor}
+                  onChange={(e) => setSectorColor(e.target.value)}
+                  className="h-9 w-12 cursor-pointer rounded-md border border-zinc-300 bg-white p-0.5 dark:border-white/15"
+                />
+                <span className="text-xs text-zinc-500">{sectorColor}</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {editingId ? 'Atualizar setor' : 'Criar setor'}
+            </button>
+            <button onClick={resetForm} className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/5">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* List */}
+      <div className="mt-4 space-y-2">
+        {isLoading ? (
+          <div className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-black" />
+        ) : sectors.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-center text-sm text-zinc-500 dark:border-white/15 dark:bg-white/5">
+            Nenhum setor cadastrado. Crie setores para organizar seus agentes por área de operação.
+          </p>
+        ) : (
+          sectors.map((s) => (
+            <div
+              key={s.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-black"
+            >
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={{ backgroundColor: s.color ?? '#8b5cf6' }}
+                >
+                  {s.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{s.name}</p>
+                    <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                      {s.agents.length} agente{s.agents.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {s.description || 'Sem descrição cadastrada'}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-zinc-400">
+                    Ícone: <code className="font-mono">{s.icon ?? '-'}</code> · Ordem: {s.order + 1}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => startEdit(s)}
+                  className="rounded p-1.5 text-xs text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                  title="Editar"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Remover o setor "${s.name}"? Os agentes não serão afetados.`)) removeMutation.mutate(s.id);
+                  }}
+                  className="rounded p-1.5 text-xs text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  title="Remover"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
   );
 }

@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart, Grid3X3, GitBranch } from 'lucide-react';
 import { AgentsList } from '@/features/ai-agents/components/agents-list';
+import { AgentsSectorView } from '@/features/ai-agents/components/agents-sector-view';
+import { AgentsSectorFilterBar } from '@/features/ai-agents/components/agents-sector-filter-bar';
+import type { SectorFilter } from '@/features/ai-agents/components/agents-sector-utils';
+import { aiAgentsService } from '@/features/ai-agents/services/ai-agents.service';
+import { agentSectorsService } from '@/features/ai-agents/services/agent-sectors.service';
+import { useOrgId } from '@/hooks/use-org-query-key';
 import { JarvisOverviewTab } from '@/features/ai-agents/components/jarvis/overview-tab';
 import { JarvisAgentTab } from '@/features/ai-agents/components/jarvis/agent-tab';
 import { JarvisSkillsTab } from '@/features/ai-agents/components/jarvis/skills-tab';
@@ -70,6 +77,21 @@ export default function AiAgentsPage() {
   const tab: Tab = requestedTab === 'overview' && !isSuperAdmin ? 'metrics' : requestedTab ?? defaultTab;
   const meta = TAB_META[tab];
   const TabIcon = meta.icon;
+  const [sectorView, setSectorView] = useState(false);
+  const [sectorFilter, setSectorFilter] = useState<SectorFilter>('all');
+  const orgId = useOrgId();
+
+  const { data: sectors = [] } = useQuery({
+    queryKey: ['agent-sectors'],
+    queryFn: () => agentSectorsService.list(),
+    enabled: tab === 'agents',
+  });
+
+  const { data: agents = [] } = useQuery({
+    queryKey: ['ai-agents', orgId],
+    queryFn: () => aiAgentsService.list(),
+    enabled: tab === 'agents',
+  });
 
   useEffect(() => {
     if (raw === 'overview' && !isSuperAdmin) {
@@ -99,7 +121,47 @@ export default function AiAgentsPage() {
       <div className="flex-1 overflow-y-auto">
         {tab === 'overview' && isSuperAdmin && <JarvisOverviewTab />}
         {tab === 'metrics' && <JarvisMetricsTab />}
-        {tab === 'agents' && <AgentsList />}
+        {tab === 'agents' && (
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-end gap-2 border-b border-zinc-200 px-6 py-2 dark:border-white/10">
+              <div className="inline-flex items-center rounded-md bg-zinc-100 p-0.5 dark:bg-black">
+                <button
+                  onClick={() => setSectorView(false)}
+                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                    !sectorView
+                      ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
+                      : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
+                  }`}
+                >
+                  <GitBranch className="h-3.5 w-3.5" />
+                  Organograma
+                </button>
+                <button
+                  onClick={() => setSectorView(true)}
+                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                    sectorView
+                      ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
+                      : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
+                  }`}
+                >
+                  <Grid3X3 className="h-3.5 w-3.5" />
+                  Setores
+                </button>
+              </div>
+            </div>
+            <AgentsSectorFilterBar
+              sectors={sectors}
+              agents={agents}
+              selectedFilter={sectorFilter}
+              onSelectFilter={setSectorFilter}
+            />
+            {sectorView ? (
+              <AgentsSectorView sectorFilter={sectorFilter} />
+            ) : (
+              <AgentsList sectorFilter={sectorFilter} />
+            )}
+          </div>
+        )}
         {tab === 'skills' && <JarvisSkillsTab />}
         {tab === 'tools' && <JarvisToolsTab />}
         {tab === 'runs' && <JarvisRunsTab />}

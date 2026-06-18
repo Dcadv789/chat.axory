@@ -4,6 +4,7 @@ import { ChannelAdapterRegistry } from './channel-adapter.registry';
 import { WebhookGatewayController } from './webhook-gateway.controller';
 import { ChannelsController } from './channels/channels.controller';
 import { ChannelsService } from './channels/channels.service';
+import { WhatsAppHealthService } from './channels/whatsapp-health.service';
 import { ChannelsRepository } from './channels/channels.repository';
 import { ZappfyModule } from './adapters/zappfy/zappfy.module';
 import { ZappfyInboundAdapter } from './adapters/zappfy/zappfy.inbound-adapter';
@@ -51,6 +52,7 @@ import { WhatsappTemplateService } from './templates/whatsapp-template.service';
     ChannelAdapterRegistry,
     ChannelsService,
     ChannelsRepository,
+    WhatsAppHealthService,
     ChannelSyncOrchestrator,
     ChannelSyncProcessor,
     WebhookEventsService,

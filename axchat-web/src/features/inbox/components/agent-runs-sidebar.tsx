@@ -13,12 +13,15 @@ import {
   X,
   Bot,
   Wrench,
+  GitBranch,
+  List,
 } from 'lucide-react';
 import {
   aiAgentsService,
   type FeedRun,
 } from '@/features/ai-agents/services/ai-agents.service';
 import { useSocket } from '../hooks/use-socket';
+import { AiTimeline } from './ai-timeline';
 
 type ToolCall = FeedRun['toolCalls'][number];
 
@@ -42,6 +45,7 @@ export function AgentRunsSidebar({
 }: AgentRunsSidebarProps) {
   const queryClient = useQueryClient();
   const { on } = useSocket();
+  const [view, setView] = useState<'timeline' | 'logs'>('timeline');
 
   const queryKey = useMemo(
     () => ['agent-runs', conversationId] as const,
@@ -169,20 +173,47 @@ export function AgentRunsSidebar({
         <div className="flex items-center gap-2">
           <Activity className="h-3.5 w-3.5 text-primary" />
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Logs do agente
+            Agente
           </h2>
         </div>
-        <button
-          onClick={onClose}
-          className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-          aria-label="Fechar logs"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setView('timeline')}
+            className={`rounded-md p-1.5 transition-colors ${
+              view === 'timeline'
+                ? 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400'
+                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
+            }`}
+            title="Linha do tempo"
+          >
+            <GitBranch className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => setView('logs')}
+            className={`rounded-md p-1.5 transition-colors ${
+              view === 'logs'
+                ? 'bg-zinc-100 text-zinc-700 dark:bg-white/10 dark:text-zinc-300'
+                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
+            }`}
+            title="Logs detalhados"
+          >
+            <List className="h-3.5 w-3.5" />
+          </button>
+          <div className="mx-1 h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+            aria-label="Fechar logs"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {isLoading ? (
+        {view === 'timeline' ? (
+          <AiTimeline conversationId={conversationId} />
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
           </div>

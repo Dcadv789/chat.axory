@@ -12,9 +12,14 @@ import {
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { OrganizationsService } from './organizations.service';
+import { AiModelProvidersService } from './ai-model-providers.service';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
+import {
+  CreateAiModelProviderDto,
+  UpdateAiModelProviderDto,
+} from './dto/create-ai-model-provider.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../common/guards';
 import { CurrentUser, CurrentOrg, Roles, Public } from '../../common/decorators';
 
@@ -23,7 +28,10 @@ import { CurrentUser, CurrentOrg, Roles, Public } from '../../common/decorators'
 @UseGuards(JwtAuthGuard, OrgGuard, RolesGuard)
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly service: OrganizationsService) {}
+  constructor(
+    private readonly service: OrganizationsService,
+    private readonly aiModelProviders: AiModelProvidersService,
+  ) {}
 
   @Get('current')
   @ApiOperation({ summary: 'Get current organization details' })
@@ -100,5 +108,50 @@ export class OrganizationsController {
     @CurrentUser('id') actorId: string,
   ) {
     return this.service.removeMember(orgId, memberId, actorId);
+  }
+
+  // ─── AI Model Providers ──────────────────────────
+
+  @Get('current/ai-models')
+  @ApiOperation({ summary: 'List AI model providers for current organization' })
+  listAiModels(@CurrentOrg('id') orgId: string) {
+    return this.aiModelProviders.list(orgId);
+  }
+
+  @Post('current/ai-models')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Register a new AI model provider' })
+  createAiModel(
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: CreateAiModelProviderDto,
+  ) {
+    return this.aiModelProviders.create(orgId, dto);
+  }
+
+  @Patch('current/ai-models/:id')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Update an AI model provider' })
+  updateAiModel(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateAiModelProviderDto,
+  ) {
+    return this.aiModelProviders.update(orgId, id, dto);
+  }
+
+  @Delete('current/ai-models/:id')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Remove an AI model provider' })
+  removeAiModel(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+  ) {
+    return this.aiModelProviders.remove(orgId, id);
+  }
+
+  @Get('departments')
+  @ApiOperation({ summary: 'List global departments' })
+  listDepartments() {
+    return this.aiModelProviders.listGlobalDepartments();
   }
 }

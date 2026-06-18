@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff } from 'lucide-react';
+import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap } from 'lucide-react';
 
 const tabs = [
   { href: '/settings/channels', label: 'Canais', icon: Radio, subtitle: 'Gerencie seus canais de atendimento' },
@@ -13,6 +13,7 @@ const tabs = [
   { href: '/settings/tags', label: 'Tags', icon: Tags, subtitle: 'Organize conversas e contatos com tags coloridas' },
   { href: '/settings/notifications', label: 'Notificações', icon: Bell, subtitle: 'Configure como e quando você deseja ser notificado' },
   { href: '/settings/whatsapp-templates', label: 'Templates WhatsApp', icon: MessageSquareDiff, subtitle: 'Gerencie e sincronize templates do WhatsApp com a Meta' },
+  { href: '/settings/quick-replies', label: 'Atalhos', icon: Zap, subtitle: 'Respostas rápidas com /comandos no chat' },
   { href: '/settings/api-keys', label: 'API Keys', icon: KeyRound, subtitle: 'Chaves de acesso programático para integrações' },
 ];
 
@@ -40,8 +41,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-6 py-5">
-        <div className="w-full min-w-0">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
+        <div className="w-full min-w-0 shrink-0">
           <nav className="rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
             <div className="flex flex-wrap gap-2">
               {tabs.map((tab) => {
@@ -63,9 +64,9 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
               })}
             </div>
           </nav>
-
-          <div className="mt-6 min-h-0">{children}</div>
         </div>
+
+        <div className="mt-3">{children}</div>
       </div>
     </div>
   );

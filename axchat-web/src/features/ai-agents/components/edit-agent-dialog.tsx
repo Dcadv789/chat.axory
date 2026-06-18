@@ -13,6 +13,8 @@ import {
 } from '../services/ai-agents.service';
 import { aiCatalogService } from '../services/ai-catalog.service';
 import { channelsService } from '@/features/channels/services/channels.service';
+import { aiModelProvidersService } from '@/features/settings/services/ai-model-providers.service';
+import { agentSectorsService } from '@/features/ai-agents/services/agent-sectors.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
 
 interface EditAgentDialogProps {
@@ -39,6 +41,7 @@ export function EditAgentDialog({
   const [operationalContextUpdatedAt, setOperationalContextUpdatedAt] = useState<
     string | null
   >(null);
+  const [sectorIds, setSectorIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showAddChannel, setShowAddChannel] = useState(false);
   const [newChannelId, setNewChannelId] = useState('');
@@ -57,6 +60,20 @@ export function EditAgentDialog({
     enabled: !!agent,
   });
 
+  // Load registered AI models for this organization
+  const { data: orgModels = [] } = useQuery({
+    queryKey: ['ai-model-providers'],
+    queryFn: () => aiModelProvidersService.list(),
+    enabled: !!agent,
+  });
+
+  // Load sectors
+  const { data: sectors = [] } = useQuery({
+    queryKey: ['agent-sectors'],
+    queryFn: () => agentSectorsService.list(),
+    enabled: !!agent,
+  });
+
   useEffect(() => {
     if (!agent) return;
     setName(agent.name);
@@ -69,7 +86,12 @@ export function EditAgentDialog({
     setSquad(agent.squad ?? '');
     setOperationalContext(agent.operationalContext ?? '');
     setOperationalContextUpdatedAt(agent.operationalContextUpdatedAt ?? null);
-  }, [agent]);
+    // Determine which sectors this agent belongs to
+    const sectorIds = sectors
+      .filter((s) => s.agents.some((link) => link.agent.id === agent.id))
+      .map((s) => s.id);
+    setSectorIds(sectorIds);
+  }, [agent, sectors]);
 
   if (!agent) return null;
 
@@ -87,6 +109,22 @@ export function EditAgentDialog({
         squad: squad.trim() || null,
         operationalContext: operationalContext.trim() || null,
       });
+      // Sync sector associations
+      const currentSectorIds = sectors
+        .filter((s) => s.agents.some((link) => link.agent.id === agent.id))
+        .map((s) => s.id);
+      // Remove from sectors that were deselected
+      for (const sid of currentSectorIds) {
+        if (!sectorIds.includes(sid)) {
+          try { await agentSectorsService.removeAgent(sid, agent.id); } catch {}
+        }
+      }
+      // Add to new sectors
+      for (const sid of sectorIds) {
+        if (!currentSectorIds.includes(sid)) {
+          try { await agentSectorsService.addAgent(sid, agent.id); } catch {}
+        }
+      }
       toast.success('Agente atualizado');
       onSaved();
     } catch (err: any) {
@@ -183,20 +221,35 @@ export function EditAgentDialog({
             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
               Modelo
             </label>
-            <select
-              value={modelId}
-              onChange={(e) => setModelId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
-            >
-              {CURATED_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label} — {m.badge}
-                </option>
-              ))}
-              {!CURATED_MODELS.some((m) => m.id === modelId) && (
-                <option value={modelId}>{modelId} (custom)</option>
-              )}
-            </select>
+            {orgModels.length > 0 ? (
+              <select
+                value={modelId}
+                onChange={(e) => setModelId(e.target.value)}
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
+              >
+                {orgModels.filter((m) => m.isActive).map((m) => (
+                  <option key={m.id} value={m.modelId}>
+                    {m.name} ({m.provider}) — {m.modelId}
+                  </option>
+                ))}
+                {!orgModels.some((m) => m.modelId === modelId) && (
+                  <option value={modelId}>{modelId} (custom — não listado)</option>
+                )}
+              </select>
+            ) : (
+              <div>
+                <input
+                  type="text"
+                  value={modelId}
+                  onChange={(e) => setModelId(e.target.value)}
+                  placeholder="Ex: anthropic/claude-sonnet-4-6"
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
+                />
+                <p className="mt-1 text-[11px] text-zinc-500">
+                  Nenhum modelo cadastrado. Vá em Configurações &gt; IA &gt; Modelos para registrar.
+                </p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -323,6 +376,51 @@ export function EditAgentDialog({
               </div>
             </div>
           </div>
+
+          {/* Setores de Operação */}
+          {sectors.length > 0 && (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Setores de Operação
+              </p>
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                Selecione os setores aos quais este agente pertence.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {sectors.map((s) => {
+                  const selected = sectorIds.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() =>
+                        setSectorIds((prev) =>
+                          selected
+                            ? prev.filter((id) => id !== s.id)
+                            : [...prev, s.id],
+                        )
+                      }
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                        selected
+                          ? 'text-white'
+                          : 'border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100 dark:border-white/15 dark:bg-black dark:text-zinc-400'
+                      }`}
+                      style={
+                        selected
+                          ? { backgroundColor: s.color ?? '#8b5cf6' }
+                          : undefined
+                      }
+                    >
+                      {s.name}
+                      {selected && (
+                        <span className="ml-0.5">✓</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {agent && (
             <AgentSkillsAndTools agentId={agent.id} />

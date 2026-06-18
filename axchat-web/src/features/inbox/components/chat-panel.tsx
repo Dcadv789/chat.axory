@@ -6,6 +6,8 @@ import { Check, CheckCheck, Clock, AlertCircle, ExternalLink, Reply, Trash2, X, 
 import { toast } from 'sonner';
 import { inboxService, type Conversation, type Message } from '../services/inbox.service';
 import { ChatInput } from './chat-input';
+import { quickRepliesService } from '@/features/settings/services/quick-replies.service';
+import { getEngagementWindowStatus } from '../utils/inbox-errors';
 import { ConversationHeader } from './conversation-header';
 import { StoryReplyCard } from './story-reply-card';
 import { AudioMessagePlayer } from './audio-message-player';
@@ -63,25 +65,8 @@ function EngagementWindowBanner({
   channelType: string;
   messages: Message[];
 }) {
-  // Janela 24h é regra rígida APENAS do WhatsApp Cloud API oficial (Meta).
-  // Canais Zappfy/Uazapi (WHATSAPP_ZAPPFY) não têm essa restrição — banner
-  // ali confunde mais que ajuda.
-  if (channelType !== 'WHATSAPP_OFFICIAL') return null;
-  if (messages.length === 0) return null;
-
-  const lastInbound = [...messages]
-    .reverse()
-    .find((m) => m.direction === 'INBOUND');
-  if (!lastInbound) return null;
-
-  const ageMs = Date.now() - new Date(lastInbound.createdAt).getTime();
-  const ageHours = ageMs / (60 * 60 * 1000);
-  if (ageHours < 24) return null;
-
-  const ageLabel =
-    ageHours < 48
-      ? `${Math.floor(ageHours)}h`
-      : `${Math.floor(ageHours / 24)} dias`;
+  const { expired, ageLabel } = getEngagementWindowStatus(channelType, messages);
+  if (!expired || !ageLabel) return null;
 
   return (
     <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
@@ -386,6 +371,7 @@ export function ChatPanel({
   contactSidebarOpen,
 }: ChatPanelProps) {
   const queryClient = useQueryClient();
+  const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { on, emit, onReconnect } = useSocket();
   const user = useAuthStore((s) => s.user);
@@ -402,6 +388,17 @@ export function ChatPanel({
   });
 
   const messages = data?.messages || [];
+
+  const { expired: engagementBlocked } = getEngagementWindowStatus(
+    conversation.channel.type,
+    messages,
+  );
+
+  const { data: quickReplies } = useQuery({
+    queryKey: ['quick-replies'],
+    queryFn: () => quickRepliesService.list(),
+    staleTime: 30000, // refetch at most every 30s
+  });
 
   useEffect(() => {
     emit('join:conversation', { conversationId: conversation.id });
@@ -606,8 +603,20 @@ export function ChatPanel({
     [conversation.id, queryClient],
   );
 
+  // Scroll ao fundo ao entrar na conversa (instantâneo) ou ao chegar
+  // mensagem nova (suave). O instantâneo é essencial pra não parar no
+  // meio do histórico quando o conteúdo ainda está renderizando.
+  const isFirstLoad = useRef(true);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!bottomRef.current) return;
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      // Instantâneo na primeira carga — garante que vai até o final
+      scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
+    } else {
+      // Suave para mensagens novas
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages.length]);
 
   // Reply state — quando setado, próxima msg enviada vai com replyToMessageId
@@ -636,6 +645,15 @@ export function ChatPanel({
   const cancelReply = useCallback(() => setReplyingTo(null), []);
 
   const handleSend = async (text: string) => {
+    // Bloqueia envio de texto/mídia se janela 24h expirou
+    if (engagementBlocked && !privateMode) {
+      setTemplatePanelOpen(true);
+      toast.warning(
+        'Janela de 24h expirada. Só é permitido enviar templates aprovados pelo WhatsApp.',
+      );
+      return;
+    }
+
     const replyToMessageId = replyingTo?.id;
     if (privateMode) {
       setReplyingTo(null);
@@ -652,14 +670,22 @@ export function ChatPanel({
       });
       if (sent?.id) mergeMessage(sent);
       setReplyingTo(null);
-    } catch (err) {
+    } catch (err: any) {
       // Fallback: if send fails before the socket event arrives, force a refresh.
       queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] });
+      toast.error(
+        err?.response?.data?.message || err?.message || 'Erro ao enviar mensagem',
+      );
       throw err;
     }
   };
 
   const handleSendAudio = async (blob: Blob) => {
+    if (engagementBlocked) {
+      setTemplatePanelOpen(true);
+      toast.warning('Janela de 24h expirada. Envie um template aprovado.');
+      return;
+    }
     try {
       const sent = await inboxService.sendAudioMessage(conversation.id, blob);
       if (sent?.id) mergeMessage(sent);
@@ -670,6 +696,11 @@ export function ChatPanel({
   };
 
   const handleSendFile = async (file: File) => {
+    if (engagementBlocked) {
+      setTemplatePanelOpen(true);
+      toast.warning('Janela de 24h expirada. Envie um template aprovado.');
+      return;
+    }
     try {
       const sent = await inboxService.sendMediaMessage(conversation.id, file);
       if (sent?.id) mergeMessage(sent);
@@ -768,7 +799,7 @@ export function ChatPanel({
 
       <MessageSearchBar messages={messages} onJumpToMessage={handleJumpToMessage} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-[#171717]">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-[#171717]">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1089,6 +1120,8 @@ export function ChatPanel({
     disabled={conversation.status === 'CLOSED'}
     privateMode={privateMode}
     onPrivateModeChange={setPrivateMode}
+    quickReplies={quickReplies}
+    engagementBlocked={engagementBlocked}
   />
   {/* Typing indicator */}
   {typingUsers.size > 0 && (

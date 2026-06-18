@@ -14,6 +14,7 @@ export interface Channel {
   isActive: boolean;
   /** null = segue org.aiEnabled, true = força ON, false = força OFF nesse canal. */
   aiEnabled: boolean | null;
+  defaultOrchestratorId: string | null;
   /**
    * ORG     = qualquer membro da org com permissão padrão enxerga (default).
    * PRIVATE = só membros com grant explícito enxergam, mesmo OWNER/ADMIN.
@@ -37,6 +38,7 @@ export interface UpdateChannelPayload {
   webhookSecret?: string;
   isActive?: boolean;
   aiEnabled?: boolean | null;
+  defaultOrchestratorId?: string | null;
   visibility?: ChannelVisibility;
 }
 
@@ -114,6 +116,11 @@ export const channelsService = {
     return data.data.job;
   },
 
+  async getWhatsAppHealth(id: string): Promise<WhatsAppHealth> {
+    const { data } = await api.get<{ data: WhatsAppHealth }>(`/channels/${id}/whatsapp-health`);
+    return data.data;
+  },
+
   // ─── WhatsApp Templates ──────────────────────────
   async listWhatsappTemplates(channelId: string): Promise<WhatsappTemplate[]> {
     const { data } = await api.get<{ data: { data: WhatsappTemplate[] } }>(`/channels/${channelId}/whatsapp-templates`);
@@ -136,4 +143,17 @@ export interface WhatsappTemplate {
   status: 'APPROVED' | 'PENDING' | 'REJECTED';
   components: any[];
   syncedAt: string;
+}
+
+export interface WhatsAppHealth {
+  phoneNumber: string | null;
+  phoneName: string | null;
+  businessName: string | null;
+  businessNameStatus: 'ACCEPTED' | 'REJECTED' | 'PENDING' | null;
+  qualityRating: 'GREEN' | 'YELLOW' | 'RED' | null;
+  accountMode: 'LIVE' | 'DEVELOPMENT' | null;
+  codeVerificationStatus: 'VERIFIED' | 'NOT_VERIFIED' | null;
+  webhookConfigured: boolean;
+  webhookValid: boolean;
+  lastFetched: string;
 }

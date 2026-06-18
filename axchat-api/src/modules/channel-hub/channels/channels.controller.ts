@@ -8,10 +8,12 @@ import {
   Param,
   Query,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { ChannelsService } from './channels.service';
+import { WhatsAppHealthService } from './whatsapp-health.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
@@ -23,7 +25,10 @@ import type { ChannelAccess } from '../../iam/channel-access/channel-access.serv
 @UseGuards(JwtAuthGuard, OrgGuard, RolesGuard)
 @Controller('channels')
 export class ChannelsController {
-  constructor(private readonly service: ChannelsService) {}
+  constructor(
+    private readonly service: ChannelsService,
+    private readonly healthService: WhatsAppHealthService,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -110,5 +115,23 @@ export class ChannelsController {
   @ApiOperation({ summary: 'Test channel connection' })
   testConnection(@Param('id') id: string, @CurrentOrg('id') orgId: string) {
     return this.service.testConnection(id, orgId);
+  }
+
+  @Get(':id/whatsapp-health')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Get WhatsApp health status — phone number, quality rating, business name, webhook status.',
+  })
+  async getWhatsAppHealth(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+    @CurrentChannelAccess() access: ChannelAccess,
+  ) {
+    const channel = await this.service.findOne(id, orgId, access);
+    if (channel.type !== 'WHATSAPP_OFFICIAL') {
+      throw new NotFoundException('Health check disponível apenas para canais WhatsApp Official');
+    }
+    return this.healthService.getHealth((channel.config ?? {}) as Record<string, any>);
   }
 }
