@@ -43,14 +43,14 @@ export function ChannelsList() {
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {isLoading ? (
           Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="h-32 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" />
+            <div key={i} className="h-32 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-black" />
           ))
         ) : channels && channels.length > 0 ? (
           channels.map((ch) => (
             <ChannelCard key={ch.id} channel={ch} onUpdate={refresh} />
           ))
         ) : (
-          <div className="col-span-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 py-16 dark:border-zinc-800">
+          <div className="col-span-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 py-16 dark:border-white/10">
             <Radio className="h-10 w-10 text-zinc-300 dark:text-zinc-600" />
             <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
               Nenhum canal configurado

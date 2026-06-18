@@ -75,7 +75,7 @@ export function AudioMessagePlayer({
 
   const colorBubble = isOutbound
     ? 'bg-primary text-primary-foreground'
-    : 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100';
+    : 'bg-white text-zinc-900 shadow-sm dark:bg-black dark:text-zinc-100';
   const colorAccent = isOutbound
     ? 'bg-white/30'
     : 'bg-zinc-200 dark:bg-zinc-700';
@@ -229,7 +229,7 @@ export function AudioMessagePlayer({
           <PopoverPanel
             anchor="bottom end"
             transition
-            className="z-50 mt-1 min-w-[80px] rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-zinc-800 dark:bg-zinc-900"
+            className="z-50 mt-1 min-w-[80px] rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-white/10 dark:bg-black"
           >
             {({ close }) =>
               SPEEDS.map((s) => (
@@ -239,7 +239,7 @@ export function AudioMessagePlayer({
                   className={`flex w-full items-center justify-between rounded-md px-2.5 py-1 text-left text-[12px] transition-colors ${
                     rate === s
                       ? 'bg-primary/[0.06] font-medium text-primary dark:bg-primary/10'
-                      : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-800/60'
+                      : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-white/10'
                   }`}
                 >
                   <span className="tabular-nums">{s}×</span>
@@ -259,7 +259,7 @@ export function AudioMessagePlayer({
 
       {/* Transcription area */}
       <div className={`mt-2 flex items-center gap-2 border-t pt-2 ${
-        isOutbound ? 'border-white/20' : 'border-zinc-200 dark:border-zinc-700'
+        isOutbound ? 'border-white/20' : 'border-zinc-200 dark:border-white/10'
       }`}>
         {!transcript && !transcribing && (
           <button
@@ -268,7 +268,7 @@ export function AudioMessagePlayer({
             className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
               isOutbound
                 ? 'text-primary-foreground/80 hover:bg-white/15'
-                : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-700'
+                : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10'
             }`}
           >
             <Sparkles className="h-3 w-3" />

@@ -21,7 +21,7 @@ export function AgentList({ agents }: { agents: AgentPerformance[] }) {
       {sorted.map((a) => (
         <div
           key={a.agent.id}
-          className="grid grid-cols-[1fr_60px_60px_60px_60px] items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-800/60"
+          className="grid grid-cols-[1fr_60px_60px_60px_60px] items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-black"
         >
           <div className="flex items-center gap-2 min-w-0">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">

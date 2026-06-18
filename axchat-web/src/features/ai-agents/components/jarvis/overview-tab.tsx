@@ -53,15 +53,7 @@ export function JarvisOverviewTab() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Visão geral
-          </h2>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            Custo, tokens, runs e qualidade — atualiza a cada 5s
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <PeriodSelector value={period} onChange={setPeriod} />
       </div>
 
@@ -120,7 +112,7 @@ export function JarvisOverviewTab() {
               : undefined
           }
           icon={Cpu}
-          accent="#2563eb"
+          accent="#0047FF"
         />
         <KpiCard
           label="Runs"
@@ -162,7 +154,7 @@ export function JarvisOverviewTab() {
 
       {/* Cap progress (if cap defined) */}
       {stats?.monthlyCap.cap && (
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
           <div className="flex items-baseline justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
               Limite mensal
@@ -175,7 +167,7 @@ export function JarvisOverviewTab() {
               </span>
             </p>
           </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-black">
             <div
               className={`h-full ${
                 (stats.monthlyCap.percentUsed ?? 0) < 80
@@ -233,7 +225,7 @@ export function JarvisOverviewTab() {
 
       {/* Final actions + handoffs */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
             Como as runs terminaram
           </p>
@@ -241,7 +233,7 @@ export function JarvisOverviewTab() {
             {Object.entries(stats?.byFinalAction ?? {}).map(([action, count]) => (
               <div
                 key={action}
-                className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/50"
+                className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-black"
               >
                 <p className="text-[10px] uppercase text-zinc-500">{action}</p>
                 <p className="text-base font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
@@ -256,7 +248,7 @@ export function JarvisOverviewTab() {
             )}
           </div>
         </div>
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
           <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
             <ArrowRightLeft className="h-3 w-3" /> Delegações entre agentes
           </p>
@@ -273,7 +265,7 @@ export function JarvisOverviewTab() {
                 return (
                   <div
                     key={i}
-                    className="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-1.5 text-xs dark:bg-zinc-800/50"
+                    className="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-1.5 text-xs dark:bg-black"
                   >
                     <span className="text-zinc-700 dark:text-zinc-300">
                       <span className="font-medium">{fromName}</span>
@@ -304,7 +296,7 @@ export function JarvisOverviewTab() {
           </span>
         </div>
         {runsLoading ? (
-          <div className="h-40 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-40 animate-pulse rounded-xl bg-zinc-100 dark:bg-black" />
         ) : (
           <RunsTable runs={runs ?? []} emptyHint="Ainda não rolou execução." />
         )}

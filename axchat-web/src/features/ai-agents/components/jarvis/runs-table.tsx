@@ -22,17 +22,17 @@ export function RunsTable({ runs, emptyHint }: RunsTableProps) {
 
   if (!runs.length) {
     return (
-      <div className="rounded-xl border-2 border-dashed border-zinc-200 py-10 text-center text-sm text-zinc-500 dark:border-zinc-800">
+      <div className="rounded-xl border-2 border-dashed border-zinc-200 py-10 text-center text-sm text-zinc-500 dark:border-white/10">
         {emptyHint ?? 'Nenhuma execução ainda.'}
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+    <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-white/10">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-zinc-200 bg-zinc-50 text-[11px] uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <tr className="border-b border-zinc-200 bg-zinc-50 text-[11px] uppercase tracking-wide text-zinc-500 dark:border-white/10 dark:bg-black">
             <th className="w-6 px-3 py-2"></th>
             <th className="px-3 py-2 text-left font-semibold">Quando</th>
             <th className="px-3 py-2 text-left font-semibold">Agente</th>
@@ -88,7 +88,7 @@ function RunRow({
   return (
     <>
       <tr
-        className="cursor-pointer border-b border-zinc-100 bg-white transition-colors last:border-0 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+        className="cursor-pointer border-b border-zinc-100 bg-white transition-colors last:border-0 hover:bg-zinc-50 dark:border-white/10 dark:bg-black dark:hover:bg-white/10"
         onClick={onToggle}
       >
         <td className="px-3 py-2 text-zinc-400">
@@ -102,7 +102,7 @@ function RunRow({
             <span className="font-medium text-zinc-900 dark:text-zinc-100">
               {run.agent.name}
             </span>
-            <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase text-zinc-500 dark:bg-zinc-800">
+            <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] uppercase text-zinc-500 dark:bg-black">
               {run.agent.kind === 'ORCHESTRATOR' ? 'orq' : 'wkr'}
             </span>
           </div>
@@ -147,7 +147,7 @@ function RunDetail({
 }) {
   const tools = run.toolCalls ?? [];
   return (
-    <tr className="border-b border-zinc-100 bg-zinc-50/40 dark:border-zinc-800 dark:bg-zinc-900/40">
+    <tr className="border-b border-zinc-100 bg-zinc-50/40 dark:border-white/10 dark:bg-black">
       <td colSpan={9} className="px-6 py-3">
         {fallbackError && (
           <p className="mb-2 text-xs text-red-600 dark:text-red-400">
@@ -159,7 +159,7 @@ function RunDetail({
             <p className="text-[10px] font-semibold uppercase text-zinc-500">
               Run id
             </p>
-            <code className="mt-0.5 block truncate rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] dark:bg-zinc-800">
+            <code className="mt-0.5 block truncate rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] dark:bg-black">
               {run.id}
             </code>
           </div>
@@ -167,7 +167,7 @@ function RunDetail({
             <p className="text-[10px] font-semibold uppercase text-zinc-500">
               Conversa
             </p>
-            <code className="mt-0.5 block truncate rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] dark:bg-zinc-800">
+            <code className="mt-0.5 block truncate rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] dark:bg-black">
               {run.conversationId}
             </code>
           </div>
@@ -189,7 +189,7 @@ function RunDetail({
               {tools.map((t, i) => (
                 <span
                   key={i}
-                  className="rounded bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                  className="rounded bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700 dark:bg-black dark:text-zinc-300"
                 >
                   {t.toolName}
                 </span>

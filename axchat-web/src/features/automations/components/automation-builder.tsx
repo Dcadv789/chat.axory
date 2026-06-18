@@ -253,10 +253,10 @@ export function AutomationBuilder({
         onClick={onClose}
         aria-label="Fechar"
       />
-      <div className="flex h-full w-full max-w-2xl flex-col bg-white shadow-xl dark:bg-zinc-900">
-        <header className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+      <div className="flex h-full w-full max-w-2xl flex-col bg-white shadow-xl dark:bg-black">
+        <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
           <div>
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
               {initial ? 'Editar automação' : 'Nova automação'}
             </h2>
             <p className="text-xs text-zinc-500">
@@ -265,7 +265,7 @@ export function AutomationBuilder({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />
@@ -277,7 +277,7 @@ export function AutomationBuilder({
           <section className="space-y-3">
             <Label>Nome</Label>
             <input
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-white/10 dark:bg-black"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Notificar João quando tag VIP for adicionada"
@@ -285,7 +285,7 @@ export function AutomationBuilder({
             />
             <Label>Descrição (opcional)</Label>
             <textarea
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-white/10 dark:bg-black"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
@@ -303,7 +303,7 @@ export function AutomationBuilder({
                   className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition ${
                     trigger === t.value
                       ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
-                      : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700'
+                      : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10 dark:hover:border-zinc-700'
                   }`}
                 >
                   <input
@@ -343,7 +343,7 @@ export function AutomationBuilder({
                       match: e.target.value as 'AND' | 'OR',
                     })
                   }
-                  className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                  className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-white/10 dark:bg-black"
                 >
                   <option value="OR">QUALQUER (OR)</option>
                   <option value="AND">TODOS (AND)</option>
@@ -353,7 +353,7 @@ export function AutomationBuilder({
             {conditions.groups.map((group, gi) => (
               <div
                 key={gi}
-                className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950/40"
+                className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-white/10 dark:bg-black"
               >
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-zinc-600 dark:text-zinc-400">
@@ -368,7 +368,7 @@ export function AutomationBuilder({
                         );
                         setConditions({ ...conditions, groups });
                       }}
-                      className="rounded border border-zinc-300 px-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                      className="rounded border border-zinc-300 px-1 text-xs dark:border-white/10 dark:bg-black"
                     >
                       <option value="AND">TODAS</option>
                       <option value="OR">QUALQUER</option>
@@ -394,7 +394,7 @@ export function AutomationBuilder({
                 ))}
                 <button
                   onClick={() => addRule(gi)}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-primary hover:underline"
                 >
                   + adicionar regra ao grupo
                 </button>
@@ -402,7 +402,7 @@ export function AutomationBuilder({
             ))}
             <button
               onClick={addGroup}
-              className="flex items-center gap-1 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              className="flex items-center gap-1 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/10"
             >
               <Plus className="h-4 w-4" /> Adicionar grupo de condições
             </button>
@@ -430,7 +430,7 @@ export function AutomationBuilder({
                 <button
                   key={a.type}
                   onClick={() => addAction(a.type)}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:hover:bg-zinc-900"
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs hover:bg-zinc-50 dark:border-white/10 dark:bg-black dark:hover:bg-white/10"
                 >
                   + {ACTION_LABELS[a.type]}
                 </button>
@@ -439,7 +439,7 @@ export function AutomationBuilder({
           </section>
 
           {/* Settings */}
-          <section className="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <section className="space-y-3 border-t border-zinc-200 pt-4 dark:border-white/10">
             <Label>Limite por minuto (por conversa)</Label>
             <input
               type="number"
@@ -447,7 +447,7 @@ export function AutomationBuilder({
               max={120}
               value={rateLimitPerMinute}
               onChange={(e) => setRateLimitPerMinute(Number(e.target.value))}
-              className="w-32 rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              className="w-32 rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-white/10 dark:bg-black"
             />
             <p className="text-xs text-zinc-500">
               Máximo de execuções por minuto na mesma conversa. Acima desse
@@ -466,17 +466,17 @@ export function AutomationBuilder({
           </section>
         </div>
 
-        <footer className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
+        <footer className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-white/10">
           <button
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded-lg px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-white/10"
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             {saving ? 'Salvando…' : initial ? 'Salvar' : 'Criar'}
           </button>
@@ -500,7 +500,7 @@ function SectionTitle({
       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
         {index}
       </span>
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">{title}</h3>
       {hint && <span className="text-xs text-zinc-500">{hint}</span>}
     </div>
   );
@@ -515,7 +515,7 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 const inputCls =
-  'w-full rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-950';
+  'w-full rounded border border-zinc-300 px-2 py-1 text-sm dark:border-white/10 dark:bg-black';
 
 // Renders the value side of a condition rule based on which field is
 // selected. Maps every ID-bearing field to a real-data dropdown so a
@@ -668,7 +668,7 @@ function RuleRow({
           // meaningless if user just switched to channelId).
           onChange({ field: e.target.value, value: '' })
         }
-        className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-white/10 dark:bg-black"
       >
         {fields.map((f) => (
           <option key={f} value={f}>
@@ -679,7 +679,7 @@ function RuleRow({
       <select
         value={rule.op}
         onChange={(e) => onChange({ op: e.target.value as ConditionOperator })}
-        className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-white/10 dark:bg-black"
       >
         {ops.map((op) => (
           <option key={op} value={op}>
@@ -726,7 +726,7 @@ function ActionRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+    <div className="rounded-lg border border-zinc-200 p-3 dark:border-white/10">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-medium">
           {index + 1}. {ACTION_LABELS[action.type]}

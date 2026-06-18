@@ -138,7 +138,7 @@ function LinkPreviewCard({ url, isOutbound }: { url: string; isOutbound: boolean
         <img
           src={url}
           alt="Mídia compartilhada"
-          className="max-h-64 rounded-lg bg-zinc-100 object-cover dark:bg-zinc-800"
+          className="max-h-64 rounded-lg bg-zinc-100 object-cover dark:bg-black"
           onError={() => setImgOk(false)}
         />
         <span
@@ -160,7 +160,7 @@ function LinkPreviewCard({ url, isOutbound }: { url: string; isOutbound: boolean
       className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
         isOutbound
           ? 'border-primary-foreground/20 bg-primary-foreground/10 hover:bg-primary-foreground/15'
-          : 'border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/60 dark:hover:bg-zinc-800'
+          : 'border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-white/10 dark:bg-black dark:hover:bg-white/10'
       }`}
     >
       <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" />
@@ -247,7 +247,7 @@ function TemplateButtonRow({
         const baseClass = `block rounded-md border px-3 py-1.5 text-center text-xs font-medium transition-colors ${
           isOutbound
             ? 'border-primary-foreground/30 bg-primary-foreground/10 hover:bg-primary-foreground/20'
-            : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-200 dark:hover:bg-zinc-800'
+            : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-black dark:text-zinc-200 dark:hover:bg-white/10'
         }`;
         if (btn.url) {
           return (
@@ -297,7 +297,7 @@ function TemplateMessage({
           className={`overflow-hidden rounded-lg border ${
             isOutbound
               ? 'border-primary-foreground/20 bg-primary-foreground/5'
-              : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/60'
+              : 'border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-black'
           }`}
         >
           {el.imageUrl && (
@@ -680,7 +680,7 @@ export function ChatPanel({
         messages={messages}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-zinc-900/50">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-[#171717]">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -718,7 +718,7 @@ export function ChatPanel({
                   <Fragment key={msg.id}>
                   {showDateSeparator && (
                     <div className="flex justify-center pb-1 pt-3 first:pt-0">
-                      <span className="rounded-full bg-zinc-200/80 px-3 py-1 text-[11px] font-medium text-zinc-600 shadow-sm dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="rounded-full bg-zinc-200/80 px-3 py-1 text-[11px] font-medium text-zinc-600 shadow-sm dark:bg-black dark:text-zinc-300">
                         {formatDateSeparator(msg.createdAt)}
                       </span>
                     </div>
@@ -738,7 +738,7 @@ export function ChatPanel({
                         <button
                           type="button"
                           onClick={() => startReply(msg)}
-                          className="rounded-full bg-white p-1.5 text-zinc-400 shadow-sm ring-1 ring-zinc-200 hover:text-zinc-700 dark:bg-zinc-800 dark:ring-zinc-700 dark:hover:text-zinc-100"
+                          className="rounded-full bg-white p-1.5 text-zinc-400 shadow-sm ring-1 ring-zinc-200 hover:text-zinc-700 dark:bg-black dark:ring-zinc-700 dark:hover:text-zinc-100"
                           title="Responder"
                           aria-label="Responder esta mensagem"
                         >
@@ -747,7 +747,7 @@ export function ChatPanel({
                         <button
                           type="button"
                           onClick={() => handleRevoke(msg)}
-                          className="rounded-full bg-white p-1.5 text-zinc-400 shadow-sm ring-1 ring-zinc-200 hover:text-red-600 dark:bg-zinc-800 dark:ring-zinc-700 dark:hover:text-red-400"
+                          className="rounded-full bg-white p-1.5 text-zinc-400 shadow-sm ring-1 ring-zinc-200 hover:text-red-600 dark:bg-black dark:ring-zinc-700 dark:hover:text-red-400"
                           title="Deletar pra todos"
                           aria-label="Deletar mensagem pra todos"
                         >
@@ -790,7 +790,7 @@ export function ChatPanel({
                           className={`mb-1 rounded-xl border px-3 py-2 text-xs ${
                             isOutbound
                               ? 'border-primary/40 bg-primary/10 text-primary-foreground/80'
-                              : 'border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400'
+                              : 'border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-white/10 dark:bg-black dark:text-zinc-400'
                           }`}
                         >
                           <p className="text-[10px] uppercase tracking-wider opacity-70">
@@ -832,7 +832,7 @@ export function ChatPanel({
                             className={`mb-1 block w-full rounded-md border-l-2 border-primary px-2 py-1 text-left text-xs ${
                               isOutbound
                                 ? 'bg-primary/10 text-primary-foreground/80'
-                                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800/70 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-black dark:text-zinc-300 dark:hover:bg-white/10'
                             }`}
                           >
                             {msg.metadata.replyTo.senderName && (
@@ -852,7 +852,7 @@ export function ChatPanel({
                           className={`flex items-center gap-2 rounded-2xl border border-dashed px-4 py-2.5 italic ${
                             isOutbound
                               ? 'rounded-br-md border-primary/40 bg-primary/5 text-primary/70'
-                              : 'rounded-bl-md border-zinc-300 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-500'
+                              : 'rounded-bl-md border-zinc-300 bg-zinc-50 text-zinc-400 dark:border-white/10 dark:bg-black dark:text-zinc-500'
                           }`}
                           title={
                             msg.revokeSucceededRemote
@@ -904,7 +904,7 @@ export function ChatPanel({
                           className={`rounded-2xl px-4 py-2.5 ${
                             isOutbound
                               ? 'rounded-br-md bg-primary text-primary-foreground'
-                              : 'rounded-bl-md bg-white shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
+                              : 'rounded-bl-md bg-white shadow-sm dark:bg-black dark:text-zinc-100'
                           }`}
                         >
                           {msg.type === 'TEXT' ? (
@@ -951,7 +951,7 @@ export function ChatPanel({
                       )}
                       {reactions.length > 0 && (
                         <div className={`absolute -bottom-2 ${isOutbound ? 'right-2' : 'left-2'} flex gap-0.5`}>
-                          <span className="rounded-full bg-white px-1.5 py-0.5 text-xs shadow-sm ring-1 ring-zinc-200/80 dark:bg-zinc-800 dark:ring-zinc-700">
+                          <span className="rounded-full bg-white px-1.5 py-0.5 text-xs shadow-sm ring-1 ring-zinc-200/80 dark:bg-black dark:ring-zinc-700">
                             {[...new Set(reactions)].join('')}
                             {reactions.length > 1 && (
                               <span className="ml-0.5 text-[10px] text-zinc-400">{reactions.length}</span>
@@ -964,7 +964,7 @@ export function ChatPanel({
                       <button
                         type="button"
                         onClick={() => startReply(msg)}
-                        className="self-center rounded-full bg-white p-1.5 text-zinc-400 opacity-0 shadow-sm ring-1 ring-zinc-200 transition-opacity hover:text-zinc-700 group-hover:opacity-100 dark:bg-zinc-800 dark:ring-zinc-700 dark:hover:text-zinc-100"
+                        className="self-center rounded-full bg-white p-1.5 text-zinc-400 opacity-0 shadow-sm ring-1 ring-zinc-200 transition-opacity hover:text-zinc-700 group-hover:opacity-100 dark:bg-black dark:ring-zinc-700 dark:hover:text-zinc-100"
                         title="Responder"
                         aria-label="Responder esta mensagem"
                       >
@@ -1016,7 +1016,7 @@ function ReplyPreviewBar({
     (typeof c.caption === 'string' && c.caption) ||
     `[${(message.type || 'mensagem').toLowerCase()}]`;
   return (
-    <div className="flex items-center gap-2 border-t border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="flex items-center gap-2 border-t border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-black">
       <div className="flex-1 min-w-0 border-l-2 border-primary pl-2">
         <p className="text-xs font-medium text-primary">Respondendo {sender}</p>
         <p className="truncate text-xs text-zinc-600 dark:text-zinc-400">
@@ -1026,7 +1026,7 @@ function ReplyPreviewBar({
       <button
         type="button"
         onClick={onCancel}
-        className="rounded-md p-1 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        className="rounded-md p-1 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-200"
         aria-label="Cancelar resposta"
       >
         <X className="h-4 w-4" />

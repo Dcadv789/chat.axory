@@ -15,7 +15,7 @@ interface Props {
 
 export function PeriodSelector({ value, onChange }: Props) {
   return (
-    <div className="inline-flex rounded-md border border-zinc-200 bg-white p-0.5 dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="inline-flex rounded-md border border-zinc-200 bg-white p-0.5 dark:border-white/10 dark:bg-black">
       {OPTIONS.map((opt) => {
         const active = opt.value === value;
         return (
@@ -26,7 +26,7 @@ export function PeriodSelector({ value, onChange }: Props) {
             className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
               active
                 ? 'bg-primary text-primary-foreground'
-                : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10'
             }`}
           >
             {opt.label}

@@ -113,14 +113,14 @@ export function CreateAgentDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-black">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/10">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             Novo agente
           </h3>
           <button
             onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10"
           >
             <X className="h-4 w-4" />
           </button>
@@ -136,7 +136,7 @@ export function CreateAgentDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Vendas Bravy"
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
 
@@ -149,7 +149,7 @@ export function CreateAgentDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ex: Responde dúvidas sobre planos e fecha matrícula"
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
 
@@ -161,7 +161,7 @@ export function CreateAgentDialog({
               <select
                 value={kind}
                 onChange={(e) => setKind(e.target.value as AgentKind)}
-                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
               >
                 <option value="WORKER">Worker (atende o cliente)</option>
                 <option value="ORCHESTRATOR">
@@ -178,13 +178,13 @@ export function CreateAgentDialog({
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="vendas / suporte / billing"
-                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
               />
             </div>
           </div>
 
           {/* Organograma matricial ágil */}
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
               Organograma
             </p>
@@ -200,7 +200,7 @@ export function CreateAgentDialog({
                 <select
                   value={parentAgentId}
                   onChange={(e) => setParentAgentId(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
                 >
                   <option value="">— Raiz / sem chefe (CEO virtual) —</option>
                   {eligibleParents.map((a) => (
@@ -219,7 +219,7 @@ export function CreateAgentDialog({
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
                   >
                     <option value="">— Não definido —</option>
                     {DEPARTMENTS.map((d) => (
@@ -238,7 +238,7 @@ export function CreateAgentDialog({
                     value={squad}
                     onChange={(e) => setSquad(e.target.value)}
                     placeholder="Ex: Inbound B2C"
-                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
                   />
                 </div>
               </div>
@@ -252,7 +252,7 @@ export function CreateAgentDialog({
             <select
               value={modelId}
               onChange={(e) => setModelId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
             >
               {CURATED_MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -273,7 +273,7 @@ export function CreateAgentDialog({
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
               rows={10}
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
             <p className="mt-1 text-[11px] text-zinc-500">
               Você não precisa repetir contexto da empresa — o sistema injeta nome, canal, hora, dados do contato e memória automaticamente.
@@ -300,10 +300,10 @@ export function CreateAgentDialog({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-white/10 dark:bg-black">
           <button
             onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             Cancelar
           </button>

@@ -94,7 +94,7 @@ export function BulkPipelinePopover({ count, disabled, onConfirm }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-zinc-200 bg-white p-3 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-zinc-200 bg-white p-3 shadow-xl dark:border-white/10 dark:bg-black">
           <div className="mb-2 text-[12px] font-semibold text-zinc-700 dark:text-zinc-200">
             Adicionar {count} {count === 1 ? 'conversa' : 'conversas'} a um
             pipeline
@@ -105,7 +105,7 @@ export function BulkPipelinePopover({ count, disabled, onConfirm }: Props) {
           <select
             value={pipelineId}
             onChange={(e) => setPipelineId(e.target.value)}
-            className="mb-2 w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            className="mb-2 w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-black"
           >
             <option value="">Selecione um pipeline…</option>
             {visiblePipelines.map((p) => (
@@ -123,7 +123,7 @@ export function BulkPipelinePopover({ count, disabled, onConfirm }: Props) {
               <select
                 value={stageId}
                 onChange={(e) => setStageId(e.target.value)}
-                className="mb-3 w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                className="mb-3 w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-black"
               >
                 <option value="">Selecione um estágio…</option>
                 {stages.map((s) => (
@@ -139,7 +139,7 @@ export function BulkPipelinePopover({ count, disabled, onConfirm }: Props) {
           <div className="flex items-center justify-end gap-2">
             <button
               onClick={() => setOpen(false)}
-              className="rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
             >
               Cancelar
             </button>

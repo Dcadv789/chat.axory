@@ -24,15 +24,15 @@ export function SkillVersionsDialog({ skill, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-zinc-900">
-        <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-black">
+        <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             <History className="h-4 w-4 text-primary" />
             Histórico — {skill.name}
           </h3>
           <button
             onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10"
           >
             <X className="h-4 w-4" />
           </button>
@@ -40,7 +40,7 @@ export function SkillVersionsDialog({ skill, onClose }: Props) {
 
         <div className="space-y-3 px-6 py-5">
           {versions === undefined ? (
-            <div className="h-20 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
+            <div className="h-20 animate-pulse rounded bg-zinc-100 dark:bg-black" />
           ) : versions.length === 0 ? (
             <p className="text-center text-sm text-zinc-500">Sem versões.</p>
           ) : (
@@ -50,12 +50,12 @@ export function SkillVersionsDialog({ skill, onClose }: Props) {
                 className={`rounded-lg border p-3 text-sm ${
                   i === 0
                     ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                    : 'border-zinc-200 dark:border-zinc-800'
+                    : 'border-zinc-200 dark:border-white/10'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-mono dark:bg-zinc-800">
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-mono dark:bg-black">
                       v{v.version}
                     </span>
                     {i === 0 && (
@@ -113,7 +113,7 @@ export function SkillVersionsDialog({ skill, onClose }: Props) {
                     {v.source === 'SQL' && v.sqlQuery && (
                       <div>
                         <span className="text-zinc-500">SQL:</span>
-                        <pre className="mt-1 max-h-32 overflow-auto rounded bg-zinc-50 p-2 font-mono text-[10px] dark:bg-zinc-800">
+                        <pre className="mt-1 max-h-32 overflow-auto rounded bg-zinc-50 p-2 font-mono text-[10px] dark:bg-black">
                           {v.sqlQuery}
                         </pre>
                       </div>
@@ -121,7 +121,7 @@ export function SkillVersionsDialog({ skill, onClose }: Props) {
                     {v.promptInstructions && (
                       <div>
                         <span className="text-zinc-500">Prompt:</span>
-                        <pre className="mt-1 max-h-40 overflow-auto rounded bg-zinc-50 p-2 font-mono text-[10px] dark:bg-zinc-800">
+                        <pre className="mt-1 max-h-40 overflow-auto rounded bg-zinc-50 p-2 font-mono text-[10px] dark:bg-black">
                           {v.promptInstructions}
                         </pre>
                       </div>

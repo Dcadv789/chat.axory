@@ -44,10 +44,10 @@ const COMPOSER_ACTIONS_RESERVE = 'pb-11';
 const COMPOSER_EXPAND_RESERVE = 'pr-9';
 
 const composerActionBtn =
-  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-200/80 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200';
+  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-200/80 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200';
 
 const composerShell =
-  'relative w-full rounded-2xl border border-zinc-200 bg-zinc-50 transition-colors focus-within:border-primary focus-within:ring-1 focus-within:ring-primary dark:border-zinc-700 dark:bg-zinc-900';
+  'relative w-full rounded-2xl border border-zinc-200 bg-zinc-50 transition-colors focus-within:border-primary focus-within:ring-1 focus-within:ring-primary dark:border-white/10 dark:bg-black';
 
 function AudioPreview({ blob, onSend, onDiscard, isSending }: {
   blob: Blob;
@@ -68,7 +68,7 @@ function AudioPreview({ blob, onSend, onDiscard, isSending }: {
       <button
         onClick={onDiscard}
         type="button"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-zinc-800"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-red-500 dark:hover:bg-white/10"
         aria-label="Descartar áudio"
       >
         <Trash2 className="h-4 w-4" />
@@ -212,7 +212,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
 
   if (disabled) {
     return (
-      <div className="border-t border-zinc-200 bg-zinc-50 px-4 py-3 text-center text-sm text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div className="border-t border-zinc-200 bg-zinc-50 px-4 py-3 text-center text-sm text-zinc-400 dark:border-white/10 dark:bg-[#171717]">
         Conversa encerrada — reabra para enviar mensagens
       </div>
     );
@@ -222,7 +222,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     const levelPct = Math.min(100, Math.round(recorder.audioLevel * 100));
 
     return (
-      <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="border-t border-zinc-200 bg-white p-3 dark:border-white/10 dark:bg-black">
         <div className={`${composerShell} border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-500/10`}>
           <div className="flex items-center gap-2 px-3 py-2.5">
           <button
@@ -265,7 +265,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
 
   if (recorder.state === 'stopped' && recorder.blob) {
     return (
-      <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="border-t border-zinc-200 bg-white p-3 dark:border-white/10 dark:bg-black">
         <div className={composerShell}>
           <AudioPreview
           blob={recorder.blob}
@@ -282,7 +282,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   }
 
   return (
-    <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="border-t border-zinc-200 bg-white p-3 dark:border-white/10 dark:bg-black">
       <input
         ref={fileInputRef}
         type="file"
@@ -310,7 +310,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
         <button
           type="button"
           onClick={() => setIsExpanded((v) => !v)}
-          className="absolute right-2 top-2 rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-200/80 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          className="absolute right-2 top-2 rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-200/80 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-200"
           aria-label={isExpanded ? 'Reduzir campo de mensagem' : 'Expandir campo de mensagem'}
           title={isExpanded ? 'Reduzir' : 'Expandir'}
         >

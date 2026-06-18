@@ -43,7 +43,7 @@ function ChannelBadge({ type, name }: { type: string; name: string }) {
   let Icon = MessageSquare;
   let label = 'Chat';
   let cls =
-    'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300';
+    'bg-zinc-100 text-zinc-600 dark:bg-black dark:text-zinc-300';
 
   if (isWhats) {
     Icon = Phone;
@@ -88,12 +88,12 @@ function HeaderAvatar({ name, avatarUrl }: { name: string | null; avatarUrl: str
         src={avatarUrl}
         alt={name || 'avatar'}
         onError={() => setFailed(true)}
-        className="h-10 w-10 shrink-0 rounded-full bg-zinc-100 object-cover dark:bg-zinc-800"
+        className="h-10 w-10 shrink-0 rounded-full bg-zinc-100 object-cover dark:bg-black"
       />
     );
   }
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-medium text-zinc-600 dark:bg-black dark:text-zinc-300">
       {initials}
     </div>
   );
@@ -145,7 +145,7 @@ export function ConversationHeader({
   };
 
   return (
-    <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black">
       <div className="flex items-center gap-3">
         <HeaderAvatar
           name={conversation.contact.name}
@@ -199,7 +199,7 @@ export function ConversationHeader({
             onClick={handleSync}
             disabled={isSyncing}
             title="Sincronizar mensagens"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
           </button>
@@ -211,7 +211,7 @@ export function ConversationHeader({
             className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
               agentLogsOpen
                 ? 'bg-primary/10 text-primary dark:bg-primary/15'
-                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300'
+                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
             }`}
           >
             <Activity className="h-3.5 w-3.5" />
@@ -233,7 +233,7 @@ export function ConversationHeader({
               )
             }
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-red-50 hover:text-red-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+            className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-red-50 hover:text-red-600 dark:bg-black dark:text-zinc-300 dark:hover:bg-red-900/20 dark:hover:text-red-400"
           >
             <XCircle className="h-3.5 w-3.5" />
             Encerrar

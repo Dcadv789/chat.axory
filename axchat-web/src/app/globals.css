@@ -2,14 +2,14 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --color-background: oklch(1 0 0);
+  --color-background: #f8fafc;
   --color-foreground: oklch(0.145 0 0);
   --color-card: oklch(1 0 0);
   --color-card-foreground: oklch(0.145 0 0);
   --color-popover: oklch(1 0 0);
   --color-popover-foreground: oklch(0.145 0 0);
-  --color-primary: oklch(0.205 0.08 265);
-  --color-primary-foreground: oklch(0.985 0 0);
+  --color-primary: #0047ff;
+  --color-primary-foreground: #ffffff;
   --color-secondary: oklch(0.97 0 0);
   --color-secondary-foreground: oklch(0.205 0 0);
   --color-muted: oklch(0.97 0 0);
@@ -19,8 +19,10 @@
   --color-destructive: oklch(0.577 0.245 27.325);
   --color-border: oklch(0.922 0 0);
   --color-input: oklch(0.922 0 0);
-  --color-ring: oklch(0.708 0.165 254.624);
-  --color-sidebar: oklch(0.985 0 0);
+  --color-ring: #0047ff;
+  --color-app-sidebar: #ffffff;
+  --color-app-content: #f8fafc;
+  --color-sidebar: #ffffff;
   --color-sidebar-foreground: oklch(0.145 0 0);
   --color-sidebar-border: oklch(0.922 0 0);
   --color-sidebar-accent: oklch(0.97 0 0);
@@ -32,29 +34,49 @@
 }
 
 .dark {
-  --color-background: oklch(0.145 0 0);
-  --color-foreground: oklch(0.985 0 0);
-  --color-card: oklch(0.205 0 0);
-  --color-card-foreground: oklch(0.985 0 0);
-  --color-popover: oklch(0.205 0 0);
-  --color-popover-foreground: oklch(0.985 0 0);
-  --color-primary: oklch(0.708 0.165 254.624);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.269 0 0);
-  --color-secondary-foreground: oklch(0.985 0 0);
-  --color-muted: oklch(0.269 0 0);
-  --color-muted-foreground: oklch(0.708 0 0);
-  --color-accent: oklch(0.269 0 0);
-  --color-accent-foreground: oklch(0.985 0 0);
+  --color-background: #171717;
+  --color-foreground: #fafafa;
+  --color-card: #000000;
+  --color-card-foreground: #fafafa;
+  --color-popover: #000000;
+  --color-popover-foreground: #fafafa;
+  --color-primary: #0047ff;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #000000;
+  --color-secondary-foreground: #fafafa;
+  --color-muted: #000000;
+  --color-muted-foreground: #a3a3a3;
+  --color-accent: #0a0a0a;
+  --color-accent-foreground: #fafafa;
   --color-destructive: oklch(0.577 0.245 27.325);
-  --color-border: oklch(0.3 0 0);
-  --color-input: oklch(0.3 0 0);
-  --color-ring: oklch(0.708 0.165 254.624);
-  --color-sidebar: oklch(0.205 0 0);
-  --color-sidebar-foreground: oklch(0.985 0 0);
-  --color-sidebar-border: oklch(0.3 0 0);
-  --color-sidebar-accent: oklch(0.269 0 0);
-  --color-sidebar-accent-foreground: oklch(0.985 0 0);
+  --color-border: rgb(255 255 255 / 0.1);
+  --color-input: rgb(255 255 255 / 0.1);
+  --color-ring: #0047ff;
+  --color-app-sidebar: #000000;
+  --color-app-content: #171717;
+  --color-app-canvas: #171717;
+  --color-app-surface: #000000;
+  --color-sidebar: #000000;
+  --color-sidebar-foreground: #fafafa;
+  --color-sidebar-border: rgb(255 255 255 / 0.1);
+  --color-sidebar-accent: rgb(255 255 255 / 0.08);
+  --color-sidebar-accent-foreground: #fafafa;
+}
+
+@layer theme {
+  .dark,
+  :is(.dark *) {
+    --color-background: #171717;
+    --color-card: #000000;
+    --color-popover: #000000;
+    --color-primary: #0047ff;
+    --color-ring: #0047ff;
+    --color-app-sidebar: #000000;
+    --color-app-content: #171717;
+    --color-app-canvas: #171717;
+    --color-app-surface: #000000;
+    --color-sidebar: #000000;
+  }
 }
 
 @layer base {
@@ -62,7 +84,11 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: #f8fafc;
+    @apply text-foreground;
+  }
+  .dark body {
+    background-color: #171717;
   }
   button,
   [role="button"],
@@ -76,6 +102,19 @@
 }
 
 @layer utilities {
+  .bg-app-canvas {
+    background-color: #f8fafc;
+  }
+  .dark .bg-app-canvas {
+    background-color: #171717;
+  }
+  .bg-app-surface {
+    background-color: #ffffff;
+  }
+  .dark .bg-app-surface {
+    background-color: #000000;
+  }
+
   .scrollbar-none {
     -ms-overflow-style: none;
     scrollbar-width: none;

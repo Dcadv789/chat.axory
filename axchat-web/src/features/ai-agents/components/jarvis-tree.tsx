@@ -101,7 +101,7 @@ export function JarvisTree() {
       </div>
 
       {expanded && (
-        <div className="ml-5 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
+        <div className="ml-5 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-white/10">
           {visibleTabs.map((t) => {
             const Icon = t.icon;
             const isActive = isAiAgents && activeTab === t.id;

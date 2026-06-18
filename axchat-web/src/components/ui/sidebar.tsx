@@ -19,7 +19,7 @@ export function SidebarHeader({
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border-b border-zinc-950/5 px-4 py-4 dark:border-white/5",
+        "flex flex-col gap-2 border-b border-zinc-200 px-4 py-4 dark:border-white/10",
         className,
       )}
     >
@@ -46,7 +46,7 @@ export function SidebarFooter({
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border-t border-zinc-950/5 px-4 py-4 dark:border-white/5",
+        "flex flex-col gap-2 border-t border-zinc-200 px-4 py-4 dark:border-white/10",
         className,
       )}
     >
@@ -106,8 +106,8 @@ export function SidebarItem({
   const classes = cn(
     "flex w-full items-center gap-3 rounded-lg p-2 text-left text-sm/6 font-medium transition-colors",
     isActive
-      ? "bg-zinc-950/5 text-zinc-950 dark:bg-white/5 dark:text-white"
-      : "text-zinc-500 hover:bg-zinc-950/5 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white",
+      ? "bg-zinc-100 text-zinc-950 dark:bg-white/10 dark:text-white"
+      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-white",
     className,
   );
 

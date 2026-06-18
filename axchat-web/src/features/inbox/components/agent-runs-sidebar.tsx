@@ -164,8 +164,8 @@ export function AgentRunsSidebar({
   };
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <aside className="flex w-80 shrink-0 flex-col border-l border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
+      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-white/10">
         <div className="flex items-center gap-2">
           <Activity className="h-3.5 w-3.5 text-primary" />
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -174,7 +174,7 @@ export function AgentRunsSidebar({
         </div>
         <button
           onClick={onClose}
-          className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
           aria-label="Fechar logs"
         >
           <X className="h-3.5 w-3.5" />
@@ -229,7 +229,7 @@ function RunCard({
     <div className="border-b border-zinc-100 dark:border-zinc-900">
       <button
         onClick={onToggle}
-        className="flex w-full items-start gap-2 px-4 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900/40"
+        className="flex w-full items-start gap-2 px-4 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-white/10"
       >
         <span className="mt-0.5 shrink-0">
           {expanded ? (
@@ -264,7 +264,7 @@ function RunCard({
               <span>· {formatDuration(run.durationMs)}</span>
             )}
             {run.finalAction && (
-              <span className="rounded bg-zinc-100 px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+              <span className="rounded bg-zinc-100 px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-zinc-600 dark:bg-black dark:text-zinc-400">
                 {humanFinalAction(run.finalAction)}
               </span>
             )}
@@ -273,7 +273,7 @@ function RunCard({
       </button>
 
       {expanded && (
-        <div className="bg-zinc-50/50 px-4 pb-3 pt-1 dark:bg-zinc-900/30">
+        <div className="bg-zinc-50/50 px-4 pb-3 pt-1 dark:bg-black/30">
           {run.errorMessage && (
             <div className="mb-2 flex items-start gap-1.5 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] text-red-700 dark:border-red-900/40 dark:bg-red-900/15 dark:text-red-300">
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
@@ -307,7 +307,7 @@ function ToolCallRow({ tc }: { tc: ToolCall }) {
     <li>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+        className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-zinc-100 dark:hover:bg-white/10"
       >
         {failed ? (
           <XCircle className="h-3 w-3 shrink-0 text-red-500" />
@@ -330,7 +330,7 @@ function ToolCallRow({ tc }: { tc: ToolCall }) {
         )}
       </button>
       {open && (
-        <div className="mt-0.5 ml-4 space-y-1.5 rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="mt-0.5 ml-4 space-y-1.5 rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-black">
           <JsonBlock label="input" value={tc.input} />
           <JsonBlock label="output" value={tc.output} />
           {tc.error && (
@@ -365,7 +365,7 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
       <p className="text-[9px] font-medium uppercase tracking-wide text-zinc-400">
         {label}
       </p>
-      <pre className="mt-0.5 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-zinc-50 px-1.5 py-1 font-mono text-[10px] leading-tight text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+      <pre className="mt-0.5 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-zinc-50 px-1.5 py-1 font-mono text-[10px] leading-tight text-zinc-700 dark:bg-black dark:text-zinc-300">
         {truncated}
       </pre>
     </div>
@@ -378,7 +378,7 @@ function RunFooter({ run }: { run: FeedRun }) {
     run.inputTokens + run.outputTokens + run.cacheReadTokens + run.cacheWriteTokens;
   if (cost === 0 && tokens === 0) return null;
   return (
-    <div className="mt-2 flex items-center gap-3 border-t border-zinc-200 pt-1.5 text-[10px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+    <div className="mt-2 flex items-center gap-3 border-t border-zinc-200 pt-1.5 text-[10px] text-zinc-500 dark:border-white/10 dark:text-zinc-400">
       {tokens > 0 && (
         <span>
           {run.inputTokens} in · {run.outputTokens} out

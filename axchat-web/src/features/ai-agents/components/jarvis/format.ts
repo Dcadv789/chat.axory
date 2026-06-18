@@ -39,9 +39,9 @@ export const FINAL_ACTION_META: Record<
   DELEGATED: { label: 'Delegou', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' },
   HANDED_BACK: { label: 'Devolveu', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
   TRANSFERRED_TO_HUMAN: { label: 'Pra humano', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
-  CLOSED_CONVERSATION: { label: 'Encerrou', color: 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300' },
-  NO_ACTION: { label: 'Sem ação', color: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400' },
-  NONE: { label: 'Sem ação', color: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400' },
+  CLOSED_CONVERSATION: { label: 'Encerrou', color: 'bg-zinc-200 text-zinc-700 dark:bg-black dark:text-zinc-300' },
+  NO_ACTION: { label: 'Sem ação', color: 'bg-zinc-100 text-zinc-500 dark:bg-black dark:text-zinc-400' },
+  NONE: { label: 'Sem ação', color: 'bg-zinc-100 text-zinc-500 dark:bg-black dark:text-zinc-400' },
 };
 
 export const STATUS_META: Record<string, { label: string; color: string }> = {

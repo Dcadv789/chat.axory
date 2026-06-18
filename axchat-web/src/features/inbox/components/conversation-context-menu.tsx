@@ -260,7 +260,7 @@ export function ConversationContextMenu({
     <div
       ref={ref}
       style={{ top: clampedPos.y, left: clampedPos.x, width: MENU_WIDTH }}
-      className="fixed z-50 rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none dark:border-zinc-800 dark:bg-zinc-900"
+      className="fixed z-50 rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none dark:border-white/10 dark:bg-black"
       role="menu"
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -271,7 +271,7 @@ export function ConversationContextMenu({
           </div>
           <button
             onClick={() => setView('conversation')}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             <MessageSquare className="h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
             <span className="flex-1">Na conversa</span>
@@ -284,7 +284,7 @@ export function ConversationContextMenu({
           </button>
           <button
             onClick={() => setView('contact')}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             <User className="h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
             <span className="flex-1">No contato</span>
@@ -296,14 +296,14 @@ export function ConversationContextMenu({
             <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />
           </button>
 
-          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-zinc-800" />
+          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
 
           <div className="px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
             Organizar
           </div>
           <button
             onClick={() => setView('inbox-views')}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             <InboxIcon className="h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
             <span className="flex-1">Adicionar a inbox</span>
@@ -316,18 +316,18 @@ export function ConversationContextMenu({
           </button>
           <button
             onClick={() => setView('pipeline')}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             <KanbanSquare className="h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
             <span className="flex-1">Adicionar a pipeline</span>
             <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />
           </button>
 
-          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-zinc-800" />
+          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
 
           <button
             onClick={() => setRenameOpen(true)}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             <Pencil className="h-3.5 w-3.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
             <span className="flex-1">Renomear</span>
@@ -336,7 +336,7 @@ export function ConversationContextMenu({
             onClick={markUnread}
             disabled={markingUnread || alreadyUnread}
             title={alreadyUnread ? 'Conversa já está como não-lida' : undefined}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:text-zinc-300 dark:hover:bg-white/10"
           >
             {markingUnread ? (
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-zinc-400" />
@@ -348,7 +348,7 @@ export function ConversationContextMenu({
           <button
             onClick={toggleArchive}
             disabled={archiving}
-            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             {archiving ? (
               <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-zinc-400" />
@@ -366,12 +366,12 @@ export function ConversationContextMenu({
         <>
           <button
             onClick={() => setView('root')}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-50 dark:text-zinc-500 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-50 dark:text-zinc-500 dark:hover:bg-white/10"
           >
             <ArrowLeft className="h-3 w-3" />
             Adicionar a inbox
           </button>
-          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-zinc-800" />
+          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
           <div
             className="overflow-y-auto scrollbar-thin"
             style={{ maxHeight: MENU_MAX_HEIGHT - 80 }}
@@ -399,7 +399,7 @@ export function ConversationContextMenu({
                     key={v.id}
                     onClick={() => toggleInboxView(v)}
                     disabled={isPending}
-                    className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+                    className="group flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-white/10"
                     title={
                       isPinned
                         ? `Remover de "${v.name}"`
@@ -428,12 +428,12 @@ export function ConversationContextMenu({
         <>
           <button
             onClick={() => setView('root')}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-50 dark:text-zinc-500 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-50 dark:text-zinc-500 dark:hover:bg-white/10"
           >
             <ArrowLeft className="h-3 w-3" />
             Adicionar a pipeline
           </button>
-          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-zinc-800" />
+          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
           <div
             className="overflow-y-auto scrollbar-thin"
             style={{ maxHeight: MENU_MAX_HEIGHT - 80 }}
@@ -460,7 +460,7 @@ export function ConversationContextMenu({
                     key={p.id}
                     onClick={() => addToPipeline(p.id, p.name)}
                     disabled={isPending}
-                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-white/10"
                   >
                     <KanbanSquare className="h-3.5 w-3.5 shrink-0 text-primary" />
                     <span className="flex-1 truncate">{p.name}</span>
@@ -479,12 +479,12 @@ export function ConversationContextMenu({
         <>
           <button
             onClick={() => setView('root')}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-50 dark:text-zinc-500 dark:hover:bg-zinc-800/60"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-400 transition-colors hover:bg-zinc-50 dark:text-zinc-500 dark:hover:bg-white/10"
           >
             <ArrowLeft className="h-3 w-3" />
             {view === 'conversation' ? 'Tags da conversa' : 'Tags do contato'}
           </button>
-          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-zinc-800" />
+          <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
           <div
             className="overflow-y-auto scrollbar-thin"
             style={{ maxHeight: MENU_MAX_HEIGHT - 80 }}
@@ -512,7 +512,7 @@ export function ConversationContextMenu({
                     key={tag.id}
                     onClick={() => toggleTag(tag, view)}
                     disabled={isPending}
-                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-white/10"
                   >
                     <span
                       className="h-3 w-3 shrink-0 rounded-full"

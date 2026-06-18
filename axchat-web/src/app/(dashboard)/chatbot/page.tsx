@@ -82,13 +82,13 @@ export default function ChatbotPage() {
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               placeholder="Ex: Atendimento Inicial"
-              className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
               autoFocus
             />
             <button onClick={handleCreate} disabled={creating} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
               Criar
             </button>
-            <button onClick={() => { setShowCreate(false); setNewName(''); }} className="rounded-md px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+            <button onClick={() => { setShowCreate(false); setNewName(''); }} className="rounded-md px-3 py-2 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10">
               Cancelar
             </button>
           </div>
@@ -98,13 +98,13 @@ export default function ChatbotPage() {
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {isLoading ? (
           Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="h-36 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" />
+            <div key={i} className="h-36 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-black" />
           ))
         ) : flows && flows.length > 0 ? (
           flows.map((flow) => (
             <div
               key={flow.id}
-              className="group relative rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+              className="group relative rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:bg-black"
             >
               <div className="flex items-start justify-between">
                 <button
@@ -122,7 +122,7 @@ export default function ChatbotPage() {
                     {flow.channels?.length > 0 && (
                       <div className="mt-1.5 flex gap-1">
                         {flow.channels.map((c) => (
-                          <span key={c.channelId} className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-800">
+                          <span key={c.channelId} className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:bg-black">
                             {c.channel.name}
                           </span>
                         ))}
@@ -131,15 +131,15 @@ export default function ChatbotPage() {
                   </div>
                 </button>
                 <div className="flex items-center gap-1">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${flow.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800'}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${flow.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-zinc-100 text-zinc-500 dark:bg-black'}`}>
                     {flow.isActive ? 'Ativo' : 'Inativo'}
                   </span>
                 </div>
               </div>
-              <div className="mt-3 flex gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+              <div className="mt-3 flex gap-2 border-t border-zinc-100 pt-3 dark:border-white/10">
                 <button
                   onClick={() => handleToggle(flow)}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
                 >
                   {flow.isActive ? <PowerOff className="h-3 w-3" /> : <Power className="h-3 w-3" />}
                   {flow.isActive ? 'Desativar' : 'Ativar'}
@@ -154,7 +154,7 @@ export default function ChatbotPage() {
             </div>
           ))
         ) : (
-          <div className="col-span-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 py-16 dark:border-zinc-800">
+          <div className="col-span-full flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 py-16 dark:border-white/10">
             <Bot className="h-10 w-10 text-zinc-300 dark:text-zinc-600" />
             <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">Nenhum fluxo criado</p>
             <p className="mt-1 text-xs text-zinc-400">Crie seu primeiro chatbot para automatizar o atendimento</p>

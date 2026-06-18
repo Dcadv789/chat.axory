@@ -34,12 +34,12 @@ function AgentNodeBase({ data }: { data: AgentNodeData }) {
       />
       <button
         onClick={() => onClick(agent)}
-        className={`group w-[320px] rounded-xl border bg-white p-4 text-left shadow-sm transition-shadow hover:shadow-md dark:bg-zinc-900 ${
+        className={`group w-[320px] rounded-xl border bg-white p-4 text-left shadow-sm transition-shadow hover:shadow-md dark:bg-black ${
           isOrchestrator
             ? 'border-primary/40 ring-1 ring-primary/10 dark:border-primary/30'
             : dept
-              ? `border-zinc-200 ring-1 ${dept.ring} dark:border-zinc-800`
-              : 'border-zinc-200 dark:border-zinc-800'
+              ? `border-zinc-200 ring-1 ${dept.ring} dark:border-white/10`
+              : 'border-zinc-200 dark:border-white/10'
         }`}
       >
         <div className="flex items-start justify-between gap-2">
@@ -64,7 +64,7 @@ function AgentNodeBase({ data }: { data: AgentNodeData }) {
                   className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase ${
                     isOrchestrator
                       ? 'bg-primary/10 text-primary'
-                      : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                      : 'bg-zinc-100 text-zinc-500 dark:bg-black dark:text-zinc-400'
                   }`}
                 >
                   {isOrchestrator ? 'Orquestrador' : 'Worker'}
@@ -88,7 +88,7 @@ function AgentNodeBase({ data }: { data: AgentNodeData }) {
             className={`inline-flex flex-shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
               agent.isActive
                 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800'
+                : 'bg-zinc-100 text-zinc-500 dark:bg-black'
             }`}
           >
             {agent.isActive ? (
@@ -110,14 +110,14 @@ function AgentNodeBase({ data }: { data: AgentNodeData }) {
                 className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
                   dept
                     ? `${dept.bg} ${dept.text}`
-                    : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                    : 'bg-zinc-100 text-zinc-600 dark:bg-black dark:text-zinc-400'
                 }`}
               >
                 {agent.department}
               </span>
             )}
             {agent.squad && (
-              <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+              <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-black dark:text-zinc-400">
                 ⚡ {agent.squad}
               </span>
             )}
@@ -129,7 +129,7 @@ function AgentNodeBase({ data }: { data: AgentNodeData }) {
             {agent.channels.map((c) => (
               <span
                 key={c.id}
-                className="inline-flex items-center gap-0.5 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                className="inline-flex items-center gap-0.5 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-700 dark:bg-black dark:text-zinc-300"
               >
                 {c.channel.name}
                 <span className="text-zinc-400">· {c.mode.toLowerCase()}</span>

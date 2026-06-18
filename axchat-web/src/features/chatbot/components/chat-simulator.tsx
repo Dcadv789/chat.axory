@@ -129,7 +129,7 @@ export function ChatSimulator({ nodes, edges, onClose }: ChatSimulatorProps) {
   };
 
   return (
-    <div className="absolute bottom-4 right-4 z-20 flex h-[480px] w-[340px] flex-col rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="absolute bottom-4 right-4 z-20 flex h-[480px] w-[340px] flex-col rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-black">
       <div className="flex items-center justify-between rounded-t-2xl bg-primary px-4 py-3">
         <span className="text-sm font-semibold text-primary-foreground">Simulador do Bot</span>
         <div className="flex gap-1">
@@ -144,7 +144,7 @@ export function ChatSimulator({ nodes, edges, onClose }: ChatSimulatorProps) {
             <div className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-xs ${
               msg.from === 'user'
                 ? 'rounded-br-md bg-primary text-primary-foreground'
-                : 'rounded-bl-md bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200'
+                : 'rounded-bl-md bg-zinc-100 text-zinc-800 dark:bg-black dark:text-zinc-200'
             }`}>
               {msg.text}
             </div>
@@ -156,7 +156,7 @@ export function ChatSimulator({ nodes, edges, onClose }: ChatSimulatorProps) {
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-zinc-200 p-2 dark:border-zinc-800">
+      <div className="border-t border-zinc-200 p-2 dark:border-white/10">
         <div className="flex gap-2">
           <input
             value={input}
@@ -164,7 +164,7 @@ export function ChatSimulator({ nodes, edges, onClose }: ChatSimulatorProps) {
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             disabled={!waitingForInput || ended}
             placeholder={ended ? 'Fluxo encerrado' : waitingForInput ? 'Digite...' : 'Aguarde o bot...'}
-            className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800"
+            className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 dark:border-white/10 dark:bg-black"
           />
           <button
             onClick={handleSend}

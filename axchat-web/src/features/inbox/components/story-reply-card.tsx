@@ -26,7 +26,7 @@ export function StoryReplyCard({
   const frame = `mb-1 overflow-hidden rounded-xl border ${
     isOutbound
       ? 'border-primary/40 bg-primary/10'
-      : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/60'
+      : 'border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-black'
   }`;
   const labelColor = isOutbound
     ? 'text-primary-foreground/80'

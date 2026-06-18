@@ -54,7 +54,7 @@ export function JarvisAgentTab() {
   if (agents.length === 0) {
     return (
       <div className="p-6">
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 py-16 dark:border-zinc-800">
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 py-16 dark:border-white/10">
           <Bot className="h-10 w-10 text-zinc-300 dark:text-zinc-600" />
           <p className="mt-3 text-sm font-medium text-zinc-600">
             Nenhum agente cadastrado ainda
@@ -74,7 +74,7 @@ export function JarvisAgentTab() {
           <select
             value={agentId}
             onChange={(e) => setAgentId(e.target.value)}
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium dark:border-white/10 dark:bg-black"
           >
             {agents.map((a) => (
               <option key={a.id} value={a.id}>
@@ -111,7 +111,7 @@ export function JarvisAgentTab() {
             stats ? `${fmtNum(stats.tokens.cacheRead)} cache hits` : undefined
           }
           icon={Cpu}
-          accent="#2563eb"
+          accent="#0047FF"
         />
         <KpiCard
           label="Runs"
@@ -153,7 +153,7 @@ export function JarvisAgentTab() {
 
       {/* Handoffs */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
           <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
             <ArrowRightLeft className="h-3 w-3" /> Handoffs enviados
           </p>
@@ -166,7 +166,7 @@ export function JarvisAgentTab() {
               : 'Vezes que devolveu pro orquestrador ou outro worker'}
           </p>
         </div>
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
           <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
             <ArrowRightLeft className="h-3 w-3 rotate-180" /> Handoffs recebidos
           </p>
@@ -180,7 +180,7 @@ export function JarvisAgentTab() {
       </div>
 
       {/* Final actions */}
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
           Distribuição das runs
         </p>
@@ -188,7 +188,7 @@ export function JarvisAgentTab() {
           {Object.entries(stats?.byFinalAction ?? {}).map(([action, count]) => (
             <div
               key={action}
-              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/50"
+              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-black"
             >
               <p className="text-[10px] uppercase text-zinc-500">{action}</p>
               <p className="text-base font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
@@ -218,7 +218,7 @@ export function JarvisAgentTab() {
           Execuções recentes
         </h3>
         {runsLoading ? (
-          <div className="h-40 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+          <div className="h-40 animate-pulse rounded-xl bg-zinc-100 dark:bg-black" />
         ) : (
           <RunsTable
             runs={runs ?? []}

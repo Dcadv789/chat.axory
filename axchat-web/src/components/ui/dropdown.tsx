@@ -31,7 +31,7 @@ export function DropdownMenu({
       anchor={anchor}
       transition
       className={cn(
-        'z-50 min-w-[var(--button-width)] rounded-lg border border-zinc-950/5 bg-white p-1 shadow-lg focus:outline-none dark:border-white/10 dark:bg-zinc-900',
+        'z-50 min-w-[var(--button-width)] rounded-lg border border-zinc-950/5 bg-white p-1 shadow-lg focus:outline-none dark:border-white/10 dark:bg-black',
         'transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0',
         '[--anchor-gap:0.25rem]',
         className,

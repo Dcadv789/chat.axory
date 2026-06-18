@@ -25,9 +25,9 @@ import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/
 import { EditChannelDialog } from './edit-channel-dialog';
 
 const channelTypeMap: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  WHATSAPP_ZAPPFY: { label: 'WhatsApp (Zappfy)', icon: ZappfyIcon, color: 'bg-zinc-50 dark:bg-zinc-800' },
-  WHATSAPP_OFFICIAL: { label: 'WhatsApp Official', icon: MetaIcon, color: 'bg-zinc-50 dark:bg-zinc-800' },
-  INSTAGRAM: { label: 'Instagram', icon: InstagramIcon, color: 'bg-zinc-50 dark:bg-zinc-800' },
+  WHATSAPP_ZAPPFY: { label: 'WhatsApp (Zappfy)', icon: ZappfyIcon, color: 'bg-zinc-50 dark:bg-black' },
+  WHATSAPP_OFFICIAL: { label: 'WhatsApp Official', icon: MetaIcon, color: 'bg-zinc-50 dark:bg-black' },
+  INSTAGRAM: { label: 'Instagram', icon: InstagramIcon, color: 'bg-zinc-50 dark:bg-black' },
   TELEGRAM: { label: 'Telegram', icon: TelegramIcon, color: 'bg-sky-50 dark:bg-sky-950/40' },
 };
 
@@ -139,8 +139,8 @@ export function ChannelCard({ channel, onUpdate }: ChannelCardProps) {
       : 0;
 
   return (
-    <div className="relative flex items-start gap-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
-      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-zinc-200/60 dark:border-zinc-700/60 ${meta.color}`}>
+    <div className="relative flex items-start gap-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:bg-black">
+      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-zinc-200/60 dark:border-white/10 ${meta.color}`}>
         <Icon className="h-7 w-7" />
       </div>
       <div className="min-w-0 flex-1">
@@ -152,7 +152,7 @@ export function ChannelCard({ channel, onUpdate }: ChannelCardProps) {
             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
               channel.isActive
                 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+                : 'bg-zinc-100 text-zinc-500 dark:bg-black dark:text-zinc-400'
             }`}
           >
             {channel.isActive ? 'Ativo' : 'Inativo'}
@@ -190,7 +190,7 @@ export function ChannelCard({ channel, onUpdate }: ChannelCardProps) {
                     Cancelar
                   </button>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-black">
                   <div
                     className="h-full bg-pink-500 transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
@@ -223,7 +223,7 @@ export function ChannelCard({ channel, onUpdate }: ChannelCardProps) {
           <button
             onClick={handleTest}
             disabled={isTesting}
-            className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-50 dark:bg-black dark:text-zinc-300 dark:hover:bg-white/10"
           >
             {isTesting ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -236,7 +236,7 @@ export function ChannelCard({ channel, onUpdate }: ChannelCardProps) {
             <button
               onClick={handleSync}
               disabled={isSyncRunning || sync.loading}
-              className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-50 dark:bg-black dark:text-zinc-300 dark:hover:bg-white/10"
             >
               {sync.loading || isSyncRunning ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -248,7 +248,7 @@ export function ChannelCard({ channel, onUpdate }: ChannelCardProps) {
           )}
           <button
             onClick={handleToggle}
-            className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 dark:bg-black dark:text-zinc-300 dark:hover:bg-white/10"
           >
             {channel.isActive ? (
               <PowerOff className="h-3 w-3" />
@@ -262,24 +262,24 @@ export function ChannelCard({ channel, onUpdate }: ChannelCardProps) {
       <div className="relative">
         <button
           onClick={() => setShowMenu(!showMenu)}
-          className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+          className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300"
         >
           <MoreVertical className="h-4 w-4" />
         </button>
         {showMenu && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-            <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+            <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-black">
               <button
                 onClick={() => { setEditing(true); setShowMenu(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-white/10"
               >
                 <Pencil className="h-4 w-4" />
                 Editar credenciais
               </button>
               <button
                 onClick={() => { handleToggleVisibility(); setShowMenu(false); }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-white/10"
               >
                 {channel.visibility === 'PRIVATE' ? (
                   <>

@@ -102,9 +102,9 @@ export function RenameConversationDialog({ conversation, open, onClose }: Props)
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="w-full max-w-md overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-black"
       >
-        <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-white/10">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             Renomear
           </h2>
@@ -113,7 +113,7 @@ export function RenameConversationDialog({ conversation, open, onClose }: Props)
             onClick={onClose}
             disabled={saving}
             aria-label="Fechar"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50 dark:hover:bg-white/10 dark:hover:text-zinc-200"
           >
             <X className="h-4 w-4" />
           </button>
@@ -134,7 +134,7 @@ export function RenameConversationDialog({ conversation, open, onClose }: Props)
               onChange={(e) => setContactName(e.target.value)}
               disabled={saving}
               placeholder={conversation.contact?.phone ?? 'Sem nome'}
-              className="mt-1.5 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="mt-1.5 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 dark:border-white/10 dark:bg-black dark:text-zinc-100"
               autoFocus
             />
           </div>
@@ -154,17 +154,17 @@ export function RenameConversationDialog({ conversation, open, onClose }: Props)
               disabled={saving}
               placeholder="ex: liberou ontem, aguardando feedback"
               maxLength={120}
-              className="mt-1.5 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              className="mt-1.5 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-zinc-100 bg-zinc-50/50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <div className="flex items-center justify-end gap-2 border-t border-zinc-100 bg-zinc-50/50 px-4 py-3 dark:border-white/10 dark:bg-black">
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             Cancelar
           </button>

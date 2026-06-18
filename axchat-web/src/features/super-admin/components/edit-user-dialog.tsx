@@ -150,8 +150,8 @@ export function EditUserDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-50 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
+      <div className="relative z-50 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-black">
+        <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-white/10">
           <div>
             <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Editar usuario</h2>
             <p className="mt-0.5 text-xs text-zinc-500">
@@ -195,7 +195,7 @@ export function EditUserDialog({
             </p>
 
             {memberships.length === 0 ? (
-              <p className="mt-3 rounded-md border border-dashed border-zinc-200 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-700">
+              <p className="mt-3 rounded-md border border-dashed border-zinc-200 px-3 py-4 text-center text-sm text-zinc-500 dark:border-white/10">
                 Nenhuma empresa vinculada
               </p>
             ) : (
@@ -203,7 +203,7 @@ export function EditUserDialog({
                 {memberships.map((membership) => (
                   <div
                     key={membership.id ?? `${user.id}:${membership.organization.id}`}
-                    className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-700"
+                    className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 dark:border-white/10"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -216,7 +216,7 @@ export function EditUserDialog({
                     <select
                       value={membership.role}
                       onChange={(event) => updateMembershipRole(membership, event.target.value)}
-                      className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800"
+                      className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black"
                     >
                       {roleOptions.map((role) => (
                         <option key={role} value={role}>
@@ -236,7 +236,7 @@ export function EditUserDialog({
               </div>
             )}
 
-            <div className="mt-4 rounded-lg border border-dashed border-zinc-300 p-3 dark:border-zinc-700">
+            <div className="mt-4 rounded-lg border border-dashed border-zinc-300 p-3 dark:border-white/10">
               <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Adicionar empresa</p>
               <div className="mt-2 flex flex-wrap items-end gap-2">
                 <label className="min-w-[220px] flex-1">
@@ -244,7 +244,7 @@ export function EditUserDialog({
                   <select
                     value={newOrgId}
                     onChange={(event) => setNewOrgId(event.target.value)}
-                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black"
                   >
                     <option value="">Selecione...</option>
                     {availableOrganizations.map((org) => (
@@ -259,7 +259,7 @@ export function EditUserDialog({
                   <select
                     value={newRole}
                     onChange={(event) => setNewRole(event.target.value)}
-                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black"
                   >
                     {roleOptions.map((role) => (
                       <option key={role} value={role}>
@@ -284,10 +284,10 @@ export function EditUserDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-zinc-100 px-6 py-4 dark:border-zinc-800">
+        <div className="flex justify-end gap-2 border-t border-zinc-100 px-6 py-4 dark:border-white/10">
           <button
             onClick={onClose}
-            className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             Cancelar
           </button>
@@ -328,7 +328,7 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
       />
     </label>
   );

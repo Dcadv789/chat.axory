@@ -39,7 +39,7 @@ const STATUS_META: Record<
   },
   SKIPPED: {
     label: 'Pulado',
-    cls: 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+    cls: 'bg-zinc-100 text-zinc-600 dark:bg-black dark:text-zinc-400',
     Icon: CircleSlash,
   },
 };
@@ -107,21 +107,21 @@ export function AutomationRunsPanel({
         onClick={onClose}
         aria-label="Fechar"
       />
-      <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-xl dark:bg-zinc-900">
-        <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+      <div className="flex h-full w-full max-w-xl flex-col bg-white shadow-xl dark:bg-black">
+        <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-5 py-4 dark:border-white/10 dark:bg-black">
           <div>
             <h2 className="text-base font-semibold">Logs de execução</h2>
             <p className="text-xs text-zinc-500">{automation.name}</p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
           >
             <X className="h-5 w-5" />
           </button>
         </header>
 
-        <div className="border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
+        <div className="border-b border-zinc-200 px-5 py-3 dark:border-white/10">
           <div className="flex flex-wrap gap-1">
             {(['ALL', 'SUCCESS', 'PARTIAL', 'FAILED', 'SKIPPED'] as const).map(
               (s) => (
@@ -131,7 +131,7 @@ export function AutomationRunsPanel({
                   className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                     statusFilter === s
                       ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-black dark:text-zinc-400'
                   }`}
                 >
                   {s === 'ALL' ? 'Todos' : STATUS_META[s].label}
@@ -194,7 +194,7 @@ function RunRow({
   return (
     <li>
       <button
-        className="flex w-full items-start gap-3 px-5 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-950/40"
+        className="flex w-full items-start gap-3 px-5 py-3 text-left hover:bg-zinc-50 dark:hover:bg-white/10"
         onClick={onToggle}
       >
         <span
@@ -226,13 +226,13 @@ function RunRow({
         </div>
       </button>
       {expanded && (
-        <div className="bg-zinc-50 px-5 py-3 dark:bg-zinc-950/40">
+        <div className="bg-zinc-50 px-5 py-3 dark:bg-black">
           {run.actionsLog.length > 0 ? (
             <ol className="space-y-2 text-xs">
               {run.actionsLog.map((entry, i) => (
                 <li
                   key={i}
-                  className="rounded border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900"
+                  className="rounded border border-zinc-200 bg-white p-2 dark:border-white/10 dark:bg-black"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">
@@ -243,7 +243,7 @@ function RunRow({
                         entry.status === 'success'
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
                           : entry.status === 'skipped'
-                            ? 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+                            ? 'bg-zinc-100 text-zinc-600 dark:bg-black dark:text-zinc-400'
                             : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
                       }`}
                     >
@@ -273,7 +273,7 @@ function RunRow({
             <summary className="cursor-pointer text-zinc-500">
               Ver payload do gatilho
             </summary>
-            <pre className="mt-2 overflow-x-auto rounded bg-white p-2 text-[10px] dark:bg-zinc-900">
+            <pre className="mt-2 overflow-x-auto rounded bg-white p-2 text-[10px] dark:bg-black">
               {JSON.stringify(run.triggerPayload, null, 2)}
             </pre>
           </details>

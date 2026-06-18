@@ -27,7 +27,7 @@ const OPTIONS: Array<{
     hint: 'Segue config geral, horário e canal',
     icon: Bot,
     badgeCls:
-      'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700',
+      'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-black dark:text-zinc-300 dark:hover:bg-white/10',
     iconCls: 'text-zinc-500',
   },
   {
@@ -92,9 +92,9 @@ export function ConversationAiToggle({
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full z-30 mt-1 w-80 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          className="absolute right-0 top-full z-30 mt-1 w-80 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-white/10 dark:bg-black"
         >
-          <div className="border-b border-zinc-100 px-3 py-2 dark:border-zinc-800">
+          <div className="border-b border-zinc-100 px-3 py-2 dark:border-white/10">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
               IA nesta conversa
             </p>
@@ -110,8 +110,8 @@ export function ConversationAiToggle({
                   onChange(opt.value);
                 }}
                 disabled={disabled}
-                className={`flex w-full items-start gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
-                  isActive ? 'bg-zinc-50 dark:bg-zinc-800' : ''
+                className={`flex w-full items-start gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-zinc-50 dark:hover:bg-white/10 ${
+                  isActive ? 'bg-zinc-50 dark:bg-black' : ''
                 }`}
               >
                 <OptIcon className={`mt-0.5 h-4 w-4 shrink-0 ${opt.iconCls}`} />
@@ -130,7 +130,7 @@ export function ConversationAiToggle({
             );
           })}
 
-          <div className="border-t border-zinc-200 dark:border-zinc-700" />
+          <div className="border-t border-zinc-200 dark:border-white/10" />
           <button
             onClick={() => {
               setOpen(false);

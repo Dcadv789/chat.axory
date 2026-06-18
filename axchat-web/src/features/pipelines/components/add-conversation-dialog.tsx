@@ -96,8 +96,8 @@ export function AddConversationDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-xl bg-white shadow-xl dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+      <div className="flex h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-xl bg-white shadow-xl dark:bg-black">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/10">
           <div>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
               Adicionar conversa ao pipeline
@@ -108,13 +108,13 @@ export function AddConversationDialog({
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="border-b border-zinc-200 px-6 py-3 dark:border-zinc-800">
+        <div className="border-b border-zinc-200 px-6 py-3 dark:border-white/10">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
             <input
@@ -122,7 +122,7 @@ export function AddConversationDialog({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome ou telefone…"
-              className="w-full rounded-md border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-full rounded-md border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
         </div>
@@ -147,10 +147,10 @@ export function AddConversationDialog({
                 className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors ${
                   picked
                     ? 'bg-primary/10 dark:bg-primary/20'
-                    : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
+                    : 'hover:bg-zinc-50 dark:hover:bg-white/10'
                 }`}
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-500 dark:bg-zinc-800">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-500 dark:bg-black">
                   {(c.contact.name || c.contact.phone || '??')
                     .slice(0, 2)
                     .toUpperCase()}
@@ -179,7 +179,7 @@ export function AddConversationDialog({
           })}
         </div>
 
-        <div className="border-t border-zinc-200 px-6 py-3 dark:border-zinc-800">
+        <div className="border-t border-zinc-200 px-6 py-3 dark:border-white/10">
           <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
             Valor estimado (R$) — opcional
           </label>
@@ -188,14 +188,14 @@ export function AddConversationDialog({
             onChange={(e) => setValue(e.target.value)}
             placeholder="ex: 4500"
             inputMode="decimal"
-            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-white/10 dark:bg-black">
           <button
             onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             Cancelar
           </button>

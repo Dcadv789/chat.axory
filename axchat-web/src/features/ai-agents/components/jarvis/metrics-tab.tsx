@@ -43,15 +43,7 @@ export function JarvisMetricsTab() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Métricas Gerais
-          </h2>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            Resultado do atendimento com IA no período selecionado.
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <PeriodSelector value={period} onChange={setPeriod} />
       </div>
 
@@ -94,7 +86,7 @@ export function JarvisMetricsTab() {
               : undefined
           }
           icon={Clock}
-          accent="#2563eb"
+          accent="#0047FF"
         />
       </div>
 
@@ -152,7 +144,7 @@ export function JarvisMetricsTab() {
           empty="Sem conversas no período."
         />
 
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
@@ -176,7 +168,7 @@ export function JarvisMetricsTab() {
             </span>
           </div>
 
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-black">
             <div
               className={`h-full rounded-full ${planBarClass(planPercent)}`}
               style={{ width: `${Math.min(planPercent ?? 0, 100)}%` }}

@@ -16,7 +16,7 @@ import { useOrgId } from '@/hooks/use-org-query-key';
 import { Heatmap } from '@/features/dashboard/components/Heatmap';
 import { AgentList } from '@/features/dashboard/components/AgentList';
 
-const CHANNEL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+const CHANNEL_COLORS = ['#10b981', '#0047FF', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
 
 type TrendDirection = 'higher-is-better' | 'lower-is-better';
 
@@ -54,7 +54,7 @@ function HeroKpi({
 }) {
   const gradientId = `grad-${label.replace(/\s+/g, '-')}`;
   return (
-    <div className="relative flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="relative flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">{label}</span>
         <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: `${accent}1a`, color: accent }}>
@@ -110,7 +110,7 @@ function HeroKpi({
 }
 
 function HeroSkeleton() {
-  return <div className="h-44 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900" />;
+  return <div className="h-44 animate-pulse rounded-xl border border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-black" />;
 }
 
 function ChartCard({
@@ -123,7 +123,7 @@ function ChartCard({
   subtitle?: string;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
@@ -191,13 +191,17 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto w-full max-w-6xl p-6">
-      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Dashboard</h1>
-      <p className="mt-1 text-sm text-zinc-500">Últimos 30 dias</p>
+    <div className="flex h-full flex-col">
+      <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
+        <h1 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Dashboard</h1>
+        <p className="text-xs text-zinc-500">Últimos 30 dias</p>
+      </header>
+
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="w-full min-w-0">
 
       {/* HERO KPIs */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {loadingOverview || !overview ? (
           <>
             <HeroSkeleton /><HeroSkeleton /><HeroSkeleton /><HeroSkeleton />
@@ -208,7 +212,7 @@ export default function DashboardPage() {
               label="Conversas ativas"
               value={overview.activeConversations}
               icon={Activity}
-              accent="#3b82f6"
+              accent="#0047FF"
               sparkline={sparklines?.active}
               footer={
                 <span>
@@ -321,7 +325,7 @@ export default function DashboardPage() {
               <YAxis tick={{ fontSize: 10 }} />
               <Tooltip contentStyle={tooltipStyle} labelFormatter={(d) => (typeof d === 'string' ? d : '')} />
               <Legend wrapperStyle={{ fontSize: 11 }} iconSize={8} />
-              <Line type="monotone" dataKey="created" name="Criadas" stroke="#3b82f6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="created" name="Criadas" stroke="#0047FF" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="closed" name="Fechadas" stroke="#10b981" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -334,9 +338,9 @@ export default function DashboardPage() {
           height=""
         >
           {peakHours ? (
-            <Heatmap matrix={peakHours.matrix} max={peakHours.max} accent="#3b82f6" />
+            <Heatmap matrix={peakHours.matrix} max={peakHours.max} accent="#0047FF" />
           ) : (
-            <div className="h-48 animate-pulse rounded bg-zinc-50 dark:bg-zinc-800" />
+            <div className="h-48 animate-pulse rounded bg-zinc-50 dark:bg-black" />
           )}
         </ChartCard>
       </div>
@@ -387,22 +391,22 @@ export default function DashboardPage() {
       {/* ROW 3 — bot + tags */}
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <ChartCard title="Performance do bot" icon={Bot} subtitle="Resolvidas pelo bot vs encaminhadas" height="">
-          {botPerf ? <BotPerformancePanel data={botPerf} /> : <div className="h-32 animate-pulse rounded bg-zinc-50 dark:bg-zinc-800" />}
+          {botPerf ? <BotPerformancePanel data={botPerf} /> : <div className="h-32 animate-pulse rounded bg-zinc-50 dark:bg-black" />}
         </ChartCard>
 
         <ChartCard title="Top motivos" icon={TagIcon} subtitle="Tags mais frequentes" height="">
-          {topTags ? <TopTagsPanel tags={topTags} /> : <div className="h-32 animate-pulse rounded bg-zinc-50 dark:bg-zinc-800" />}
+          {topTags ? <TopTagsPanel tags={topTags} /> : <div className="h-32 animate-pulse rounded bg-zinc-50 dark:bg-black" />}
         </ChartCard>
       </div>
 
       {/* ROW 4 — CSAT + reaberturas */}
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <ChartCard title="CSAT detalhado" icon={Star} subtitle="Distribuição + comentários recentes" height="">
-          {csat ? <CsatPanel data={csat} /> : <div className="h-32 animate-pulse rounded bg-zinc-50 dark:bg-zinc-800" />}
+          {csat ? <CsatPanel data={csat} /> : <div className="h-32 animate-pulse rounded bg-zinc-50 dark:bg-black" />}
         </ChartCard>
 
         <ChartCard title="Reaberturas" icon={RotateCcw} subtitle="Conversas que voltaram após fechamento" height="">
-          {reopens ? <ReopensPanel data={reopens} /> : <div className="h-32 animate-pulse rounded bg-zinc-50 dark:bg-zinc-800" />}
+          {reopens ? <ReopensPanel data={reopens} /> : <div className="h-32 animate-pulse rounded bg-zinc-50 dark:bg-black" />}
         </ChartCard>
       </div>
 
@@ -411,6 +415,7 @@ export default function DashboardPage() {
         <ChartCard title="Performance dos agentes" subtitle="Carga atual + métricas no período" height="">
           <AgentList agents={agents || []} />
         </ChartCard>
+      </div>
       </div>
       </div>
     </div>
@@ -423,7 +428,7 @@ function BotPerformancePanel({ data }: { data: NonNullable<Awaited<ReturnType<ty
   }
 
   const segments = [
-    { label: 'Bot resolveu', value: data.botResolved, color: '#3b82f6' },
+    { label: 'Bot resolveu', value: data.botResolved, color: '#0047FF' },
     { label: 'Encaminhada', value: data.humanHandled, color: '#8b5cf6' },
     { label: 'Em andamento', value: data.inFlight, color: '#71717a' },
   ];
@@ -434,7 +439,7 @@ function BotPerformancePanel({ data }: { data: NonNullable<Awaited<ReturnType<ty
         <Stat
           label="Resolução pelo bot"
           value={data.botResolutionRate !== null ? `${data.botResolutionRate}%` : '—'}
-          accent="#3b82f6"
+          accent="#0047FF"
           hint={`${data.botResolved} conversa${data.botResolved === 1 ? '' : 's'}`}
         />
         <Stat
@@ -446,7 +451,7 @@ function BotPerformancePanel({ data }: { data: NonNullable<Awaited<ReturnType<ty
       </div>
 
       <div>
-        <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+        <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-black">
           {segments.map((s) => (
             <div
               key={s.label}
@@ -470,7 +475,7 @@ function BotPerformancePanel({ data }: { data: NonNullable<Awaited<ReturnType<ty
 
 function Stat({ label, value, accent, hint }: { label: string; value: string; accent: string; hint?: string }) {
   return (
-    <div className="rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800/60">
+    <div className="rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-black">
       <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">{label}</p>
       <p className="mt-1 text-xl font-bold tabular-nums" style={{ color: accent }}>{value}</p>
       {hint && <p className="text-[10px] text-zinc-400">{hint}</p>}
@@ -488,7 +493,7 @@ function CsatPanel({ data }: { data: NonNullable<Awaited<ReturnType<typeof dashb
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
         <Stat label="Score médio" value={data.avgScore !== null ? `${data.avgScore}/5` : '—'} accent="#eab308" />
-        <Stat label="Respostas" value={String(data.totalResponses)} accent="#3b82f6" hint={`de ${data.totalRequested} pedidas`} />
+        <Stat label="Respostas" value={String(data.totalResponses)} accent="#0047FF" hint={`de ${data.totalRequested} pedidas`} />
         <Stat
           label="Taxa de resposta"
           value={data.responseRate !== null ? `${data.responseRate}%` : '—'}
@@ -503,7 +508,7 @@ function CsatPanel({ data }: { data: NonNullable<Awaited<ReturnType<typeof dashb
             <div key={s} className="flex items-center gap-2 text-xs">
               <span className="w-3 text-right tabular-nums text-zinc-500">{s}</span>
               <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-              <div className="relative h-3 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+              <div className="relative h-3 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-black">
                 <div
                   className="h-full rounded"
                   style={{
@@ -520,10 +525,10 @@ function CsatPanel({ data }: { data: NonNullable<Awaited<ReturnType<typeof dashb
       </div>
 
       {data.recentComments.length > 0 && (
-        <div className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+        <div className="space-y-2 border-t border-zinc-200 pt-3 dark:border-white/10">
           <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">Comentários recentes</p>
           {data.recentComments.map((c) => (
-            <div key={c.id} className="rounded-lg bg-zinc-50 px-3 py-2 dark:bg-zinc-800/60">
+            <div key={c.id} className="rounded-lg bg-zinc-50 px-3 py-2 dark:bg-black">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-zinc-700 dark:text-zinc-200">{c.contactName}</span>
                 <span className="flex items-center gap-0.5 text-[10px] text-zinc-500">
@@ -578,10 +583,10 @@ function ReopensPanel({ data }: { data: NonNullable<Awaited<ReturnType<typeof da
       </div>
 
       {data.worstOffenders.length > 0 && (
-        <div className="space-y-1.5 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+        <div className="space-y-1.5 border-t border-zinc-200 pt-3 dark:border-white/10">
           <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">Mais reabertas</p>
           {data.worstOffenders.map((o) => (
-            <div key={o.conversationId} className="flex items-center justify-between rounded bg-zinc-50 px-3 py-1.5 dark:bg-zinc-800/60">
+            <div key={o.conversationId} className="flex items-center justify-between rounded bg-zinc-50 px-3 py-1.5 dark:bg-black">
               <div className="min-w-0">
                 <p className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">{o.contactName}</p>
                 <p className="text-[10px] text-zinc-400">{o.agentName ?? 'sem responsável'}</p>
@@ -612,7 +617,7 @@ function TopTagsPanel({ tags }: { tags: Array<{ id: string; name: string; color:
             <span className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-300">{t.name}</span>
           </div>
           <div className="flex flex-1 items-center gap-2">
-            <div className="relative h-5 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+            <div className="relative h-5 flex-1 overflow-hidden rounded bg-zinc-100 dark:bg-black">
               <div
                 className="h-full rounded transition-all"
                 style={{ width: `${(t.count / max) * 100}%`, backgroundColor: t.color, opacity: 0.85 }}

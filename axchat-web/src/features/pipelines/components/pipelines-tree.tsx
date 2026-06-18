@@ -95,7 +95,7 @@ export function PipelinesTree() {
       </div>
 
       {expanded && (
-        <div className="ml-5 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-zinc-800">
+        <div className="ml-5 space-y-0.5 border-l border-zinc-200 pl-2 dark:border-white/10">
           <button
             type="button"
             onClick={goRoot}

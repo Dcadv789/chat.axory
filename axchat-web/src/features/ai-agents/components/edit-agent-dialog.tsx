@@ -141,14 +141,14 @@ export function EditAgentDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-black">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/10">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             Editar agente
           </h3>
           <button
             onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10"
           >
             <X className="h-4 w-4" />
           </button>
@@ -163,7 +163,7 @@ export function EditAgentDialog({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
 
@@ -175,7 +175,7 @@ export function EditAgentDialog({
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
 
@@ -186,7 +186,7 @@ export function EditAgentDialog({
             <select
               value={modelId}
               onChange={(e) => setModelId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
             >
               {CURATED_MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -207,7 +207,7 @@ export function EditAgentDialog({
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
               rows={10}
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
 
@@ -237,7 +237,7 @@ export function EditAgentDialog({
               rows={4}
               placeholder="Deixe vazio se hoje não tem nada operacional..."
               maxLength={8000}
-              className="mt-3 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-xs dark:border-amber-900/60 dark:bg-zinc-900 dark:text-zinc-100"
+              className="mt-3 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-xs dark:border-amber-900/60 dark:bg-black dark:text-zinc-100"
             />
             <p className="mt-1 text-right text-[10px] text-amber-700/60 dark:text-amber-300/60">
               {operationalContext.length}/8000
@@ -260,7 +260,7 @@ export function EditAgentDialog({
           </div>
 
           {/* Organograma matricial ágil */}
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
               Organograma
             </p>
@@ -276,7 +276,7 @@ export function EditAgentDialog({
                 <select
                   value={parentAgentId}
                   onChange={(e) => setParentAgentId(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
                 >
                   <option value="">— Raiz / sem chefe (CEO virtual) —</option>
                   {(allAgents ?? [])
@@ -298,7 +298,7 @@ export function EditAgentDialog({
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
                   >
                     <option value="">— Não definido —</option>
                     {DEPARTMENTS.map((d) => (
@@ -317,7 +317,7 @@ export function EditAgentDialog({
                     value={squad}
                     onChange={(e) => setSquad(e.target.value)}
                     placeholder="Ex: Inbound B2C"
-                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
                   />
                 </div>
               </div>
@@ -328,7 +328,7 @@ export function EditAgentDialog({
             <AgentSkillsAndTools agentId={agent.id} />
           )}
 
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                 Canais
@@ -336,7 +336,7 @@ export function EditAgentDialog({
               {!showAddChannel && availableChannels.length > 0 && (
                 <button
                   onClick={() => setShowAddChannel(true)}
-                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-300"
+                  className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:bg-black dark:text-zinc-300"
                 >
                   <Plus className="h-3 w-3" /> Vincular canal
                 </button>
@@ -347,7 +347,7 @@ export function EditAgentDialog({
                 <select
                   value={newChannelId}
                   onChange={(e) => setNewChannelId(e.target.value)}
-                  className="flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
                 >
                   <option value="">Selecione um canal…</option>
                   {availableChannels.map((c) => (
@@ -359,7 +359,7 @@ export function EditAgentDialog({
                 <select
                   value={newChannelMode}
                   onChange={(e) => setNewChannelMode(e.target.value as AgentMode)}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
                 >
                   <option value="AUTONOMOUS">Autônomo</option>
                   <option value="COPILOT">Copiloto</option>
@@ -373,7 +373,7 @@ export function EditAgentDialog({
                 </button>
                 <button
                   onClick={() => setShowAddChannel(false)}
-                  className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -383,7 +383,7 @@ export function EditAgentDialog({
               {(agent.channels ?? []).map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center justify-between rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800"
+                  className="flex items-center justify-between rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-black"
                 >
                   <div className="text-sm">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -410,7 +410,7 @@ export function EditAgentDialog({
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <div className="flex items-center justify-between border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-white/10 dark:bg-black">
           <button
             onClick={handleDelete}
             className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
@@ -420,7 +420,7 @@ export function EditAgentDialog({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
             >
               Fechar
             </button>
@@ -520,7 +520,7 @@ function AgentSkillsAndTools({ agentId }: { agentId: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black">
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
             Skills atribuídas ({skillIds.length})
@@ -550,8 +550,8 @@ function AgentSkillsAndTools({ agentId }: { agentId: string }) {
             return (
               <div
                 key={s.id}
-                className={`flex items-start gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-white dark:hover:bg-zinc-800 ${
-                  checked ? 'bg-white dark:bg-zinc-800' : ''
+                className={`flex items-start gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-white dark:hover:bg-white/10 ${
+                  checked ? 'bg-white dark:bg-black' : ''
                 }`}
               >
                 <input
@@ -580,7 +580,7 @@ function AgentSkillsAndTools({ agentId }: { agentId: string }) {
                         className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
                           requiresApproval
                             ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300'
-                            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-black dark:text-zinc-400'
                         }`}
                         title={
                           requiresApproval

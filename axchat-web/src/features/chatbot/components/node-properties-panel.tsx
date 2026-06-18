@@ -11,7 +11,7 @@ interface NodePropertiesPanelProps {
   onClose: () => void;
 }
 
-const inputCls = 'w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary';
+const inputCls = 'w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary';
 const labelCls = 'block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1';
 
 export function NodePropertiesPanel({ node, onUpdate, onDelete, onClose }: NodePropertiesPanelProps) {
@@ -22,15 +22,15 @@ export function NodePropertiesPanel({ node, onUpdate, onDelete, onClose }: NodeP
   );
 
   return (
-    <div className="w-72 border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <div className="w-72 border-l border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
+      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-white/10">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Propriedades</h3>
         <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600"><X className="h-4 w-4" /></button>
       </div>
 
       <div className="space-y-4 p-4">
         <div>
-          <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-500 dark:bg-zinc-800">
+          <span className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-500 dark:bg-black">
             {node.type}
           </span>
         </div>
@@ -126,7 +126,7 @@ export function NodePropertiesPanel({ node, onUpdate, onDelete, onClose }: NodeP
         )}
 
         {node.type !== 'START' && node.type !== 'END_FLOW' && (
-          <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <div className="border-t border-zinc-200 pt-4 dark:border-white/10">
             <button
               onClick={() => onDelete(node.id)}
               className="flex w-full items-center justify-center gap-2 rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400"

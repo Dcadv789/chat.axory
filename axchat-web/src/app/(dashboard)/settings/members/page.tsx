@@ -11,7 +11,7 @@ import { MemberChannelsDrawer } from '@/features/settings/components/member-chan
 const roleLabels: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   OWNER: { label: 'Proprietário', icon: ShieldCheck, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400' },
   ADMIN: { label: 'Admin', icon: Shield, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400' },
-  AGENT: { label: 'Agente', icon: User, color: 'text-zinc-600 bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-400' },
+  AGENT: { label: 'Agente', icon: User, color: 'text-zinc-600 bg-zinc-100 dark:bg-black dark:text-zinc-400' },
 };
 
 export default function SettingsMembersPage() {
@@ -89,7 +89,7 @@ export default function SettingsMembersPage() {
         </div>
       </div>
 
-      <div className="mt-6 flex items-end gap-3 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-4 dark:border-zinc-700 dark:bg-zinc-900/50">
+      <div className="mt-6 flex items-end gap-3 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-black">
         <div className="flex-1">
           <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Email do membro</label>
           <input
@@ -98,7 +98,7 @@ export default function SettingsMembersPage() {
             onChange={(e) => setInviteEmail(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
             placeholder="email@exemplo.com"
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
           />
         </div>
         <div>
@@ -106,7 +106,7 @@ export default function SettingsMembersPage() {
           <select
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value)}
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
           >
             <option value="AGENT">Agente</option>
             <option value="ADMIN">Admin</option>
@@ -136,17 +136,17 @@ export default function SettingsMembersPage() {
           </button>
           <button
             onClick={() => setInviteLink(null)}
-            className="shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
+            className="shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mt-6 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/50">
+            <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-white/10 dark:bg-black">
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Membro</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Role</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Canais</th>
@@ -157,11 +157,11 @@ export default function SettingsMembersPage() {
           <tbody>
             {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <tr key={i} className="border-b border-zinc-50 dark:border-zinc-800">
+                <tr key={i} className="border-b border-zinc-50 dark:border-white/10">
                   <td className="px-4 py-3"><div className="h-4 w-36 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" /></td>
-                  <td className="px-4 py-3"><div className="h-4 w-20 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" /></td>
-                  <td className="px-4 py-3"><div className="h-4 w-16 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" /></td>
-                  <td className="px-4 py-3"><div className="h-4 w-24 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" /></td>
+                  <td className="px-4 py-3"><div className="h-4 w-20 animate-pulse rounded bg-zinc-100 dark:bg-black" /></td>
+                  <td className="px-4 py-3"><div className="h-4 w-16 animate-pulse rounded bg-zinc-100 dark:bg-black" /></td>
+                  <td className="px-4 py-3"><div className="h-4 w-24 animate-pulse rounded bg-zinc-100 dark:bg-black" /></td>
                   <td className="px-4 py-3" />
                 </tr>
               ))
@@ -177,10 +177,10 @@ export default function SettingsMembersPage() {
                 const roleMeta = roleLabels[m.role] || roleLabels.AGENT;
                 const RoleIcon = roleMeta.icon;
                 return (
-                  <tr key={m.id} className="border-b border-zinc-50 dark:border-zinc-800">
+                  <tr key={m.id} className="border-b border-zinc-50 dark:border-white/10">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-xs font-medium dark:bg-zinc-800">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-xs font-medium dark:bg-black">
                           {m.user.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
@@ -198,7 +198,7 @@ export default function SettingsMembersPage() {
                         <select
                           value={m.role}
                           onChange={(e) => handleChangeRole(m.id, e.target.value)}
-                          className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
                         >
                           <option value="ADMIN">Admin</option>
                           <option value="AGENT">Agente</option>
@@ -212,13 +212,13 @@ export default function SettingsMembersPage() {
                           ganha o botão "Gerenciar" também. AGENT só vê
                           o que tem grant. */}
                       {m.role === 'OWNER' ? (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-500 dark:bg-black dark:text-zinc-400">
                           Acesso total
                         </span>
                       ) : (
                         <button
                           onClick={() => setDrawerMember(m)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-black dark:text-zinc-300 dark:hover:bg-white/10"
                           data-testid="member-channels-btn"
                         >
                           <Hash className="h-3 w-3" /> Gerenciar

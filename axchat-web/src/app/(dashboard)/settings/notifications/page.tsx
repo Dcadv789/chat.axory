@@ -110,7 +110,7 @@ export default function SettingsNotificationsPage() {
         )}
 
         {/* DND */}
-        <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Moon className="h-5 w-5 text-violet-500" />
@@ -134,7 +134,7 @@ export default function SettingsNotificationsPage() {
                   type="time"
                   value={dndStart}
                   onChange={(e) => setDndStart(e.target.value)}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
                 />
               </div>
               <span className="mt-4 text-zinc-400">até</span>
@@ -144,7 +144,7 @@ export default function SettingsNotificationsPage() {
                   type="time"
                   value={dndEnd}
                   onChange={(e) => setDndEnd(e.target.value)}
-                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
                 />
               </div>
             </div>
@@ -152,10 +152,10 @@ export default function SettingsNotificationsPage() {
         </div>
 
         {/* Notification matrix */}
-        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-white/10 dark:bg-black">
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Tipo de notificação</th>
                 <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">
                   <div className="flex flex-col items-center gap-0.5">
@@ -182,7 +182,7 @@ export default function SettingsNotificationsPage() {
                 const Icon = nt.icon;
                 const pref = prefs[nt.type];
                 return (
-                  <tr key={nt.type} className="border-b border-zinc-50 dark:border-zinc-800">
+                  <tr key={nt.type} className="border-b border-zinc-50 dark:border-white/10">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Icon className="h-4 w-4 shrink-0 text-zinc-400" />

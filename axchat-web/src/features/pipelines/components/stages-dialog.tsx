@@ -103,7 +103,7 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+      className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-white p-3 dark:border-white/10 dark:bg-black"
     >
       <button
         {...attributes}
@@ -119,7 +119,7 @@ function SortableRow({
           value={stage.name}
           onChange={(e) => onChange({ name: e.target.value })}
           placeholder="Nome da stage"
-          className="w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          className="w-full rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
         />
 
         <div className="flex flex-wrap items-center gap-2">
@@ -154,7 +154,7 @@ function SortableRow({
                   className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                     active
                       ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-black dark:text-zinc-300'
                   }`}
                   title={t.label}
                 >
@@ -260,8 +260,8 @@ export function StagesDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+      <div className="flex h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-xl dark:bg-black">
+        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/10">
           <div>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
               Configurar stages
@@ -273,7 +273,7 @@ export function StagesDialog({
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10"
           >
             <X className="h-4 w-4" />
           </button>
@@ -311,7 +311,7 @@ export function StagesDialog({
           <button
             type="button"
             onClick={handleAdd}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-500 hover:border-primary hover:text-primary dark:border-zinc-700"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-500 hover:border-primary hover:text-primary dark:border-white/10"
           >
             <Plus className="h-3.5 w-3.5" />
             Adicionar stage
@@ -324,10 +324,10 @@ export function StagesDialog({
           </p>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-white/10 dark:bg-black">
           <button
             onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             Cancelar
           </button>

@@ -93,7 +93,7 @@ export function AgentPinPopover({ conversation, onChanged }: Props) {
       <PopoverPanel
         anchor="bottom end"
         transition
-        className="z-50 mt-1.5 w-72 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-zinc-800 dark:bg-zinc-900 [--anchor-gap:0.25rem]"
+        className="z-50 mt-1.5 w-72 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-white/10 dark:bg-black [--anchor-gap:0.25rem]"
       >
         {({ close }) => (
           <>
@@ -108,7 +108,7 @@ export function AgentPinPopover({ conversation, onChanged }: Props) {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar agente…"
-                  className="w-full rounded-md border border-zinc-200 bg-white py-1 pl-7 pr-2 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="w-full rounded-md border border-zinc-200 bg-white py-1 pl-7 pr-2 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
                 />
               </div>
             </div>
@@ -130,7 +130,7 @@ export function AgentPinPopover({ conversation, onChanged }: Props) {
                     className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors disabled:opacity-50 ${
                       isCurrent
                         ? 'bg-primary/10 dark:bg-primary/20'
-                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60'
+                        : 'hover:bg-zinc-50 dark:hover:bg-white/10'
                     }`}
                   >
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/30">

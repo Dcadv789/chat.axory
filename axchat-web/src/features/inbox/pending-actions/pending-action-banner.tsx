@@ -175,7 +175,7 @@ export function PendingActionBanner({ action, index = 0 }: Props) {
               {toolLabel}
             </span>
             <span
-              className={`inline-flex items-center rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-600 ring-1 ring-inset ring-zinc-200 dark:bg-zinc-900/60 dark:text-zinc-300 dark:ring-zinc-700`}
+              className={`inline-flex items-center rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-600 ring-1 ring-inset ring-zinc-200 dark:bg-black dark:text-zinc-300 dark:ring-zinc-700`}
             >
               Impacto: {action.preview.impact}
             </span>
@@ -301,9 +301,9 @@ function RejectReasonDialog({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="w-full max-w-md overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-black"
       >
-        <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-white/10">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             Rejeitar ação
           </h2>
@@ -312,7 +312,7 @@ function RejectReasonDialog({
             onClick={onCancel}
             disabled={working}
             aria-label="Fechar"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50 dark:hover:bg-white/10 dark:hover:text-zinc-200"
           >
             <X className="h-4 w-4" />
           </button>
@@ -331,17 +331,17 @@ function RejectReasonDialog({
             disabled={working}
             rows={3}
             placeholder="Ex: cliente ainda não pagou, vou conferir o boleto antes."
-            className="w-full resize-none rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            className="w-full resize-none rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-50 dark:border-white/10 dark:bg-black dark:text-zinc-100"
             autoFocus
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-zinc-100 bg-zinc-50/50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <div className="flex items-center justify-end gap-2 border-t border-zinc-100 bg-zinc-50/50 px-4 py-3 dark:border-white/10 dark:bg-black">
           <button
             type="button"
             onClick={onCancel}
             disabled={working}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-md px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             Cancelar
           </button>

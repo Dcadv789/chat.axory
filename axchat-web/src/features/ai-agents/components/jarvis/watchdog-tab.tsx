@@ -39,20 +39,12 @@ export function JarvisWatchdogTab() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Watchdog
-          </h2>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            Monitor de conversas presas — refresh a cada 15s
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <div
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
             enabled
               ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-              : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
+              : 'bg-zinc-100 text-zinc-500 dark:bg-black dark:text-zinc-400'
           }`}
         >
           {enabled ? (
@@ -102,7 +94,7 @@ export function JarvisWatchdogTab() {
       </div>
 
       {/* Configuração */}
-      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
+      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
           Thresholds atuais
         </h3>
@@ -160,13 +152,13 @@ function KpiBox({
 }) {
   const tones: Record<typeof tone, string> = {
     blue: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400',
-    zinc: 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
+    zinc: 'bg-zinc-100 text-zinc-700 dark:bg-black dark:text-zinc-300',
     violet: 'bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400',
     red: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
     emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400',
   };
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
       <div className="flex items-center gap-2">
         <span className={`flex h-7 w-7 items-center justify-center rounded-md ${tones[tone]}`}>
           <Icon className="h-4 w-4" />
@@ -218,9 +210,9 @@ function Section({
           {empty}
         </p>
       ) : (
-        <div className="mt-2 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="mt-2 overflow-hidden rounded-lg border border-zinc-200 dark:border-white/10">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-[11px] uppercase tracking-wide text-zinc-500 dark:bg-zinc-900/50">
+            <thead className="bg-zinc-50 text-[11px] uppercase tracking-wide text-zinc-500 dark:bg-black">
               <tr>
                 <th className="px-3 py-2 text-left">Cliente</th>
                 <th className="px-3 py-2 text-left">Canal</th>
@@ -234,7 +226,7 @@ function Section({
               {list.map((c) => {
                 const ratio = c.stuckAttempts / config.maxAttempts;
                 return (
-                  <tr key={c.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/40">
+                  <tr key={c.id} className="hover:bg-zinc-50 dark:hover:bg-white/10">
                     <td className="px-3 py-2 text-zinc-900 dark:text-zinc-100">
                       {c.contact.name ?? c.contact.phone ?? '—'}
                     </td>
@@ -242,7 +234,7 @@ function Section({
                       {c.channel.name}
                     </td>
                     <td className="px-3 py-2">
-                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-700 dark:bg-black dark:text-zinc-300">
                         {c.status}
                       </span>
                     </td>
@@ -253,7 +245,7 @@ function Section({
                             ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
                             : ratio >= 0.66
                               ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-                              : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+                              : 'bg-zinc-100 text-zinc-700 dark:bg-black dark:text-zinc-300'
                         }`}
                       >
                         {c.stuckAttempts}/{config.maxAttempts}
@@ -267,7 +259,7 @@ function Section({
                     <td className="px-3 py-2 text-right">
                       <Link
                         href={`/inbox?conversationId=${c.id}`}
-                        className="text-xs text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+                        className="text-xs text-primary underline-offset-2 hover:underline"
                       >
                         abrir →
                       </Link>

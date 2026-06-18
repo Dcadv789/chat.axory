@@ -215,8 +215,8 @@ export default function SettingsAiPage() {
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <div className="h-24 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
-        <div className="h-72 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+        <div className="h-24 animate-pulse rounded-xl bg-zinc-100 dark:bg-black" />
+        <div className="h-72 animate-pulse rounded-xl bg-zinc-100 dark:bg-black" />
       </div>
     );
   }
@@ -243,7 +243,7 @@ export default function SettingsAiPage() {
       </div>
 
       {/* Kill switch */}
-      <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <label className="flex cursor-pointer items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -260,7 +260,7 @@ export default function SettingsAiPage() {
       </section>
 
       {/* Chave DeepSeek */}
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <div className="flex items-start gap-3">
           <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="flex-1">
@@ -289,7 +289,7 @@ export default function SettingsAiPage() {
                 value={deepseekKey}
                 onChange={(e) => setDeepseekKey(e.target.value)}
                 placeholder={deepseekKeySet ? '•••••••• (substituir)' : 'sk-...'}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
               />
               {deepseekKeySet ? (
                 <button
@@ -315,7 +315,7 @@ export default function SettingsAiPage() {
       <ChannelAiOverrides />
 
       {/* Auto-disable on human */}
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <label className="flex cursor-pointer items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -331,7 +331,7 @@ export default function SettingsAiPage() {
       </section>
 
       {/* Business hours */}
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -354,7 +354,7 @@ export default function SettingsAiPage() {
               value={aiTimezone}
               onChange={(e) => setAiTimezone(e.target.value)}
               disabled={alwaysOn}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-black dark:text-zinc-100"
             >
               {TIMEZONES.map((tz) => (
                 <option key={tz} value={tz}>
@@ -372,7 +372,7 @@ export default function SettingsAiPage() {
             return (
               <div
                 key={key}
-                className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-100 bg-zinc-50/40 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40"
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-100 bg-zinc-50/40 px-3 py-2 dark:border-white/10 dark:bg-black"
               >
                 <label className="flex w-24 cursor-pointer items-center gap-2">
                   <input
@@ -400,7 +400,7 @@ export default function SettingsAiPage() {
                             updated[i] = [e.target.value, to];
                             updateDay(key, { windows: updated });
                           }}
-                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
                         />
                         <span className="text-xs text-zinc-400">até</span>
                         <input
@@ -411,7 +411,7 @@ export default function SettingsAiPage() {
                             updated[i] = [from, e.target.value];
                             updateDay(key, { windows: updated });
                           }}
-                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
                         />
                         <button
                           onClick={() => removeWindow(key, i)}
@@ -423,7 +423,7 @@ export default function SettingsAiPage() {
                     ))}
                     <button
                       onClick={() => addWindow(key)}
-                      className="inline-flex items-center gap-1 rounded-md border border-dashed border-zinc-300 px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      className="inline-flex items-center gap-1 rounded-md border border-dashed border-zinc-300 px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 dark:border-white/10 dark:hover:bg-white/10"
                     >
                       <Plus className="h-3 w-3" /> Janela
                     </button>
@@ -439,7 +439,7 @@ export default function SettingsAiPage() {
       </section>
 
       {/* Out of hours message */}
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
           Mensagem fora de horário (opcional)
         </p>
@@ -452,12 +452,12 @@ export default function SettingsAiPage() {
           onChange={(e) => setOutOfHoursMessage(e.target.value)}
           rows={2}
           placeholder="Olá! No momento estamos fora do horário de atendimento. Voltamos amanhã às 9h e respondemos sua mensagem por aqui."
-          className="mt-3 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          className="mt-3 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
         />
       </section>
 
       {/* Business notes — vai pro contexto de TODOS os agentes da org */}
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
           Contexto do negócio (visto por todos os agentes)
         </p>
@@ -484,7 +484,7 @@ Política de bônus:
 
 Reembolso:
 - Garantia de 7 dias. Após esse prazo, escalar pra atendimento humano.`}
-          className="mt-3 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          className="mt-3 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed dark:border-white/10 dark:bg-black dark:text-zinc-100"
         />
         <p className="mt-1 text-right text-[10px] text-zinc-400">
           {businessNotes.length} / 4000
@@ -492,7 +492,7 @@ Reembolso:
       </section>
 
       {/* Token cap */}
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
           Limite mensal de tokens
         </p>
@@ -505,12 +505,12 @@ Reembolso:
           value={tokenCap}
           onChange={(e) => setTokenCap(e.target.value)}
           placeholder="ex: 1000000"
-          className="mt-3 w-48 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          className="mt-3 w-48 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
         />
       </section>
 
       {/* URL Whitelist */}
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <div className="flex items-start gap-3">
           <Link2 className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
           <div className="flex-1">
@@ -531,7 +531,7 @@ Reembolso:
               onChange={(e) => setAllowedDomainsText(e.target.value)}
               rows={5}
               placeholder={`bravy.co\ntrivapp.com.br\nalunos.bravy.school`}
-              className="mt-3 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-3 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
             <p className="mt-1 text-[10px] text-zinc-400">
               Um domínio por linha. Cole sem <code>https://</code> ou <code>www.</code> — a gente normaliza.
@@ -555,7 +555,7 @@ Reembolso:
       </p>
 
       {/* Watchdog kill switch */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <label className="flex cursor-pointer items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -571,7 +571,7 @@ Reembolso:
       </section>
 
       {/* Watchdog params */}
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
           Parâmetros
         </p>
@@ -626,7 +626,7 @@ Reembolso:
       </section>
 
       {/* Watchdog business hours */}
-      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -658,7 +658,7 @@ Reembolso:
               return (
                 <div
                   key={key}
-                  className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-100 bg-zinc-50/40 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40"
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-100 bg-zinc-50/40 px-3 py-2 dark:border-white/10 dark:bg-black"
                 >
                   <label className="flex w-24 cursor-pointer items-center gap-2">
                     <input
@@ -686,7 +686,7 @@ Reembolso:
                               updated[i] = [e.target.value, to];
                               updateWatchdogDay(key, { windows: updated });
                             }}
-                            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
                           />
                           <span className="text-xs text-zinc-400">até</span>
                           <input
@@ -697,7 +697,7 @@ Reembolso:
                               updated[i] = [from, e.target.value];
                               updateWatchdogDay(key, { windows: updated });
                             }}
-                            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
                           />
                           <button
                             onClick={() => removeWatchdogWindow(key, i)}
@@ -709,7 +709,7 @@ Reembolso:
                       ))}
                       <button
                         onClick={() => addWatchdogWindow(key)}
-                        className="inline-flex items-center gap-1 rounded-md border border-dashed border-zinc-300 px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                        className="inline-flex items-center gap-1 rounded-md border border-dashed border-zinc-300 px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 dark:border-white/10 dark:hover:bg-white/10"
                       >
                         <Plus className="h-3 w-3" /> Janela
                       </button>
@@ -762,7 +762,7 @@ function NumberField({
             const v = parseInt(e.target.value, 10);
             if (!Number.isNaN(v) && v >= min && v <= max) onChange(v);
           }}
-          className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-black dark:text-zinc-100"
         />
         {suffix ? (
           <span className="text-xs text-zinc-500">{suffix}</span>
@@ -831,7 +831,7 @@ function ChannelAiOverrides() {
   const visible = (channels ?? []).filter((c) => !!c.isActive);
 
   return (
-    <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
       <div className="mb-3">
         <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
           IA por canal
@@ -843,7 +843,7 @@ function ChannelAiOverrides() {
       </div>
 
       {isLoading ? (
-        <div className="h-12 animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800" />
+        <div className="h-12 animate-pulse rounded-md bg-zinc-100 dark:bg-black" />
       ) : visible.length === 0 ? (
         <p className="text-xs text-zinc-500">
           Nenhum canal ativo. Adicione canais na aba Canais.
@@ -883,7 +883,7 @@ function ChannelOverrideRow({
         : 'off';
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-black">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
           {channel.name}
@@ -892,7 +892,7 @@ function ChannelOverrideRow({
           {channel.type.replace('_', ' ').toLowerCase()}
         </p>
       </div>
-      <div className="inline-flex rounded-md bg-zinc-200 p-0.5 dark:bg-zinc-800">
+      <div className="inline-flex rounded-md bg-zinc-200 p-0.5 dark:bg-black">
         {opts.map((opt) => {
           const active = current === opt.value;
           return (
@@ -907,7 +907,7 @@ function ChannelOverrideRow({
               className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
                 active
                   ? `${opt.bg} text-white`
-                  : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                  : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10'
               }`}
             >
               {opt.label}

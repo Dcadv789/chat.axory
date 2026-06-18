@@ -120,8 +120,8 @@ export default function InboxPage() {
           )}
         </>
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-900/50">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+        <div className="flex flex-1 flex-col items-center justify-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-black">
             <MessageSquare className="h-10 w-10 text-zinc-300 dark:text-zinc-600" />
           </div>
           <h2 className="mt-4 text-lg font-semibold text-zinc-700 dark:text-zinc-300">

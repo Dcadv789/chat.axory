@@ -31,7 +31,7 @@ const STATUS_BADGE: Record<RunStatus, string> = {
   RUNNING: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400',
   COMPLETED: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400',
   FAILED: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
-  SKIPPED: 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
+  SKIPPED: 'bg-zinc-100 text-zinc-500 dark:bg-black dark:text-zinc-400',
 };
 
 const FINAL_ACTION_LABEL: Record<string, string> = {
@@ -81,30 +81,20 @@ export function JarvisRunsTab() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-              Execuções
-            </h2>
-            <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-              Histórico de runs e skills chamadas — atualiza a cada 10s
-            </p>
-          </div>
+      <div className="border-b border-zinc-200 px-6 py-3 dark:border-white/10">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           {errorCount > 0 && (
             <div className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-400">
               <AlertTriangle className="h-4 w-4" />
               <span className="font-medium">{errorCount}</span> com falha
             </div>
           )}
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className={`flex flex-wrap items-center gap-2 ${errorCount > 0 ? '' : 'ml-auto'}`}>
           <Filter className="h-4 w-4 text-zinc-400" />
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value as Period | 'all')}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
           >
             <option value="24h">Últimas 24h</option>
             <option value="7d">7 dias</option>
@@ -114,7 +104,7 @@ export function JarvisRunsTab() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as RunStatus | '')}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
           >
             <option value="">Todos status</option>
             <option value="COMPLETED">Concluído</option>
@@ -125,7 +115,7 @@ export function JarvisRunsTab() {
           <select
             value={agentId}
             onChange={(e) => setAgentId(e.target.value)}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
           >
             <option value="">Todos agents</option>
             {(agents ?? []).map((a) => (
@@ -134,7 +124,7 @@ export function JarvisRunsTab() {
               </option>
             ))}
           </select>
-          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100">
             <input
               type="checkbox"
               checked={hasErrors}
@@ -143,6 +133,7 @@ export function JarvisRunsTab() {
             />
             Só com erros
           </label>
+          </div>
         </div>
       </div>
 
@@ -152,7 +143,7 @@ export function JarvisRunsTab() {
             {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800"
+                className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-black"
               />
             ))}
           </div>
@@ -189,7 +180,7 @@ function RunRow({ run, onSelect }: { run: FeedRun; onSelect: () => void }) {
   return (
     <button
       onClick={onSelect}
-      className={`flex w-full items-center gap-4 px-6 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/50 ${
+      className={`flex w-full items-center gap-4 px-6 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-white/10 ${
         failed ? 'bg-red-50/40 dark:bg-red-900/5' : ''
       }`}
     >
@@ -214,7 +205,7 @@ function RunRow({ run, onSelect }: { run: FeedRun; onSelect: () => void }) {
               {STATUS_LABEL[run.status]}
             </span>
             {run.finalAction && (
-              <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+              <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-black dark:text-zinc-400">
                 {FINAL_ACTION_LABEL[run.finalAction] ?? run.finalAction}
               </span>
             )}
@@ -275,10 +266,10 @@ function RunDetailDrawer({ run, onClose }: { run: FeedRun; onClose: () => void }
       onClick={onClose}
     >
       <div
-        className="flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl dark:bg-zinc-950"
+        className="flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl dark:bg-black"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+        <div className="flex items-start justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/10">
           <div className="min-w-0">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               Execução de {run.agent.name}
@@ -290,7 +281,7 @@ function RunDetailDrawer({ run, onClose }: { run: FeedRun; onClose: () => void }
                 {STATUS_LABEL[run.status]}
               </span>
               {run.finalAction && (
-                <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] dark:bg-zinc-800 dark:text-zinc-300">
+                <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] dark:bg-black dark:text-zinc-300">
                   {FINAL_ACTION_LABEL[run.finalAction] ?? run.finalAction}
                 </span>
               )}
@@ -307,14 +298,14 @@ function RunDetailDrawer({ run, onClose }: { run: FeedRun; onClose: () => void }
               onClick={() =>
                 router.push(`/inbox?conversationId=${run.conversationId}`)
               }
-              className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+              className="inline-flex items-center gap-1 rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:bg-black dark:text-zinc-200 dark:hover:bg-white/10"
             >
               <ExternalLink className="h-3 w-3" /> Ver conversa
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10"
             >
               <X className="h-4 w-4" />
             </button>
@@ -351,7 +342,7 @@ function RunDetailDrawer({ run, onClose }: { run: FeedRun; onClose: () => void }
                     className={`rounded-lg border p-3 ${
                       failed
                         ? 'border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/10'
-                        : 'border-zinc-200 dark:border-zinc-800'
+                        : 'border-zinc-200 dark:border-white/10'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -379,7 +370,7 @@ function RunDetailDrawer({ run, onClose }: { run: FeedRun; onClose: () => void }
                       <summary className="cursor-pointer select-none text-[11px] text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
                         Input
                       </summary>
-                      <pre className="mt-1 overflow-x-auto rounded bg-zinc-50 p-2 text-[10px] text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                      <pre className="mt-1 overflow-x-auto rounded bg-zinc-50 p-2 text-[10px] text-zinc-700 dark:bg-black dark:text-zinc-300">
                         {JSON.stringify(tc.input, null, 2)}
                       </pre>
                     </details>
@@ -391,7 +382,7 @@ function RunDetailDrawer({ run, onClose }: { run: FeedRun; onClose: () => void }
                         className={`mt-1 overflow-x-auto rounded p-2 text-[10px] ${
                           failed
                             ? 'bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-200'
-                            : 'bg-zinc-50 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300'
+                            : 'bg-zinc-50 text-zinc-700 dark:bg-black dark:text-zinc-300'
                         }`}
                       >
                         {JSON.stringify(tc.output, null, 2)}

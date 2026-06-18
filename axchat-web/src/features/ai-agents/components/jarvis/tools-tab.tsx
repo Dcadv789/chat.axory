@@ -45,17 +45,7 @@ export function JarvisToolsTab() {
 
   return (
     <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            <Wrench className="h-5 w-5 text-primary" />
-            Tools (conexões)
-          </h2>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            Providers reusáveis: HTTP API ou Postgres. Skills bind a uma tool pra
-            executar ações concretas.
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <button
           onClick={() => setShowCreate(true)}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -66,11 +56,11 @@ export function JarvisToolsTab() {
       </div>
 
       {isLoading && (
-        <div className="h-40 animate-pulse rounded-xl bg-zinc-100 dark:bg-zinc-800" />
+        <div className="h-40 animate-pulse rounded-xl bg-zinc-100 dark:bg-black" />
       )}
 
       {tools && tools.length === 0 && (
-        <div className="rounded-xl border-2 border-dashed border-zinc-200 p-10 text-center dark:border-zinc-800">
+        <div className="rounded-xl border-2 border-dashed border-zinc-200 p-10 text-center dark:border-white/10">
           <Wrench className="mx-auto h-10 w-10 text-zinc-300 dark:text-zinc-600" />
           <p className="mt-3 text-sm font-medium text-zinc-600">
             Nenhuma tool cadastrada
@@ -89,7 +79,7 @@ export function JarvisToolsTab() {
           return (
             <div
               key={tool.id}
-              className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
+              className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -125,7 +115,7 @@ export function JarvisToolsTab() {
                 <div className="flex shrink-0 gap-1">
                   <button
                     onClick={() => setEditing(tool)}
-                    className="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
+                    className="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10"
                   >
                     <Edit2 className="h-3.5 w-3.5" />
                   </button>

@@ -3,7 +3,7 @@
 const DOW = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-export function Heatmap({ matrix, max, accent = '#3b82f6' }: {
+export function Heatmap({ matrix, max, accent = '#0047FF' }: {
   matrix: number[][];
   max: number;
   accent?: string;

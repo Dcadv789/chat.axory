@@ -9,7 +9,7 @@ import type {
 } from '../services/pipelines.service';
 
 const STAGE_COLOR: Record<string, string> = {
-  zinc: 'border-zinc-300 bg-zinc-50 dark:bg-zinc-900',
+  zinc: 'border-zinc-300 bg-zinc-50 dark:border-white/10 dark:bg-[#171717]',
   blue: 'border-blue-300 bg-blue-50 dark:bg-blue-950/30',
   amber: 'border-amber-300 bg-amber-50 dark:bg-amber-950/30',
   green: 'border-green-300 bg-green-50 dark:bg-green-950/30',
@@ -81,7 +81,7 @@ export function KanbanColumn({ stage, cards, onAddCard, onCardClick }: Props) {
         <button
           type="button"
           onClick={onAddCard}
-          className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-white/50 hover:text-zinc-900 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100"
+          className="rounded-md p-1 text-zinc-500 transition-colors hover:bg-white/50 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-zinc-100"
           aria-label="Adicionar conversa"
           title="Adicionar conversa nessa stage"
         >
@@ -94,7 +94,7 @@ export function KanbanColumn({ stage, cards, onAddCard, onCardClick }: Props) {
         className={`flex-1 space-y-2 overflow-y-auto rounded-b-lg p-2 transition-colors ${
           isOver
             ? 'bg-primary/10 ring-2 ring-primary/30'
-            : 'bg-zinc-50/40 dark:bg-zinc-900/40'
+            : 'bg-zinc-50/40 dark:bg-[#171717]'
         }`}
       >
         {cards.length === 0 && (

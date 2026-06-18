@@ -110,8 +110,8 @@ export function MemberChannelsDrawer({ open, onClose, member, onSaved }: Props) 
         className="absolute inset-0 bg-black/40"
         onClick={onClose}
       />
-      <aside className="relative flex h-full w-full max-w-md flex-col bg-white shadow-xl dark:bg-zinc-900">
-        <header className="flex items-start justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+      <aside className="relative flex h-full w-full max-w-md flex-col bg-white shadow-xl dark:bg-black">
+        <header className="flex items-start justify-between border-b border-zinc-200 px-5 py-4 dark:border-white/10">
           <div>
             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               Canais de {member.name}
@@ -120,7 +120,7 @@ export function MemberChannelsDrawer({ open, onClose, member, onSaved }: Props) 
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800"
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10"
           >
             <X className="h-4 w-4" />
           </button>
@@ -136,7 +136,7 @@ export function MemberChannelsDrawer({ open, onClose, member, onSaved }: Props) 
               <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
             </div>
           ) : !channels?.length ? (
-            <div className="rounded-lg border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+            <div className="rounded-lg border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-white/10">
               Nenhum canal configurado nesta organização.
             </div>
           ) : (
@@ -152,7 +152,7 @@ export function MemberChannelsDrawer({ open, onClose, member, onSaved }: Props) 
                         key={c.id}
                         className="flex items-center gap-3 rounded-md px-3 py-2 opacity-80"
                       >
-                        <span className="flex h-4 w-4 items-center justify-center rounded border border-zinc-300 bg-zinc-100 text-[9px] text-zinc-500 dark:border-zinc-600 dark:bg-zinc-800">
+                        <span className="flex h-4 w-4 items-center justify-center rounded border border-zinc-300 bg-zinc-100 text-[9px] text-zinc-500 dark:border-zinc-600 dark:bg-black">
                           ✓
                         </span>
                         <div className="flex-1">
@@ -185,12 +185,12 @@ export function MemberChannelsDrawer({ open, onClose, member, onSaved }: Props) 
                       const checked = selected.has(c.id);
                       return (
                         <li key={c.id}>
-                          <label className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                          <label className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-zinc-50 dark:hover:bg-white/10">
                             <input
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggle(c.id)}
-                              className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary dark:border-zinc-600 dark:bg-zinc-800"
+                              className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary dark:border-zinc-600 dark:bg-black"
                             />
                             <div className="flex-1">
                               <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -199,7 +199,7 @@ export function MemberChannelsDrawer({ open, onClose, member, onSaved }: Props) 
                               <p className="flex items-center gap-1 text-[11px] text-zinc-400">
                                 {c.type}
                                 {c.visibility === 'PRIVATE' && (
-                                  <span className="inline-flex items-center gap-0.5 rounded-sm bg-zinc-100 px-1 text-[10px] dark:bg-zinc-800">
+                                  <span className="inline-flex items-center gap-0.5 rounded-sm bg-zinc-100 px-1 text-[10px] dark:bg-black">
                                     <Lock className="h-2.5 w-2.5" /> privado
                                   </span>
                                 )}
@@ -224,10 +224,10 @@ export function MemberChannelsDrawer({ open, onClose, member, onSaved }: Props) 
         </div>
 
         {!isOwner && (
-          <footer className="flex items-center justify-end gap-2 border-t border-zinc-200 px-5 py-3 dark:border-zinc-800">
+          <footer className="flex items-center justify-end gap-2 border-t border-zinc-200 px-5 py-3 dark:border-white/10">
             <button
               onClick={onClose}
-              className="rounded-md px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              className="rounded-md px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
             >
               Cancelar
             </button>

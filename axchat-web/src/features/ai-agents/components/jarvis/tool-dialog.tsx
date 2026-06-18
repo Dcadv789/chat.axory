@@ -86,8 +86,8 @@ export function ToolDialog({ open, tool, onClose, onSaved }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-zinc-900">
-        <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="w-full max-w-xl max-h-[92vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-black">
+        <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
           <div>
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
               {tool ? 'Editar tool' : 'Nova tool (conexão)'}
@@ -98,7 +98,7 @@ export function ToolDialog({ open, tool, onClose, onSaved }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10"
           >
             <X className="h-4 w-4" />
           </button>
@@ -113,7 +113,7 @@ export function ToolDialog({ open, tool, onClose, onSaved }: Props) {
                 className={`flex items-center gap-2 rounded-lg border-2 p-3 text-left transition-colors ${
                   source === 'CUSTOM_HTTP'
                     ? 'border-primary bg-primary/5'
-                    : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700'
+                    : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10'
                 }`}
               >
                 <Globe className="h-5 w-5 text-primary" />
@@ -128,7 +128,7 @@ export function ToolDialog({ open, tool, onClose, onSaved }: Props) {
                 className={`flex items-center gap-2 rounded-lg border-2 p-3 text-left transition-colors ${
                   source === 'CUSTOM_SQL'
                     ? 'border-primary bg-primary/5'
-                    : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700'
+                    : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10'
                 }`}
               >
                 <Database className="h-5 w-5 text-primary" />
@@ -204,10 +204,10 @@ export function ToolDialog({ open, tool, onClose, onSaved }: Props) {
           )}
         </div>
 
-        <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-white/10 dark:bg-black">
           <button
             onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             Cancelar
           </button>

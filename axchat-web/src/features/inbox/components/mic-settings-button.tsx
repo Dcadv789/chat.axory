@@ -25,7 +25,7 @@ export function MicSettingsButton({
 }: MicSettingsButtonProps) {
   const btnClass =
     buttonClassName ||
-    'rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800 dark:hover:text-zinc-300';
+    'rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/10 dark:hover:text-zinc-300';
 
   return (
     <Popover className="relative">
@@ -46,7 +46,7 @@ export function MicSettingsButton({
 
       <PopoverPanel
         anchor="top end"
-        className="z-50 w-72 rounded-xl border border-zinc-200 bg-white p-2 shadow-lg focus:outline-none dark:border-zinc-700 dark:bg-zinc-900"
+        className="z-50 w-72 rounded-xl border border-zinc-200 bg-white p-2 shadow-lg focus:outline-none dark:border-white/10 dark:bg-black"
       >
         <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
           Microfone
@@ -71,7 +71,7 @@ export function MicSettingsButton({
                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
                       selected
                         ? 'bg-primary/10 text-primary dark:bg-primary/15'
-                        : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800'
+                        : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-white/10'
                     }`}
                   >
                     <span className="flex-1 truncate">{device.label}</span>

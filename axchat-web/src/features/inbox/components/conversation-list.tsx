@@ -55,12 +55,12 @@ function ListAvatar({ name, avatarUrl }: { name: string | null; avatarUrl: strin
         src={avatarUrl}
         alt={name || 'avatar'}
         onError={() => setFailed(true)}
-        className="h-10 w-10 rounded-full bg-zinc-100 object-cover dark:bg-zinc-800"
+        className="h-10 w-10 rounded-full bg-zinc-100 object-cover dark:bg-black"
       />
     );
   }
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-[13px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-[13px] font-semibold text-zinc-500 dark:bg-black dark:text-zinc-400">
       {initials}
     </div>
   );
@@ -741,11 +741,11 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
   };
 
   return (
-    <div className="flex h-full w-80 flex-col border-r border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="flex h-full w-80 flex-col border-r border-zinc-200/80 bg-white dark:border-white/10 dark:bg-black">
       {/* Scope selector (All / Mine) */}
       <div className="px-3 pt-3">
         <Popover className="relative">
-          <PopoverButton className="flex w-full items-center gap-2 rounded-md border border-zinc-200/80 bg-white px-2.5 py-1.5 text-left text-[13px] text-zinc-700 outline-none transition-colors hover:bg-zinc-50 data-[open]:border-primary/40 data-[open]:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900 dark:data-[open]:bg-zinc-900">
+          <PopoverButton className="flex w-full items-center gap-2 rounded-md border border-zinc-200/80 bg-white px-2.5 py-1.5 text-left text-[13px] text-zinc-700 outline-none transition-colors hover:bg-zinc-50 data-[open]:border-primary/40 data-[open]:bg-zinc-50 dark:border-white/10 dark:bg-black dark:text-zinc-200 dark:hover:bg-white/10 dark:data-[open]:bg-white/10">
             {(() => {
               const current = scopeOptions.find((o) => o.value === scope) ?? scopeOptions[0];
               const Icon = current.icon;
@@ -759,7 +759,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
           <PopoverPanel
             anchor="bottom start"
             transition
-            className="z-50 mt-1.5 w-[var(--button-width)] rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-zinc-800 dark:bg-zinc-900 [--anchor-gap:0.25rem]"
+            className="z-50 mt-1.5 w-[var(--button-width)] rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-white/10 dark:bg-black [--anchor-gap:0.25rem]"
           >
             {({ close }) => (
               <>
@@ -775,7 +775,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                       className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                         isActive
                           ? 'bg-primary/[0.06] font-medium text-primary dark:bg-primary/10'
-                          : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60'
+                          : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10'
                       }`}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -796,7 +796,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
       {!viewId && (
       <div className="px-3 pt-2">
         <Popover className="relative">
-          <PopoverButton className="flex w-full items-center gap-2 rounded-md border border-zinc-200/80 bg-white px-2.5 py-1.5 text-left text-[13px] text-zinc-700 outline-none transition-colors hover:bg-zinc-50 data-[open]:border-primary/40 data-[open]:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900 dark:data-[open]:bg-zinc-900">
+          <PopoverButton className="flex w-full items-center gap-2 rounded-md border border-zinc-200/80 bg-white px-2.5 py-1.5 text-left text-[13px] text-zinc-700 outline-none transition-colors hover:bg-zinc-50 data-[open]:border-primary/40 data-[open]:bg-zinc-50 dark:border-white/10 dark:bg-black dark:text-zinc-200 dark:hover:bg-white/10 dark:data-[open]:bg-white/10">
             {(() => {
               const Icon = selectedChannel
                 ? channelIcons[selectedChannel.type] || MessageSquare
@@ -811,7 +811,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
           <PopoverPanel
             anchor="bottom start"
             transition
-            className="z-50 mt-1.5 w-[var(--button-width)] rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-zinc-800 dark:bg-zinc-900 [--anchor-gap:0.25rem]"
+            className="z-50 mt-1.5 w-[var(--button-width)] rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-white/10 dark:bg-black [--anchor-gap:0.25rem]"
           >
             {({ close }) => (
               <>
@@ -820,7 +820,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                   className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                     selectedChannelId === null
                       ? 'bg-primary/[0.06] font-medium text-primary dark:bg-primary/10'
-                      : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60'
+                      : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10'
                   }`}
                 >
                   <Inbox className="h-3.5 w-3.5 shrink-0" />
@@ -828,7 +828,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                   {selectedChannelId === null && <Check className="h-3.5 w-3.5 text-primary" />}
                 </button>
                 {channels.length > 0 && (
-                  <div className="mx-2 my-1 border-t border-zinc-100 dark:border-zinc-800" />
+                  <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
                 )}
                 {channels.map((channel) => {
                   const Icon = channelIcons[channel.type] || MessageSquare;
@@ -840,7 +840,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                       className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                         isActive
                           ? 'bg-primary/[0.06] font-medium text-primary dark:bg-primary/10'
-                          : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60'
+                          : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10'
                       }`}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -866,7 +866,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
             placeholder="Buscar conversas..."
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full rounded-md border-0 bg-zinc-100/80 py-1.5 pl-8 pr-8 text-[13px] text-zinc-900 outline-none ring-1 ring-transparent transition-all placeholder:text-zinc-400 focus:bg-white focus:ring-primary/30 focus:shadow-sm dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:bg-zinc-900 dark:focus:ring-primary/30"
+            className="w-full rounded-md border-0 bg-zinc-100/80 py-1.5 pl-8 pr-8 text-[13px] text-zinc-900 outline-none ring-1 ring-transparent transition-all placeholder:text-zinc-400 focus:bg-white focus:ring-primary/30 focus:shadow-sm dark:bg-black dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:bg-black dark:focus:ring-primary/30"
           />
           {search && (
             <button
@@ -886,7 +886,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
             className={`relative flex h-[30px] w-[30px] items-center justify-center rounded-md transition-colors outline-none data-[open]:bg-zinc-100 data-[open]:text-zinc-600 dark:data-[open]:bg-zinc-800 dark:data-[open]:text-zinc-300 ${
               activeFilterCount > 0
                 ? 'bg-primary/10 text-primary dark:bg-primary/20 data-[open]:bg-primary/10 data-[open]:text-primary dark:data-[open]:bg-primary/20 dark:data-[open]:text-primary'
-                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300'
+                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
             }`}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -900,7 +900,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
           <PopoverPanel
             anchor="bottom end"
             transition
-            className="z-50 mt-1.5 w-64 rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-zinc-800 dark:bg-zinc-900 [--anchor-gap:0.25rem]"
+            className="z-50 mt-1.5 w-64 rounded-lg border border-zinc-200/80 bg-white p-1 shadow-lg outline-none transition duration-100 ease-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:border-white/10 dark:bg-black [--anchor-gap:0.25rem]"
           >
             <div>
               <p className="px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
@@ -921,7 +921,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                     className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                       isActive
                         ? 'bg-primary/[0.06] font-medium text-primary dark:bg-primary/10'
-                        : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60'
+                        : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10'
                     }`}
                   >
                     <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
@@ -943,7 +943,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
               })}
               {tags.length > 0 && (
                 <>
-                  <div className="mx-2 my-1 border-t border-zinc-100 dark:border-zinc-800" />
+                  <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
                   <div className="flex items-center justify-between px-2.5 py-1.5">
                     <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                       Tags
@@ -977,7 +977,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                             setTagSearch('');
                           }
                         }}
-                        className="w-full rounded-md border-0 bg-zinc-100/80 py-1 pl-7 pr-7 text-[12px] text-zinc-900 outline-none ring-1 ring-transparent transition-all placeholder:text-zinc-400 focus:bg-white focus:ring-primary/30 dark:bg-zinc-800/60 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:bg-zinc-900"
+                        className="w-full rounded-md border-0 bg-zinc-100/80 py-1 pl-7 pr-7 text-[12px] text-zinc-900 outline-none ring-1 ring-transparent transition-all placeholder:text-zinc-400 focus:bg-white focus:ring-primary/30 dark:bg-black dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:bg-black"
                       />
                       {tagSearch && (
                         <button
@@ -1004,7 +1004,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                             className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                               isActive
                                 ? 'bg-primary/[0.06] font-medium text-primary dark:bg-primary/10'
-                                : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800/60'
+                                : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10'
                             }`}
                           >
                             <div
@@ -1030,10 +1030,10 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
               )}
               {activeFilterCount > 0 && (
                 <>
-                  <div className="mx-2 my-1 border-t border-zinc-100 dark:border-zinc-800" />
+                  <div className="mx-2 my-1 border-t border-zinc-100 dark:border-white/10" />
                   <button
                     onClick={clearListFilters}
-                    className="flex w-full items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-300"
+                    className="flex w-full items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300"
                   >
                     <X className="h-3 w-3" />
                     Limpar filtros
@@ -1103,7 +1103,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
           {activeFilterCount > 1 && (
             <button
               onClick={clearListFilters}
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300"
             >
               <X className="h-2.5 w-2.5" />
               Limpar
@@ -1114,7 +1114,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-1.5 border-t border-b border-zinc-200/80 bg-primary/4 px-3 py-1.5 dark:border-zinc-800 dark:bg-primary/10">
+        <div className="flex items-center gap-1.5 border-t border-b border-zinc-200/80 bg-primary/4 px-3 py-1.5 dark:border-white/10 dark:bg-primary/10">
           <button
             onClick={clearSelection}
             className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
@@ -1179,7 +1179,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
 
       {/* Divider */}
       {selectedIds.size === 0 && (
-        <div className="mx-3 border-t border-zinc-100 dark:border-zinc-800/60" />
+        <div className="mx-3 border-t border-zinc-100 dark:border-white/10" />
       )}
 
       {/* Conversation list */}
@@ -1187,16 +1187,16 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex gap-3 px-3 py-3">
-              <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-zinc-100 dark:bg-zinc-800" />
+              <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-zinc-100 dark:bg-black" />
               <div className="flex-1 space-y-2 pt-0.5">
-                <div className="h-3.5 w-24 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
-                <div className="h-3 w-36 animate-pulse rounded bg-zinc-50 dark:bg-zinc-800/60" />
+                <div className="h-3.5 w-24 animate-pulse rounded bg-zinc-100 dark:bg-black" />
+                <div className="h-3 w-36 animate-pulse rounded bg-zinc-50 dark:bg-black" />
               </div>
             </div>
           ))
         ) : conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 dark:bg-black">
               <MessageSquare className="h-6 w-6 text-zinc-300 dark:text-zinc-600" />
             </div>
             <p className="mt-3 text-[13px] font-medium text-zinc-400 dark:text-zinc-500">
@@ -1233,7 +1233,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                       ? 'bg-primary/[0.06] dark:bg-primary/10'
                       : isActive
                         ? 'bg-primary/[0.06] dark:bg-primary/10'
-                        : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/60'
+                        : 'hover:bg-zinc-50 dark:hover:bg-white/10'
                   }`}
                 >
                   <div className="group/avatar relative shrink-0">
@@ -1263,8 +1263,8 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                         isSelected
                           ? 'border-primary bg-primary text-white opacity-100'
                           : inSelectionMode
-                            ? 'border-zinc-300 bg-zinc-100 text-transparent hover:border-primary/50 dark:border-zinc-600 dark:bg-zinc-800'
-                            : 'border-zinc-300 bg-white text-transparent opacity-0 hover:border-primary/50 group-hover/avatar:opacity-100 dark:border-zinc-600 dark:bg-zinc-900'
+                            ? 'border-zinc-300 bg-zinc-100 text-transparent hover:border-primary/50 dark:border-zinc-600 dark:bg-black'
+                            : 'border-zinc-300 bg-white text-transparent opacity-0 hover:border-primary/50 group-hover/avatar:opacity-100 dark:border-zinc-600 dark:bg-black'
                       }`}
                       title={isSelected ? 'Desmarcar' : 'Selecionar'}
                     >
@@ -1273,7 +1273,7 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
                     {(() => {
                       const ChannelIcon = channelIcons[conv.channel.type] || MessageSquare;
                       return (
-                        <div className="absolute -bottom-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full border-2 border-white bg-white dark:border-zinc-950 dark:bg-zinc-900">
+                        <div className="absolute -bottom-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full border-2 border-white bg-white dark:border-zinc-950 dark:bg-black">
                           <ChannelIcon className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
                         </div>
                       );

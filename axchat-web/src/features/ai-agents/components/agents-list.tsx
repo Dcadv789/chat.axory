@@ -175,15 +175,7 @@ export function AgentsList() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Organograma de agentes
-          </h2>
-          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Hierarquia matricial — quem reporta a quem, agrupado por departamento
-          </p>
-        </div>
+      <div className="flex items-center justify-end px-6 py-3">
         <button
           onClick={() => setShowCreate(true)}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
@@ -194,14 +186,14 @@ export function AgentsList() {
       </div>
 
       {departments.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-6 py-3 dark:border-zinc-800">
+        <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-6 py-3 dark:border-white/10">
           <span className="text-xs font-medium text-zinc-500">Departamento:</span>
           <button
             onClick={() => setDeptFilter(null)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               deptFilter === null
                 ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-black dark:text-zinc-400 dark:hover:bg-white/10'
             }`}
           >
             Todos
@@ -216,7 +208,7 @@ export function AgentsList() {
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                   active
                     ? `${c?.bg ?? 'bg-zinc-200'} ${c?.text ?? 'text-zinc-900'} ring-1 ${c?.ring ?? 'ring-zinc-300'}`
-                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-black dark:text-zinc-400 dark:hover:bg-white/10'
                 }`}
               >
                 {d}
@@ -229,7 +221,7 @@ export function AgentsList() {
       <div className="flex-1 min-h-[640px]">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
-            <div className="h-10 w-10 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-800" />
+            <div className="h-10 w-10 animate-pulse rounded-full bg-zinc-200 dark:bg-black" />
           </div>
         ) : hasAgents ? (
           <ReactFlowProvider>
@@ -245,7 +237,7 @@ export function AgentsList() {
               nodesConnectable={false}
               nodesFocusable={false}
               edgesFocusable={false}
-              className="bg-zinc-50 dark:bg-zinc-950"
+              className="bg-zinc-50 dark:bg-black"
             >
               <Background gap={24} size={1} color="#e4e4e7" />
               <Controls showInteractive={false} />
@@ -256,7 +248,7 @@ export function AgentsList() {
                   const a = (n.data as AgentNodeData).agent;
                   if (a.kind === 'ORCHESTRATOR') return '#6366f1';
                   if (a.department === 'VENDAS') return '#10b981';
-                  if (a.department === 'SUPORTE') return '#3b82f6';
+                  if (a.department === 'SUPORTE') return '#0047FF';
                   if (a.department === 'CS') return '#8b5cf6';
                   return '#a1a1aa';
                 }}
@@ -266,7 +258,7 @@ export function AgentsList() {
           </ReactFlowProvider>
         ) : (
           <div className="flex h-full flex-col items-center justify-center p-10">
-            <div className="rounded-xl border-2 border-dashed border-zinc-200 p-16 dark:border-zinc-800">
+            <div className="rounded-xl border-2 border-dashed border-zinc-200 p-16 dark:border-white/10">
               <Bot className="mx-auto h-10 w-10 text-zinc-300 dark:text-zinc-600" />
               <p className="mt-3 text-center text-sm font-medium text-zinc-600 dark:text-zinc-400">
                 Nenhum agente cadastrado ainda

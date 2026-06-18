@@ -51,10 +51,10 @@ export function KanbanCard({ card, onClick }: Props) {
       ref={setNodeRef}
       style={style}
       onClick={onClick}
-      className={`group relative cursor-pointer rounded-lg border bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:bg-zinc-900 ${
+      className={`group relative cursor-pointer rounded-lg border bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:bg-black ${
         isClosed
-          ? 'border-zinc-200 opacity-70 dark:border-zinc-800'
-          : 'border-zinc-200 dark:border-zinc-800'
+          ? 'border-zinc-200 opacity-70 dark:border-white/10'
+          : 'border-zinc-200 dark:border-white/10'
       }`}
     >
       <div className="flex items-start gap-2">
@@ -113,7 +113,7 @@ export function KanbanCard({ card, onClick }: Props) {
             return (
               <span
                 title={`${card.conversation.channel.name} · clique pra abrir a conversa`}
-                className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800"
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-100 dark:bg-black"
               >
                 <ChannelIcon className="h-3 w-3 text-zinc-600 dark:text-zinc-300" />
               </span>

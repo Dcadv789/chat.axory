@@ -51,7 +51,7 @@ export function SidebarLayout({
   };
 
   return (
-    <div className="relative isolate flex h-svh w-full bg-white max-lg:flex-col lg:bg-zinc-100 dark:bg-zinc-900 dark:lg:bg-zinc-950">
+    <div className="relative isolate flex h-svh w-full bg-[#f8fafc] dark:bg-[#171717] max-lg:flex-col">
       {/* Mobile sidebar overlay */}
       <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="lg:hidden">
         <DialogBackdrop
@@ -62,7 +62,7 @@ export function SidebarLayout({
           transition
           className="fixed inset-y-0 left-0 w-full max-w-80 p-2 transition duration-300 ease-in-out data-[closed]:-translate-x-full"
         >
-          <div className="flex h-full flex-col rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+          <div className="flex h-full flex-col rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-black dark:ring-white/10">
             <div className="-mb-3 px-4 pt-3">
               <CloseButton
                 as="button"
@@ -84,7 +84,7 @@ export function SidebarLayout({
         }`}
       >
         <div
-          className={`flex h-full flex-col border-r border-zinc-950/5 bg-white dark:border-white/5 dark:bg-zinc-900 w-64 transition-transform duration-200 ease-in-out ${
+          className={`flex h-full flex-col border-r border-zinc-200 bg-white dark:border-white/10 dark:bg-black w-64 transition-transform duration-200 ease-in-out ${
             collapsed ? "-translate-x-full" : "translate-x-0"
           }`}
         >
@@ -105,7 +105,7 @@ export function SidebarLayout({
         onClick={toggleCollapsed}
         aria-label={collapsed ? "Abrir menu" : "Recolher menu"}
         title={collapsed ? "Abrir menu" : "Recolher menu"}
-        className={`group fixed bottom-4 z-30 hidden h-7 w-5 items-center justify-center rounded-r-md bg-white text-zinc-400 opacity-50 ring-1 ring-zinc-950/5 transition-all duration-200 ease-in-out hover:bg-zinc-50 hover:text-zinc-900 hover:opacity-100 dark:bg-zinc-900 dark:text-zinc-500 dark:ring-white/10 dark:hover:bg-zinc-800 dark:hover:text-white lg:flex ${
+        className={`group fixed bottom-4 z-30 hidden h-7 w-5 items-center justify-center rounded-r-md bg-white text-zinc-500 opacity-50 ring-1 ring-zinc-200 transition-all duration-200 ease-in-out hover:bg-zinc-50 hover:text-zinc-900 hover:opacity-100 dark:bg-black dark:text-zinc-400 dark:ring-white/10 dark:hover:bg-white/10 dark:hover:text-white lg:flex ${
           collapsed ? "left-0" : "left-64"
         }`}
       >
@@ -123,7 +123,7 @@ export function SidebarLayout({
         }`}
       >
         {/* Mobile header */}
-        <div className="flex items-center gap-4 border-b border-zinc-950/5 px-4 py-2.5 dark:border-white/5 lg:hidden">
+        <div className="flex items-center gap-4 border-b border-zinc-200 bg-white px-4 py-2.5 dark:border-white/10 dark:bg-black lg:hidden">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
@@ -136,7 +136,7 @@ export function SidebarLayout({
         </div>
 
         {/* Page content */}
-        <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden lg:bg-white lg:shadow-sm lg:ring-1 lg:ring-zinc-950/5 dark:lg:bg-zinc-900 dark:lg:ring-white/10">
+        <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden bg-[#f8fafc] dark:bg-[#171717]">
           <SidebarCollapseContext.Provider value={{ collapsed, toggle: toggleCollapsed }}>
             {children}
           </SidebarCollapseContext.Provider>

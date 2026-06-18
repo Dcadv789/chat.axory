@@ -96,14 +96,14 @@ export function CardDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-zinc-900">
-        <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-black">
+        <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             {card ? 'Editar card' : 'Novo card'}
           </h3>
           <button
             onClick={onClose}
-            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="rounded p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10"
           >
             <X className="h-4 w-4" />
           </button>
@@ -118,7 +118,7 @@ export function CardDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="ex: Lead Bravy School"
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
 
@@ -131,7 +131,7 @@ export function CardDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="contexto, próximos passos, info coletada…"
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
 
@@ -143,7 +143,7 @@ export function CardDialog({
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder="ex: 4500"
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
               inputMode="decimal"
             />
           </div>
@@ -161,13 +161,13 @@ export function CardDialog({
                     ? 'ex: assinou contrato 12 meses'
                     : 'ex: optou por concorrente'
                 }
-                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
               />
             </div>
           )}
 
           {card?.contact && (
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-800 dark:bg-zinc-900/50">
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-white/10 dark:bg-black">
               <p className="text-zinc-500">Contato</p>
               <p className="mt-0.5 font-medium text-zinc-900 dark:text-zinc-100">
                 {card.contact.name || card.contact.phone}
@@ -176,7 +176,7 @@ export function CardDialog({
           )}
         </div>
 
-        <div className="sticky bottom-0 flex items-center justify-between gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+        <div className="sticky bottom-0 flex items-center justify-between gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-white/10 dark:bg-black">
           <div>
             {card && (
               <button
@@ -192,7 +192,7 @@ export function CardDialog({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
             >
               Cancelar
             </button>

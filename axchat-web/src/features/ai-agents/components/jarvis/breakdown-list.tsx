@@ -17,7 +17,7 @@ interface Props {
 export function BreakdownList({ title, items, unit, empty }: Props) {
   const max = Math.max(...items.map((i) => i.value), 1);
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
         {title}
       </p>
@@ -43,7 +43,7 @@ export function BreakdownList({ title, items, unit, empty }: Props) {
                     ) : null}
                   </span>
                 </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-black">
                   <div
                     className="h-full rounded-full bg-primary"
                     style={{ width: `${pct}%` }}

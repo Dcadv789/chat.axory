@@ -83,9 +83,9 @@ export function ConversationDialog({ conversationId, open, onClose }: Props) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-black"
       >
-        <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-3 py-2 dark:border-white/10">
           <span className="px-1 text-xs font-medium uppercase tracking-wide text-zinc-400">
             Conversa
           </span>
@@ -93,7 +93,7 @@ export function ConversationDialog({ conversationId, open, onClose }: Props) {
             {conversationId && (
               <Link
                 href={`/inbox?conversationId=${conversationId}`}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                 title="Abrir na inbox"
               >
                 <ExternalLink className="h-3 w-3" />
@@ -104,7 +104,7 @@ export function ConversationDialog({ conversationId, open, onClose }: Props) {
               type="button"
               onClick={onClose}
               aria-label="Fechar"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-200"
             >
               <X className="h-4 w-4" />
             </button>

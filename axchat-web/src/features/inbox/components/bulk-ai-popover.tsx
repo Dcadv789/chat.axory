@@ -80,9 +80,9 @@ export function BulkAiPopover({ count, disabled, onSetOverride, onEngage }: Prop
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full z-30 mt-1 w-80 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          className="absolute right-0 top-full z-30 mt-1 w-80 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-white/10 dark:bg-black"
         >
-          <div className="border-b border-zinc-100 px-3 py-2 dark:border-zinc-800">
+          <div className="border-b border-zinc-100 px-3 py-2 dark:border-white/10">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
               IA · {count} selecionada{count > 1 ? 's' : ''}
             </p>
@@ -97,7 +97,7 @@ export function BulkAiPopover({ count, disabled, onSetOverride, onEngage }: Prop
                   onSetOverride(opt.value);
                 }}
                 disabled={disabled}
-                className="flex w-full items-start gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:hover:bg-zinc-800"
+                className="flex w-full items-start gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:hover:bg-white/10"
               >
                 <OptIcon className={`mt-0.5 h-4 w-4 shrink-0 ${opt.iconCls}`} />
                 <div className="flex-1">
@@ -112,7 +112,7 @@ export function BulkAiPopover({ count, disabled, onSetOverride, onEngage }: Prop
             );
           })}
 
-          <div className="border-t border-zinc-200 dark:border-zinc-700" />
+          <div className="border-t border-zinc-200 dark:border-white/10" />
           <button
             onClick={() => {
               setOpen(false);

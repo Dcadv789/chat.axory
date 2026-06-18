@@ -14,21 +14,21 @@ const channelTypes: { value: ChannelType; label: string; icon: React.ElementType
     value: 'WHATSAPP_ZAPPFY',
     label: 'WhatsApp (Zappfy)',
     icon: ZappfyIcon,
-    color: 'bg-zinc-50 dark:bg-zinc-800',
+    color: 'bg-zinc-50 dark:bg-black',
     description: 'Conecte via Zappfy/Uazapi — sem restrição de 24h',
   },
   {
     value: 'WHATSAPP_OFFICIAL',
     label: 'WhatsApp Official',
     icon: MetaIcon,
-    color: 'bg-zinc-50 dark:bg-zinc-800',
+    color: 'bg-zinc-50 dark:bg-black',
     description: 'Meta Cloud API — templates HSM, alta escala',
   },
   {
     value: 'INSTAGRAM',
     label: 'Instagram',
     icon: InstagramIcon,
-    color: 'bg-zinc-50 dark:bg-zinc-800',
+    color: 'bg-zinc-50 dark:bg-black',
     description: 'Instagram API com login empresarial — DMs e stories',
   },
   {
@@ -76,7 +76,7 @@ type WaOfficialFormData = z.infer<typeof waOfficialSchema>;
 type InstagramFormData = z.infer<typeof instagramSchema>;
 type TelegramFormData = z.infer<typeof telegramSchema>;
 
-const inputCls = 'flex h-10 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100';
+const inputCls = 'flex h-10 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100';
 const labelCls = 'text-sm font-medium text-zinc-700 dark:text-zinc-300';
 const errorCls = 'text-xs text-red-500';
 
@@ -206,7 +206,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-900">
+      <div className="relative z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-black">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             {step === 'type' ? 'Novo Canal' : titleMap[selectedType || '']}
@@ -222,9 +222,9 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
               <button
                 key={ct.value}
                 onClick={() => handleTypeSelect(ct.value)}
-                className="flex items-center gap-4 rounded-xl border border-zinc-200 p-4 text-left transition-all hover:border-primary hover:shadow-sm dark:border-zinc-700 dark:hover:border-primary"
+                className="flex items-center gap-4 rounded-xl border border-zinc-200 p-4 text-left transition-all hover:border-primary hover:shadow-sm dark:border-white/10 dark:hover:border-primary"
               >
-                <div className={`flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200/60 dark:border-zinc-700/60 ${ct.color}`}>
+                <div className={`flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200/60 dark:border-white/10 ${ct.color}`}>
                   <ct.icon className="h-6 w-6" />
                 </div>
                 <div>
@@ -314,18 +314,18 @@ Field.displayName = 'Field';
 
 function WebhookUrl({ url, copied, onCopy }: { url: string; copied: boolean; onCopy: () => void }) {
   return (
-    <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+    <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3 dark:border-white/10 dark:bg-black">
       <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
         URL do Webhook (cole no painel do provedor):
       </p>
       <div className="mt-1.5 flex items-center gap-2">
-        <code className="flex-1 truncate rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+        <code className="flex-1 truncate rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-700 dark:bg-black dark:text-zinc-300">
           {url}
         </code>
         <button
           type="button"
           onClick={onCopy}
-          className="shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 dark:hover:bg-zinc-700"
+          className="shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 dark:hover:bg-white/10"
         >
           {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
         </button>
@@ -340,7 +340,7 @@ function FormFooter({ isLoading, onBack }: { isLoading: boolean; onBack: () => v
       <button
         type="button"
         onClick={onBack}
-        className="rounded-md px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+        className="rounded-md px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
       >
         Voltar
       </button>

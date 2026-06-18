@@ -25,8 +25,8 @@ export function BaseNode({
 }: BaseNodeProps) {
   return (
     <div
-      className={`min-w-[180px] max-w-[240px] rounded-xl border-2 bg-white shadow-md transition-shadow dark:bg-zinc-900 ${
-        selected ? 'border-primary shadow-lg ring-2 ring-primary/20' : 'border-zinc-200 dark:border-zinc-700'
+      className={`min-w-[180px] max-w-[240px] rounded-xl border-2 bg-white shadow-md transition-shadow dark:bg-black ${
+        selected ? 'border-primary shadow-lg ring-2 ring-primary/20' : 'border-zinc-200 dark:border-white/10'
       }`}
     >
       {hasInput && (

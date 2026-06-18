@@ -20,7 +20,7 @@ export function Avatar({
       className={cn(
         'inline-grid size-8 shrink-0 place-items-center align-middle overflow-hidden',
         square ? 'rounded-lg' : 'rounded-full',
-        'bg-zinc-100 dark:bg-zinc-800',
+        'bg-zinc-100 dark:bg-black',
         'outline outline-1 -outline-offset-1 outline-black/10 dark:outline-white/10',
         className,
       )}

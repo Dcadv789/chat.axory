@@ -30,7 +30,7 @@ export function PendingActionsList({ conversationId }: Props) {
   if (actionable.length === 0) return null;
 
   return (
-    <div className="space-y-2 border-b border-zinc-200 bg-zinc-50/60 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/40">
+    <div className="space-y-2 border-b border-zinc-200 bg-zinc-50/60 px-4 py-3 dark:border-white/10 dark:bg-black">
       <AnimatePresence initial={false}>
         {actionable.map((action, idx) => (
           <PendingActionBanner key={action.id} action={action} index={idx} />

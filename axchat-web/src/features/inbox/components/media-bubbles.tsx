@@ -41,7 +41,7 @@ export function MediaImage({ message, isOutbound }: MediaProps) {
     <div>
       <div
         className={`group relative overflow-hidden rounded-lg ${
-          isOutbound ? 'bg-primary-foreground/10' : 'bg-zinc-100 dark:bg-zinc-700/40'
+          isOutbound ? 'bg-primary-foreground/10' : 'bg-zinc-100 dark:bg-black dark:ring-1 dark:ring-white/10'
         }`}
         style={{ minHeight: '120px', minWidth: '160px' }}
       >
@@ -87,7 +87,7 @@ export function MediaVideo({ message, isOutbound }: MediaProps) {
     <div>
       <div
         className={`overflow-hidden rounded-lg ${
-          isOutbound ? 'bg-primary-foreground/10' : 'bg-zinc-100 dark:bg-zinc-700/40'
+          isOutbound ? 'bg-primary-foreground/10' : 'bg-zinc-100 dark:bg-black dark:ring-1 dark:ring-white/10'
         }`}
       >
         {url ? (
@@ -141,14 +141,14 @@ export function MediaDocument({ message, isOutbound }: MediaProps) {
         className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
           isOutbound
             ? 'border-primary-foreground/20 bg-primary-foreground/10 hover:bg-primary-foreground/15'
-            : 'border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/60 dark:hover:bg-zinc-800'
+            : 'border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-white/10 dark:bg-black dark:hover:bg-white/10'
         }`}
       >
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${
             isOutbound
               ? 'bg-primary-foreground/15'
-              : 'bg-white shadow-sm dark:bg-zinc-700'
+              : 'bg-white shadow-sm dark:bg-black dark:ring-1 dark:ring-white/10'
           }`}
         >
           <Icon className="h-5 w-5 opacity-80" />
@@ -213,7 +213,7 @@ export function MediaLocation({ message, isOutbound }: MediaProps) {
       className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
         isOutbound
           ? 'border-primary-foreground/20 bg-primary-foreground/10 hover:bg-primary-foreground/15'
-          : 'border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/60 dark:hover:bg-zinc-800'
+          : 'border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-white/10 dark:bg-black dark:hover:bg-white/10'
       }`}
     >
       <MapPin className="h-4 w-4 shrink-0 opacity-70" />
