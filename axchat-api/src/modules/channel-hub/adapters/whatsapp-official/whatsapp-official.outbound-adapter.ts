@@ -57,24 +57,38 @@ export class WhatsAppOfficialOutboundAdapter implements OutboundChannelPort {
     const mediaUrl = message.content?.mediaUrl;
     if (!mediaUrl) return message;
 
-    const { buffer, mimeType, filename } = await this.uploads.readByPublicUrl(
+    const file = await this.uploads.readByPublicUrl(
       mediaUrl,
       message.content?.mimeType,
     );
 
-    if (message.type === MessageContentType.AUDIO && buffer.byteLength < 500) {
-      throw new BadRequestException('Audio file is too small to send');
+    let uploadBuffer = file.buffer;
+    let uploadMime = file.mimeType;
+    let uploadName = file.filename;
+
+    if (message.type === MessageContentType.AUDIO) {
+      if (uploadBuffer.byteLength < 500) {
+        throw new BadRequestException('Audio file is too small to send');
+      }
+      if (file.localPath) {
+        const prepared = await this.uploads.prepareWhatsAppOfficialAudioUpload(
+          file.localPath,
+        );
+        uploadBuffer = prepared.buffer;
+        uploadMime = prepared.mimeType;
+        uploadName = prepared.filename;
+      }
     }
 
     const mediaId = await this.httpClient.uploadMedia(
       channel,
-      buffer,
-      mimeType,
-      filename,
+      uploadBuffer,
+      uploadMime,
+      uploadName,
     );
 
     this.logger.log(
-      `WA Official media uploaded: type=${message.type} id=${mediaId} bytes=${buffer.byteLength}`,
+      `WA Official media uploaded: type=${message.type} id=${mediaId} bytes=${uploadBuffer.byteLength} mime=${uploadMime}`,
     );
 
     return {

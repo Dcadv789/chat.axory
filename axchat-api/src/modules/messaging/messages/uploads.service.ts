@@ -217,34 +217,14 @@ export class UploadsService {
     const srcPath = path.join(dir, `${id}${srcExt}`);
     await fs.promises.writeFile(srcPath, file.buffer);
 
-    // WhatsApp voice notes require OGG/Opus. Browsers (esp. Chrome/Firefox)
-    // record in WebM/Opus via MediaRecorder — the codec is compatible but
-    // the container is not, so Zappfy rejects the send (HTTP 500). We also
-    // rely on the re-encode to write proper duration headers (MediaRecorder
-    // streams webm without duration, so the <audio> element shows 0:00).
+    // WhatsApp voice notes require OGG/Opus. Browsers record WebM/Opus — remux
+    // when possible (copy codec) instead of re-encoding, which can break playback.
     let finalPath = srcPath;
     let finalMime = mime;
     if (mime !== 'audio/ogg') {
       const oggPath = path.join(dir, `${id}.ogg`);
       try {
-        await execFileAsync(
-          'ffmpeg',
-          [
-            '-hide_banner',
-            '-loglevel', 'error',
-            '-y',
-            '-i', srcPath,
-            '-vn',
-            '-c:a', 'libopus',
-            '-b:a', '32k',
-            '-ac', '1',
-            '-ar', '48000',
-            '-application', 'voip',
-            '-f', 'ogg',
-            oggPath,
-          ],
-          { timeout: 30_000 },
-        );
+        await this.transcodeToOggVoicenote(srcPath, oggPath, mime);
         await fs.promises.unlink(srcPath).catch(() => undefined);
         finalPath = oggPath;
         finalMime = 'audio/ogg; codecs=opus';
@@ -252,6 +232,11 @@ export class UploadsService {
         this.logger.error(`ffmpeg transcode failed: ${err.message}`);
         throw new BadRequestException('Failed to process audio');
       }
+    }
+
+    const duration = await this.probeAudioDuration(finalPath);
+    if (duration < 0.3) {
+      throw new BadRequestException('Audio gravado é muito curto ou inválido');
     }
 
     const finalSize = (await fs.promises.stat(finalPath)).size;
@@ -262,6 +247,144 @@ export class UploadsService {
     const url = `${this.publicBaseUrl}/audio/${dateFolder}/${finalName}`;
     this.logger.log(`Audio saved: ${finalPath} -> ${url}`);
     return { url, mimeType: finalMime, size: finalSize, filename: finalName };
+  }
+
+  /**
+   * WhatsApp Cloud API accepts OGG uploads but the client often fails to play
+   * ffmpeg-encoded Opus. Re-encode to AAC/M4A right before Meta upload — this
+   * format plays reliably on end-user devices.
+   */
+  async prepareWhatsAppOfficialAudioUpload(
+    localPath: string,
+  ): Promise<{ buffer: Buffer; mimeType: string; filename: string }> {
+    const tmpDir = path.join(this.rootDir, 'audio', '_wa_tmp');
+    await fs.promises.mkdir(tmpDir, { recursive: true });
+    const outPath = path.join(
+      tmpDir,
+      `${crypto.randomBytes(8).toString('hex')}.m4a`,
+    );
+
+    try {
+      await execFileAsync(
+        'ffmpeg',
+        [
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-y',
+          '-i',
+          localPath,
+          '-vn',
+          '-ac',
+          '1',
+          '-ar',
+          '16000',
+          '-c:a',
+          'aac',
+          '-b:a',
+          '64k',
+          '-movflags',
+          '+faststart',
+          outPath,
+        ],
+        { timeout: 60_000 },
+      );
+
+      const duration = await this.probeAudioDuration(outPath);
+      if (duration < 0.3) {
+        throw new BadRequestException('Audio inválido após conversão para envio');
+      }
+
+      const buffer = await fs.promises.readFile(outPath);
+      if (buffer.byteLength < 500) {
+        throw new BadRequestException('Audio convertido está vazio');
+      }
+
+      this.logger.log(
+        `WA Official audio transcoded: ${localPath} -> m4a/aac (${buffer.byteLength}b, ${duration.toFixed(1)}s)`,
+      );
+
+      return {
+        buffer,
+        mimeType: 'audio/mp4',
+        filename: 'voice.m4a',
+      };
+    } finally {
+      await fs.promises.unlink(outPath).catch(() => undefined);
+    }
+  }
+
+  private async transcodeToOggVoicenote(
+    srcPath: string,
+    oggPath: string,
+    sourceMime: string,
+  ): Promise<void> {
+    const base = ['-hide_banner', '-loglevel', 'error', '-y', '-i', srcPath, '-vn'];
+    const isWebm = sourceMime.includes('webm');
+
+    if (isWebm) {
+      try {
+        await execFileAsync(
+          'ffmpeg',
+          [...base, '-c:a', 'copy', '-f', 'ogg', oggPath],
+          { timeout: 30_000 },
+        );
+        const duration = await this.probeAudioDuration(oggPath);
+        if (duration >= 0.3) return;
+        this.logger.warn('OGG remux too short, re-encoding with libopus');
+      } catch {
+        this.logger.warn('OGG remux failed, re-encoding with libopus');
+      }
+    }
+
+    await execFileAsync(
+      'ffmpeg',
+      [
+        ...base,
+        '-c:a',
+        'libopus',
+        '-b:a',
+        '32k',
+        '-vbr',
+        'on',
+        '-compression_level',
+        '10',
+        '-frame_duration',
+        '20',
+        '-application',
+        'voip',
+        '-ac',
+        '1',
+        '-ar',
+        '16000',
+        '-f',
+        'ogg',
+        oggPath,
+      ],
+      { timeout: 30_000 },
+    );
+  }
+
+  private async probeAudioDuration(filePath: string): Promise<number> {
+    try {
+      const { stdout } = await execFileAsync(
+        'ffprobe',
+        [
+          '-v',
+          'error',
+          '-show_entries',
+          'format=duration',
+          '-of',
+          'default=noprint_wrappers=1:nokey=1',
+          filePath,
+        ],
+        { timeout: 10_000 },
+      );
+      const value = parseFloat(String(stdout).trim());
+      return Number.isFinite(value) ? value : 0;
+    } catch {
+      return 0;
+    }
   }
 
   /**
@@ -294,7 +417,7 @@ export class UploadsService {
   async readByPublicUrl(
     url: string,
     mimeTypeHint?: string | null,
-  ): Promise<{ buffer: Buffer; mimeType: string; filename: string }> {
+  ): Promise<{ buffer: Buffer; mimeType: string; filename: string; localPath?: string }> {
     const localPath = this.resolveLocalPathFromPublicUrl(url);
     if (localPath && fs.existsSync(localPath)) {
       const buffer = await fs.promises.readFile(localPath);
@@ -310,6 +433,7 @@ export class UploadsService {
         buffer,
         mimeType,
         filename: path.basename(localPath),
+        localPath,
       };
     }
 
