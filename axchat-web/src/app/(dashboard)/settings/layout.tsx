@@ -19,7 +19,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
 
   return (
-    <div className="mx-auto w-full max-w-4xl p-6">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col p-6">
       <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Configurações</h1>
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         Gerencie sua organização e integrações
@@ -45,7 +45,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         })}
       </nav>
 
-      <div className="mt-8">{children}</div>
+      <div className="mt-8 min-h-0 flex-1">{children}</div>
     </div>
   );
 }

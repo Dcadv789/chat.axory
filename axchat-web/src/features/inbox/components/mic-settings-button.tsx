@@ -9,6 +9,7 @@ interface MicSettingsButtonProps {
   selectedDeviceId: string;
   isLoading: boolean;
   disabled?: boolean;
+  buttonClassName?: string;
   onSelect: (deviceId: string) => void;
   onOpen: () => void;
 }
@@ -18,9 +19,14 @@ export function MicSettingsButton({
   selectedDeviceId,
   isLoading,
   disabled,
+  buttonClassName,
   onSelect,
   onOpen,
 }: MicSettingsButtonProps) {
+  const btnClass =
+    buttonClassName ||
+    'rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800 dark:hover:text-zinc-300';
+
   return (
     <Popover className="relative">
       <PopoverButton
@@ -28,7 +34,7 @@ export function MicSettingsButton({
         disabled={disabled}
         onClick={onOpen}
         title="Configurar microfone"
-        className="mb-1 rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+        className={btnClass}
         aria-label="Configurar microfone"
       >
         {isLoading ? (

@@ -30,7 +30,24 @@ const FILE_ACCEPT = [
 
 const TEXTAREA_MIN_HEIGHT = 56;
 const TEXTAREA_MAX_HEIGHT = 168;
-const TEXTAREA_EXPANDED_MAX_HEIGHT = 320;
+/** ~5× a altura extra que havia antes (168→320); cap em 55% da tela. */
+const TEXTAREA_EXPANDED_MAX_HEIGHT = 900;
+const TEXTAREA_EXPANDED_MIN_HEIGHT = 280;
+
+function expandedTextareaMaxHeight(): number {
+  if (typeof window === 'undefined') return TEXTAREA_EXPANDED_MAX_HEIGHT;
+  return Math.min(TEXTAREA_EXPANDED_MAX_HEIGHT, Math.round(window.innerHeight * 0.55));
+}
+
+/** Espaço reservado na caixa para a barra de ações (invisível pro texto). */
+const COMPOSER_ACTIONS_RESERVE = 'pb-11';
+const COMPOSER_EXPAND_RESERVE = 'pr-9';
+
+const composerActionBtn =
+  'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-200/80 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200';
+
+const composerShell =
+  'relative w-full rounded-2xl border border-zinc-200 bg-zinc-50 transition-colors focus-within:border-primary focus-within:ring-1 focus-within:ring-primary dark:border-zinc-700 dark:bg-zinc-900';
 
 function AudioPreview({ blob, onSend, onDiscard, isSending }: {
   blob: Blob;
@@ -47,7 +64,7 @@ function AudioPreview({ blob, onSend, onDiscard, isSending }: {
   }, [blob]);
 
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="flex items-center gap-2 px-3 py-2.5">
       <button
         onClick={onDiscard}
         type="button"
@@ -93,7 +110,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   const resizeTextarea = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    const maxHeight = isExpanded ? TEXTAREA_EXPANDED_MAX_HEIGHT : TEXTAREA_MAX_HEIGHT;
+    const maxHeight = isExpanded ? expandedTextareaMaxHeight() : TEXTAREA_MAX_HEIGHT;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
   }, [isExpanded]);
@@ -176,7 +193,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
       <button
         onClick={() => void recorder.start()}
         type="button"
-        className="mb-1 rounded-lg bg-zinc-100 p-2.5 text-zinc-600 transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+        className={composerActionBtn}
         aria-label="Gravar áudio"
       >
         <Mic className="h-5 w-5" />
@@ -188,6 +205,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
         disabled={recorder.state === 'recording'}
         onSelect={recorder.selectDevice}
         onOpen={handleOpenMicSettings}
+        buttonClassName={composerActionBtn}
       />
     </>
   ) : null;
@@ -205,7 +223,8 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
 
     return (
       <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-900/40 dark:bg-red-500/10">
+        <div className={`${composerShell} border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-500/10`}>
+          <div className="flex items-center gap-2 px-3 py-2.5">
           <button
             onClick={recorder.cancel}
             type="button"
@@ -238,6 +257,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
           >
             <Square className="h-4 w-4" />
           </button>
+          </div>
         </div>
       </div>
     );
@@ -246,12 +266,14 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   if (recorder.state === 'stopped' && recorder.blob) {
     return (
       <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-        <AudioPreview
+        <div className={composerShell}>
+          <AudioPreview
           blob={recorder.blob}
           onSend={() => void handleSendAudio()}
           onDiscard={recorder.cancel}
           isSending={isSendingAudio}
         />
+        </div>
         {recorder.error && (
           <p className="mt-1 text-xs text-red-500">{recorder.error}</p>
         )}
@@ -261,67 +283,74 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
 
   return (
     <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-end gap-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={FILE_ACCEPT}
-          onChange={handleFileChange}
-          className="hidden"
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={FILE_ACCEPT}
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      <div className={composerShell}>
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onInput={handleInput}
+          placeholder="Digite uma mensagem..."
+          rows={2}
+          style={{
+            minHeight: isExpanded ? TEXTAREA_EXPANDED_MIN_HEIGHT : TEXTAREA_MIN_HEIGHT,
+            maxHeight: isExpanded ? expandedTextareaMaxHeight() : TEXTAREA_MAX_HEIGHT,
+          }}
+          className={`block w-full resize-none border-0 bg-transparent px-3 pt-3 text-sm leading-relaxed text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-0 dark:text-zinc-100 ${COMPOSER_ACTIONS_RESERVE} ${COMPOSER_EXPAND_RESERVE}`}
         />
+
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!onSendFile || isSendingFile}
-          className="mb-1 rounded-lg p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
-          aria-label="Anexar arquivo"
+          onClick={() => setIsExpanded((v) => !v)}
+          className="absolute right-2 top-2 rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-200/80 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          aria-label={isExpanded ? 'Reduzir campo de mensagem' : 'Expandir campo de mensagem'}
+          title={isExpanded ? 'Reduzir' : 'Expandir'}
         >
-          {isSendingFile ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+          {isExpanded ? (
+            <Minimize2 className="h-4 w-4" />
           ) : (
-            <Paperclip className="h-5 w-5" />
+            <Maximize2 className="h-4 w-4" />
           )}
         </button>
-        <div className="relative min-w-0 flex-1">
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onInput={handleInput}
-            placeholder="Digite uma mensagem..."
-            rows={2}
-            style={{
-              minHeight: isExpanded ? 120 : TEXTAREA_MIN_HEIGHT,
-              maxHeight: isExpanded ? TEXTAREA_EXPANDED_MAX_HEIGHT : TEXTAREA_MAX_HEIGHT,
-            }}
-            className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 pr-10 text-sm leading-relaxed placeholder:text-zinc-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-          />
+
+        <div className="absolute bottom-1.5 left-2 flex items-center gap-0.5">
           <button
             type="button"
-            onClick={() => setIsExpanded((v) => !v)}
-            className="absolute right-2 top-2 rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-200/80 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
-            aria-label={isExpanded ? 'Reduzir campo de mensagem' : 'Expandir campo de mensagem'}
-            title={isExpanded ? 'Reduzir' : 'Expandir'}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!onSendFile || isSendingFile}
+            className={composerActionBtn}
+            aria-label="Anexar arquivo"
           >
-            {isExpanded ? (
-              <Minimize2 className="h-4 w-4" />
+            {isSendingFile ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Maximize2 className="h-4 w-4" />
+              <Paperclip className="h-5 w-5" />
             )}
           </button>
         </div>
-        <button
-          onClick={handleSubmit}
-          disabled={!text.trim() || isSending}
-          type="button"
-          className="mb-1 rounded-lg bg-primary p-2.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-          aria-label="Enviar mensagem"
-        >
-          {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-        </button>
-        {micControls}
+
+        <div className="absolute bottom-1.5 right-2 flex items-center gap-0.5">
+          <button
+            onClick={handleSubmit}
+            disabled={!text.trim() || isSending}
+            type="button"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            aria-label="Enviar mensagem"
+          >
+            {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+          </button>
+          {micControls}
+        </div>
       </div>
+
       {recorder.error && (
         <p className="mt-1.5 text-xs text-red-500">{recorder.error}</p>
       )}

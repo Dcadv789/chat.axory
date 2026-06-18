@@ -690,7 +690,7 @@ export function ChatPanel({
             Nenhuma mensagem ainda
           </div>
         ) : (
-          <div className="mx-auto max-w-2xl space-y-2">
+          <div className="w-full space-y-2">
             {(() => {
               const reactionMap = new Map<string, string[]>();
               for (const msg of messages) {
@@ -768,7 +768,7 @@ export function ChatPanel({
                         }
                       />
                     )}
-                    <div className="relative max-w-[75%]">
+                    <div className="relative min-w-0 max-w-[92%]">
                       {conversation.isGroup && !isOutbound && msg.senderName && (
                         <p className="mb-0.5 ml-1 text-xs font-semibold text-primary">
                           {msg.senderName}

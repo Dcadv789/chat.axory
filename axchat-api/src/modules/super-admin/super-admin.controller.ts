@@ -5,6 +5,7 @@ import { JwtAuthGuard, SuperAdminGuard } from '../../common/guards';
 import { AddOrganizationMemberDto } from './dto/add-organization-member.dto';
 import { CreateOrganizationAdminDto } from './dto/create-organization-admin.dto';
 import { CreateSuperUserDto } from './dto/create-super-user.dto';
+import { UpdateSuperUserDto } from './dto/update-super-user.dto';
 import { SuspendOrganizationDto } from './dto/suspend-organization.dto';
 import { UpdateBillingDto } from './dto/update-billing.dto';
 import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
@@ -135,5 +136,14 @@ export class SuperAdminController {
     @Body() dto: { isActive?: boolean; isSuperAdmin?: boolean },
   ) {
     return this.service.updateUserStatus(actorId, id, dto);
+  }
+
+  @Patch('users/:id')
+  updateUser(
+    @CurrentUser('id') actorId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateSuperUserDto,
+  ) {
+    return this.service.updateUser(actorId, id, dto);
   }
 }

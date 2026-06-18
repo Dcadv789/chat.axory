@@ -13,6 +13,7 @@ import {
   History,
   LogIn,
   MessageCircle,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
@@ -30,6 +31,7 @@ import {
   type SuperAdminOrganization,
   type SuperAdminUser,
 } from '@/features/super-admin/services/super-admin.service';
+import { EditUserDialog } from '@/features/super-admin/components/edit-user-dialog';
 import { useAuthStore } from '@/stores/auth-store';
 
 const planOptions = ['free', 'starter', 'pro', 'enterprise'];
@@ -85,10 +87,10 @@ export default function SuperAdminPage() {
   }
 
   return (
-    <main className="min-h-full bg-zinc-50 p-6 dark:bg-zinc-950">
-      <div className="mx-auto max-w-7xl">
+    <main className="min-h-full w-full min-w-0 bg-zinc-50 p-6 dark:bg-zinc-950">
+      <div className="w-full min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <Crown className="h-5 w-5 text-amber-500" />
               <h1 className="text-2xl font-semibold text-zinc-950 dark:text-zinc-50">Super Admin</h1>
@@ -96,7 +98,7 @@ export default function SuperAdminPage() {
             <p className="mt-1 text-sm text-zinc-500">Controle global da plataforma, clientes, planos e acessos.</p>
           </div>
 
-          <div className="relative w-full max-w-sm">
+          <div className="relative w-full min-w-[220px] sm:max-w-md lg:max-w-xl">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
             <input
               value={search}
@@ -130,7 +132,12 @@ export default function SuperAdminPage() {
           />
         )}
         {tab === 'users' && (
-          <UsersPanel users={users} loading={loadingUsers} onChanged={refresh} />
+          <UsersPanel
+            users={users}
+            organizations={organizations}
+            loading={loadingUsers}
+            onChanged={refresh}
+          />
         )}
         {tab === 'plans' && <PlansPanel organizations={organizations} onChanged={refresh} />}
         {tab === 'audit' && <AuditPanel logs={auditLogs} loading={loadingAudit} />}
@@ -235,14 +242,14 @@ function OrganizationsPanel({
       </div>
 
       {formOpen && (
-        <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-zinc-300 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-zinc-300 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <Input label="Empresa" value={form.organizationName} onChange={(v) => setForm({ ...form, organizationName: v })} />
           <Input label="Slug" value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} placeholder="opcional" />
           <Select label="Plano" value={form.plan} onChange={(v) => setForm({ ...form, plan: v })} options={planOptions} />
           <Input label="Dono" value={form.ownerName} onChange={(v) => setForm({ ...form, ownerName: v })} />
           <Input label="Email do dono" value={form.ownerEmail} onChange={(v) => setForm({ ...form, ownerEmail: v })} />
           <Input label="Senha inicial" type="password" value={form.ownerPassword} onChange={(v) => setForm({ ...form, ownerPassword: v })} />
-          <div className="md:col-span-3">
+          <div className="sm:col-span-2 lg:col-span-3 xl:col-span-6">
             <button
               onClick={() => createMutation.mutate()}
               disabled={createMutation.isPending || !form.organizationName || !form.ownerEmail || !form.ownerPassword}
@@ -254,7 +261,7 @@ function OrganizationsPanel({
         </div>
       )}
 
-      <div className="mt-4 overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <table className="w-full min-w-[980px] text-sm">
           <thead className="border-b border-zinc-100 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
             <tr>
@@ -576,15 +583,25 @@ function OrganizationDetails({
 
 function UsersPanel({
   users,
+  organizations,
   loading,
   onChanged,
 }: {
   users: SuperAdminUser[];
+  organizations: SuperAdminOrganization[];
   loading: boolean;
   onChanged: () => void;
 }) {
   const [formOpen, setFormOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<SuperAdminUser | null>(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', isSuperAdmin: true });
+
+  const { data: allOrganizations } = useQuery({
+    queryKey: ['super-admin-organizations-all'],
+    queryFn: () => superAdminService.organizations(),
+  });
+
+  const orgPickerOptions = allOrganizations ?? organizations;
 
   const createMutation = useMutation({
     mutationFn: () => superAdminService.createUser(form),
@@ -605,6 +622,13 @@ function UsersPanel({
 
   return (
     <section className="mt-6">
+      <EditUserDialog
+        user={editingUser}
+        organizations={orgPickerOptions}
+        onClose={() => setEditingUser(null)}
+        onSaved={onChanged}
+      />
+
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Usuarios</h2>
         <button
@@ -640,8 +664,8 @@ function UsersPanel({
         </div>
       )}
 
-      <div className="mt-4 overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <table className="w-full min-w-[860px] text-sm">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <table className="w-full min-w-[920px] text-sm">
           <thead className="border-b border-zinc-100 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
             <tr>
               <th className="px-4 py-3">Usuario</th>
@@ -649,13 +673,14 @@ function UsersPanel({
               <th className="px-4 py-3">Super admin</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Criado</th>
+              <th className="px-4 py-3 text-right">Acoes</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <TableSkeleton cols={5} />
+              <TableSkeleton cols={6} />
             ) : users.length === 0 ? (
-              <EmptyRow cols={5} text="Nenhum usuario encontrado" />
+              <EmptyRow cols={6} text="Nenhum usuario encontrado" />
             ) : (
               users.map((u) => (
                 <tr key={u.id} className="border-b border-zinc-50 dark:border-zinc-800">
@@ -664,7 +689,20 @@ function UsersPanel({
                     <p className="text-xs text-zinc-400">{u.email}</p>
                   </td>
                   <td className="px-4 py-3 text-xs text-zinc-500">
-                    {u.organizations.length === 0 ? 'Sem empresa' : u.organizations.map((m) => `${m.organization.name} (${m.role})`).join(', ')}
+                    {u.organizations.length === 0 ? (
+                      <span className="text-amber-600 dark:text-amber-400">Sem empresa</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {u.organizations.map((m) => (
+                          <span
+                            key={m.id ?? `${u.id}:${m.organization.id}`}
+                            className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] dark:bg-zinc-800"
+                          >
+                            {m.organization.name} ({m.role})
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <button onClick={() => updateUser(u.id, { isSuperAdmin: !u.isSuperAdmin })} className="text-zinc-500 hover:text-primary">
@@ -685,6 +723,15 @@ function UsersPanel({
                     </button>
                   </td>
                   <td className="px-4 py-3 text-xs text-zinc-500">{new Date(u.createdAt).toLocaleDateString('pt-BR')}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => setEditingUser(u)}
+                      className="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                      title="Editar usuario"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  </td>
                 </tr>
               ))
             )}

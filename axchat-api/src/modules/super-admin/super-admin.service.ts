@@ -14,6 +14,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { AddOrganizationMemberDto } from './dto/add-organization-member.dto';
 import { CreateOrganizationAdminDto } from './dto/create-organization-admin.dto';
 import { CreateSuperUserDto } from './dto/create-super-user.dto';
+import { UpdateSuperUserDto } from './dto/update-super-user.dto';
 import { UpdateBillingDto } from './dto/update-billing.dto';
 import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
 
@@ -173,7 +174,9 @@ export class SuperAdminService {
         createdAt: true,
         organizations: {
           select: {
+            id: true,
             role: true,
+            joinedAt: true,
             organization: {
               select: { id: true, name: true, slug: true, plan: true, status: true },
             },
@@ -406,9 +409,25 @@ export class SuperAdminService {
     });
     if (existing) throw new ConflictException('User is already a member of this organization');
 
-    const membership = await this.prisma.userOrganization.create({
-      data: { userId: user.id, organizationId: id, role: dto.role },
-      include: { user: { select: { name: true, email: true, isActive: true } } },
+    const membership = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.userOrganization.create({
+        data: { userId: user.id, organizationId: id, role: dto.role },
+        include: { user: { select: { name: true, email: true, isActive: true } } },
+      });
+
+      const defaultDept = await tx.department.findFirst({
+        where: { organizationId: id, isDefault: true },
+      });
+      if (defaultDept) {
+        await tx.departmentAgent.create({
+          data: {
+            departmentId: defaultDept.id,
+            userOrganizationId: created.id,
+          },
+        });
+      }
+
+      return created;
     });
 
     await this.audit(actorId, 'ADD_ORGANIZATION_MEMBER', 'membership', membership.id, id, {
@@ -473,6 +492,70 @@ export class SuperAdminService {
     });
 
     return { removed: true };
+  }
+
+  async updateUser(actorId: string, id: string, dto: UpdateSuperUserDto) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user || user.deletedAt) throw new NotFoundException('User not found');
+    if (actorId === id && dto.isActive === false) {
+      throw new BadRequestException('You cannot deactivate your own user');
+    }
+
+    if (dto.email && dto.email !== user.email) {
+      const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (existing) throw new ConflictException('Email already registered');
+    }
+
+    const password =
+      dto.password !== undefined ? await bcrypt.hash(dto.password, BCRYPT_ROUNDS) : undefined;
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.email !== undefined ? { email: dto.email.trim().toLowerCase() } : {}),
+        ...(password !== undefined ? { password } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.isSuperAdmin !== undefined ? { isSuperAdmin: dto.isSuperAdmin } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isActive: true,
+        isSuperAdmin: true,
+        createdAt: true,
+        organizations: {
+          select: {
+            id: true,
+            role: true,
+            joinedAt: true,
+            organization: {
+              select: { id: true, name: true, slug: true, plan: true, status: true },
+            },
+          },
+        },
+      },
+    });
+
+    await this.audit(actorId, 'UPDATE_USER', 'user', id, null, {
+      before: {
+        name: user.name,
+        email: user.email,
+        isActive: user.isActive,
+        isSuperAdmin: user.isSuperAdmin,
+        passwordChanged: false,
+      },
+      after: {
+        name: updated.name,
+        email: updated.email,
+        isActive: updated.isActive,
+        isSuperAdmin: updated.isSuperAdmin,
+        passwordChanged: password !== undefined,
+      },
+    });
+
+    return updated;
   }
 
   async updateUserStatus(

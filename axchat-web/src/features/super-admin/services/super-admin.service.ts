@@ -63,8 +63,10 @@ export interface SuperAdminUser {
   isSuperAdmin: boolean;
   createdAt: string;
   organizations: Array<{
+    id: string;
     role: string;
-    organization: { id: string; name: string; slug: string; plan: string };
+    joinedAt: string;
+    organization: { id: string; name: string; slug: string; plan: string; status?: string };
   }>;
 }
 
@@ -198,5 +200,19 @@ export const superAdminService = {
   async updateUserStatus(id: string, payload: { isActive?: boolean; isSuperAdmin?: boolean }) {
     const { data } = await api.patch(`/super-admin/users/${id}/status`, payload);
     return data.data;
+  },
+
+  async updateUser(
+    id: string,
+    payload: {
+      name?: string;
+      email?: string;
+      password?: string;
+      isActive?: boolean;
+      isSuperAdmin?: boolean;
+    },
+  ) {
+    const { data } = await api.patch(`/super-admin/users/${id}`, payload);
+    return data.data as SuperAdminUser;
   },
 };

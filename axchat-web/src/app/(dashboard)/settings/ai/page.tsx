@@ -289,7 +289,7 @@ export default function SettingsAiPage() {
                 value={deepseekKey}
                 onChange={(e) => setDeepseekKey(e.target.value)}
                 placeholder={deepseekKeySet ? '•••••••• (substituir)' : 'sk-...'}
-                className="w-full max-w-md rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
               {deepseekKeySet ? (
                 <button

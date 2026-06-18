@@ -29,8 +29,8 @@ export default function ContactsPage() {
   const pagination = data?.pagination;
 
   return (
-    <div className="flex h-full flex-col min-h-0 min-w-0 p-6">
-      <div className="mx-auto w-full max-w-5xl shrink-0">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
+      <div className="w-full shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Contatos</h1>
@@ -52,7 +52,7 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      <div className="mx-auto mt-4 flex w-full max-w-5xl min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mt-4 flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         {/* Header fixo da tabela */}
         <table className="w-full table-fixed shrink-0">
           <thead>
