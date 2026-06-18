@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Channel } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
+import FormData from 'form-data';
+import { whatsappMediaUploadMeta } from './whatsapp-media.util';
 
 interface WaOfficialConfig {
   accessToken: string;
@@ -70,9 +72,8 @@ export class WhatsAppOfficialHttpClient {
 
   /**
    * Uploads media bytes to Meta's servers and returns the media id.
-   * Prefer this over `link` in outbound messages — Meta's crawler often
-   * fails to fetch our public URL in time, which leaves the recipient
-   * with "this audio is no longer available".
+   * Uses form-data (not fetch+Blob) — Node's fetch multipart is unreliable
+   * and can upload empty bodies, which yields broken audio on the client.
    */
   async uploadMedia(
     channel: Channel,
@@ -80,31 +81,54 @@ export class WhatsAppOfficialHttpClient {
     mimeType: string,
     filename: string,
   ): Promise<string> {
-    const cfg = this.getConfig(channel);
-    const form = new FormData();
-    form.append('messaging_product', 'whatsapp');
-    form.append('type', mimeType.split(';')[0].trim());
-    form.append('file', new Blob([new Uint8Array(buffer)], { type: mimeType }), filename);
-
-    const response = await fetch(
-      `https://graph.facebook.com/${cfg.apiVersion}/${cfg.phoneNumberId}/media`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${cfg.accessToken}`,
-        },
-        body: form,
-      },
-    );
-
-    const data = (await response.json()) as { id?: string; error?: { message?: string } };
-    if (!response.ok || !data.id) {
-      const msg = data.error?.message || `HTTP ${response.status}`;
-      this.logger.error(`WA Official media upload failed: ${msg}`);
-      throw new Error(`Failed to upload media to WhatsApp: ${msg}`);
+    if (!buffer?.byteLength) {
+      throw new Error('Cannot upload empty media buffer to WhatsApp');
     }
 
-    return data.id;
+    const cfg = this.getConfig(channel);
+    const { type, contentType } = whatsappMediaUploadMeta(mimeType, filename);
+    const form = new FormData();
+    form.append('messaging_product', 'whatsapp');
+    form.append('type', type);
+    form.append('file', buffer, {
+      filename: filename || 'media.bin',
+      contentType,
+      knownLength: buffer.byteLength,
+    });
+
+    try {
+      const { data } = await axios.post(
+        `https://graph.facebook.com/${cfg.apiVersion}/${cfg.phoneNumberId}/media`,
+        form,
+        {
+          headers: {
+            Authorization: `Bearer ${cfg.accessToken}`,
+            ...form.getHeaders(),
+          },
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity,
+          timeout: 120_000,
+        },
+      );
+
+      if (!data?.id) {
+        throw new Error('WhatsApp media upload returned no media id');
+      }
+
+      this.logger.log(
+        `WA Official media uploaded: id=${data.id} type=${type} bytes=${buffer.byteLength}`,
+      );
+      return data.id;
+    } catch (error: any) {
+      const details =
+        error.response?.data?.error?.error_data?.details ||
+        error.response?.data?.error?.message ||
+        error.message;
+      this.logger.error(
+        `WA Official media upload failed (${type}, ${buffer.byteLength}b): ${details}`,
+      );
+      throw new Error(`Failed to upload media to WhatsApp: ${details}`);
+    }
   }
 
   async verifyPhoneNumber(channel: Channel): Promise<any> {

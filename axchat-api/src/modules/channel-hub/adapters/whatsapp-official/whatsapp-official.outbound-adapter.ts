@@ -61,6 +61,11 @@ export class WhatsAppOfficialOutboundAdapter implements OutboundChannelPort {
       mediaUrl,
       message.content?.mimeType,
     );
+
+    if (message.type === MessageContentType.AUDIO && buffer.byteLength < 500) {
+      throw new BadRequestException('Audio file is too small to send');
+    }
+
     const mediaId = await this.httpClient.uploadMedia(
       channel,
       buffer,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, Mic, Trash2, Square, Loader2 } from 'lucide-react';
+import { Send, Paperclip, Mic, Trash2, Square, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAudioRecorder } from '../hooks/use-audio-recorder';
 import { MicSettingsButton } from './mic-settings-button';
@@ -27,6 +27,10 @@ const FILE_ACCEPT = [
   '.csv',
   '.zip',
 ].join(',');
+
+const TEXTAREA_MIN_HEIGHT = 56;
+const TEXTAREA_MAX_HEIGHT = 168;
+const TEXTAREA_EXPANDED_MAX_HEIGHT = 320;
 
 function AudioPreview({ blob, onSend, onDiscard, isSending }: {
   blob: Blob;
@@ -76,6 +80,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   const [isSending, setIsSending] = useState(false);
   const [isSendingAudio, setIsSendingAudio] = useState(false);
   const [isSendingFile, setIsSendingFile] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recorder = useAudioRecorder();
@@ -85,6 +90,18 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     void recorder.refreshDevices(true);
   }, [recorder.refreshDevices]);
 
+  const resizeTextarea = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const maxHeight = isExpanded ? TEXTAREA_EXPANDED_MAX_HEIGHT : TEXTAREA_MAX_HEIGHT;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+  }, [isExpanded]);
+
+  useEffect(() => {
+    resizeTextarea();
+  }, [isExpanded, text, resizeTextarea]);
+
   const handleSubmit = useCallback(async () => {
     const trimmed = text.trim();
     if (!trimmed || isSending) return;
@@ -92,13 +109,11 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     try {
       await onSend(trimmed);
       setText('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
+      resizeTextarea();
     } finally {
       setIsSending(false);
     }
-  }, [text, isSending, onSend]);
+  }, [text, isSending, onSend, resizeTextarea]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -108,10 +123,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   };
 
   const handleInput = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    resizeTextarea();
   };
 
   const handleSendAudio = useCallback(async () => {
@@ -247,8 +259,6 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     );
   }
 
-  const showMic = canRecord && !text.trim();
-
   return (
     <div className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
       <div className="flex items-end gap-2">
@@ -272,29 +282,45 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
             <Paperclip className="h-5 w-5" />
           )}
         </button>
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onInput={handleInput}
-          placeholder="Digite uma mensagem..."
-          rows={1}
-          className="max-h-40 min-h-[40px] flex-1 resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm placeholder:text-zinc-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-        />
-        {showMic ? (
-          micControls
-        ) : (
+        <div className="relative min-w-0 flex-1">
+          <textarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onInput={handleInput}
+            placeholder="Digite uma mensagem..."
+            rows={2}
+            style={{
+              minHeight: isExpanded ? 120 : TEXTAREA_MIN_HEIGHT,
+              maxHeight: isExpanded ? TEXTAREA_EXPANDED_MAX_HEIGHT : TEXTAREA_MAX_HEIGHT,
+            }}
+            className="w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 pr-10 text-sm leading-relaxed placeholder:text-zinc-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          />
           <button
-            onClick={handleSubmit}
-            disabled={!text.trim() || isSending}
             type="button"
-            className="mb-1 rounded-lg bg-primary p-2.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-            aria-label="Enviar mensagem"
+            onClick={() => setIsExpanded((v) => !v)}
+            className="absolute right-2 top-2 rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-200/80 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+            aria-label={isExpanded ? 'Reduzir campo de mensagem' : 'Expandir campo de mensagem'}
+            title={isExpanded ? 'Reduzir' : 'Expandir'}
           >
-            {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+            {isExpanded ? (
+              <Minimize2 className="h-4 w-4" />
+            ) : (
+              <Maximize2 className="h-4 w-4" />
+            )}
           </button>
-        )}
+        </div>
+        <button
+          onClick={handleSubmit}
+          disabled={!text.trim() || isSending}
+          type="button"
+          className="mb-1 rounded-lg bg-primary p-2.5 text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          aria-label="Enviar mensagem"
+        >
+          {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+        </button>
+        {micControls}
       </div>
       {recorder.error && (
         <p className="mt-1.5 text-xs text-red-500">{recorder.error}</p>

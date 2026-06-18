@@ -43,6 +43,9 @@ export class UploadsService {
     'audio/mp4',
     'audio/m4a',
     'audio/ogg',
+    'audio/ogg; codecs=opus',
+    'audio/amr',
+    'audio/aac',
     'audio/wav',
     'audio/webm',
     'audio/webm;codecs=opus',
@@ -244,7 +247,7 @@ export class UploadsService {
         );
         await fs.promises.unlink(srcPath).catch(() => undefined);
         finalPath = oggPath;
-        finalMime = 'audio/ogg';
+        finalMime = 'audio/ogg; codecs=opus';
       } catch (err: any) {
         this.logger.error(`ffmpeg transcode failed: ${err.message}`);
         throw new BadRequestException('Failed to process audio');
@@ -252,6 +255,9 @@ export class UploadsService {
     }
 
     const finalSize = (await fs.promises.stat(finalPath)).size;
+    if (finalSize < 500) {
+      throw new BadRequestException('Audio gravado é muito curto ou inválido');
+    }
     const finalName = path.basename(finalPath);
     const url = `${this.publicBaseUrl}/audio/${dateFolder}/${finalName}`;
     this.logger.log(`Audio saved: ${finalPath} -> ${url}`);
@@ -263,12 +269,14 @@ export class UploadsService {
    * Returns null when the URL is external or unsafe.
    */
   resolveLocalPathFromPublicUrl(url: string): string | null {
-    const prefix = `${this.publicBaseUrl}/`;
-    if (!url.startsWith(prefix)) return null;
+    const marker = '/api/v1/uploads/';
+    const markerIdx = url.indexOf(marker);
+    if (markerIdx === -1) return null;
 
-    const relative = url.slice(prefix.length);
+    const relative = url.slice(markerIdx + marker.length);
     const segments = relative.split('/').filter(Boolean);
     if (segments.length === 0) return null;
+
     const full = path.resolve(this.rootDir, ...segments);
     const rootWithSep = this.rootDir.endsWith(path.sep)
       ? this.rootDir
@@ -293,11 +301,27 @@ export class UploadsService {
       if (!buffer.byteLength) {
         throw new BadRequestException('Uploaded media file is empty');
       }
+      const ext = path.extname(localPath);
+      const mimeType =
+        mimeTypeHint ||
+        (ext === '.ogg' ? 'audio/ogg; codecs=opus' : this.mimeFromExt(ext));
+      this.logger.debug(`readByPublicUrl: local ${localPath} (${buffer.byteLength}b)`);
       return {
         buffer,
-        mimeType: mimeTypeHint || this.mimeFromExt(path.extname(localPath)),
+        mimeType,
         filename: path.basename(localPath),
       };
+    }
+
+    this.logger.warn(
+      `readByPublicUrl: local file missing for ${url}, falling back to HTTP`,
+    );
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      throw new BadRequestException(`Invalid media URL: ${url}`);
     }
 
     const response = await axios.get(url, {
@@ -314,7 +338,7 @@ export class UploadsService {
     return {
       buffer,
       mimeType: mimeTypeHint || contentType || 'application/octet-stream',
-      filename: path.basename(new URL(url).pathname) || 'media.bin',
+      filename: path.basename(parsedUrl.pathname) || 'media.bin',
     };
   }
 
