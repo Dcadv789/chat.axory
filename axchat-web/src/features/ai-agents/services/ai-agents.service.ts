@@ -192,6 +192,8 @@ export const aiAgentsService = {
       agentId?: string;
       conversationId?: string;
       period?: Period | 'all';
+      from?: string;
+      to?: string;
       status?: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
       finalAction?: string;
       hasErrors?: boolean;
@@ -208,23 +210,28 @@ export const aiAgentsService = {
     return data.data ?? data;
   },
 
-  async orgStats(period: Period = '7d'): Promise<OrgStats> {
+  async orgStats(filter: TimeRangeFilter = { kind: 'preset', period: '7d' }): Promise<OrgStats> {
     const { data } = await api.get('/ai-agents/stats/overview', {
-      params: { period },
+      params: timeRangeToParams(filter),
     });
     return data.data ?? data;
   },
 
-  async businessMetrics(period: Period = '7d'): Promise<BusinessMetrics> {
+  async businessMetrics(
+    filter: TimeRangeFilter = { kind: 'preset', period: '7d' },
+  ): Promise<BusinessMetrics> {
     const { data } = await api.get('/ai-agents/stats/business', {
-      params: { period },
+      params: timeRangeToParams(filter),
     });
     return data.data ?? data;
   },
 
-  async agentStats(id: string, period: Period = '7d'): Promise<AgentStats> {
+  async agentStats(
+    id: string,
+    filter: TimeRangeFilter = { kind: 'preset', period: '7d' },
+  ): Promise<AgentStats> {
     const { data } = await api.get(`/ai-agents/${id}/stats`, {
-      params: { period },
+      params: timeRangeToParams(filter),
     });
     return data.data ?? data;
   },
@@ -276,6 +283,24 @@ export interface AgentSkillBinding {
 }
 
 export type Period = '24h' | '7d' | '30d';
+export type FeedPeriod = Period | 'all';
+
+export type TimeRangeFilter =
+  | { kind: 'preset'; period: Period }
+  | { kind: 'custom'; from: string; to: string };
+
+export type FeedTimeRangeFilter =
+  | { kind: 'preset'; period: FeedPeriod }
+  | { kind: 'custom'; from: string; to: string };
+
+export function timeRangeToParams(
+  filter: TimeRangeFilter | FeedTimeRangeFilter,
+): { period?: Period | 'all'; from?: string; to?: string } {
+  if (filter.kind === 'custom') {
+    return { from: filter.from, to: filter.to };
+  }
+  return { period: filter.period };
+}
 
 export interface FeedRun {
   id: string;

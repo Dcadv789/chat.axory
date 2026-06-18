@@ -23,6 +23,8 @@ import { MediaResolverService } from './messages/media-resolver.service';
 import { ContactsController } from './contacts/contacts.controller';
 import { ContactsService } from './contacts/contacts.service';
 import { ContactsRepository } from './contacts/contacts.repository';
+import { ContactNotesController } from './contacts/contact-notes.controller';
+import { ContactNotesService } from './contacts/contact-notes.service';
 
 @Module({
   imports: [
@@ -36,7 +38,7 @@ import { ContactsRepository } from './contacts/contacts.repository';
     AiAgentsModule,
     WatchdogModule,
   ],
-  controllers: [ConversationsController, MessagesController, ContactsController],
+  controllers: [ConversationsController, MessagesController, ContactsController, ContactNotesController],
   providers: [
     IdempotencyService,
     ContactResolverService,
@@ -54,7 +56,8 @@ import { ContactsRepository } from './contacts/contacts.repository';
     MediaResolverService,
     ContactsService,
     ContactsRepository,
+    ContactNotesService,
   ],
-  exports: [ConversationsService, MessagesService, ConversationFsmService, ContactsService, HistoryImportService, UploadsService],
+  exports: [ConversationsService, MessagesService, ConversationFsmService, ContactsService, HistoryImportService, UploadsService, ContactNotesService],
 })
 export class MessagingModule {}

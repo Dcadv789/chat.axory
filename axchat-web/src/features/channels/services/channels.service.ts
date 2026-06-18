@@ -113,4 +113,27 @@ export const channelsService = {
     const { data } = await api.post<{ data: { job: ChannelSyncJob | null } }>(`/channels/${id}/sync/cancel`);
     return data.data.job;
   },
+
+  // ─── WhatsApp Templates ──────────────────────────
+  async listWhatsappTemplates(channelId: string): Promise<WhatsappTemplate[]> {
+    const { data } = await api.get<{ data: { data: WhatsappTemplate[] } }>(`/channels/${channelId}/whatsapp-templates`);
+    return data.data.data;
+  },
+
+  async syncWhatsappTemplates(channelId: string): Promise<{ synced: number; total: number }> {
+    const { data } = await api.post<{ data: { data: { synced: number; total: number } } }>(`/channels/${channelId}/whatsapp-templates/sync`);
+    return data.data.data;
+  },
 };
+
+export interface WhatsappTemplate {
+  id: string;
+  channelId: string;
+  metaTemplateId: string;
+  name: string;
+  category: string;
+  language: string;
+  status: 'APPROVED' | 'PENDING' | 'REJECTED';
+  components: any[];
+  syncedAt: string;
+}

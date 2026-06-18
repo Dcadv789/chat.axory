@@ -67,14 +67,7 @@ export default function SettingsTagsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Tags</h2>
-          <p className="mt-0.5 text-sm text-zinc-500">Organize conversas e contatos com tags coloridas</p>
-        </div>
-      </div>
-
-      <div className="mt-6 flex items-end gap-3">
+      <div className="flex items-end gap-3">
         <div className="flex-1">
           <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Nome da tag</label>
           <input

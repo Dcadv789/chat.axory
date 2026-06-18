@@ -276,35 +276,39 @@ export class MessagesService {
       }
     }
 
-    await this.outboundQueue.add(
-      'send-outbound',
-      {
-        messageId: message.id,
-        channelId: conversation.channelId,
-        contactExternalId: contactChannel.externalId,
-        message: {
-          type: dto.type,
-          content: outboundContent,
-          // Manda só o que o provider precisa: externalMessageId é
-          // obrigatório (Zappfy/Cloud API), preview+sender são pro
-          // fallback do Instagram. messageId interno fica fora do
-          // payload pro adapter — só queria persistir na metadata.
-          replyTo: replyTo
-            ? {
-                externalMessageId: replyTo.externalMessageId,
-                previewText: replyTo.previewText,
-                senderName: replyTo.senderName,
-              }
-            : undefined,
+    // Internal notes (private messages) are not sent to the external provider.
+    // They exist only in the chat history for internal visibility.
+    if (dto.type !== 'INTERNAL_NOTE') {
+      await this.outboundQueue.add(
+        'send-outbound',
+        {
+          messageId: message.id,
+          channelId: conversation.channelId,
+          contactExternalId: contactChannel.externalId,
+          message: {
+            type: dto.type,
+            content: outboundContent,
+            // Manda só o que o provider precisa: externalMessageId é
+            // obrigatório (Zappfy/Cloud API), preview+sender são pro
+            // fallback do Instagram. messageId interno fica fora do
+            // payload pro adapter — só queria persistir na metadata.
+            replyTo: replyTo
+              ? {
+                  externalMessageId: replyTo.externalMessageId,
+                  previewText: replyTo.previewText,
+                  senderName: replyTo.senderName,
+                }
+              : undefined,
+          },
         },
-      },
-      {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 3000 },
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 3000 },
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
+    }
 
     return message;
   }

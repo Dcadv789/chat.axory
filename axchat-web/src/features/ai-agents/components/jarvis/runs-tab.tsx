@@ -15,8 +15,10 @@ import {
 import {
   aiAgentsService,
   type FeedRun,
-  type Period,
+  type FeedTimeRangeFilter,
+  timeRangeToParams,
 } from '../../services/ai-agents.service';
+import { PeriodSelector } from './period-selector';
 
 type RunStatus = FeedRun['status'];
 
@@ -50,7 +52,10 @@ const FINAL_ACTION_LABEL: Record<string, string> = {
  * returning 404). Auto-refreshes every 10s while the tab is open.
  */
 export function JarvisRunsTab() {
-  const [period, setPeriod] = useState<Period | 'all'>('7d');
+  const [timeRange, setTimeRange] = useState<FeedTimeRangeFilter>({
+    kind: 'preset',
+    period: '7d',
+  });
   const [status, setStatus] = useState<RunStatus | ''>('');
   const [hasErrors, setHasErrors] = useState(false);
   const [agentId, setAgentId] = useState<string>('');
@@ -62,10 +67,10 @@ export function JarvisRunsTab() {
   });
 
   const { data: runs, isLoading } = useQuery({
-    queryKey: ['ai-agents-runs-feed', { period, status, hasErrors, agentId }],
+    queryKey: ['ai-agents-runs-feed', { timeRange, status, hasErrors, agentId }],
     queryFn: () =>
       aiAgentsService.feed({
-        period: period === 'all' ? 'all' : period,
+        ...timeRangeToParams(timeRange),
         status: status || undefined,
         hasErrors: hasErrors || undefined,
         agentId: agentId || undefined,
@@ -82,25 +87,19 @@ export function JarvisRunsTab() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-200 px-6 py-3 dark:border-white/10">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {errorCount > 0 && (
             <div className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-400">
               <AlertTriangle className="h-4 w-4" />
               <span className="font-medium">{errorCount}</span> com falha
             </div>
           )}
-          <div className={`flex flex-wrap items-center gap-2 ${errorCount > 0 ? '' : 'ml-auto'}`}>
           <Filter className="h-4 w-4 text-zinc-400" />
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as Period | 'all')}
-            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black dark:text-zinc-100"
-          >
-            <option value="24h">Últimas 24h</option>
-            <option value="7d">7 dias</option>
-            <option value="30d">30 dias</option>
-            <option value="all">Tudo</option>
-          </select>
+          <PeriodSelector
+            showAll
+            value={timeRange}
+            onChange={setTimeRange}
+          />
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as RunStatus | '')}
@@ -133,7 +132,6 @@ export function JarvisRunsTab() {
             />
             Só com erros
           </label>
-          </div>
         </div>
       </div>
 

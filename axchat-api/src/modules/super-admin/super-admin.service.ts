@@ -17,8 +17,18 @@ import { CreateSuperUserDto } from './dto/create-super-user.dto';
 import { UpdateSuperUserDto } from './dto/update-super-user.dto';
 import { UpdateBillingDto } from './dto/update-billing.dto';
 import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
+import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
 
 const BCRYPT_ROUNDS = 12;
+const PLAN_TEMPLATES_KEY = 'plan_templates';
+const KNOWN_PLANS = ['free', 'starter', 'pro', 'enterprise'] as const;
+
+const BUILTIN_PLAN_TEMPLATES: Record<string, Record<string, number>> = {
+  free: { maxAgents: 2, maxChannels: 1, maxDepartments: 1 },
+  starter: { maxAgents: 5, maxChannels: 2, maxDepartments: 3 },
+  pro: { maxAgents: 25, maxChannels: 10, maxDepartments: 10 },
+  enterprise: { maxAgents: 999, maxChannels: 999, maxDepartments: 999 },
+};
 
 @Injectable()
 export class SuperAdminService {
@@ -244,7 +254,7 @@ export class SuperAdminService {
           name: dto.organizationName,
           slug,
           plan: dto.plan || 'free',
-          settings: defaultSettingsForPlan(dto.plan || 'free'),
+          settings: await this.resolvePlanSettings(dto.plan || 'free'),
         },
       });
 
@@ -287,12 +297,19 @@ export class SuperAdminService {
   ) {
     const organization = await this.ensureOrganization(id);
 
+    const settingsToSet =
+      dto.settings !== undefined
+        ? dto.settings
+        : dto.plan !== undefined
+          ? await this.resolvePlanSettings(dto.plan)
+          : undefined;
+
     const updated = await this.prisma.organization.update({
       where: { id },
       data: {
         ...(dto.plan !== undefined ? { plan: dto.plan } : {}),
-        ...(dto.settings !== undefined
-          ? { settings: dto.settings as Prisma.InputJsonValue }
+        ...(settingsToSet !== undefined
+          ? { settings: settingsToSet as Prisma.InputJsonValue }
           : {}),
         ...(dto.aiEnabled !== undefined ? { aiEnabled: dto.aiEnabled } : {}),
         ...(dto.aiMonthlyTokenCap !== undefined
@@ -702,6 +719,91 @@ export class SuperAdminService {
     }
   }
 
+  async listPlanTemplates(actorId: string) {
+    await this.audit(actorId, 'LIST_PLAN_TEMPLATES', 'platform', null, null);
+
+    const templates = await this.loadPlanTemplates();
+    const planRows = await this.prisma.organization.groupBy({
+      by: ['plan'],
+      where: { deletedAt: null },
+      _count: { _all: true },
+    });
+    const counts = Object.fromEntries(planRows.map((row) => [row.plan, row._count._all]));
+
+    return KNOWN_PLANS.map((plan) => ({
+      plan,
+      count: counts[plan] ?? 0,
+      settings: templates[plan] ?? templates.free,
+    }));
+  }
+
+  async updatePlanTemplate(actorId: string, plan: string, dto: UpdatePlanTemplateDto) {
+    if (!KNOWN_PLANS.includes(plan as (typeof KNOWN_PLANS)[number])) {
+      throw new BadRequestException('Plano invalido');
+    }
+
+    const templates = await this.loadPlanTemplates();
+    const next = {
+      maxAgents: dto.maxAgents,
+      maxChannels: dto.maxChannels,
+      maxDepartments: dto.maxDepartments,
+    };
+    templates[plan] = next;
+
+    try {
+      await this.prisma.platformSetting.upsert({
+        where: { key: PLAN_TEMPLATES_KEY },
+        create: { key: PLAN_TEMPLATES_KEY, value: templates as Prisma.InputJsonValue },
+        update: { value: templates as Prisma.InputJsonValue },
+      });
+    } catch {
+      throw new BadRequestException(
+        'Nao foi possivel salvar os planos. Execute a migration do banco (platform_settings).',
+      );
+    }
+
+    let updatedOrganizations = 0;
+    if (dto.applyToExisting) {
+      const result = await this.prisma.organization.updateMany({
+        where: { plan, deletedAt: null },
+        data: { settings: next as Prisma.InputJsonValue },
+      });
+      updatedOrganizations = result.count;
+    }
+
+    await this.audit(actorId, 'UPDATE_PLAN_TEMPLATE', 'platform', plan, null, {
+      settings: next,
+      applyToExisting: !!dto.applyToExisting,
+      updatedOrganizations,
+    });
+
+    return { plan, settings: next, updatedOrganizations };
+  }
+
+  private async loadPlanTemplates(): Promise<Record<string, Record<string, number>>> {
+    try {
+      const row = await this.prisma.platformSetting.findUnique({
+        where: { key: PLAN_TEMPLATES_KEY },
+      });
+      const stored =
+        row?.value && typeof row.value === 'object' && !Array.isArray(row.value)
+          ? (row.value as Record<string, Record<string, number>>)
+          : {};
+
+      return {
+        ...BUILTIN_PLAN_TEMPLATES,
+        ...stored,
+      };
+    } catch {
+      return { ...BUILTIN_PLAN_TEMPLATES };
+    }
+  }
+
+  private async resolvePlanSettings(plan: string) {
+    const templates = await this.loadPlanTemplates();
+    return templates[plan] ?? templates.free;
+  }
+
   private slugify(value: string) {
     return value
       .toLowerCase()
@@ -710,16 +812,6 @@ export class SuperAdminService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
   }
-}
-
-function defaultSettingsForPlan(plan: string) {
-  const settingsByPlan: Record<string, Record<string, number>> = {
-    free: { maxAgents: 2, maxChannels: 1, maxDepartments: 1 },
-    starter: { maxAgents: 5, maxChannels: 2, maxDepartments: 3 },
-    pro: { maxAgents: 25, maxChannels: 10, maxDepartments: 10 },
-    enterprise: { maxAgents: 999, maxChannels: 999, maxDepartments: 999 },
-  };
-  return settingsByPlan[plan] ?? settingsByPlan.free;
 }
 
 function sanitizeUser<T extends { password: string }>(user: T) {

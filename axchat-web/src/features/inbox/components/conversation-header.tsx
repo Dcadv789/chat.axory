@@ -13,15 +13,18 @@ import {
   Mail,
   Send,
   Activity,
+  UserCircle,
 } from 'lucide-react';
 import { ConversationAiToggle } from './conversation-ai-toggle';
 import { AssignmentPopover } from './assignment-popover';
 import { AgentPinPopover } from './agent-pin-popover';
 import { PipelinePopover } from './pipeline-popover';
+import { ContactInfoPopover } from './contact-info-popover';
 import { inboxService, type Conversation } from '../services/inbox.service';
 import {
   conversationSupportsSync,
   getApiErrorMessage,
+  formatPhone,
 } from '../utils/inbox-errors';
 
 interface ConversationHeaderProps {
@@ -30,6 +33,9 @@ interface ConversationHeaderProps {
   /** When provided, renders a toggle button for the agent-runs sidebar. */
   onToggleAgentLogs?: () => void;
   agentLogsOpen?: boolean;
+  /** When provided, renders a toggle button for the contact sidebar. */
+  onToggleContactSidebar?: () => void;
+  contactSidebarOpen?: boolean;
 }
 
 function ChannelBadge({ type, name }: { type: string; name: string }) {
@@ -88,12 +94,12 @@ function HeaderAvatar({ name, avatarUrl }: { name: string | null; avatarUrl: str
         src={avatarUrl}
         alt={name || 'avatar'}
         onError={() => setFailed(true)}
-        className="h-10 w-10 shrink-0 rounded-full bg-zinc-100 object-cover dark:bg-black"
+        className="h-10 w-10 shrink-0 rounded-full bg-zinc-100 object-cover dark:bg-zinc-800"
       />
     );
   }
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-medium text-zinc-600 dark:bg-black dark:text-zinc-300">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary dark:bg-primary/20 dark:text-primary-foreground">
       {initials}
     </div>
   );
@@ -104,6 +110,8 @@ export function ConversationHeader({
   onUpdate,
   onToggleAgentLogs,
   agentLogsOpen,
+  onToggleContactSidebar,
+  contactSidebarOpen,
 }: ConversationHeaderProps) {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
@@ -152,11 +160,14 @@ export function ConversationHeader({
           avatarUrl={conversation.contact.avatarUrl}
         />
         <div className="flex flex-col">
-          <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            {conversation.contact.name || conversation.contact.phone || 'Desconhecido'}
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              {conversation.contact.name || conversation.contact.phone || 'Desconhecido'}
+            </span>
+            <ContactInfoPopover conversation={conversation} />
           </div>
           {conversation.contact.phone && conversation.contact.name && (
-            <div className="text-xs text-zinc-500">{conversation.contact.phone}</div>
+            <div className="text-xs text-zinc-500">{formatPhone(conversation.contact.phone)}</div>
           )}
           <ChannelBadge
             type={conversation.channel.type}
@@ -202,6 +213,19 @@ export function ConversationHeader({
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+          </button>
+        )}
+        {onToggleContactSidebar && (
+          <button
+            onClick={onToggleContactSidebar}
+            title={contactSidebarOpen ? 'Fechar dados do contato' : 'Abrir dados do contato'}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+              contactSidebarOpen
+                ? 'bg-primary/10 text-primary dark:bg-primary/15'
+                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
+            }`}
+          >
+            <UserCircle className="h-3.5 w-3.5" />
           </button>
         )}
         {onToggleAgentLogs && (

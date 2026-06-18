@@ -55,12 +55,12 @@ function ListAvatar({ name, avatarUrl }: { name: string | null; avatarUrl: strin
         src={avatarUrl}
         alt={name || 'avatar'}
         onError={() => setFailed(true)}
-        className="h-10 w-10 rounded-full bg-zinc-100 object-cover dark:bg-black"
+        className="h-10 w-10 rounded-full bg-zinc-100 object-cover dark:bg-zinc-800"
       />
     );
   }
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-[13px] font-semibold text-zinc-500 dark:bg-black dark:text-zinc-400">
+    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-[13px] font-semibold text-primary dark:bg-primary/20 dark:text-primary-foreground">
       {initials}
     </div>
   );

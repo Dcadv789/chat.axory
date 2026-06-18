@@ -1,0 +1,84 @@
+'use client';
+
+import { Search, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+
+interface MessageSearchBarProps {
+  /** All messages currently displayed in the chat */
+  messages: { id: string; content: { text?: string }; type: string }[];
+  /** Called when a message should be scrolled into view */
+  onJumpToMessage: (messageId: string) => void;
+}
+
+export function MessageSearchBar({ messages, onJumpToMessage }: MessageSearchBarProps) {
+  const [query, setQuery] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const results = useMemo(() => {
+    if (!query.trim()) return [] as { id: string; text: string; index: number }[];
+    const q = query.toLowerCase();
+    return messages
+      .map((m, i) => ({
+        id: m.id,
+        text: (m.content?.text || '').toLowerCase(),
+        index: i,
+      }))
+      .filter((m) => m.text.includes(q));
+  }, [query, messages]);
+
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
+  }, [results.length]);
+
+  const handleNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
+  }, [results.length]);
+
+  const handleJump = useCallback(() => {
+    if (results[currentIndex]) {
+      onJumpToMessage(results[currentIndex].id);
+    }
+  }, [results, currentIndex, onJumpToMessage]);
+
+  return (
+    <div className="flex items-center gap-1.5 border-b border-zinc-100 bg-white px-3 py-1.5 dark:border-white/5 dark:bg-black">
+      <Search className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setCurrentIndex(0); }}
+        placeholder="Buscar mensagens..."
+        className="min-w-0 flex-1 border-0 bg-transparent text-[12px] text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
+      />
+      {results.length > 0 && (
+        <span className="shrink-0 text-[10px] text-zinc-400 tabular-nums">
+          {currentIndex + 1}/{results.length}
+        </span>
+      )}
+      {results.length > 0 && (
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => { handlePrev(); handleJump(); }}
+            className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => { handleNext(); handleJump(); }}
+            className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+      {query && (
+        <button
+          onClick={() => { setQuery(''); setCurrentIndex(0); }}
+          className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}

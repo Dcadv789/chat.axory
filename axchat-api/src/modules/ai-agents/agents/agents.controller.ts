@@ -152,6 +152,8 @@ export class AgentsController {
     @Query('agentId') agentId?: string,
     @Query('conversationId') conversationId?: string,
     @Query('period') period?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
     @Query('status') status?: string,
     @Query('finalAction') finalAction?: string,
     @Query('hasErrors') hasErrors?: string,
@@ -162,6 +164,8 @@ export class AgentsController {
       agentId,
       conversationId,
       period: this.parsePeriodAll(period),
+      from,
+      to,
       status: this.parseRunStatus(status),
       finalAction,
       hasErrors: hasErrors === '1' || hasErrors === 'true',
@@ -177,9 +181,14 @@ export class AgentsController {
   orgStats(
     @CurrentOrg('id') orgId: string,
     @Query('period') period?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    const p = this.parsePeriod(period);
-    return this.service.getOrgStats(orgId, p);
+    return this.service.getOrgStats(orgId, {
+      period: this.parsePeriodOptional(period),
+      from,
+      to,
+    });
   }
 
   @Get('stats/business')
@@ -190,9 +199,14 @@ export class AgentsController {
   businessMetrics(
     @CurrentOrg('id') orgId: string,
     @Query('period') period?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    const p = this.parsePeriod(period);
-    return this.service.getBusinessMetrics(orgId, p);
+    return this.service.getBusinessMetrics(orgId, {
+      period: this.parsePeriodOptional(period),
+      from,
+      to,
+    });
   }
 
   @Get(':id/stats')
@@ -201,14 +215,21 @@ export class AgentsController {
     @CurrentOrg('id') orgId: string,
     @Param('id') id: string,
     @Query('period') period?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    const p = this.parsePeriod(period);
-    return this.service.getAgentStats(orgId, id, p);
+    return this.service.getAgentStats(orgId, id, {
+      period: this.parsePeriodOptional(period),
+      from,
+      to,
+    });
   }
 
-  private parsePeriod(p?: string): '24h' | '7d' | '30d' {
+  private parsePeriodOptional(
+    p?: string,
+  ): '24h' | '7d' | '30d' | undefined {
     if (p === '24h' || p === '7d' || p === '30d') return p;
-    return '7d';
+    return undefined;
   }
 
   private parsePeriodAll(p?: string): '24h' | '7d' | '30d' | 'all' {

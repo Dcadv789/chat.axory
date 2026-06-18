@@ -27,8 +27,13 @@ export class ContactsRepository {
         where,
         include: {
           channels: { include: { channel: { select: { id: true, type: true, name: true } } } },
-          tags: { include: { tag: true } },
-          _count: { select: { conversations: true } },
+        tags: { include: { tag: true } },
+        contactNotes: {
+          include: { author: { select: { id: true, name: true, avatarUrl: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        _count: { select: { conversations: true } },
         },
         orderBy: { updatedAt: 'desc' },
         skip,
@@ -46,6 +51,11 @@ export class ContactsRepository {
       include: {
         channels: { include: { channel: { select: { id: true, type: true, name: true } } } },
         tags: { include: { tag: true } },
+        contactNotes: {
+          include: { author: { select: { id: true, name: true, avatarUrl: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
         conversations: {
           orderBy: { createdAt: 'desc' },
           take: 10,

@@ -253,31 +253,32 @@ export function AutomationBuilder({
         onClick={onClose}
         aria-label="Fechar"
       />
-      <div className="flex h-full w-full max-w-2xl flex-col bg-white shadow-xl dark:bg-black">
+      <div className="flex h-full w-full max-w-2xl flex-col border-l border-zinc-200 bg-white shadow-xl dark:border-white/10 dark:bg-black">
         <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
           <div>
             <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
               {initial ? 'Editar automação' : 'Nova automação'}
             </h2>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Quando algo acontece → executa uma sequência de ações
             </p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
+            className="rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100"
             aria-label="Fechar"
           >
             <X className="h-5 w-5" />
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        <div className="flex-1 overflow-y-auto bg-[#f8fafc] px-6 py-5 dark:bg-[#171717]">
+          <div className="space-y-4">
           {/* Basic */}
-          <section className="space-y-3">
+          <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
             <Label>Nome</Label>
             <input
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-white/10 dark:bg-black"
+              className={inputCls}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Notificar João quando tag VIP for adicionada"
@@ -285,7 +286,7 @@ export function AutomationBuilder({
             />
             <Label>Descrição (opcional)</Label>
             <textarea
-              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-white/10 dark:bg-black"
+              className={`${inputCls} rounded-lg px-3 py-2`}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
@@ -294,7 +295,7 @@ export function AutomationBuilder({
           </section>
 
           {/* Trigger */}
-          <section className="space-y-3">
+          <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
             <SectionTitle index={1} title="Quando" />
             <div className="grid gap-2">
               {meta.triggers.map((t) => (
@@ -302,8 +303,8 @@ export function AutomationBuilder({
                   key={t.value}
                   className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition ${
                     trigger === t.value
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
-                      : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10 dark:hover:border-zinc-700'
+                      ? 'border-primary bg-primary/5 dark:border-primary dark:bg-primary/10'
+                      : 'border-zinc-200 hover:border-zinc-300 dark:border-white/15 dark:bg-white/5 dark:hover:border-white/25'
                   }`}
                 >
                   <input
@@ -315,8 +316,8 @@ export function AutomationBuilder({
                     className="mt-1"
                   />
                   <div>
-                    <div className="font-medium">{TRIGGER_LABELS[t.value]}</div>
-                    <div className="text-xs text-zinc-500">
+                    <div className="font-medium text-zinc-900 dark:text-zinc-50">{TRIGGER_LABELS[t.value]}</div>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
                       {TRIGGER_DESCRIPTIONS[t.value]}
                     </div>
                   </div>
@@ -326,14 +327,14 @@ export function AutomationBuilder({
           </section>
 
           {/* Conditions */}
-          <section className="space-y-3">
+          <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
             <SectionTitle
               index={2}
               title="Condições"
               hint="Sem condições = roda em todos os eventos do gatilho"
             />
             {conditions.groups.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-zinc-500">
+              <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <span>Combinar grupos com:</span>
                 <select
                   value={conditions.match}
@@ -343,7 +344,7 @@ export function AutomationBuilder({
                       match: e.target.value as 'AND' | 'OR',
                     })
                   }
-                  className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-white/10 dark:bg-black"
+                  className={`${inputCls} w-auto`}
                 >
                   <option value="OR">QUALQUER (OR)</option>
                   <option value="AND">TODOS (AND)</option>
@@ -353,7 +354,7 @@ export function AutomationBuilder({
             {conditions.groups.map((group, gi) => (
               <div
                 key={gi}
-                className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-white/10 dark:bg-black"
+                className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-white/15 dark:bg-white/5"
               >
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium text-zinc-600 dark:text-zinc-400">
@@ -368,7 +369,7 @@ export function AutomationBuilder({
                         );
                         setConditions({ ...conditions, groups });
                       }}
-                      className="rounded border border-zinc-300 px-1 text-xs dark:border-white/10 dark:bg-black"
+                      className={`${inputCls} w-auto px-1 py-0.5 text-xs`}
                     >
                       <option value="AND">TODAS</option>
                       <option value="OR">QUALQUER</option>
@@ -402,14 +403,14 @@ export function AutomationBuilder({
             ))}
             <button
               onClick={addGroup}
-              className="flex items-center gap-1 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/10"
+              className="flex items-center gap-1 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-300 dark:hover:bg-white/5"
             >
               <Plus className="h-4 w-4" /> Adicionar grupo de condições
             </button>
           </section>
 
           {/* Actions */}
-          <section className="space-y-3">
+          <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
             <SectionTitle index={3} title="Ações" hint="Executadas em ordem" />
             {actions.map((action, i) => (
               <ActionRow
@@ -430,7 +431,7 @@ export function AutomationBuilder({
                 <button
                   key={a.type}
                   onClick={() => addAction(a.type)}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs hover:bg-zinc-50 dark:border-white/10 dark:bg-black dark:hover:bg-white/10"
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-white/15 dark:bg-black dark:text-zinc-200 dark:hover:bg-white/10"
                 >
                   + {ACTION_LABELS[a.type]}
                 </button>
@@ -439,7 +440,7 @@ export function AutomationBuilder({
           </section>
 
           {/* Settings */}
-          <section className="space-y-3 border-t border-zinc-200 pt-4 dark:border-white/10">
+          <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
             <Label>Limite por minuto (por conversa)</Label>
             <input
               type="number"
@@ -447,9 +448,9 @@ export function AutomationBuilder({
               max={120}
               value={rateLimitPerMinute}
               onChange={(e) => setRateLimitPerMinute(Number(e.target.value))}
-              className="w-32 rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-white/10 dark:bg-black"
+              className={`${inputCls} w-32`}
             />
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Máximo de execuções por minuto na mesma conversa. Acima desse
               limite, runs são marcados como SKIPPED.
             </p>
@@ -461,15 +462,16 @@ export function AutomationBuilder({
                 onChange={(e) => setEnabled(e.target.checked)}
                 className="h-4 w-4 rounded"
               />
-              <span className="text-sm">Ativar imediatamente</span>
+              <span className="text-sm text-zinc-700 dark:text-zinc-200">Ativar imediatamente</span>
             </label>
           </section>
+          </div>
         </div>
 
-        <footer className="flex items-center justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-white/10">
+        <footer className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
           <button
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-white/10"
+            className="rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/5"
           >
             Cancelar
           </button>
@@ -501,7 +503,7 @@ function SectionTitle({
         {index}
       </span>
       <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">{title}</h3>
-      {hint && <span className="text-xs text-zinc-500">{hint}</span>}
+      {hint && <span className="text-xs text-zinc-500 dark:text-zinc-400">{hint}</span>}
     </div>
   );
 }
@@ -515,7 +517,7 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 const inputCls =
-  'w-full rounded border border-zinc-300 px-2 py-1 text-sm dark:border-white/10 dark:bg-black';
+  'w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-primary dark:border-white/15 dark:bg-black dark:text-zinc-100 dark:placeholder:text-zinc-500';
 
 // Renders the value side of a condition rule based on which field is
 // selected. Maps every ID-bearing field to a real-data dropdown so a
@@ -668,7 +670,7 @@ function RuleRow({
           // meaningless if user just switched to channelId).
           onChange({ field: e.target.value, value: '' })
         }
-        className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-white/10 dark:bg-black"
+        className={inputCls}
       >
         {fields.map((f) => (
           <option key={f} value={f}>
@@ -679,7 +681,7 @@ function RuleRow({
       <select
         value={rule.op}
         onChange={(e) => onChange({ op: e.target.value as ConditionOperator })}
-        className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-white/10 dark:bg-black"
+        className={inputCls}
       >
         {ops.map((op) => (
           <option key={op} value={op}>
@@ -726,9 +728,9 @@ function ActionRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 p-3 dark:border-white/10">
+    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-white/15 dark:bg-white/5">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-medium">
+        <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
           {index + 1}. {ACTION_LABELS[action.type]}
         </span>
         <button
@@ -744,7 +746,7 @@ function ActionRow({
         onParamChange={onParamChange}
         onParamsChange={onParamsChange}
       />
-      <label className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+      <label className="mt-2 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
         <input
           type="checkbox"
           checked={action.continueOnError ?? false}

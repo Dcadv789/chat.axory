@@ -9,6 +9,7 @@ import { UpdateSuperUserDto } from './dto/update-super-user.dto';
 import { SuspendOrganizationDto } from './dto/suspend-organization.dto';
 import { UpdateBillingDto } from './dto/update-billing.dto';
 import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
+import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
 import { SuperAdminService } from './super-admin.service';
 
 @ApiTags('Super Admin')
@@ -46,6 +47,20 @@ export class SuperAdminController {
     @Body() dto: UpdateOrganizationPlanDto,
   ) {
     return this.service.updateOrganizationPlan(actorId, id, dto);
+  }
+
+  @Get('plans')
+  listPlanTemplates(@CurrentUser('id') actorId: string) {
+    return this.service.listPlanTemplates(actorId);
+  }
+
+  @Patch('plans/:plan')
+  updatePlanTemplate(
+    @CurrentUser('id') actorId: string,
+    @Param('plan') plan: string,
+    @Body() dto: UpdatePlanTemplateDto,
+  ) {
+    return this.service.updatePlanTemplate(actorId, plan, dto);
   }
 
   @Patch('organizations/:id/billing')

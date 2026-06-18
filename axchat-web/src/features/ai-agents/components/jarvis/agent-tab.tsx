@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Bot, Coins, Cpu, Activity, CheckCircle2, ArrowRightLeft } from 'lucide-react';
 import {
   aiAgentsService,
-  type Period,
+  type TimeRangeFilter,
 } from '../../services/ai-agents.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { KpiCard } from './kpi-card';
@@ -16,7 +16,10 @@ import { fmtMs, fmtNum, fmtUsdShort } from './format';
 
 export function JarvisAgentTab() {
   const orgId = useOrgId();
-  const [period, setPeriod] = useState<Period>('7d');
+  const [timeRange, setTimeRange] = useState<TimeRangeFilter>({
+    kind: 'preset',
+    period: '7d',
+  });
   const [agentId, setAgentId] = useState<string>('');
 
   const { data: agents } = useQuery({
@@ -32,8 +35,8 @@ export function JarvisAgentTab() {
   }, [agents, agentId]);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['ai-agent-stats', agentId, period],
-    queryFn: () => aiAgentsService.agentStats(agentId, period),
+    queryKey: ['ai-agent-stats', agentId, timeRange],
+    queryFn: () => aiAgentsService.agentStats(agentId, timeRange),
     enabled: !!agentId,
     refetchInterval: 5000,
   });
@@ -69,7 +72,8 @@ export function JarvisAgentTab() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <PeriodSelector value={timeRange} onChange={setTimeRange} />
         <div className="flex items-center gap-3">
           <select
             value={agentId}
@@ -88,7 +92,6 @@ export function JarvisAgentTab() {
             </span>
           )}
         </div>
-        <PeriodSelector value={period} onChange={setPeriod} />
       </div>
 
       {/* KPI cards */}

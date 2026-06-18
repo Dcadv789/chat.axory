@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
@@ -26,10 +26,12 @@ import {
 import { toast } from 'sonner';
 import {
   superAdminService,
+  DEFAULT_PLAN_TEMPLATES,
   type BillingStatus,
   type SuperAdminAuditLog,
   type SuperAdminOrganization,
   type SuperAdminUser,
+  type SuperAdminOverview,
 } from '@/features/super-admin/services/super-admin.service';
 import { EditUserDialog } from '@/features/super-admin/components/edit-user-dialog';
 import { useAuthStore } from '@/stores/auth-store';
@@ -144,7 +146,7 @@ export default function SuperAdminPage() {
             onChanged={refresh}
           />
         )}
-        {tab === 'plans' && <PlansPanel organizations={organizations} onChanged={refresh} />}
+        {tab === 'plans' && <PlansPanel overview={overview} onChanged={refresh} />}
         {tab === 'audit' && <AuditPanel logs={auditLogs} loading={loadingAudit} />}
         </div>
       </div>
@@ -170,7 +172,7 @@ function Kpi({
         <Icon className="h-4 w-4 text-zinc-400" />
       </div>
       {loading ? (
-        <div className="mt-3 h-7 w-20 animate-pulse rounded bg-zinc-100 dark:bg-black" />
+        <div className="mt-3 h-7 w-20 animate-pulse rounded bg-zinc-100 dark:bg-white/10" />
       ) : (
         <p className="mt-2 text-2xl font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">{value ?? 0}</p>
       )}
@@ -227,10 +229,7 @@ function OrganizationsPanel({
   });
 
   const updatePlan = async (org: SuperAdminOrganization, plan: string) => {
-    await superAdminService.updateOrganizationPlan(org.id, {
-      plan,
-      settings: defaultSettings(plan),
-    });
+    await superAdminService.updateOrganizationPlan(org.id, { plan });
     toast.success('Plano atualizado');
     queryClient.invalidateQueries({ queryKey: ['super-admin-organizations'] });
     queryClient.invalidateQueries({ queryKey: ['super-admin-overview'] });
@@ -270,7 +269,7 @@ function OrganizationsPanel({
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
         <table className="w-full min-w-[980px] text-sm">
-          <thead className="border-b border-zinc-100 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-white/10 dark:bg-black">
+          <thead className="border-b border-zinc-100 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-white/10 dark:bg-white/5">
             <tr>
               <th className="px-4 py-3">Empresa</th>
               <th className="px-4 py-3">Plano</th>
@@ -303,7 +302,7 @@ function OrganizationsPanel({
                     <select
                       value={org.plan}
                       onChange={(event) => updatePlan(org, event.target.value)}
-                      className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black"
+                      className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs font-medium capitalize text-zinc-900 dark:border-white/10 dark:bg-black dark:text-zinc-100"
                     >
                       {planOptions.map((plan) => <option key={plan} value={plan}>{plan}</option>)}
                     </select>
@@ -342,7 +341,7 @@ function OrganizationsPanel({
                 </tr>
                 {expanded && (
                   <tr key={`${org.id}-details`} className="border-b border-zinc-100 dark:border-white/10">
-                    <td colSpan={9} className="bg-zinc-50 px-4 py-4 dark:bg-black">
+                    <td colSpan={9} className="bg-zinc-50 px-4 py-4 dark:bg-white/5">
                       <OrganizationDetails org={org} onChanged={onChanged} />
                     </td>
                   </tr>
@@ -555,7 +554,7 @@ function OrganizationDetails({
                     <select
                       value={member.role}
                       onChange={(event) => updateMemberRole(member.id, event.target.value)}
-                      className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs dark:border-white/10 dark:bg-black"
+                      className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs font-medium capitalize text-zinc-900 dark:border-white/10 dark:bg-black dark:text-zinc-100"
                     >
                       {['OWNER', 'ADMIN', 'AGENT'].map((role) => <option key={role} value={role}>{role}</option>)}
                     </select>
@@ -673,7 +672,7 @@ function UsersPanel({
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
         <table className="w-full min-w-[920px] text-sm">
-          <thead className="border-b border-zinc-100 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-white/10 dark:bg-black">
+          <thead className="border-b border-zinc-100 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-white/10 dark:bg-white/5">
             <tr>
               <th className="px-4 py-3">Usuario</th>
               <th className="px-4 py-3">Empresas</th>
@@ -703,7 +702,7 @@ function UsersPanel({
                         {u.organizations.map((m) => (
                           <span
                             key={m.id ?? `${u.id}:${m.organization.id}`}
-                            className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] dark:bg-black"
+                            className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700 dark:bg-white/10 dark:text-zinc-200"
                           >
                             {m.organization.name} ({m.role})
                           </span>
@@ -750,46 +749,180 @@ function UsersPanel({
 }
 
 function PlansPanel({
-  organizations,
+  overview,
   onChanged,
 }: {
-  organizations: SuperAdminOrganization[];
+  overview?: SuperAdminOverview;
   onChanged: () => void;
 }) {
-  const byPlan = useMemo(
-    () =>
-      planOptions.map((plan) => ({
-        plan,
-        count: organizations.filter((org) => org.plan === plan).length,
-        settings: defaultSettings(plan),
-      })),
-    [organizations],
-  );
+  const queryClient = useQueryClient();
+  const [drafts, setDrafts] = useState<Record<string, { maxAgents: string; maxChannels: string; maxDepartments: string }>>({});
+  const [applyToExisting, setApplyToExisting] = useState<Record<string, boolean>>({});
+
+  const planCounts = overview?.plans;
+
+  const { data: plans = DEFAULT_PLAN_TEMPLATES, isLoading } = useQuery({
+    queryKey: ['super-admin-plan-templates', planCounts],
+    queryFn: () => superAdminService.planTemplates(planCounts),
+  });
+
+  useEffect(() => {
+    if (!plans.length) return;
+    setDrafts(
+      Object.fromEntries(
+        plans.map((item) => [
+          item.plan,
+          {
+            maxAgents: String(item.settings.maxAgents),
+            maxChannels: String(item.settings.maxChannels),
+            maxDepartments: String(item.settings.maxDepartments),
+          },
+        ]),
+      ),
+    );
+  }, [plans]);
+
+  const saveMutation = useMutation({
+    mutationFn: (plan: string) => {
+      const draft = drafts[plan];
+      if (!draft) throw new Error('Plano invalido');
+      return superAdminService.updatePlanTemplate(plan, {
+        maxAgents: Number(draft.maxAgents),
+        maxChannels: Number(draft.maxChannels),
+        maxDepartments: Number(draft.maxDepartments),
+        applyToExisting: applyToExisting[plan] ?? false,
+      });
+    },
+    onSuccess: (result) => {
+      const suffix =
+        result.updatedOrganizations > 0
+          ? ` — ${result.updatedOrganizations} empresa(s) atualizada(s)`
+          : '';
+      toast.success(`Plano ${result.plan} salvo${suffix}`);
+      queryClient.invalidateQueries({ queryKey: ['super-admin-plan-templates'] });
+      queryClient.invalidateQueries({ queryKey: ['super-admin-organizations'] });
+      onChanged();
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Erro ao salvar plano'),
+  });
+
+  if (isLoading && !plans.length) {
+    return <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">Carregando planos…</p>;
+  }
 
   return (
-    <section className="mt-6 grid gap-4 lg:grid-cols-4">
-      {byPlan.map((plan) => (
-        <div key={plan.plan} className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold capitalize text-zinc-900 dark:text-zinc-100">{plan.plan}</h2>
-            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-black dark:text-zinc-300">
-              {plan.count} empresas
-            </span>
+    <section className="mt-6">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+      {plans.map((item) => {
+        const draft = drafts[item.plan];
+        const saving = saveMutation.isPending && saveMutation.variables === item.plan;
+        return (
+          <div key={item.plan} className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="rounded-md bg-primary px-2.5 py-1 text-sm font-semibold capitalize text-primary-foreground">
+                {item.plan}
+              </h2>
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-white/10 dark:text-zinc-100">
+                {item.count} empresas
+              </span>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <PlanLimitInput
+                label="Agentes"
+                value={draft?.maxAgents ?? ''}
+                onChange={(value) =>
+                  setDrafts((current) => ({
+                    ...current,
+                    [item.plan]: {
+                      maxAgents: value,
+                      maxChannels: current[item.plan]?.maxChannels ?? String(item.settings.maxChannels),
+                      maxDepartments: current[item.plan]?.maxDepartments ?? String(item.settings.maxDepartments),
+                    },
+                  }))
+                }
+              />
+              <PlanLimitInput
+                label="Canais"
+                value={draft?.maxChannels ?? ''}
+                onChange={(value) =>
+                  setDrafts((current) => ({
+                    ...current,
+                    [item.plan]: {
+                      maxAgents: current[item.plan]?.maxAgents ?? String(item.settings.maxAgents),
+                      maxChannels: value,
+                      maxDepartments: current[item.plan]?.maxDepartments ?? String(item.settings.maxDepartments),
+                    },
+                  }))
+                }
+              />
+              <PlanLimitInput
+                label="Departamentos"
+                value={draft?.maxDepartments ?? ''}
+                onChange={(value) =>
+                  setDrafts((current) => ({
+                    ...current,
+                    [item.plan]: {
+                      maxAgents: current[item.plan]?.maxAgents ?? String(item.settings.maxAgents),
+                      maxChannels: current[item.plan]?.maxChannels ?? String(item.settings.maxChannels),
+                      maxDepartments: value,
+                    },
+                  }))
+                }
+              />
+            </div>
+
+            <label className="mt-4 flex cursor-pointer items-start gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+              <input
+                type="checkbox"
+                checked={applyToExisting[item.plan] ?? false}
+                onChange={(event) =>
+                  setApplyToExisting((current) => ({
+                    ...current,
+                    [item.plan]: event.target.checked,
+                  }))
+                }
+                className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-300 text-primary focus:ring-primary dark:border-white/20"
+              />
+              Aplicar limites às {item.count} empresa(s) neste plano
+            </label>
+
+            <button
+              type="button"
+              onClick={() => saveMutation.mutate(item.plan)}
+              disabled={!draft || saving}
+              className="mt-4 w-full rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? 'Salvando…' : 'Atualizar dados'}
+            </button>
           </div>
-          <div className="mt-4 space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-            <p>Agentes: {String(plan.settings.maxAgents)}</p>
-            <p>Canais: {String(plan.settings.maxChannels)}</p>
-            <p>Departamentos: {String(plan.settings.maxDepartments)}</p>
-          </div>
-          <button
-            onClick={onChanged}
-            className="mt-4 rounded-md border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/10"
-          >
-            Atualizar dados
-          </button>
-        </div>
-      ))}
+        );
+      })}
+      </div>
     </section>
+  );
+}
+
+function PlanLimitInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
+      <input
+        type="number"
+        min={0}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+      />
+    </label>
   );
 }
 
@@ -807,7 +940,7 @@ function AuditPanel({
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Auditoria do Super Admin</h2>
       </div>
       <table className="w-full min-w-[900px] text-sm">
-        <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-black">
+        <thead className="bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:bg-white/5">
           <tr>
             <th className="px-4 py-3">Quando</th>
             <th className="px-4 py-3">Ator</th>
@@ -860,7 +993,7 @@ function StatusBadge({ status }: { status: SuperAdminOrganization['status'] }) {
       ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
       : status === 'SUSPENDED'
         ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
-        : 'bg-zinc-100 text-zinc-700 dark:bg-black dark:text-zinc-300';
+        : 'bg-zinc-100 text-zinc-700 dark:bg-white/10 dark:text-zinc-200';
 
   return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>{status}</span>;
 }
@@ -939,16 +1072,6 @@ function EmptyRow({ cols, text }: { cols: number; text: string }) {
       <td colSpan={cols} className="px-4 py-10 text-center text-sm text-zinc-500">{text}</td>
     </tr>
   );
-}
-
-function defaultSettings(plan: string): Record<string, number> {
-  const plans: Record<string, Record<string, number>> = {
-    free: { maxAgents: 2, maxChannels: 1, maxDepartments: 1 },
-    starter: { maxAgents: 5, maxChannels: 2, maxDepartments: 3 },
-    pro: { maxAgents: 25, maxChannels: 10, maxDepartments: 10 },
-    enterprise: { maxAgents: 999, maxChannels: 999, maxDepartments: 999 },
-  };
-  return plans[plan] ?? plans.free;
 }
 
 function toOptionalNumber(value: string): number | undefined {

@@ -1,15 +1,37 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { MessageSquare } from 'lucide-react';
 import { ConversationList } from '@/features/inbox/components/conversation-list';
 import { ChatPanel } from '@/features/inbox/components/chat-panel';
 import { AgentRunsSidebar } from '@/features/inbox/components/agent-runs-sidebar';
+import { ContactSidebar } from '@/features/inbox/components/contact-sidebar';
+import { useShortcut, KeyboardShortcutProvider } from '@/features/keyboard-shortcuts/keyboard-shortcut-context';
 import { inboxService, type Conversation } from '@/features/inbox/services/inbox.service';
 
 const AGENT_LOGS_PREF_KEY = 'inbox.agentLogsOpen';
+const CONTACT_SIDEBAR_PREF_KEY = 'inbox.contactSidebarOpen';
+
+/** Registers global keyboard shortcuts for the inbox page. Must be rendered
+ *  inside {@link KeyboardShortcutProvider}. */
+function InboxShortcuts({
+  onToggleAgentLogs,
+  onToggleContactSidebar,
+  searchInputRef,
+}: {
+  onToggleAgentLogs: () => void;
+  onToggleContactSidebar: () => void;
+  searchInputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  useShortcut('toggle-agent-logs', onToggleAgentLogs);
+  useShortcut('toggle-contact-sidebar', onToggleContactSidebar);
+  useShortcut('focus-search', () => {
+    searchInputRef.current?.focus();
+  });
+  return null;
+}
 
 export default function InboxPage() {
   const searchParams = useSearchParams();
@@ -20,9 +42,15 @@ export default function InboxPage() {
   // preferred layout (some live with the sidebar open, others want the chat
   // full width). Read on mount, write whenever it flips.
   const [agentLogsOpen, setAgentLogsOpen] = useState(false);
+  const [contactSidebarOpen, setContactSidebarOpen] = useState(true);
   useEffect(() => {
     try {
       setAgentLogsOpen(localStorage.getItem(AGENT_LOGS_PREF_KEY) === '1');
+      const saved = localStorage.getItem(CONTACT_SIDEBAR_PREF_KEY);
+      // Se nunca foi salvo, padrao e true (aberto). Se foi salvo, usa o valor.
+      if (saved !== null) {
+        setContactSidebarOpen(saved === '1');
+      }
     } catch {
       // SSR / privacy mode — fine, defaults to closed.
     }
@@ -38,7 +66,19 @@ export default function InboxPage() {
       return next;
     });
   }, []);
+  const toggleContactSidebar = useCallback(() => {
+    setContactSidebarOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(CONTACT_SIDEBAR_PREF_KEY, next ? '1' : '0');
+      } catch {
+        // Ignore storage failures — runtime state still flips.
+      }
+      return next;
+    });
+  }, []);
   const queryClient = useQueryClient();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Switching inbox view should clear the open conversation so the right
   // panel doesn't show a thread that may not even match the new filter.
@@ -95,43 +135,59 @@ export default function InboxPage() {
   }, [queryClient, activeConversation]);
 
   return (
-    <div className="flex h-full">
-      <ConversationList
-        activeId={activeConversation?.id || null}
-        onSelect={setActiveConversation}
-        viewId={viewId}
+    <KeyboardShortcutProvider>
+      <InboxShortcuts
+        onToggleAgentLogs={toggleAgentLogs}
+        onToggleContactSidebar={toggleContactSidebar}
+        searchInputRef={searchInputRef}
       />
+      <div className="flex h-full">
+        <ConversationList
+          activeId={activeConversation?.id || null}
+          onSelect={setActiveConversation}
+          viewId={viewId}
+        />
 
-      {activeConversation ? (
-        <>
-          <ChatPanel
-            key={activeConversation.id}
-            conversation={activeConversation}
-            onConversationUpdate={handleConversationUpdate}
-            onToggleAgentLogs={toggleAgentLogs}
-            agentLogsOpen={agentLogsOpen}
-          />
-          {agentLogsOpen && (
-            <AgentRunsSidebar
-              key={`logs-${activeConversation.id}`}
-              conversationId={activeConversation.id}
-              onClose={toggleAgentLogs}
+        {activeConversation ? (
+          <>
+            <ChatPanel
+              key={activeConversation.id}
+              conversation={activeConversation}
+              onConversationUpdate={handleConversationUpdate}
+              onToggleAgentLogs={toggleAgentLogs}
+              agentLogsOpen={agentLogsOpen}
+              onToggleContactSidebar={toggleContactSidebar}
+              contactSidebarOpen={contactSidebarOpen}
             />
-          )}
-        </>
-      ) : (
-        <div className="flex flex-1 flex-col items-center justify-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-black">
-            <MessageSquare className="h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+            {agentLogsOpen && (
+              <AgentRunsSidebar
+                key={`logs-${activeConversation.id}`}
+                conversationId={activeConversation.id}
+                onClose={toggleAgentLogs}
+              />
+            )}
+            {contactSidebarOpen && (
+              <ContactSidebar
+                key={`contact-${activeConversation.id}`}
+                contactId={activeConversation.contact?.id}
+                onClose={toggleContactSidebar}
+              />
+            )}
+          </>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-black">
+              <MessageSquare className="h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+            </div>
+            <h2 className="mt-4 text-lg font-semibold text-zinc-700 dark:text-zinc-300">
+              AxChat
+            </h2>
+            <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
+              Selecione uma conversa para começar
+            </p>
           </div>
-          <h2 className="mt-4 text-lg font-semibold text-zinc-700 dark:text-zinc-300">
-            AxChat
-          </h2>
-          <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
-            Selecione uma conversa para começar
-          </p>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </KeyboardShortcutProvider>
   );
 }

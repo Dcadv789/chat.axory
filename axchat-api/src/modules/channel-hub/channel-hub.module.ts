@@ -25,6 +25,8 @@ import { CHANNEL_SYNC_QUEUE } from './sync/channel-sync.constants';
 import { MessagingModule } from '../messaging/messaging.module';
 import { WebhookEventsService } from './webhook-events.service';
 import { WebhookThrottleGuard } from './webhook-throttle.guard';
+import { WhatsappTemplatesController } from './templates/whatsapp-template.controller';
+import { WhatsappTemplateService } from './templates/whatsapp-template.service';
 
 @Module({
   imports: [
@@ -44,7 +46,7 @@ import { WebhookThrottleGuard } from './webhook-throttle.guard';
     TelegramModule,
     forwardRef(() => MessagingModule),
   ],
-  controllers: [WebhookGatewayController, ChannelsController],
+  controllers: [WebhookGatewayController, ChannelsController, WhatsappTemplatesController],
   providers: [
     ChannelAdapterRegistry,
     ChannelsService,
@@ -53,6 +55,7 @@ import { WebhookThrottleGuard } from './webhook-throttle.guard';
     ChannelSyncProcessor,
     WebhookEventsService,
     WebhookThrottleGuard,
+    WhatsappTemplateService,
   ],
   exports: [
     ChannelAdapterRegistry,

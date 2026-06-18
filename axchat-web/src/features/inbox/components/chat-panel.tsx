@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, CheckCheck, Clock, AlertCircle, ExternalLink, Reply, Trash2, X, Ban } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, ExternalLink, Reply, Trash2, X, Ban, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { inboxService, type Conversation, type Message } from '../services/inbox.service';
 import { ChatInput } from './chat-input';
@@ -19,6 +19,9 @@ import {
 import { useSocket } from '../hooks/use-socket';
 import { useAuthStore } from '@/stores/auth-store';
 import { PendingActionsList } from '../pending-actions/pending-actions-list';
+import { WhatsappTemplateSelector } from './whatsapp-template-selector';
+import { MessageSearchBar } from './message-search-bar';
+import type { WhatsappTemplate } from '@/features/channels/services/channels.service';
 
 interface ChatPanelProps {
   conversation: Conversation;
@@ -27,6 +30,10 @@ interface ChatPanelProps {
    *  shows up in the chat header. */
   onToggleAgentLogs?: () => void;
   agentLogsOpen?: boolean;
+  /** Forwarded to ConversationHeader so the contact sidebar toggle
+   *  shows up in the chat header. */
+  onToggleContactSidebar?: () => void;
+  contactSidebarOpen?: boolean;
 }
 
 const statusIcons: Record<string, React.ElementType> = {
@@ -375,6 +382,8 @@ export function ChatPanel({
   onConversationUpdate,
   onToggleAgentLogs,
   agentLogsOpen,
+  onToggleContactSidebar,
+  contactSidebarOpen,
 }: ChatPanelProps) {
   const queryClient = useQueryClient();
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -505,13 +514,47 @@ export function ChatPanel({
         },
       );
     });
+    const unsubTyping = on('agent:typing', (payload: any) => {
+      if (payload.conversationId !== conversation.id) return;
+      if (payload.userId === user?.id) return;
+      const userId = payload.userId as string;
+      if (payload.isTyping) {
+        setTypingUsers((prev) => new Set(prev).add(userId));
+        const existing = typingTimersRef.current.get(userId);
+        if (existing) clearTimeout(existing);
+        typingTimersRef.current.set(
+          userId,
+          setTimeout(() => {
+            setTypingUsers((prev) => {
+              const next = new Set(prev);
+              next.delete(userId);
+              return next;
+            });
+          }, 5000),
+        );
+      } else {
+        setTypingUsers((prev) => {
+          const next = new Set(prev);
+          next.delete(userId);
+          return next;
+        });
+        const existing = typingTimersRef.current.get(userId);
+        if (existing) clearTimeout(existing);
+        typingTimersRef.current.delete(userId);
+      }
+    });
     return () => {
       unsubNew?.();
       unsubStatus?.();
       unsubReconnect?.();
       unsubRevoked?.();
+      unsubTyping?.();
+      for (const timer of typingTimersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      typingTimersRef.current.clear();
     };
-  }, [conversation.id, on, onReconnect, queryClient, mergeMessage]);
+  }, [conversation.id, on, onReconnect, queryClient, mergeMessage, user?.id]);
 
   const handleRevoke = useCallback(
     async (msg: Message) => {
@@ -571,6 +614,21 @@ export function ChatPanel({
   // e a UI mostra a barra "respondendo a..." acima do input. Reseta ao
   // trocar de conversa (via key prop do ChatPanel) ou ao mandar a msg.
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
+  const [privateMode, setPrivateMode] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const typingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const handleJumpToMessage = useCallback((messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-primary/40', 'rounded-lg');
+      setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-primary/40', 'rounded-lg');
+      }, 2000);
+    }
+  }, []);
 
   const startReply = useCallback((message: Message) => {
     setReplyingTo(message);
@@ -579,15 +637,18 @@ export function ChatPanel({
 
   const handleSend = async (text: string) => {
     const replyToMessageId = replyingTo?.id;
+    if (privateMode) {
+      setReplyingTo(null);
+    }
     try {
       // Insere a mensagem no cache com a resposta do POST — não dependemos
       // só do message:new via socket pra mostrar a própria mensagem (se o
       // socket estiver caído, ela apareceria só no próximo refetch).
       const sent = await inboxService.sendMessage({
         conversationId: conversation.id,
-        type: 'TEXT',
+        type: privateMode ? 'INTERNAL_NOTE' : 'TEXT',
         content: { text },
-        replyToMessageId,
+        replyToMessageId: privateMode ? undefined : replyToMessageId,
       });
       if (sent?.id) mergeMessage(sent);
       setReplyingTo(null);
@@ -615,6 +676,29 @@ export function ChatPanel({
     } catch (err) {
       queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] });
       throw err;
+    }
+  };
+
+  const handleSendTemplate = async (
+    template: WhatsappTemplate,
+    params: Record<string, string>,
+  ) => {
+    try {
+      const sent = await inboxService.sendMessage({
+        conversationId: conversation.id,
+        type: 'WHATSAPP_TEMPLATE',
+        content: {
+          templateName: template.name,
+          templateId: template.metaTemplateId,
+          language: template.language,
+          params: Object.values(params).filter(Boolean),
+          components: template.components,
+        },
+      });
+      if (sent?.id) mergeMessage(sent);
+      setTemplatePanelOpen(false);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao enviar template');
     }
   };
 
@@ -671,6 +755,8 @@ export function ChatPanel({
         onUpdate={onConversationUpdate}
         onToggleAgentLogs={onToggleAgentLogs}
         agentLogsOpen={agentLogsOpen}
+        onToggleContactSidebar={onToggleContactSidebar}
+        contactSidebarOpen={contactSidebarOpen}
       />
 
       <PendingActionsList conversationId={conversation.id} />
@@ -679,6 +765,8 @@ export function ChatPanel({
         channelType={conversation.channel.type}
         messages={messages}
       />
+
+      <MessageSearchBar messages={messages} onJumpToMessage={handleJumpToMessage} />
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-[#171717]">
         {isLoading ? (
@@ -707,6 +795,7 @@ export function ChatPanel({
               let lastDateKey = '';
               return visibleMessages.map((msg) => {
                 const isOutbound = msg.direction === 'OUTBOUND';
+                const isPrivateNote = msg.type === 'INTERNAL_NOTE';
                 const StatusIcon = statusIcons[msg.status] || Clock;
                 const reactions = reactionMap.get(msg.externalId || '') || [];
                 const isRevoked = !!msg.revokedAt;
@@ -902,9 +991,11 @@ export function ChatPanel({
                       ) : (
                         <div
                           className={`rounded-2xl px-4 py-2.5 ${
-                            isOutbound
-                              ? 'rounded-br-md bg-primary text-primary-foreground'
-                              : 'rounded-bl-md bg-white shadow-sm dark:bg-black dark:text-zinc-100'
+                            isPrivateNote
+                              ? 'rounded-br-md border border-dashed border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-600/50 dark:bg-amber-900/20 dark:text-amber-200'
+                              : isOutbound
+                                ? 'rounded-br-md bg-primary text-primary-foreground'
+                                : 'rounded-bl-md bg-white shadow-sm dark:bg-black dark:text-zinc-100'
                           }`}
                         >
                           {msg.type === 'TEXT' ? (
@@ -922,6 +1013,11 @@ export function ChatPanel({
                             <MediaSticker message={msg} isOutbound={isOutbound} />
                           ) : msg.type === 'LOCATION' ? (
                             <MediaLocation message={msg} isOutbound={isOutbound} />
+                          ) : msg.type === 'INTERNAL_NOTE' ? (
+                            <div className="flex items-start gap-1.5">
+                              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" />
+                              <span>{msg.content?.text || ''}</span>
+                            </div>
                           ) : msg.type === 'TEMPLATE' ? (
                             <TemplateMessage content={msg.content} isOutbound={isOutbound} />
                           ) : (
@@ -984,12 +1080,39 @@ export function ChatPanel({
       {replyingTo && (
         <ReplyPreviewBar message={replyingTo} onCancel={cancelReply} />
       )}
-      <ChatInput
-        onSend={handleSend}
-        onSendAudio={handleSendAudio}
-        onSendFile={handleSendFile}
-        disabled={conversation.status === 'CLOSED'}
-      />
+  <ChatInput
+    onSend={handleSend}
+    onSendAudio={handleSendAudio}
+    onSendFile={handleSendFile}
+    onOpenTemplates={conversation.channel.type === 'WHATSAPP_OFFICIAL' ? () => setTemplatePanelOpen(true) : undefined}
+    onTypingChange={(isTyping) => emit('typing', { conversationId: conversation.id, isTyping })}
+    disabled={conversation.status === 'CLOSED'}
+    privateMode={privateMode}
+    onPrivateModeChange={setPrivateMode}
+  />
+  {/* Typing indicator */}
+  {typingUsers.size > 0 && (
+    <div className="flex items-center gap-1.5 px-4 py-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+      <span className="flex items-center gap-0.5">
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 [animation-delay:0s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 [animation-delay:0.15s]" />
+        <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 [animation-delay:0.3s]" />
+      </span>
+      Alguém está digitando...
+    </div>
+  )}
+  {templatePanelOpen && (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/20">
+      <div className="flex h-[80vh] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-2xl dark:bg-zinc-900">
+        <WhatsappTemplateSelector
+          channelId={conversation.channel.id}
+          channelType={conversation.channel.type}
+          onSendTemplate={(template, params) => handleSendTemplate(template, params)}
+          onClose={() => setTemplatePanelOpen(false)}
+        />
+      </div>
+    </div>
+  )}
     </div>
   );
 }

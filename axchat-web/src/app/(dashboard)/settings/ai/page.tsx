@@ -223,16 +223,7 @@ export default function SettingsAiPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Inteligência Artificial
-          </h2>
-          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Configure quando e como os agentes de IA atendem
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <button
           onClick={handleSave}
           disabled={saving}

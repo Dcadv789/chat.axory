@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, Mic, Trash2, Square, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import { Send, Paperclip, Mic, Trash2, Square, Loader2, Maximize2, Minimize2, FileText, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAudioRecorder } from '../hooks/use-audio-recorder';
 import { MicSettingsButton } from './mic-settings-button';
@@ -10,7 +10,11 @@ interface ChatInputProps {
   onSend: (text: string) => Promise<void>;
   onSendAudio?: (blob: Blob) => Promise<void>;
   onSendFile?: (file: File) => Promise<void>;
+  onOpenTemplates?: () => void;
+  onTypingChange?: (isTyping: boolean) => void;
   disabled?: boolean;
+  privateMode?: boolean;
+  onPrivateModeChange?: (isPrivate: boolean) => void;
 }
 
 const FILE_ACCEPT = [
@@ -47,7 +51,7 @@ const composerActionBtn =
   'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-200/80 hover:text-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200';
 
 const composerShell =
-  'relative w-full rounded-2xl border border-zinc-200 bg-zinc-50 transition-colors focus-within:border-primary focus-within:ring-1 focus-within:ring-primary dark:border-white/10 dark:bg-black';
+  'relative w-full rounded-2xl border border-zinc-200 bg-zinc-50 transition-colors dark:border-white/10 dark:bg-black';
 
 function AudioPreview({ blob, onSend, onDiscard, isSending }: {
   blob: Blob;
@@ -92,7 +96,7 @@ function AudioPreview({ blob, onSend, onDiscard, isSending }: {
   );
 }
 
-export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, onSendAudio, onSendFile, onOpenTemplates, onTypingChange, disabled, privateMode, onPrivateModeChange }: ChatInputProps) {
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isSendingAudio, setIsSendingAudio] = useState(false);
@@ -102,6 +106,7 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recorder = useAudioRecorder();
   const canRecord = !!onSendAudio;
+  const typingEmittedRef = useRef(false);
 
   const handleOpenMicSettings = useCallback(() => {
     void recorder.refreshDevices(true);
@@ -126,6 +131,8 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     try {
       await onSend(trimmed);
       setText('');
+      typingEmittedRef.current = false;
+      onTypingChange?.(false);
       resizeTextarea();
     } finally {
       setIsSending(false);
@@ -139,9 +146,28 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
     }
   };
 
-  const handleInput = () => {
+  const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
     resizeTextarea();
+    // Use event value directly — text state hasn't updated yet in this render
+    const currentText = (e.target as HTMLTextAreaElement).value;
+    if (onTypingChange) {
+      if (currentText.trim() && !typingEmittedRef.current) {
+        typingEmittedRef.current = true;
+        onTypingChange(true);
+      } else if (!currentText.trim() && typingEmittedRef.current) {
+        typingEmittedRef.current = false;
+        onTypingChange(false);
+      }
+    }
   };
+
+  // Emit isTyping:false when user clears the text via external means
+  useEffect(() => {
+    if (!text.trim() && typingEmittedRef.current) {
+      typingEmittedRef.current = false;
+      onTypingChange?.(false);
+    }
+  }, [text, onTypingChange]);
 
   const handleSendAudio = useCallback(async () => {
     if (!recorder.blob || !onSendAudio) return;
@@ -291,14 +317,51 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
         className="hidden"
       />
 
-      <div className={composerShell}>
+      <div className={privateMode ? 'relative w-full rounded-2xl border-2 border-amber-300 bg-amber-50/50 transition-colors focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-400 dark:border-amber-600/50 dark:bg-amber-900/10' : composerShell}>
+        {/* Toggle bar */}
+        {onPrivateModeChange && (
+          <>
+          <div className="flex items-center gap-1 border-b border-inherit px-3 py-1.5">
+            <button
+              type="button"
+              onClick={() => onPrivateModeChange(false)}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                !privateMode
+                  ? 'font-semibold text-zinc-800 dark:text-zinc-100'
+                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+              }`}
+            >
+              Responder
+            </button>
+            <span className="text-zinc-300 dark:text-zinc-600">|</span>
+            <button
+              type="button"
+              onClick={() => onPrivateModeChange(true)}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                privateMode
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'
+                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+              }`}
+            >
+              <Lock className="h-3 w-3" />
+              Privada
+            </button>
+          </div>
+          {privateMode && (
+            <p className="px-3 pt-1.5 text-[10px] leading-tight text-amber-600 dark:text-amber-400">
+              As mensagens enviadas neste modo ficarão visíveis apenas internamente
+              e <strong>não serão enviadas</strong> para o cliente.
+            </p>
+          )}
+          </>
+        )}
         <textarea
           ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
-          placeholder="Digite uma mensagem..."
+          placeholder={privateMode ? "Digite uma anotação interna (não será enviada ao cliente)..." : "Digite uma mensagem..."}
           rows={2}
           style={{
             minHeight: isExpanded ? TEXTAREA_EXPANDED_MIN_HEIGHT : TEXTAREA_MIN_HEIGHT,
@@ -322,6 +385,17 @@ export function ChatInput({ onSend, onSendAudio, onSendFile, disabled }: ChatInp
         </button>
 
         <div className="absolute bottom-1.5 left-2 flex items-center gap-0.5">
+          {onOpenTemplates && (
+            <button
+              type="button"
+              onClick={onOpenTemplates}
+              className={composerActionBtn}
+              aria-label="Enviar template WhatsApp"
+              title="Enviar template WhatsApp"
+            >
+              <FileText className="h-5 w-5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}

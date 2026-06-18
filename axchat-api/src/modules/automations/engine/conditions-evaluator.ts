@@ -93,6 +93,10 @@ export const FIELDS_BY_TRIGGER: Record<
     contactId: (p) => p.contactId,
     conversationId: (p) => p.conversationId,
   },
+  [AutomationTrigger.MANUAL_TRIGGER]: {
+    contactId: (p) => p.contactId,
+    conversationId: (p) => p.conversationId,
+  },
 };
 
 // ─── Evaluator ───────────────────────────────────────────────────────

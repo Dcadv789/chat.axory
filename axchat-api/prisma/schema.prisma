@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
@@ -74,6 +75,7 @@ enum MessageContentType {
   TEMPLATE
   INTERACTIVE
   SYSTEM
+  INTERNAL_NOTE
 }
 
 enum MessageStatus {
@@ -136,6 +138,8 @@ model User {
   apiKeys               ApiKey[]
   inboxViews            InboxView[]
   conversationReads     ConversationRead[]
+  contactNotes          ContactNote[]
+  conversationParticipants ConversationParticipant[]
   assignedCards         Card[]             @relation("CardAssignee")
   superAdminAuditLogs   SuperAdminAuditLog[]
 
@@ -326,6 +330,7 @@ model Channel {
   syncJobs        ChannelSyncJob[]
   channelAgents   ChannelAgent[]
   aiAgentChannels AiAgentChannel[]
+  whatsappTemplates WhatsappTemplate[]
 
   @@index([organizationId, type], name: "idx_channel_org_type")
   @@map("channels")
@@ -412,6 +417,30 @@ model ChannelSyncJob {
   @@map("channel_sync_jobs")
 }
 
+// ─── WhatsApp Templates (synced from Meta Cloud API) ──
+//
+// Templates aprovados na conta Meta Business. Sincronizados manualmente
+// via botao na config do canal, ou automaticamente com cache de 1h quando
+// o seletor de templates e aberto. Usado para enviar mensagens quando a
+// janela de 24h do WhatsApp esta fechada.
+model WhatsappTemplate {
+  id            String   @id @default(cuid())
+  channelId     String   @map("channel_id")
+  metaTemplateId String  @map("meta_template_id")
+  name          String
+  category      String   @default("")
+  language      String   @default("pt_BR")
+  status        String   @default("APPROVED") // APPROVED, PENDING, REJECTED
+  components    Json     @default("{}")
+  syncedAt      DateTime @default(now()) @map("synced_at")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, metaTemplateId])
+  @@index([channelId, status])
+  @@map("whatsapp_templates")
+}
+
 // ─── Contacts ────────────────────────────────────
 
 model Contact {
@@ -431,6 +460,7 @@ model Contact {
   channels      ContactChannel[]
   conversations Conversation[]
   tags          ContactTag[]
+  contactNotes  ContactNote[]
   aiMemories    AiAgentMemory[]
   cards         Card[]           @relation("CardContact")
 
@@ -526,6 +556,7 @@ model Conversation {
   aiPendingActions AiPendingAction[]
   reads         ConversationRead[]
   cards         Card[]                 @relation("CardConversation")
+  participants  ConversationParticipant[]
 
   @@index([organizationId, status], name: "idx_conv_org_status")
   @@index([organizationId, assignedToId], name: "idx_conv_org_agent")
@@ -766,6 +797,25 @@ model ContactTag {
 
   @@id([contactId, tagId])
   @@map("contact_tags")
+}
+
+// ─── Contact notes (multi-per-contact, authored) ──
+//
+// Operadores podem registrar múltiplas notas sobre um contato. Cada nota
+// é associada ao autor (User), tem conteúdo livre e um timestamp. Notas
+// são visíveis para toda a equipe que tem acesso ao contato.
+model ContactNote {
+  id        String   @id @default(cuid())
+  contactId String   @map("contact_id")
+  authorId  String   @map("author_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+  @@map("contact_notes")
 }
 
 // ─── Notifications ───────────────────────────────
@@ -1293,6 +1343,26 @@ model InboxView {
 // (user, conversation) pair = COUNT(messages WHERE direction=INBOUND
 // AND createdAt > lastReadAt). When no row exists, the user has never
 // opened the conversation — every inbound message counts as unread.
+//
+// ─── Conversation Participant ──────────────────
+// Tracks which users are participating/assigned to a conversation.
+// This replaces reliance solely on assignedToId for multi-agent scenarios.
+model ConversationParticipant {
+  id             String   @id @default(cuid())
+  conversationId String   @map("conversation_id")
+  userId         String   @map("user_id")
+  role           String   @default("ASSIGNEE") // ASSIGNEE | FOLLOWER | OBSERVER
+  joinedAt       DateTime @default(now()) @map("joined_at")
+  leftAt         DateTime? @map("left_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
 model ConversationRead {
   id                String   @id @default(cuid())
   userId            String   @map("user_id")
@@ -1471,6 +1541,7 @@ enum AutomationTrigger {
   MESSAGE_RECEIVED
   CONVERSATION_STATUS_CHANGED
   CONVERSATION_ASSIGNED
+  MANUAL_TRIGGER
 }
 
 enum AutomationRunStatus {
@@ -1609,4 +1680,12 @@ model AutomationRun {
   @@index([traceId], name: "idx_run_trace")
   @@index([status, startedAt(sort: Desc)], name: "idx_run_status_time")
   @@map("automation_runs")
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
 }

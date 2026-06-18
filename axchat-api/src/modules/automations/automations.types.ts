@@ -77,7 +77,13 @@ export type TriggerToPayload = {
   [AutomationTrigger.MESSAGE_RECEIVED]: MessageReceivedPayload;
   [AutomationTrigger.CONVERSATION_STATUS_CHANGED]: ConversationStatusChangedPayload;
   [AutomationTrigger.CONVERSATION_ASSIGNED]: ConversationAssignedPayload;
+  [AutomationTrigger.MANUAL_TRIGGER]: ManualTriggerPayload;
 };
+
+export interface ManualTriggerPayload extends BaseEventPayload {
+  conversationId: string;
+  additionalData?: Record<string, unknown>;
+}
 
 // ─── BullMQ job shape ────────────────────────────────────────────────
 

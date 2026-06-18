@@ -78,7 +78,7 @@ export default function AutomationsPage() {
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
         {isLoading && (
-          <div className="text-sm text-zinc-500">Carregando…</div>
+          <div className="text-sm text-zinc-500 dark:text-zinc-400">Carregando…</div>
         )}
         {!isLoading && automations.length === 0 && (
           <EmptyState onCreate={() => setCreating(true)} />
@@ -225,7 +225,7 @@ function IconButton({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
-      className={`rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10 ${className}`}
+      className={`rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10 ${className}`}
       {...props}
     >
       {children}

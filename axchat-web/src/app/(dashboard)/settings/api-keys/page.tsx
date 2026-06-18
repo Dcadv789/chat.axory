@@ -63,14 +63,7 @@ export default function SettingsApiKeysPage() {
 
   return (
     <div>
-      <div>
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">API Keys</h2>
-        <p className="mt-0.5 text-sm text-zinc-500">
-          Chaves de acesso programático (MCP, integrações, scripts). A chave só é mostrada uma única vez na criação.
-        </p>
-      </div>
-
-      <div className="mt-6 flex items-end gap-3">
+      <div className="flex items-end gap-3">
         <div className="flex-1">
           <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Nome da chave</label>
           <input

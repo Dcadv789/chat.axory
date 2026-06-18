@@ -14,7 +14,10 @@ import {
   File as FileIcon,
   MapPin,
   X,
+  Check,
+  Copy,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useResolvedMedia } from '../hooks/use-resolved-media';
 import type { Message } from '../services/inbox.service';
 
@@ -267,6 +270,8 @@ function ImageLightbox({
   alt: string;
   onClose: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
   // Close on ESC; lock body scroll while open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -281,6 +286,28 @@ function ImageLightbox({
     };
   }, [onClose]);
 
+  const handleDownload = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = alt || 'imagem';
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success('Link copiado!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Erro ao copiar link');
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
@@ -288,14 +315,35 @@ function ImageLightbox({
       role="dialog"
       aria-modal="true"
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
-        aria-label="Fechar"
-      >
-        <X className="h-5 w-5" />
-      </button>
+      {/* Top bar */}
+      <div className="absolute right-4 top-4 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleDownload(); }}
+          className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
+          aria-label="Baixar imagem"
+          title="Baixar imagem"
+        >
+          <Download className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); handleCopyLink(); }}
+          className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
+          aria-label="Copiar link público"
+          title="Copiar link público"
+        >
+          {copied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+          aria-label="Fechar"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
       <img
         src={url}
         alt={alt}

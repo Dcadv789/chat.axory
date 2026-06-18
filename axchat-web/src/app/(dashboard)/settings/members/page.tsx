@@ -11,7 +11,7 @@ import { MemberChannelsDrawer } from '@/features/settings/components/member-chan
 const roleLabels: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   OWNER: { label: 'Proprietário', icon: ShieldCheck, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400' },
   ADMIN: { label: 'Admin', icon: Shield, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400' },
-  AGENT: { label: 'Agente', icon: User, color: 'text-zinc-600 bg-zinc-100 dark:bg-black dark:text-zinc-400' },
+  AGENT: { label: 'Agente', icon: User, color: 'text-zinc-600 bg-zinc-100 dark:bg-white/10 dark:text-zinc-300' },
 };
 
 export default function SettingsMembersPage() {
@@ -82,14 +82,7 @@ export default function SettingsMembersPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Membros</h2>
-          <p className="mt-0.5 text-sm text-zinc-500">Gerencie os membros da sua organização</p>
-        </div>
-      </div>
-
-      <div className="mt-6 flex items-end gap-3 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-black">
+      <div className="flex items-end gap-3 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/50 p-4 dark:border-white/10 dark:bg-white/5">
         <div className="flex-1">
           <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Email do membro</label>
           <input

@@ -10,6 +10,7 @@ export interface Contact {
   metadata: Record<string, any>;
   channels: { id: string; channelId: string; externalId: string; channel: { id: string; type: string; name: string } }[];
   tags: { tag: { id: string; name: string; color: string } }[];
+  contactNotes: { id: string; content: string; createdAt: string; author: { id: string; name: string; avatarUrl: string | null } }[];
   conversations?: any[];
   _count?: { conversations: number };
   createdAt: string;
@@ -36,5 +37,20 @@ export const contactsService = {
 
   async remove(id: string): Promise<void> {
     await api.delete(`/contacts/${id}`);
+  },
+
+  // ─── Notes ──────────────────────────────────────
+  async listNotes(contactId: string): Promise<any[]> {
+    const { data } = await api.get(`/contacts/${contactId}/notes`);
+    return data.data ?? data;
+  },
+
+  async addNote(contactId: string, content: string): Promise<any> {
+    const { data } = await api.post(`/contacts/${contactId}/notes`, { content });
+    return data.data ?? data;
+  },
+
+  async deleteNote(contactId: string, noteId: string): Promise<void> {
+    await api.delete(`/contacts/${contactId}/notes/${noteId}`);
   },
 };

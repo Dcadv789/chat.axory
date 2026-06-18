@@ -24,7 +24,7 @@ export default function PipelineBoardPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-zinc-200 px-4 py-3 dark:border-white/10">
+      <header className="flex items-center gap-3 border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
         <button
           onClick={() => router.push('/pipelines')}
           className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-zinc-100"
@@ -32,16 +32,14 @@ export default function PipelineBoardPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <KanbanSquare className="h-5 w-5 text-primary" />
-        <div className="flex-1">
-          <h1 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        <KanbanSquare className="h-5 w-5 shrink-0 text-primary" />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
             {board?.pipeline?.name ?? 'Pipeline'}
           </h1>
-          {board?.pipeline?.description && (
-            <p className="text-xs text-zinc-500">
-              {board.pipeline.description}
-            </p>
-          )}
+          <p className="text-xs text-zinc-500">
+            {board?.pipeline?.description || 'Quadro kanban do pipeline'}
+          </p>
         </div>
         <button
           onClick={() => setStagesOpen(true)}
@@ -51,7 +49,7 @@ export default function PipelineBoardPage() {
           <Settings className="h-3.5 w-3.5" />
           Configurar stages
         </button>
-      </div>
+      </header>
       <div className="flex-1 overflow-hidden pt-3">
         <KanbanBoard pipelineId={pipelineId} />
       </div>

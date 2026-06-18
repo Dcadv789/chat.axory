@@ -2,27 +2,42 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser } from 'lucide-react';
+import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff } from 'lucide-react';
 
 const tabs = [
-  { href: '/settings/channels', label: 'Canais', icon: Radio },
-  { href: '/settings/general', label: 'Geral', icon: Building2 },
-  { href: '/settings/ai', label: 'IA', icon: Sparkles },
-  { href: '/settings/members', label: 'Membros', icon: Users },
-  { href: '/settings/contacts', label: 'Contatos', icon: BookUser },
-  { href: '/settings/tags', label: 'Tags', icon: Tags },
-  { href: '/settings/notifications', label: 'Notificações', icon: Bell },
-  { href: '/settings/api-keys', label: 'API Keys', icon: KeyRound },
+  { href: '/settings/channels', label: 'Canais', icon: Radio, subtitle: 'Gerencie seus canais de atendimento' },
+  { href: '/settings/general', label: 'Geral', icon: Building2, subtitle: 'Configurações gerais da organização' },
+  { href: '/settings/ai', label: 'IA', icon: Sparkles, subtitle: 'Configure quando e como os agentes de IA atendem' },
+  { href: '/settings/members', label: 'Membros', icon: Users, subtitle: 'Gerencie os membros da sua organização' },
+  { href: '/settings/contacts', label: 'Contatos', icon: BookUser, subtitle: 'Lista de contatos e canais vinculados' },
+  { href: '/settings/tags', label: 'Tags', icon: Tags, subtitle: 'Organize conversas e contatos com tags coloridas' },
+  { href: '/settings/notifications', label: 'Notificações', icon: Bell, subtitle: 'Configure como e quando você deseja ser notificado' },
+  { href: '/settings/whatsapp-templates', label: 'Templates WhatsApp', icon: MessageSquareDiff, subtitle: 'Gerencie e sincronize templates do WhatsApp com a Meta' },
+  { href: '/settings/api-keys', label: 'API Keys', icon: KeyRound, subtitle: 'Chaves de acesso programático para integrações' },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const active = tabs.find((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`)) ?? tabs[0];
+  const ActiveIcon = active.icon;
 
   return (
     <div className="flex h-full flex-col">
       <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
-        <h1 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Configurações</h1>
-        <p className="text-xs text-zinc-500">Gerencie sua organização e integrações</p>
+        <div className="flex items-center gap-2">
+          <Building2 className="h-5 w-5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <h1 className="flex flex-wrap items-center gap-x-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+              <span>Configurações</span>
+              <span className="font-normal text-zinc-300 dark:text-zinc-600">/</span>
+              <span className="inline-flex items-center gap-1.5">
+                <ActiveIcon className="h-4 w-4 text-zinc-400" />
+                {active.label}
+              </span>
+            </h1>
+            <p className="text-xs text-zinc-500">{active.subtitle}</p>
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-6 py-5">

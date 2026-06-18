@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import {
   aiAgentsService,
-  type Period,
+  type TimeRangeFilter,
 } from '../../services/ai-agents.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { KpiCard } from './kpi-card';
@@ -24,11 +24,14 @@ import { fmtMs, fmtNum, fmtUsdShort } from './format';
 
 export function JarvisOverviewTab() {
   const orgId = useOrgId();
-  const [period, setPeriod] = useState<Period>('7d');
+  const [timeRange, setTimeRange] = useState<TimeRangeFilter>({
+    kind: 'preset',
+    period: '7d',
+  });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['ai-stats', orgId, period],
-    queryFn: () => aiAgentsService.orgStats(period),
+    queryKey: ['ai-stats', orgId, timeRange],
+    queryFn: () => aiAgentsService.orgStats(timeRange),
     refetchInterval: 5000,
   });
 
@@ -53,8 +56,8 @@ export function JarvisOverviewTab() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-end">
-        <PeriodSelector value={period} onChange={setPeriod} />
+      <div className="flex items-center justify-start">
+        <PeriodSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
       {/* Alerts */}

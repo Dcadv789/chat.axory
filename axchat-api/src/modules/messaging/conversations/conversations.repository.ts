@@ -128,10 +128,31 @@ export class ConversationsRepository {
     if (filters.assignedToId) where.assignedToId = filters.assignedToId;
     if (filters.stuckOnly) where.isStuck = true;
     if (filters.search) {
+      // Preserve any existing OR conditions (e.g. from tag filters)
+      const existingOr = (where.OR ?? []) as any[];
+
+      // Find conversation IDs where any message's content->>'text' contains
+      // the search term. Messages.content is a JSON field, so we use raw SQL
+      // with the JSONB ->'text' operator to extract the text body.
+      const msgConvRows = await this.prisma.$queryRaw<
+        { conversation_id: string }[]
+      >`
+        SELECT DISTINCT m.conversation_id
+        FROM messages m
+        JOIN conversations c ON c.id = m.conversation_id
+        WHERE c.organization_id = ${filters.organizationId}
+          AND c.deleted_at IS NULL
+          AND m.content->>'text' ILIKE ${'%' + filters.search + '%'}
+        LIMIT 200
+      `;
+      const msgConvIds = msgConvRows.map((r) => r.conversation_id);
+
       where.OR = [
+        ...existingOr,
         { contact: { name: { contains: filters.search, mode: 'insensitive' } } },
         { contact: { phone: { contains: filters.search } } },
         { protocol: { contains: filters.search } },
+        ...(msgConvIds.length > 0 ? [{ id: { in: msgConvIds } }] : []),
       ];
     }
 

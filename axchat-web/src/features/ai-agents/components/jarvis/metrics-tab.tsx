@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import {
   aiAgentsService,
-  type Period,
+  type TimeRangeFilter,
 } from '../../services/ai-agents.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { KpiCard } from './kpi-card';
@@ -31,11 +31,14 @@ const CHANNEL_LABELS: Record<string, string> = {
 
 export function JarvisMetricsTab() {
   const orgId = useOrgId();
-  const [period, setPeriod] = useState<Period>('7d');
+  const [timeRange, setTimeRange] = useState<TimeRangeFilter>({
+    kind: 'preset',
+    period: '7d',
+  });
 
   const { data: metrics, isLoading } = useQuery({
-    queryKey: ['ai-business-metrics', orgId, period],
-    queryFn: () => aiAgentsService.businessMetrics(period),
+    queryKey: ['ai-business-metrics', orgId, timeRange],
+    queryFn: () => aiAgentsService.businessMetrics(timeRange),
     refetchInterval: 30000,
   });
 
@@ -43,8 +46,8 @@ export function JarvisMetricsTab() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-end">
-        <PeriodSelector value={period} onChange={setPeriod} />
+      <div className="flex items-center justify-start">
+        <PeriodSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -81,6 +81,61 @@ export interface SuperAdminAuditLog {
   organization: { id: string; name: string; slug: string } | null;
 }
 
+export interface SuperAdminPlanTemplate {
+  plan: string;
+  count: number;
+  settings: {
+    maxAgents: number;
+    maxChannels: number;
+    maxDepartments: number;
+  };
+}
+
+export const DEFAULT_PLAN_TEMPLATES: SuperAdminPlanTemplate[] = [
+  { plan: 'free', count: 0, settings: { maxAgents: 2, maxChannels: 1, maxDepartments: 1 } },
+  { plan: 'starter', count: 0, settings: { maxAgents: 5, maxChannels: 2, maxDepartments: 3 } },
+  { plan: 'pro', count: 0, settings: { maxAgents: 25, maxChannels: 10, maxDepartments: 10 } },
+  { plan: 'enterprise', count: 0, settings: { maxAgents: 999, maxChannels: 999, maxDepartments: 999 } },
+];
+
+function normalizePlanSettings(raw: unknown): SuperAdminPlanTemplate['settings'] {
+  const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return {
+    maxAgents: Number(obj.maxAgents ?? 0),
+    maxChannels: Number(obj.maxChannels ?? 0),
+    maxDepartments: Number(obj.maxDepartments ?? 0),
+  };
+}
+
+function normalizePlanTemplate(raw: unknown): SuperAdminPlanTemplate | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const item = raw as Record<string, unknown>;
+  const plan = String(item.plan ?? '');
+  if (!plan) return null;
+  return {
+    plan,
+    count: Number(item.count ?? 0),
+    settings: normalizePlanSettings(item.settings),
+  };
+}
+
+function mergePlanTemplates(
+  templates: SuperAdminPlanTemplate[],
+  counts?: Array<{ plan: string; count: number }>,
+): SuperAdminPlanTemplate[] {
+  const countMap = Object.fromEntries((counts ?? []).map((row) => [row.plan, row.count]));
+  const byPlan = Object.fromEntries(templates.map((item) => [item.plan, item]));
+
+  return DEFAULT_PLAN_TEMPLATES.map((fallback) => {
+    const current = byPlan[fallback.plan];
+    return {
+      plan: fallback.plan,
+      count: countMap[fallback.plan] ?? current?.count ?? 0,
+      settings: current?.settings ?? fallback.settings,
+    };
+  });
+}
+
 export const superAdminService = {
   async overview() {
     const { data } = await api.get<{ data: SuperAdminOverview }>('/super-admin/overview');
@@ -125,6 +180,39 @@ export const superAdminService = {
   ) {
     const { data } = await api.patch(`/super-admin/organizations/${id}/plan`, payload);
     return data.data;
+  },
+
+  async planTemplates(planCounts?: Array<{ plan: string; count: number }>) {
+    try {
+      const { data } = await api.get<{ data: unknown }>('/super-admin/plans');
+      const list = Array.isArray(data?.data) ? data.data : [];
+      const normalized = list
+        .map((item) => normalizePlanTemplate(item))
+        .filter((item): item is SuperAdminPlanTemplate => item !== null);
+      return mergePlanTemplates(
+        normalized.length ? normalized : DEFAULT_PLAN_TEMPLATES,
+        planCounts,
+      );
+    } catch {
+      return mergePlanTemplates(DEFAULT_PLAN_TEMPLATES, planCounts);
+    }
+  },
+
+  async updatePlanTemplate(
+    plan: string,
+    payload: {
+      maxAgents: number;
+      maxChannels: number;
+      maxDepartments: number;
+      applyToExisting?: boolean;
+    },
+  ) {
+    const { data } = await api.patch(`/super-admin/plans/${plan}`, payload);
+    return data.data as {
+      plan: string;
+      settings: SuperAdminPlanTemplate['settings'];
+      updatedOrganizations: number;
+    };
   },
 
   async updateBilling(

@@ -246,8 +246,16 @@ export class AgentsService {
    * counts, costs, tokens, latency p50/p95, breakdowns by model, tool, and
    * handoff. Used by the "Visão Geral" tab.
    */
-  async getOrgStats(organizationId: string, period: '24h' | '7d' | '30d') {
-    const since = this.windowStart(period);
+  async getOrgStats(
+    organizationId: string,
+    window: {
+      period?: '24h' | '7d' | '30d';
+      from?: string;
+      to?: string;
+    } = {},
+  ) {
+    const w = this.resolveTimeWindow(window);
+    const since = w.since!;
 
     const [
       runs,
@@ -257,7 +265,7 @@ export class AgentsService {
       handoffStats,
     ] = await Promise.all([
       this.prisma.aiAgentRun.findMany({
-        where: { organizationId, startedAt: { gte: since } },
+        where: { organizationId, ...this.startedAtFilter(w) },
         select: {
           id: true,
           agentId: true,
@@ -279,13 +287,13 @@ export class AgentsService {
       }),
       this.prisma.aiToolCall.groupBy({
         by: ['toolName'],
-        where: { run: { organizationId, startedAt: { gte: since } } },
+        where: { run: { organizationId, ...this.startedAtFilter(w) } },
         _count: { _all: true },
       }),
       this.prisma.aiAgentHandoff.findMany({
         where: {
           conversation: { organizationId },
-          createdAt: { gte: since },
+          ...this.createdAtFilter(w),
         },
         select: { fromAgentId: true, toAgentId: true },
       }),
@@ -329,8 +337,9 @@ export class AgentsService {
     );
 
     return {
-      period,
+      period: w.period,
       since: since.toISOString(),
+      until: w.until?.toISOString() ?? null,
       runs: {
         total,
         completed,
@@ -386,8 +395,16 @@ export class AgentsService {
    * Customer-facing AI metrics. Keep this response business-oriented: no cost,
    * tokens, model names, cache stats, or technical run latency.
    */
-  async getBusinessMetrics(organizationId: string, period: '24h' | '7d' | '30d') {
-    const since = this.windowStart(period);
+  async getBusinessMetrics(
+    organizationId: string,
+    window: {
+      period?: '24h' | '7d' | '30d';
+      from?: string;
+      to?: string;
+    } = {},
+  ) {
+    const w = this.resolveTimeWindow(window);
+    const since = w.since!;
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
@@ -401,14 +418,14 @@ export class AgentsService {
       org,
     ] = await Promise.all([
       this.prisma.aiAgentRun.findMany({
-        where: { organizationId, startedAt: { gte: since } },
+        where: { organizationId, ...this.startedAtFilter(w) },
         select: { finalAction: true },
       }),
       this.prisma.conversation.findMany({
         where: {
           organizationId,
           deletedAt: null,
-          createdAt: { gte: since },
+          ...this.createdAtFilter(w),
           firstResponseAt: { not: null },
         },
         select: {
@@ -420,14 +437,14 @@ export class AgentsService {
       this.prisma.conversationRating.aggregate({
         where: {
           organizationId,
-          respondedAt: { gte: since },
+          ...this.respondedAtFilter(w),
           conversation: { aiRuns: { some: {} } },
         },
         _avg: { score: true },
         _count: { _all: true },
       }),
       this.prisma.conversation.findMany({
-        where: { organizationId, deletedAt: null, createdAt: { gte: since } },
+        where: { organizationId, deletedAt: null, ...this.createdAtFilter(w) },
         select: { channel: { select: { type: true } } },
       }),
       this.prisma.conversation.count({
@@ -435,7 +452,7 @@ export class AgentsService {
           organizationId,
           deletedAt: null,
           isStuck: true,
-          updatedAt: { gte: since },
+          ...this.updatedAtFilter(w),
         },
       }),
       this.prisma.aiAgentRun.count({
@@ -486,8 +503,9 @@ export class AgentsService {
     const monthlyLimit = org?.monthlyConversationLimit ?? null;
 
     return {
-      period,
+      period: w.period,
       since: since.toISOString(),
+      until: w.until?.toISOString() ?? null,
       aiHandledConversations,
       totalAiInteractions: totalRuns,
       resolutionWithoutHumanRate:
@@ -523,14 +541,19 @@ export class AgentsService {
   async getAgentStats(
     organizationId: string,
     agentId: string,
-    period: '24h' | '7d' | '30d',
+    window: {
+      period?: '24h' | '7d' | '30d';
+      from?: string;
+      to?: string;
+    } = {},
   ) {
     await this.findOne(organizationId, agentId);
-    const since = this.windowStart(period);
+    const w = this.resolveTimeWindow(window);
+    const since = w.since!;
 
     const [runs, toolStats, handoffsOut, handoffsIn] = await Promise.all([
       this.prisma.aiAgentRun.findMany({
-        where: { organizationId, agentId, startedAt: { gte: since } },
+        where: { organizationId, agentId, ...this.startedAtFilter(w) },
         select: {
           modelId: true,
           status: true,
@@ -546,21 +569,21 @@ export class AgentsService {
       this.prisma.aiToolCall.groupBy({
         by: ['toolName'],
         where: {
-          run: { organizationId, agentId, startedAt: { gte: since } },
+          run: { organizationId, agentId, ...this.startedAtFilter(w) },
         },
         _count: { _all: true },
       }),
       this.prisma.aiAgentHandoff.count({
         where: {
           fromAgentId: agentId,
-          createdAt: { gte: since },
+          ...this.createdAtFilter(w),
         },
       }),
       this.prisma.aiAgentHandoff.count({
         where: {
           toAgentId: agentId,
           fromAgentId: { not: agentId },
-          createdAt: { gte: since },
+          ...this.createdAtFilter(w),
         },
       }),
     ]);
@@ -577,8 +600,9 @@ export class AgentsService {
       .sort((a, b) => a - b);
 
     return {
-      period,
+      period: w.period,
       since: since.toISOString(),
+      until: w.until?.toISOString() ?? null,
       runs: {
         total,
         completed,
@@ -629,6 +653,8 @@ export class AgentsService {
       agentId?: string;
       conversationId?: string;
       period?: '24h' | '7d' | '30d' | 'all';
+      from?: string;
+      to?: string;
       hasErrors?: boolean;
       status?: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
       finalAction?: string;
@@ -636,10 +662,12 @@ export class AgentsService {
       cursor?: string;
     },
   ) {
-    const since =
-      options.period && options.period !== 'all'
-        ? this.windowStart(options.period)
-        : undefined;
+    const w = this.resolveTimeWindow({
+      period: options.period,
+      from: options.from,
+      to: options.to,
+    });
+    const startedAt = this.startedAtFilter(w);
 
     const runs = await this.prisma.aiAgentRun.findMany({
       where: {
@@ -648,7 +676,7 @@ export class AgentsService {
         ...(options.conversationId
           ? { conversationId: options.conversationId }
           : {}),
-        ...(since ? { startedAt: { gte: since } } : {}),
+        ...(Object.keys(startedAt).length ? startedAt : {}),
         ...(options.status ? { status: options.status } : {}),
         ...(options.finalAction
           ? options.finalAction === 'NONE'
@@ -695,6 +723,91 @@ export class AgentsService {
   }
 
   // ─── private helpers ────────────────────────────────────────────
+
+  private resolveTimeWindow(opts: {
+    period?: '24h' | '7d' | '30d' | 'all';
+    from?: string;
+    to?: string;
+  }): {
+    period: '24h' | '7d' | '30d' | 'custom' | 'all';
+    since?: Date;
+    until?: Date;
+  } {
+    if (opts.from && opts.to) {
+      const since = new Date(`${opts.from}T00:00:00.000`);
+      const until = new Date(`${opts.to}T23:59:59.999`);
+      if (
+        !Number.isNaN(since.getTime()) &&
+        !Number.isNaN(until.getTime()) &&
+        since <= until
+      ) {
+        return { period: 'custom', since, until };
+      }
+    }
+
+    if (opts.period === 'all') {
+      return { period: 'all' };
+    }
+
+    const period =
+      opts.period === '24h' || opts.period === '7d' || opts.period === '30d'
+        ? opts.period
+        : '7d';
+
+    return { period, since: this.windowStart(period) };
+  }
+
+  private startedAtFilter(window: {
+    since?: Date;
+    until?: Date;
+  }): { startedAt?: { gte?: Date; lte?: Date } } {
+    if (!window.since && !window.until) return {};
+    return {
+      startedAt: {
+        ...(window.since ? { gte: window.since } : {}),
+        ...(window.until ? { lte: window.until } : {}),
+      },
+    };
+  }
+
+  private createdAtFilter(window: {
+    since?: Date;
+    until?: Date;
+  }): { createdAt?: { gte?: Date; lte?: Date } } {
+    if (!window.since && !window.until) return {};
+    return {
+      createdAt: {
+        ...(window.since ? { gte: window.since } : {}),
+        ...(window.until ? { lte: window.until } : {}),
+      },
+    };
+  }
+
+  private updatedAtFilter(window: {
+    since?: Date;
+    until?: Date;
+  }): { updatedAt?: { gte?: Date; lte?: Date } } {
+    if (!window.since && !window.until) return {};
+    return {
+      updatedAt: {
+        ...(window.since ? { gte: window.since } : {}),
+        ...(window.until ? { lte: window.until } : {}),
+      },
+    };
+  }
+
+  private respondedAtFilter(window: {
+    since?: Date;
+    until?: Date;
+  }): { respondedAt?: { gte?: Date; lte?: Date } } {
+    if (!window.since && !window.until) return {};
+    return {
+      respondedAt: {
+        ...(window.since ? { gte: window.since } : {}),
+        ...(window.until ? { lte: window.until } : {}),
+      },
+    };
+  }
 
   private windowStart(period: '24h' | '7d' | '30d'): Date {
     const now = new Date();

@@ -162,6 +162,26 @@ export class ConversationFsmService {
       }
 
       if (!isNoOp) {
+        // Also upsert ConversationParticipant so the assignment is reflected
+        // in the participant list for multi-agent scenarios.
+        await tx.conversationParticipant.upsert({
+          where: {
+            conversationId_userId: {
+              conversationId,
+              userId: agentId,
+            },
+          },
+          create: {
+            conversationId,
+            userId: agentId,
+            role: 'ASSIGNEE',
+          },
+          update: {
+            role: 'ASSIGNEE',
+            leftAt: null,
+          },
+        });
+
         await this.outbox.enqueue(
           tx,
           AutomationTrigger.CONVERSATION_ASSIGNED,
