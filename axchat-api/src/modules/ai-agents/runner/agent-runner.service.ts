@@ -117,7 +117,7 @@ export class AiAgentRunnerService {
         `No agent resolved for conv ${conversation.id} — skipping run`,
       );
       // Emite evento de erro pra UI saber que não foi possível executar
-      this.realtimeGateway.emitToConversation(conversation.id, 'ai:run:error', {
+      this.realtime.emitToConversation(conversation.id, 'ai:run:error', {
         conversationId: conversation.id,
         message: 'Nenhum agente encontrado para este canal. Configure um orquestrador padrão ou vincule o agente ao canal.',
       });
