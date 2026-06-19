@@ -61,8 +61,9 @@ export class ToolRegistry {
     this.register(delegate, ['ORCHESTRATOR']);
     this.register(handBack, ['WORKER']);
     // Detalhes oficiais (preço/condições/link) das soluções da org —
-    // ORCHESTRATOR e WORKER de vendas usam pra não inventar valor/link.
-    this.register(lookupOffering, ['ORCHESTRATOR', 'WORKER']);
+    // Só WORKER (vendas) usa. ORCHESTRATOR NÃO deve consultar lookupOffering
+    // — ele delega pra vendas, não vende.
+    this.register(lookupOffering, ['WORKER']);
     // Cálculo determinístico de elegibilidade de bônus (D+7 corridos).
     // Disponível pra todos — bonus é dúvida frequente em qualquer fluxo.
     this.register(checkBonusEligibility, ['ORCHESTRATOR', 'WORKER']);
@@ -148,5 +149,28 @@ export class ToolRegistry {
     if (!this.isAllowedForKind(toolName, kind)) return false;
     const allowlist = this.agentAllowlist.get(toolName);
     return !allowlist || allowlist.has(agentId);
+  }
+
+  /**
+   * Returns ALL built-in tools (not custom DB tools).
+   * Used by the frontend to display which built-in tools exist.
+   */
+  listAllBuiltin(): Array<{
+    name: string;
+    description: string;
+    kinds: AiAgentKind[];
+    clientOps: boolean;
+  }> {
+    return [...this.tools.keys()].map((name) => {
+      const t = this.tools.get(name)!;
+      const kinds = [...(this.scope.get(name) ?? [])];
+      const allowlist = this.agentAllowlist.get(name);
+      return {
+        name: t.name,
+        description: t.description,
+        kinds,
+        clientOps: !!allowlist,
+      };
+    });
   }
 }

@@ -1,23 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import { PrismaService } from '../../../../database/prisma.service';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
 
 /**
  * Returns the full pitch + price + checkout link for a product owned by
- * the org. Sales agents see a compact list of all products in their
- * system prompt and call this skill with a slug when actually
- * recommending — keeps the prompt small while letting the agent
- * pull authoritative copy on demand instead of inventing.
+ * the org. Sales agents use this skill when actually recommending —
+ * keeps the prompt small while letting the agent pull authoritative
+ * copy on demand instead of inventing.
  *
- * Backend source: Trivapp (members area). Each tenant in Trivapp owns
- * its sales offers under /api/v1/catalog/:slug. Auth via
- * x-admin-api-key + x-tenant-id headers (same pattern admin-actions).
- *
- * Env required:
- * - MEMBERS_TRIVAPP_URL (default https://api.trivapp.com.br)
- * - MEMBERS_ADMIN_KEY
- * - MEMBERS_TENANT_BRAVY (TODO: per-org mapping when multi-tenant)
+ * Source: `Product` table (managed via Settings > Produtos no frontend).
+ * No longer depends on Trivapp external API.
  */
 @Injectable()
 export class GetProductPitchTool implements AiTool {
@@ -46,7 +38,7 @@ export class GetProductPitchTool implements AiTool {
     },
   };
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async execute(
     input: Record<string, unknown>,
@@ -57,46 +49,14 @@ export class GetProductPitchTool implements AiTool {
       return { output: { ok: false, error: 'slug obrigatório' } };
     }
 
-    const baseUrl =
-      this.config.get<string>('MEMBERS_TRIVAPP_URL') ??
-      'https://api.trivapp.com.br';
-    const apiKey = this.config.get<string>('MEMBERS_ADMIN_KEY');
-    const tenantId = this.config.get<string>('MEMBERS_TENANT_BRAVY');
-
-    if (!apiKey || !tenantId) {
-      this.logger.warn(
-        'Trivapp credentials missing (MEMBERS_ADMIN_KEY / MEMBERS_TENANT_BRAVY)',
-      );
-      return {
-        output: {
-          ok: false,
-          error: 'Trivapp não configurado no servidor — fale com o admin',
-        },
-      };
-    }
-
     try {
-      const resp = await axios.get(`${baseUrl}/api/v1/catalog/${slug}`, {
-        headers: {
-          'x-admin-api-key': apiKey,
-          'x-tenant-id': tenantId,
-          'Content-Type': 'application/json',
+      const product = await this.prisma.product.findUnique({
+        where: {
+          organizationId_slug: { organizationId: ctx.organizationId, slug },
         },
-        timeout: 10_000,
       });
 
-      this.logger.log(
-        `getProductPitch served ${slug} (org=${ctx.organizationId})`,
-      );
-
-      return { output: { ok: true, product: resp.data } };
-    } catch (err: any) {
-      const status = err?.response?.status;
-      const detail = err?.response?.data?.message ?? err?.message;
-      this.logger.warn(
-        `getProductPitch failed for ${slug}: ${status ?? '?'} ${detail}`,
-      );
-      if (status === 404) {
+      if (!product) {
         return {
           output: {
             ok: false,
@@ -104,10 +64,35 @@ export class GetProductPitchTool implements AiTool {
           },
         };
       }
+
+      this.logger.log(
+        `getProductPitch served ${slug} (org=${ctx.organizationId})`,
+      );
+
+      return {
+        output: {
+          ok: true,
+          product: {
+            name: product.name,
+            slug: product.slug,
+            category: product.category,
+            shortLine: product.shortLine,
+            pitch: product.pitch,
+            price: product.price,
+            paymentLink: product.paymentLink,
+            targetAudience: product.targetAudience,
+            differentiators: product.differentiators,
+          },
+        },
+      };
+    } catch (err: any) {
+      this.logger.warn(
+        `getProductPitch failed for ${slug}: ${err?.message ?? err}`,
+      );
       return {
         output: {
           ok: false,
-          error: `Falha ao buscar detalhes da solução: ${detail}`,
+          error: `Falha ao buscar detalhes da solução: ${err?.message ?? 'erro desconhecido'}`,
         },
       };
     }

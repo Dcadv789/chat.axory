@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import { PrismaService } from '../../../database/prisma.service';
 
 interface CatalogEntry {
   slug: string;
@@ -17,21 +16,20 @@ interface CacheEntry {
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Fetches the compact sales catalog from Trivapp and caches it in memory.
+ * Returns the compact product catalog for an organization, cached in memory.
  * The compact list is injected into every agent's system prompt as a
  * cacheable block — TTL of 5min keeps token cost predictable while
  * letting offer edits reach the agent within minutes.
  *
- * One cache entry per organizationId. When Chat BullQ becomes truly
- * multi-tenant (each org has its own MEMBERS_TENANT_*), this will need
- * a per-org mapping; today it falls back to the single Bravy tenant.
+ * Source of truth: the `Product` table, managed via Settings > Produtos.
+ * No longer depends on Trivapp external API.
  */
 @Injectable()
 export class CatalogSyncService {
   private readonly logger = new Logger(CatalogSyncService.name);
   private readonly cache = new Map<string, CacheEntry>();
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getCompactCatalog(organizationId: string): Promise<CatalogEntry[]> {
     const cached = this.cache.get(organizationId);
@@ -39,48 +37,34 @@ export class CatalogSyncService {
       return cached.data;
     }
 
-    const baseUrl =
-      this.config.get<string>('MEMBERS_TRIVAPP_URL') ??
-      'https://api.trivapp.com.br';
-    const apiKey = this.config.get<string>('MEMBERS_ADMIN_KEY');
-    const tenantId = this.config.get<string>('MEMBERS_TENANT_BRAVY');
-
-    if (!apiKey || !tenantId) {
-      // No creds configured → behave as empty catalog (agent prompt
-      // simply omits the product section).
-      return [];
-    }
-
     try {
-      const resp = await axios.get<CatalogEntry[]>(
-        `${baseUrl}/api/v1/catalog`,
-        {
-          headers: {
-            'x-admin-api-key': apiKey,
-            'x-tenant-id': tenantId,
-            'Content-Type': 'application/json',
-          },
-          timeout: 8_000,
+      const products = await this.prisma.product.findMany({
+        where: { organizationId, isActive: true },
+        orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          slug: true,
+          name: true,
+          category: true,
+          shortLine: true,
         },
-      );
-      const data = Array.isArray(resp.data) ? resp.data : [];
+      });
+
       this.cache.set(organizationId, {
-        data,
+        data: products,
         expiresAt: Date.now() + CACHE_TTL_MS,
       });
-      return data;
+      return products;
     } catch (err: any) {
       this.logger.warn(
-        `Catalog sync failed for org ${organizationId}: ${err?.message ?? err}`,
+        `Catalog query failed for org ${organizationId}: ${err?.message ?? err}`,
       );
-      // Serve stale cache if we have one — better than empty during
-      // transient Trivapp downtime.
-      if (cached) return cached.data;
+      const stale = this.cache.get(organizationId);
+      if (stale) return stale.data;
       return [];
     }
   }
 
-  /** Force-invalidate the cache (e.g. after editing an Offer). */
+  /** Force-invalidate the cache (e.g. after editing a Product). */
   invalidate(organizationId: string) {
     this.cache.delete(organizationId);
   }

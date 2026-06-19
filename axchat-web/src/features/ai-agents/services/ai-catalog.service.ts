@@ -2,7 +2,7 @@ import { api } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────
 
-export type ToolSource = 'CUSTOM_HTTP' | 'CUSTOM_SQL';
+export type ToolSource = 'CUSTOM_HTTP' | 'CUSTOM_SQL' | 'BUILTIN';
 export type SkillSource = 'BUILTIN' | 'HTTP' | 'SQL';
 
 /**
@@ -23,6 +23,8 @@ export interface AiTool {
   updatedAt: string;
   _count?: { skills: number };
   skills?: Array<{ id: string; name: string }>;
+  builtinKinds?: string[] | null;
+  builtinClientOps?: boolean;
 }
 
 export interface UpsertToolInput {
