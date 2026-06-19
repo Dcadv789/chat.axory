@@ -149,6 +149,16 @@ export class OrganizationsController {
     return this.aiModelProviders.remove(orgId, id);
   }
 
+  @Post('current/ai-models/:id/test')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Test connection to an AI model provider' })
+  testAiModel(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+  ) {
+    return this.aiModelProviders.testConnection(orgId, id);
+  }
+
   @Get('departments')
   @ApiOperation({ summary: 'List global departments' })
   listDepartments() {

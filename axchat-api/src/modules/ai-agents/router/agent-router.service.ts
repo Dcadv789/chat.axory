@@ -252,7 +252,7 @@ export class AgentRouterService {
     const [channel, org] = await Promise.all([
       this.prisma.channel.findUnique({
         where: { id: conversation.channelId },
-        select: { aiEnabled: true },
+        select: { aiEnabled: true, defaultOrchestratorId: true },
       }),
       this.prisma.organization.findUnique({
         where: { id: conversation.organizationId },
@@ -278,15 +278,25 @@ export class AgentRouterService {
     // Mesmo com override pra ON, ainda precisa existir um agente ativo
     // pra atender essa conversa. Sem isso, não tem o que rodar.
     if (!conversation.activeAgentId) {
-      const link = await this.prisma.aiAgentChannel.findFirst({
-        where: {
-          channelId: conversation.channelId,
-          mode: 'AUTONOMOUS',
-          agent: { isActive: true, deletedAt: null },
-        },
-      });
-      if (!link) {
-        return { handle: false, reason: 'no-agent-for-channel' };
+      // Verifica se o canal tem um orquestrador padrão configurado (feature nova)
+      const hasDefaultOrch =
+        channel?.defaultOrchestratorId &&
+        (await this.prisma.aiAgent.findFirst({
+          where: { id: channel.defaultOrchestratorId, isActive: true, deletedAt: null },
+          select: { id: true },
+        }));
+
+      if (!hasDefaultOrch) {
+        const link = await this.prisma.aiAgentChannel.findFirst({
+          where: {
+            channelId: conversation.channelId,
+            mode: 'AUTONOMOUS',
+            agent: { isActive: true, deletedAt: null },
+          },
+        });
+        if (!link) {
+          return { handle: false, reason: 'no-agent-for-channel' };
+        }
       }
     }
 

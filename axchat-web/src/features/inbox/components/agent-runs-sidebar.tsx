@@ -46,6 +46,7 @@ export function AgentRunsSidebar({
   const queryClient = useQueryClient();
   const { on } = useSocket();
   const [view, setView] = useState<'timeline' | 'logs'>('timeline');
+  const [engageError, setEngageError] = useState<string | null>(null);
 
   const queryKey = useMemo(
     () => ['agent-runs', conversationId] as const,
@@ -151,10 +152,16 @@ export function AgentRunsSidebar({
       });
     });
 
+    const unsubError = on('ai:run:error', (payload: any) => {
+      if (payload?.conversationId !== conversationId) return;
+      setEngageError(payload.message || 'Erro desconhecido ao executar agente');
+    });
+
     return () => {
       unsubStart?.();
       unsubTool?.();
       unsubEnd?.();
+      unsubError?.();
     };
   }, [conversationId, on, queryClient, queryKey]);
 
@@ -218,15 +225,32 @@ export function AgentRunsSidebar({
             <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
           </div>
         ) : runs.length === 0 ? (
-          <div className="flex flex-col items-center px-6 pt-12 text-center">
-            <Bot className="h-8 w-8 text-zinc-300 dark:text-zinc-700" />
-            <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-              Nenhum agente rodou nessa conversa ainda
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-              Os logs vão aparecer aqui em tempo real assim que a IA executar.
-            </p>
-          </div>
+          engageError ? (
+            <div className="flex flex-col items-center px-6 pt-12 text-center">
+              <AlertTriangle className="h-8 w-8 text-amber-400" />
+              <p className="mt-3 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Erro ao executar agente
+              </p>
+              <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                {engageError}
+              </p>
+              <p className="mt-3 text-[11px] text-zinc-400 dark:text-zinc-500">
+                Configure um <strong>orquestrador padrão</strong> no canal
+                (Settings → Canais → Dados do Canal) ou vincule o agente ao
+                canal (Jarvis → Agentes → editar agente → Canais).
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center px-6 pt-12 text-center">
+              <Bot className="h-8 w-8 text-zinc-300 dark:text-zinc-700" />
+              <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+                Nenhum agente rodou nessa conversa ainda
+              </p>
+              <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                Os logs vão aparecer aqui em tempo real assim que a IA executar.
+              </p>
+            </div>
+          )
         ) : (
           <div className="flex flex-col">
             {runs.map((run) => (

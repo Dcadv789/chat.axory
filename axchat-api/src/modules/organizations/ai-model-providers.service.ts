@@ -2,12 +2,16 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateAiModelProviderDto, UpdateAiModelProviderDto } from './dto/create-ai-model-provider.dto';
+import OpenAI from 'openai';
 
 @Injectable()
 export class AiModelProvidersService {
+  private readonly logger = new Logger(AiModelProvidersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async list(orgId: string) {
@@ -77,5 +81,70 @@ export class AiModelProvidersService {
     return this.prisma.globalDepartment.findMany({
       orderBy: { sortOrder: 'asc' },
     });
+  }
+
+  /**
+   * Testa a conexão com o modelo enviando uma requisição simples.
+   * Usa um prompt mínimo para verificar se a API key e o endpoint estão funcionando.
+   */
+  async testConnection(orgId: string, id: string): Promise<{ success: boolean; message: string; latencyMs?: number }> {
+    const model = await this.prisma.aiModelProvider.findFirst({
+      where: { id, organizationId: orgId },
+    });
+    if (!model) throw new NotFoundException('AI model not found');
+
+    const start = Date.now();
+    try {
+      const baseURL = model.baseUrl || this.defaultBaseUrl(model.provider);
+      const client = new OpenAI({
+        apiKey: model.apiKey || '',
+        ...(baseURL ? { baseURL } : {}),
+      });
+
+      const resp = await client.chat.completions.create({
+        model: model.modelId,
+        messages: [{ role: 'user', content: 'Say "ok" in one word.' }],
+        max_tokens: 10,
+        temperature: 0,
+      });
+
+      const latency = Date.now() - start;
+      const content = resp.choices?.[0]?.message?.content || '';
+      this.logger.log({
+        msg: 'model_test_ok',
+        modelId: model.modelId,
+        provider: model.provider,
+        latency,
+        response: content,
+      });
+
+      return { success: true, message: `Conexão OK (${latency}ms)`, latencyMs: latency };
+    } catch (err: any) {
+      const latency = Date.now() - start;
+      const message = err?.message || 'Erro desconhecido ao conectar';
+      this.logger.warn({
+        msg: 'model_test_failed',
+        modelId: model.modelId,
+        provider: model.provider,
+        latency,
+        error: message,
+      });
+      return { success: false, message: `Falha: ${message}`, latencyMs: latency };
+    }
+  }
+
+  private defaultBaseUrl(provider: string): string | undefined {
+    switch (provider) {
+      case 'deepseek':
+        return 'https://api.deepseek.com/v1';
+      case 'openai':
+        return 'https://api.openai.com/v1';
+      case 'anthropic':
+        return undefined; // Anthropic uses its own SDK, but we can try OpenAI compat
+      case 'google':
+        return undefined;
+      default:
+        return undefined;
+    }
   }
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { Sparkles, Plus, Trash2, ShieldAlert, Link2, KeyRound, Cpu, Layers } from 'lucide-react';
+import { Sparkles, Plus, Trash2, ShieldAlert, Link2, KeyRound, Cpu, Layers, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   aiSettingsService,
@@ -979,6 +979,25 @@ function AiModelProvidersSection() {
     onError: (err) => toast.error(err instanceof Error ? err.message : 'Erro ao remover'),
   });
 
+  const [testingId, setTestingId] = useState<string | null>(null);
+
+  const handleTestConnection = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTestingId(id);
+    try {
+      const result = await aiModelProvidersService.testConnection(id);
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao testar conexão');
+    } finally {
+      setTestingId(null);
+    }
+  };
+
   const resetForm = () => {
     setShowForm(false);
     setEditingId(null);
@@ -1113,6 +1132,17 @@ function AiModelProvidersSection() {
                 </p>
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => handleTestConnection(m.id, e)}
+                  disabled={testingId === m.id}
+                  className="rounded p-1.5 text-xs text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 disabled:opacity-50 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                  title="Testar conexão"
+                >
+                  {testingId === m.id
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <RefreshCw className="h-3.5 w-3.5" />
+                  }
+                </button>
                 <button
                   onClick={() => startEdit(m)}
                   className="rounded p-1.5 text-xs text-zinc-400 hover:bg-zinc-200 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"

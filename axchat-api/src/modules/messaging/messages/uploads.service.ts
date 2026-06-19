@@ -89,8 +89,10 @@ export class UploadsService {
       this.config.get<string>('UPLOADS_DIR') ||
         path.join(process.cwd(), 'uploads'),
     );
-    const appUrl = this.config.get<string>('APP_URL') || '';
-    this.publicBaseUrl = `${appUrl.replace(/\/$/, '')}/api/v1/uploads`;
+    // Usa caminho relativo — o frontend resolve contra a API base.
+    // Isso evita que uploads feitos em dev (APP_URL=http://localhost:3001)
+    // quebrem em produção onde o domínio é diferente.
+    this.publicBaseUrl = '/api/v1/uploads';
     if (!fs.existsSync(this.rootDir)) {
       fs.mkdirSync(this.rootDir, { recursive: true });
     }

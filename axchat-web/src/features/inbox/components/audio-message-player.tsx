@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Play, Pause, Loader2, Sparkles, ChevronDown, Check } from 'lucide-react';
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react';
 import { inboxService, type Message, type TranscriptionResult } from '../services/inbox.service';
+import { resolveUploadUrl } from '@/lib/upload-url';
 
 const SPEEDS = [1, 1.25, 1.5, 1.75, 2] as const;
 
@@ -36,13 +37,13 @@ export function AudioMessagePlayer({
   // carries an encrypted .enc CDN link. We hit the backend to resolve (and
   // cache) a decrypted URL on first play. Outbound audios already have
   // content.mediaUrl pointing to our own upload.
-  const initialMediaUrl = message.content?.mediaUrl as string | undefined;
+  const initialMediaUrl = resolveUploadUrl(message.content?.mediaUrl as string | undefined);
   const [resolvedUrl, setResolvedUrl] = useState<string | undefined>(initialMediaUrl);
   const [resolving, setResolving] = useState(false);
   const mediaUrl = resolvedUrl;
 
   useEffect(() => {
-    setResolvedUrl(message.content?.mediaUrl);
+    setResolvedUrl(resolveUploadUrl(message.content?.mediaUrl));
   }, [message.content?.mediaUrl]);
 
   const ensureResolved = async (): Promise<string | null> => {
@@ -50,8 +51,9 @@ export function AudioMessagePlayer({
     setResolving(true);
     try {
       const { url } = await inboxService.resolveMediaUrl(message.id);
-      setResolvedUrl(url);
-      return url;
+      const fixed = resolveUploadUrl(url) || url;
+      setResolvedUrl(fixed);
+      return fixed;
     } catch (err: any) {
       setError(err?.message || 'Não foi possível carregar o áudio');
       return null;

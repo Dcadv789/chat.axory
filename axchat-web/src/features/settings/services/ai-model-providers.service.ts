@@ -49,4 +49,9 @@ export const aiModelProvidersService = {
   async remove(id: string): Promise<void> {
     await api.delete(`/organizations/current/ai-models/${id}`);
   },
+
+  async testConnection(id: string): Promise<{ success: boolean; message: string; latencyMs?: number }> {
+    const { data } = await api.post(`/organizations/current/ai-models/${id}/test`);
+    return data.data ?? data;
+  },
 };

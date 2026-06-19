@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { inboxService, type Message } from '../services/inbox.service';
+import { resolveUploadUrl } from '@/lib/upload-url';
 
 type ResolveMode = 'eager' | 'lazy';
 
@@ -73,7 +74,7 @@ export function useResolvedMedia(
     const p = (async () => {
       try {
         const resolved = await inboxService.resolveMediaUrl(message.id);
-        setUrl(resolved.url);
+        setUrl(resolveUploadUrl(resolved.url));
         if (resolved.mimeType) setMimeType(resolved.mimeType);
       } catch (err: any) {
         setError(
@@ -112,8 +113,10 @@ export function useResolvedMedia(
 function pickInitialUrl(message: Message): string | undefined {
   const u = message.content?.mediaUrl;
   if (typeof u !== 'string' || !u) return undefined;
-  if (looksUnplayable(u)) return undefined;
-  return u;
+  const resolved = resolveUploadUrl(u);
+  if (!resolved) return undefined;
+  if (looksUnplayable(resolved)) return undefined;
+  return resolved;
 }
 
 /**
