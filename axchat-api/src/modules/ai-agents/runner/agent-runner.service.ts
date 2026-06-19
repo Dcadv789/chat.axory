@@ -17,6 +17,7 @@ import { ToolRegistry } from '../tools/tool-registry.service';
 import { ToolContext } from '../tools/tool.types';
 import { HttpToolExecutorService } from '../tools/http-tool-executor.service';
 import { SqlToolExecutorService } from '../tools/sql-tool-executor.service';
+import { DatabaseIntrospectionService } from '../tools/database-introspection.service';
 import { PromptBuilderService } from './prompt-builder.service';
 import { CatalogSyncService } from './catalog-sync.service';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -76,6 +77,7 @@ export class AiAgentRunnerService {
     private readonly promptBuilder: PromptBuilderService,
     private readonly httpExecutor: HttpToolExecutorService,
     private readonly sqlExecutor: SqlToolExecutorService,
+    private readonly dbIntrospection: DatabaseIntrospectionService,
     private readonly catalogSync: CatalogSyncService,
     private readonly notifications: NotificationsService,
     private readonly agentRouter: AgentRouterService,
@@ -191,7 +193,7 @@ export class AiAgentRunnerService {
     // Custom HTTP tools live in the DB; we keep their rows here so the
     // runner can hand them to HttpToolExecutor on tool-call time.
     const { llmTools, customSkillsByName, skillInstructions } =
-      await this.resolveToolsAndSkills(agent.id, agent.kind);
+      await this.resolveToolsAndSkills(agent.id, agent.kind, conversation.organizationId);
 
     const startedAt = Date.now();
 
@@ -869,6 +871,7 @@ export class AiAgentRunnerService {
   private async resolveToolsAndSkills(
     agentId: string,
     kind: 'ORCHESTRATOR' | 'WORKER',
+    orgId: string,
   ): Promise<{
     llmTools: LlmToolDefinition[];
     customSkillsByName: Map<string, AiSkill & { tool: AiTool | null }>;
@@ -892,18 +895,50 @@ export class AiAgentRunnerService {
         skillInstructions.push(skill.promptInstructions.trim());
       }
       if (skill.source === 'BUILTIN') {
-        // Built-in skills are always available via registry — no need to
-        // expose again. We respect the attachment as user intent though
-        // (could be used later for auditing).
         continue;
       }
-      if (skill.tool) {
-        customSkillsByName.set(skill.name, skill);
-      } else {
+      if (!skill.tool) {
         this.logger.warn(
           `Skill ${skill.name} (${skill.source}) has no bound tool — skipping`,
         );
+        continue;
       }
+
+      // Modo dinâmico: injeta schemas das tabelas como instrução
+      if (
+        skill.source === 'SQL' &&
+        !skill.sqlQuery &&
+        Array.isArray(skill.sqlTables) &&
+        (skill.sqlTables as string[]).length > 0 &&
+        skill.tool.sqlConnectionRef
+      ) {
+        const tableNames = skill.sqlTables as string[];
+        const schemas = await this.dbIntrospection.getTableSchemas(
+          orgId,
+          skill.tool.sqlConnectionRef,
+          tableNames,
+        );
+
+        const schemaBlocks = schemas.map(
+          (s) =>
+            `- "${s.tableName}" (colunas: ${s.columns
+              .map((c) => `${c.columnName} (${c.dataType})`)
+              .join(', ')})`,
+        );
+
+        if (schemaBlocks.length > 0) {
+          skillInstructions.push(
+            `═══ TABELAS DISPONÍVEIS PARA "${skill.name}" ═══\n` +
+              `A skill \`${skill.name}\` pode consultar estas tabelas:\n` +
+              schemaBlocks.join('\n') +
+              `\n\n⚠️ Use a skill \`${skill.name}\` com o parâmetro generatedSql contendo a query SQL. ` +
+              `Sempre use $1, $2... para valores dinâmicos e preencha params. ` +
+              `Sempre use LIMIT para evitar excesso de dados.\n`,
+          );
+        }
+      }
+
+      customSkillsByName.set(skill.name, skill);
     }
 
     // Built-in defaults — always available based on agent kind (tools com

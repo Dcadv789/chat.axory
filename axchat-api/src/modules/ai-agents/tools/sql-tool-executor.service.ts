@@ -39,21 +39,33 @@ export class SqlToolExecutorService implements OnModuleDestroy {
         `Skill ${skill.name} is SQL but bound tool ${tool.name} isn't`,
       );
     }
-    if (!skill.sqlQuery || !tool.sqlConnectionRef) {
+
+    // Modo dinâmico: o LLM gera a SQL (via input.generatedSql) em vez de usar sqlQuery fixa
+    const isDynamic = !skill.sqlQuery && this.hasTables(skill);
+
+    if (!isDynamic && !skill.sqlQuery) {
       return {
         output: {
           ok: false,
-          error: 'Skill not fully configured (sqlQuery / sqlConnectionRef missing)',
+          error: 'Skill not fully configured (sqlQuery / sqlTables missing)',
         },
       };
     }
 
-    if (skill.sqlReadOnly && this.hasMutatingVerb(skill.sqlQuery)) {
+    if (isDynamic && !input?.['generatedSql']) {
       return {
         output: {
           ok: false,
-          error:
-            'Skill is read-only mas a query contém verbo de escrita (INSERT/UPDATE/DELETE/etc).',
+          error: 'Modo dinâmico: o LLM precisa preencher o parâmetro "generatedSql" com a query SQL.',
+        },
+      };
+    }
+
+    if (!tool.sqlConnectionRef) {
+      return {
+        output: {
+          ok: false,
+          error: 'Tool sem sqlConnectionRef configurado',
         },
       };
     }
@@ -73,8 +85,24 @@ export class SqlToolExecutorService implements OnModuleDestroy {
       };
     }
 
+    const sqlToExecute = isDynamic
+      ? String(input['generatedSql'])
+      : skill.sqlQuery!;
+
+    if (skill.sqlReadOnly && this.hasMutatingVerb(sqlToExecute)) {
+      return {
+        output: {
+          ok: false,
+          error:
+            'Skill is read-only mas a query contém verbo de escrita (INSERT/UPDATE/DELETE/etc).',
+        },
+      };
+    }
+
     const pool = this.getOrCreatePool(tool.sqlConnectionRef, dsn);
-    const params = this.buildParams(skill.sqlParamMap, { input, ctx });
+    const params = isDynamic
+      ? this.buildParamsFromInput(input)
+      : this.buildParams(skill.sqlParamMap, { input, ctx });
 
     const startedAt = Date.now();
     const client = await pool.connect();
@@ -85,7 +113,7 @@ export class SqlToolExecutorService implements OnModuleDestroy {
       await client.query(`SET LOCAL statement_timeout = ${skill.timeoutMs ?? 15000}`);
 
       const result = await client.query({
-        text: skill.sqlQuery,
+        text: sqlToExecute,
         values: params,
         rowMode: 'array',
       } as any);
@@ -136,8 +164,10 @@ export class SqlToolExecutorService implements OnModuleDestroy {
   private getOrCreatePool(refName: string, dsn: string): Pool {
     let pool = this.pools.get(refName);
     if (pool) return pool;
+    // URL-encode automaticamente a senha pra evitar erro com caracteres especiais
+    const safeDsn = this.encodePasswordInDsn(dsn);
     pool = new Pool({
-      connectionString: dsn,
+      connectionString: safeDsn,
       max: 2,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
@@ -147,6 +177,22 @@ export class SqlToolExecutorService implements OnModuleDestroy {
     );
     this.pools.set(refName, pool);
     return pool;
+  }
+
+  /**
+   * Extrai a senha da connection string e aplica encodeURIComponent,
+   * pra evitar erro se o usuário colocar caracteres especiais (@, :, /, etc).
+   * Ex: postgresql://user:abc@123@host:5432/db -> postgresql://user:abc%40123@host:5432/db
+   */
+  private encodePasswordInDsn(dsn: string): string {
+    const match = dsn.match(
+      /^(postgres(?:ql)?:\/\/)([^:]+)(:)([^@]+)(@.+)$/,
+    );
+    if (!match) return dsn;
+    const [, scheme, user, colon, password, rest] = match;
+    const encoded = encodeURIComponent(password);
+    if (encoded === password) return dsn;
+    return `${scheme}${user}${colon}${encoded}${rest}`;
   }
 
   private buildParams(
@@ -192,6 +238,22 @@ export class SqlToolExecutorService implements OnModuleDestroy {
     }
     if (typeof value === 'bigint') return value.toString();
     return value;
+  }
+
+  /** Verifica se a skill tem sqlTables populado (modo dinâmico). */
+  private hasTables(skill: AiSkill): boolean {
+    return (
+      Array.isArray(skill.sqlTables) && (skill.sqlTables as string[]).length > 0
+    );
+  }
+
+  /** Constrói params a partir do input do LLM no modo dinâmico. */
+  private buildParamsFromInput(
+    input: Record<string, unknown>,
+  ): unknown[] {
+    const raw = input['params'];
+    if (Array.isArray(raw)) return raw;
+    return [];
   }
 
   private hasMutatingVerb(sql: string): boolean {

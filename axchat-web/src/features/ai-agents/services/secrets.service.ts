@@ -20,6 +20,13 @@ export const secretsService = {
     return data.data ?? data;
   },
 
+  async findValue(key: string): Promise<string> {
+    const { data } = await api.get<{ key: string; value: string }>(
+      `/ai-catalog/secrets/${encodeURIComponent(key)}`,
+    );
+    return data.value;
+  },
+
   async upsert(input: UpsertSecretInput): Promise<OrganizationSecret> {
     const { data } = await api.put('/ai-catalog/secrets', input);
     return data.data ?? data;

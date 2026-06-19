@@ -15,6 +15,7 @@ import { OrgRole } from '@prisma/client';
 import { ToolsCatalogService } from './tools.service';
 import { SkillsCatalogService } from './skills.service';
 import { OrganizationSecretService } from './organization-secret.service';
+import { DatabaseIntrospectionService } from '../tools/database-introspection.service';
 import { UpsertToolDto } from './dto/upsert-tool.dto';
 import { UpsertSkillDto } from './dto/upsert-skill.dto';
 import { UpsertSecretDto } from './dto/upsert-secret.dto';
@@ -34,6 +35,7 @@ export class AiCatalogController {
     private readonly tools: ToolsCatalogService,
     private readonly skills: SkillsCatalogService,
     private readonly secrets: OrganizationSecretService,
+    private readonly dbIntrospection: DatabaseIntrospectionService,
   ) {}
 
   // ── Tools ────────────────────────────────────────────────────────
@@ -73,6 +75,59 @@ export class AiCatalogController {
   @Roles(OrgRole.OWNER, OrgRole.ADMIN)
   removeTool(@CurrentOrg('id') orgId: string, @Param('id') id: string) {
     return this.tools.softDelete(orgId, id);
+  }
+
+  @Get('tools/:id/tables')
+  @ApiOperation({ summary: 'Lista tabelas do banco da tool SQL' })
+  async listToolTables(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+  ) {
+    const tool = await this.tools.findOne(orgId, id);
+    if (tool.source !== 'CUSTOM_SQL') {
+      throw new BadRequestException('Tool não é do tipo SQL');
+    }
+    if (!tool.sqlConnectionRef) {
+      throw new BadRequestException('Tool não tem sqlConnectionRef configurado');
+    }
+    const tables = await this.dbIntrospection.listTableNames(
+      orgId,
+      tool.sqlConnectionRef,
+    );
+    return { tables };
+  }
+
+  @Post('tools/test-connection')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Testa a conexão da tool antes de salvar' })
+  async testToolConnection(
+    @CurrentOrg('id') orgId: string,
+    @Body()
+    body: {
+      source: 'CUSTOM_HTTP' | 'CUSTOM_SQL';
+      httpBaseUrl?: string;
+      httpHeaders?: Record<string, string>;
+      sqlConnectionRef?: string;
+    },
+  ) {
+    if (body.source === 'CUSTOM_SQL') {
+      if (!body.sqlConnectionRef) {
+        throw new BadRequestException('sqlConnectionRef é obrigatório');
+      }
+      return this.dbIntrospection.testSqlConnection(orgId, body.sqlConnectionRef);
+    }
+
+    if (body.source === 'CUSTOM_HTTP') {
+      if (!body.httpBaseUrl) {
+        throw new BadRequestException('httpBaseUrl é obrigatório');
+      }
+      return this.dbIntrospection.testHttpConnection(
+        body.httpBaseUrl,
+        body.httpHeaders ?? {},
+      );
+    }
+
+    throw new BadRequestException('source inválido');
   }
 
   // ── Skills ───────────────────────────────────────────────────────
@@ -144,6 +199,20 @@ export class AiCatalogController {
   @ApiOperation({ summary: 'Lista secrets da org (valores mascarados)' })
   listSecrets(@CurrentOrg('id') orgId: string) {
     return this.secrets.list(orgId);
+  }
+
+  @Get('secrets/:key')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Retorna o valor REAL de uma secret (sem máscara)' })
+  async findSecret(
+    @CurrentOrg('id') orgId: string,
+    @Param('key') key: string,
+  ) {
+    const value = await this.secrets.findValue(orgId, key);
+    if (value === null) {
+      throw new BadRequestException(`Secret "${key}" não encontrada`);
+    }
+    return { key, value };
   }
 
   @Put('secrets')

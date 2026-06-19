@@ -58,6 +58,7 @@ export interface AiSkill {
   responseMap: Record<string, string> | null;
   sqlQuery: string | null;
   sqlParamMap: Array<{ name?: string; source: string }> | null;
+  sqlTables: string[] | null;
   sqlReadOnly: boolean;
   sqlMaxRows: number;
   timeoutMs: number;
@@ -86,6 +87,7 @@ export interface AiSkillVersion {
   responseMap: Record<string, string> | null;
   sqlQuery: string | null;
   sqlParamMap: Array<{ name?: string; source: string }> | null;
+  sqlTables: string[] | null;
   sqlReadOnly: boolean;
   sqlMaxRows: number;
   timeoutMs: number;
@@ -109,6 +111,7 @@ export interface UpsertSkillInput {
   responseMap?: Record<string, string>;
   sqlQuery?: string;
   sqlParamMap?: Array<{ name?: string; source: string }>;
+  sqlTables?: string[];
   sqlReadOnly?: boolean;
   sqlMaxRows?: number;
   timeoutMs?: number;
@@ -138,6 +141,10 @@ export const aiCatalogService = {
   },
   async removeTool(id: string): Promise<void> {
     await api.delete(`/ai-catalog/tools/${id}`);
+  },
+  async listToolTables(id: string): Promise<string[]> {
+    const { data } = await api.get<{ tables: string[] }>(`/ai-catalog/tools/${id}/tables`);
+    return data.tables;
   },
 
   // Skills

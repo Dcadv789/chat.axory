@@ -17,8 +17,8 @@ import {
   type AiSkill,
 } from '../../services/ai-catalog.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
-import { SkillDialog } from './skill-dialog';
-import { SkillVersionsDialog } from './skill-versions-dialog';
+import { SkillDrawer } from './skill-drawer';
+import { SkillVersionsDrawer } from './skill-versions-drawer';
 
 export function JarvisSkillsTab() {
   const orgId = useOrgId();
@@ -147,7 +147,7 @@ export function JarvisSkillsTab() {
         ))}
       </div>
 
-      <SkillDialog
+      <SkillDrawer
         open={showCreate}
         skill={null}
         onClose={() => setShowCreate(false)}
@@ -156,7 +156,7 @@ export function JarvisSkillsTab() {
           setShowCreate(false);
         }}
       />
-      <SkillDialog
+      <SkillDrawer
         open={!!editing}
         skill={editing}
         onClose={() => setEditing(null)}
@@ -165,7 +165,7 @@ export function JarvisSkillsTab() {
           setEditing(null);
         }}
       />
-      <SkillVersionsDialog
+      <SkillVersionsDrawer
         skill={versions}
         onClose={() => setVersions(null)}
       />

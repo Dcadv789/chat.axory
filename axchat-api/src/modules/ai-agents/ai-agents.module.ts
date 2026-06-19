@@ -9,6 +9,7 @@ import { ChannelHubModule } from '../channel-hub/channel-hub.module';
 import { PromptBuilderService } from './runner/prompt-builder.service';
 import { AiAgentRunnerService } from './runner/agent-runner.service';
 import { CatalogSyncService } from './runner/catalog-sync.service';
+import { DatabaseIntrospectionService } from './tools/database-introspection.service';
 import { MediaUrlResolverService } from './runner/media-url-resolver.service';
 import { AgentRouterService } from './router/agent-router.service';
 import { AgentsService } from './agents/agents.service';
@@ -57,6 +58,7 @@ import { EvalsModule } from './evals/evals.module';
     OrganizationSecretService,
     CatalogSyncService,
     MediaUrlResolverService,
+    DatabaseIntrospectionService,
   ],
   exports: [AiAgentRunnerService, AgentRouterService],
 })

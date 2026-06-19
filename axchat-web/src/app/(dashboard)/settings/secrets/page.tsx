@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react';
 import { secretsService, type OrganizationSecret } from '@/features/ai-agents/services/secrets.service';
 import { toast } from 'sonner';
 
@@ -11,7 +11,8 @@ export default function SettingsSecretsPage() {
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [adding, setAdding] = useState(false);
-  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
+  const [realValues, setRealValues] = useState<Record<string, string>>({});
+  const [revealingKeys, setRevealingKeys] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,13 +57,33 @@ export default function SettingsSecretsPage() {
     }
   };
 
-  const toggleVisible = (key: string) => {
-    setVisibleKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const toggleVisible = async (key: string) => {
+    // Se já tem o valor real, só alterna a exibição
+    if (realValues[key]) {
+      setRevealingKeys((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+      return;
+    }
+
+    // Busca o valor real da API
+    try {
+      const value = await secretsService.findValue(key);
+      setRealValues((prev) => ({ ...prev, [key]: value }));
+      setRevealingKeys((prev) => new Set(prev).add(key));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao buscar valor');
+    }
+  };
+
+  const getDisplayValue = (secret: OrganizationSecret): string => {
+    if (revealingKeys.has(secret.key) && realValues[secret.key]) {
+      return realValues[secret.key];
+    }
+    return '••••••••';
   };
 
   return (
@@ -152,7 +173,7 @@ export default function SettingsSecretsPage() {
       ) : (
         <div className="space-y-2">
           {secrets.map((secret) => {
-            const visible = visibleKeys.has(secret.key);
+            const isRevealed = revealingKeys.has(secret.key);
             return (
               <div
                 key={secret.key}
@@ -164,15 +185,15 @@ export default function SettingsSecretsPage() {
                     {secret.key}
                   </p>
                   <p className="truncate font-mono text-xs text-zinc-400">
-                    {visible ? secret.value : '••••••••'}
+                    {getDisplayValue(secret)}
                   </p>
                 </div>
                 <button
                   onClick={() => toggleVisible(secret.key)}
                   className="shrink-0 rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-300"
-                  title={visible ? 'Ocultar valor' : 'Mostrar valor'}
+                  title={isRevealed ? 'Ocultar valor' : 'Mostrar valor'}
                 >
-                  {visible ? (
+                  {isRevealed ? (
                     <EyeOff className="h-4 w-4" />
                   ) : (
                     <Eye className="h-4 w-4" />

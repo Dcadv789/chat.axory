@@ -1147,6 +1147,9 @@ model AiSkill {
   // Invocação SQL (quando source=SQL).
   sqlQuery    String? @map("sql_query") @db.Text
   sqlParamMap Json?   @map("sql_param_map")
+  /// Lista de nomes de tabelas que o LLM pode consultar dinamicamente
+  /// (modo simplificado — sem sqlQuery fixa). Ex: ["clientes", "pedidos"].
+  sqlTables   Json?   @map("sql_tables")
   sqlReadOnly Boolean @default(true) @map("sql_read_only")
   sqlMaxRows  Int     @default(50) @map("sql_max_rows")
 
@@ -1192,6 +1195,7 @@ model AiSkillVersion {
   responseMap        Json?         @map("response_map")
   sqlQuery           String?       @map("sql_query") @db.Text
   sqlParamMap        Json?         @map("sql_param_map")
+  sqlTables          Json?         @map("sql_tables")
   sqlReadOnly        Boolean       @default(true) @map("sql_read_only")
   sqlMaxRows         Int           @default(50) @map("sql_max_rows")
   timeoutMs          Int           @default(15000) @map("timeout_ms")

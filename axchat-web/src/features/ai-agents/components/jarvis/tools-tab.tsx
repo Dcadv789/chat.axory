@@ -17,7 +17,7 @@ import {
   type AiTool,
 } from '../../services/ai-catalog.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
-import { ToolDialog } from './tool-dialog';
+import { ToolDrawer } from './tool-drawer';
 
 export function JarvisToolsTab() {
   const orgId = useOrgId();
@@ -139,7 +139,7 @@ export function JarvisToolsTab() {
         })}
       </div>
 
-      <ToolDialog
+      <ToolDrawer
         open={showCreate}
         tool={null}
         onClose={() => setShowCreate(false)}
@@ -148,7 +148,7 @@ export function JarvisToolsTab() {
           setShowCreate(false);
         }}
       />
-      <ToolDialog
+      <ToolDrawer
         open={!!editing}
         tool={editing}
         onClose={() => setEditing(null)}

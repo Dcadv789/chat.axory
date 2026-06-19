@@ -3,8 +3,28 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { UpsertSkillDto } from './dto/upsert-skill.dto';
+
+// Auto-generated parameters quando a skill usa sqlTables (modo dinâmico)
+const DYNAMIC_SQL_PARAMETERS = {
+  type: 'object',
+  required: ['generatedSql'],
+  properties: {
+    generatedSql: {
+      type: 'string',
+      description:
+        'SQL query a ser executada. Use $1, $2... para parâmetros. Sempre use LIMIT e filtre com WHERE.',
+    },
+    params: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'Valores para os placeholders $1, $2... na SQL, na ordem.',
+    },
+  },
+};
 
 @Injectable()
 export class SkillsCatalogService {
@@ -54,6 +74,9 @@ export class SkillsCatalogService {
     await this.assertNameAvailable(organizationId, dto.name);
 
     return this.prisma.$transaction(async (tx) => {
+      const isDynamic = !!(dto.sqlTables?.length) && !dto.sqlQuery;
+      const parameters = isDynamic ? DYNAMIC_SQL_PARAMETERS : (dto.parameters as object);
+
       const skill = await tx.aiSkill.create({
         data: {
           organizationId,
@@ -62,7 +85,7 @@ export class SkillsCatalogService {
           category: dto.category,
           promptInstructions: dto.promptInstructions,
           source: dto.source,
-          parameters: dto.parameters as object,
+          parameters,
           toolId: dto.toolId,
           httpMethod: dto.httpMethod?.toUpperCase(),
           httpPath: dto.httpPath,
@@ -71,6 +94,7 @@ export class SkillsCatalogService {
           responseMap: (dto.responseMap as object) ?? null,
           sqlQuery: dto.sqlQuery,
           sqlParamMap: (dto.sqlParamMap as object) ?? null,
+          sqlTables: dto.sqlTables ? (dto.sqlTables as object) : Prisma.JsonNull,
           sqlReadOnly: dto.sqlReadOnly ?? true,
           sqlMaxRows: dto.sqlMaxRows ?? 50,
           timeoutMs: dto.timeoutMs ?? 15000,
@@ -101,6 +125,8 @@ export class SkillsCatalogService {
     }
 
     const nextVersion = existing.currentVersion + 1;
+    const isDynamic = !!(dto.sqlTables?.length) && !dto.sqlQuery;
+    const parameters = isDynamic ? DYNAMIC_SQL_PARAMETERS : (dto.parameters as object);
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.aiSkill.update({
@@ -111,7 +137,7 @@ export class SkillsCatalogService {
           category: dto.category,
           promptInstructions: dto.promptInstructions,
           source: dto.source,
-          parameters: dto.parameters as object,
+          parameters,
           toolId: dto.toolId,
           httpMethod: dto.httpMethod?.toUpperCase(),
           httpPath: dto.httpPath,
@@ -120,6 +146,9 @@ export class SkillsCatalogService {
           responseMap: (dto.responseMap as object) ?? null,
           sqlQuery: dto.sqlQuery,
           sqlParamMap: (dto.sqlParamMap as object) ?? null,
+          ...('sqlTables' in dto
+            ? { sqlTables: dto.sqlTables ? (dto.sqlTables as object) : Prisma.JsonNull }
+            : {}),
           sqlReadOnly: dto.sqlReadOnly ?? true,
           sqlMaxRows: dto.sqlMaxRows ?? 50,
           timeoutMs: dto.timeoutMs ?? 15000,
@@ -187,8 +216,10 @@ export class SkillsCatalogService {
         );
       }
     } else if (dto.source === 'SQL') {
-      if (!dto.sqlQuery) {
-        throw new BadRequestException('SQL skill requires sqlQuery');
+      if (!dto.sqlQuery && !dto.sqlTables?.length) {
+        throw new BadRequestException(
+          'SQL skill requires sqlQuery or sqlTables (table list)',
+        );
       }
     }
   }
@@ -254,6 +285,7 @@ export class SkillsCatalogService {
       responseMap: skill.responseMap,
       sqlQuery: skill.sqlQuery,
       sqlParamMap: skill.sqlParamMap,
+      sqlTables: skill.sqlTables,
       sqlReadOnly: skill.sqlReadOnly,
       sqlMaxRows: skill.sqlMaxRows,
       timeoutMs: skill.timeoutMs,

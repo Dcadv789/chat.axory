@@ -55,11 +55,13 @@ export class UpsertSkillDto {
   @IsIn(['HTTP', 'SQL'])
   source!: 'HTTP' | 'SQL';
 
-  @ApiProperty({
-    description: 'JSON Schema do input que o LLM vai passar.',
+  @ApiPropertyOptional({
+    description:
+      'JSON Schema do input que o LLM vai passar. Opcional — quando sqlTables é enviado, o backend auto-gera.',
   })
+  @IsOptional()
   @IsObject()
-  parameters!: Record<string, unknown>;
+  parameters?: Record<string, unknown>;
 
   @ApiProperty({ description: 'ID da Tool (provider) que essa skill usa.' })
   @IsString()
@@ -105,6 +107,16 @@ export class UpsertSkillDto {
   @IsOptional()
   @IsString()
   sqlQuery?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Lista de nomes de tabelas (modo dinâmico). Quando preenchido, sqlQuery é opcional e o LLM gera a SQL.',
+    example: ['clientes', 'pedidos'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  sqlTables?: string[];
 
   @ApiPropertyOptional({
     description: '[{name, source: "input.x"|"ctx.x"|"literal:..."}]',
