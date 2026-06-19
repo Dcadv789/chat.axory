@@ -2,8 +2,9 @@
 
 FROM node:20-alpine AS deps
 WORKDIR /app
-ENV NODE_ENV=development
 COPY package.json package-lock.json ./
+# Coolify injeta --build-arg NODE_ENV=production; forçamos dev pra instalar devDependencies
+ENV NODE_ENV=development
 RUN npm ci
 
 FROM node:20-alpine AS builder
