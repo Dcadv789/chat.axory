@@ -290,4 +290,22 @@ export class SuperAdminController {
   listBuiltinTools() {
     return this.toolRegistry.listAllBuiltin();
   }
+
+  // ─── Skills Management ────────────────────────────────
+
+  @Get('skills')
+  @ApiOperation({ summary: 'List all skills across organizations' })
+  listAllSkills(@Query('organizationId') organizationId?: string) {
+    return this.service.listAllSkills(organizationId);
+  }
+
+  @Post('skills/:id/copy')
+  @ApiOperation({ summary: 'Copy a skill to another organization (credentials NOT copied)' })
+  copySkill(
+    @CurrentUser('id') actorId: string,
+    @Param('id') id: string,
+    @Body('targetOrgId') targetOrgId: string,
+  ) {
+    return this.service.copySkill(actorId, id, targetOrgId);
+  }
 }

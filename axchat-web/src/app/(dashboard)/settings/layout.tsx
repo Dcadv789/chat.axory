@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap } from 'lucide-react';
+import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap, Variable } from 'lucide-react';
 
 const tabs = [
   { href: '/settings/channels', label: 'Canais', icon: Radio, subtitle: 'Gerencie seus canais de atendimento' },
@@ -15,6 +15,7 @@ const tabs = [
   { href: '/settings/whatsapp-templates', label: 'Templates WhatsApp', icon: MessageSquareDiff, subtitle: 'Gerencie e sincronize templates do WhatsApp com a Meta' },
   { href: '/settings/quick-replies', label: 'Atalhos', icon: Zap, subtitle: 'Respostas rápidas com /comandos no chat' },
   { href: '/settings/api-keys', label: 'API Keys', icon: KeyRound, subtitle: 'Chaves de acesso programático para integrações' },
+  { href: '/settings/secrets', label: 'Variáveis', icon: Variable, subtitle: 'Variáveis de ambiente para Skills HTTP/SQL' },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

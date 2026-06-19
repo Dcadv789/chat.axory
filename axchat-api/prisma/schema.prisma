@@ -234,6 +234,7 @@ model Organization {
   auditLogs          SuperAdminAuditLog[]
   aiModelProviders   AiModelProvider[]
   agentSectors       AgentSector[]
+  organizationSecrets OrganizationSecret[]
 
   @@map("organizations")
 }
@@ -1101,6 +1102,23 @@ model AiTool {
   @@unique([organizationId, name], name: "uq_tool_org_name")
   @@index([organizationId], name: "idx_tool_org")
   @@map("ai_tools")
+}
+
+// ─── Organization Secrets (variáveis de ambiente por org) ─────
+
+model OrganizationSecret {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  key            String
+  value          String   @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, key], name: "uq_org_secret_key")
+  @@index([organizationId], name: "idx_org_secret_org")
+  @@map("organization_secrets")
 }
 
 // ─── Skills (FUNÇÕES LLM-callable) ────────────────────────────

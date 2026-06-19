@@ -410,6 +410,20 @@ export const superAdminService = {
     const { data } = await api.get<{ data: BuiltinTool[] }>('/super-admin/builtin-tools');
     return data.data;
   },
+
+  // ─── Skills Management ────────────────────────────
+
+  async listAllSkills(organizationId?: string): Promise<SuperAdminSkill[]> {
+    const { data } = await api.get<{ data: SuperAdminSkill[] }>('/super-admin/skills', {
+      params: organizationId ? { organizationId } : undefined,
+    });
+    return data.data;
+  },
+
+  async copySkill(skillId: string, targetOrgId: string) {
+    const { data } = await api.post(`/super-admin/skills/${skillId}/copy`, { targetOrgId });
+    return data.data;
+  },
 };
 
 export interface GlobalDepartment {
@@ -437,4 +451,24 @@ export interface BuiltinTool {
   description: string;
   kinds: string[];
   clientOps: boolean;
+}
+
+export interface SuperAdminSkill {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string;
+  category: string | null;
+  promptInstructions: string | null;
+  source: string;
+  toolId: string | null;
+  httpMethod: string | null;
+  httpPath: string | null;
+  sqlQuery: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  organization: { id: string; name: string };
+  tool: { id: string; name: string; source: string; sqlConnectionRef: string | null } | null;
+  _count: { agents: number; versions: number };
 }

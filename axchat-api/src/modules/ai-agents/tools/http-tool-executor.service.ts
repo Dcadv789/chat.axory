@@ -69,6 +69,11 @@ export class HttpToolExecutorService {
       };
     }
 
+    // Carrega todas as secrets da org pra resolução de {{env.X}} sem hits
+    // individuais no banco. Se a org não tiver nenhuma, fica um Map vazio e
+    // o fallback pra env var do servidor funciona normal.
+    const orgSecrets = await this.loadOrgSecrets(ctx.organizationId);
+
     // Normaliza emails antes de qualquer uso. APIs do Trivapp (e várias
     // outras) tratam emails de forma case-sensitive em alguns endpoints
     // (ex: resetPassword retorna 404 com email "Foo@x.com" mas funciona
@@ -92,19 +97,19 @@ export class HttpToolExecutorService {
     }
 
     const url =
-      this.renderTemplate(tool.httpBaseUrl, { input, ctx }).replace(/\/+$/, '') +
+      this.renderTemplate(tool.httpBaseUrl, { input, ctx }, orgSecrets).replace(/\/+$/, '') +
       '/' +
-      this.renderTemplate(skill.httpPath, { input, ctx }).replace(/^\/+/, '');
+      this.renderTemplate(skill.httpPath, { input, ctx }, orgSecrets).replace(/^\/+/, '');
 
     const method = skill.httpMethod.toUpperCase();
     const headers = {
-      ...this.renderHeaders(tool.httpHeaders, { input, ctx }),
-      ...this.renderHeaders(skill.httpHeadersExtra, { input, ctx }),
+      ...this.renderHeaders(tool.httpHeaders, { input, ctx }, orgSecrets),
+      ...this.renderHeaders(skill.httpHeadersExtra, { input, ctx }, orgSecrets),
     };
 
     let body: string | undefined;
     if (skill.httpBodyTemplate && method !== 'GET' && method !== 'DELETE') {
-      body = this.renderTemplate(skill.httpBodyTemplate, { input, ctx });
+      body = this.renderTemplate(skill.httpBodyTemplate, { input, ctx }, orgSecrets);
       if (!headers['content-type'] && !headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
       }
@@ -271,11 +276,12 @@ export class HttpToolExecutorService {
   private renderHeaders(
     raw: unknown,
     scopes: { input: Record<string, unknown>; ctx: ToolContext },
+    orgSecrets: Map<string, string>,
   ): Record<string, string> {
     if (!raw || typeof raw !== 'object') return {};
     const out: Record<string, string> = {};
     for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-      out[key] = this.renderTemplate(String(value ?? ''), scopes);
+      out[key] = this.renderTemplate(String(value ?? ''), scopes, orgSecrets);
     }
     return out;
   }
@@ -283,6 +289,7 @@ export class HttpToolExecutorService {
   private renderTemplate(
     template: string,
     scopes: { input: Record<string, unknown>; ctx: ToolContext },
+    orgSecrets: Map<string, string>,
   ): string {
     return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, expr) => {
       const [scope, ...rest] = String(expr).split('.');
@@ -291,6 +298,9 @@ export class HttpToolExecutorService {
       if (scope === 'input') source = scopes.input;
       else if (scope === 'ctx') source = scopes.ctx as unknown as Record<string, unknown>;
       else if (scope === 'env') {
+        // Tenta a secret da org primeiro, depois fallback pra env var do servidor
+        const orgValue = orgSecrets.get(path);
+        if (orgValue !== undefined) return orgValue;
         const v = this.config.get<string>(path);
         if (v === undefined) {
           this.logger.warn(`Template references unknown env: ${path}`);
@@ -346,6 +356,24 @@ export class HttpToolExecutorService {
             : undefined,
         obj,
       );
+  }
+
+  /**
+   * Carrega todas as OrganizationSecret da org em um Map pra resolução
+   * rápida de {{env.X}} durante o render da template.
+   */
+  private async loadOrgSecrets(
+    organizationId: string,
+  ): Promise<Map<string, string>> {
+    const secrets = await this.prisma.organizationSecret.findMany({
+      where: { organizationId },
+      select: { key: true, value: true },
+    });
+    const map = new Map<string, string>();
+    for (const s of secrets) {
+      map.set(s.key, s.value);
+    }
+    return map;
   }
 
   /**

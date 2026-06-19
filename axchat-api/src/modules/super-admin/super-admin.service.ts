@@ -895,6 +895,116 @@ export class SuperAdminService {
     return updated;
   }
 
+  // ─── Skills Management (Super Admin) ──────────────────
+
+  async listAllSkills(organizationId?: string) {
+    const where: Prisma.AiSkillWhereInput = { deletedAt: null };
+    if (organizationId) {
+      where.organizationId = organizationId;
+    }
+    return this.prisma.aiSkill.findMany({
+      where,
+      include: {
+        tool: { select: { id: true, name: true, source: true, sqlConnectionRef: true } },
+        organization: { select: { id: true, name: true } },
+        _count: { select: { agents: true, versions: true } },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+  }
+
+  /**
+   * Copia uma skill + tool vinculada para outra organização.
+   * NUNCA copia OrganizationSecret (credenciais) — a org destino precisa
+   * configurar suas próprias variáveis de ambiente pelo Settings > Variáveis.
+   */
+  async copySkill(actorId: string, skillId: string, targetOrgId: string) {
+    const skill = await this.prisma.aiSkill.findUnique({
+      where: { id: skillId },
+      include: { tool: true },
+    });
+    if (!skill) throw new NotFoundException('Skill not found');
+    if (skill.organizationId === targetOrgId) {
+      throw new BadRequestException('Source and target organization are the same');
+    }
+
+    const targetOrg = await this.prisma.organization.findUnique({
+      where: { id: targetOrgId },
+    });
+    if (!targetOrg) throw new NotFoundException('Target organization not found');
+
+    // Resolve tool no destino: usa existente se achar pelo nome, ou cria nova
+    // (sem as credenciais — httpHeaders e sqlConnectionRef NÃO são copiados)
+    let targetToolId: string | null = null;
+    if (skill.tool) {
+      const existingTool = await this.prisma.aiTool.findFirst({
+        where: { organizationId: targetOrgId, name: skill.tool.name, deletedAt: null },
+      });
+      if (existingTool) {
+        targetToolId = existingTool.id;
+      } else {
+        const newTool = await this.prisma.aiTool.create({
+          data: {
+            organizationId: targetOrgId,
+            name: skill.tool.name,
+            description: skill.tool.description,
+            source: skill.tool.source,
+            // httpBaseUrl é seguro — é a URL base pública, não credencial
+            httpBaseUrl: skill.tool.httpBaseUrl,
+            // httpHeaders NÃO é copiado (contém {{env.X}} que referencia secrets da org)
+            httpHeaders: Prisma.JsonNull,
+            // sqlConnectionRef NÃO é copiado (referencia env var com credenciais)
+            sqlConnectionRef: null,
+            isActive: true,
+          },
+        });
+        targetToolId = newTool.id;
+      }
+    }
+
+    // Verifica conflito de nome
+    const clash = await this.prisma.aiSkill.findFirst({
+      where: { organizationId: targetOrgId, name: skill.name, deletedAt: null },
+    });
+    const targetName = clash
+      ? `${skill.name} (cópia ${Date.now()})`
+      : skill.name;
+
+    const newSkill = await this.prisma.aiSkill.create({
+      data: {
+        organizationId: targetOrgId,
+        name: targetName,
+        description: skill.description,
+        category: skill.category,
+        promptInstructions: skill.promptInstructions,
+        source: skill.source,
+        parameters: (skill.parameters ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        toolId: targetToolId,
+        httpMethod: skill.httpMethod,
+        httpPath: skill.httpPath,
+        httpHeadersExtra: (skill.httpHeadersExtra ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        httpBodyTemplate: skill.httpBodyTemplate,
+        responseMap: (skill.responseMap ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        sqlQuery: skill.sqlQuery,
+        sqlParamMap: (skill.sqlParamMap ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        sqlReadOnly: skill.sqlReadOnly ?? true,
+        sqlMaxRows: skill.sqlMaxRows ?? 50,
+        timeoutMs: skill.timeoutMs ?? 15000,
+        isActive: skill.isActive,
+        currentVersion: 1,
+      },
+    });
+
+    await this.audit(actorId, 'COPY_SKILL', 'aiSkill', newSkill.id, targetOrgId, {
+      sourceSkillId: skillId,
+      sourceOrgId: skill.organizationId,
+      skillName: skill.name,
+      credentialsCopied: false,
+    });
+
+    return newSkill;
+  }
+
   async listOrgModels(actorId: string, organizationId: string) {
     const models = await this.prisma.aiModelProvider.findMany({
       where: { organizationId },

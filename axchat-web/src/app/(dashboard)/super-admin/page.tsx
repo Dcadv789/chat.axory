@@ -35,6 +35,7 @@ import {
 } from '@/features/super-admin/services/super-admin.service';
 import { EditUserDialog } from '@/features/super-admin/components/edit-user-dialog';
 import { AgentsPanel } from '@/features/super-admin/components/agents-panel';
+import { SkillsPanel } from '@/features/super-admin/components/skills-panel';
 import { DepartmentsPanel } from '@/features/super-admin/components/departments-panel';
 import { JarvisBuiltinToolsTab } from '@/features/ai-agents/components/jarvis/builtin-tools-tab';
 import { useAuthStore } from '@/stores/auth-store';
@@ -45,7 +46,7 @@ const billingStatusOptions: BillingStatus[] = ['TRIALING', 'ACTIVE', 'PAST_DUE',
 export default function SuperAdminPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<'organizations' | 'users' | 'agents' | 'departments' | 'plans' | 'audit' | 'tools'>('organizations');
+  const [tab, setTab] = useState<'organizations' | 'users' | 'agents' | 'skills' | 'departments' | 'plans' | 'audit' | 'tools'>('organizations');
   const [search, setSearch] = useState('');
 
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -131,6 +132,7 @@ export default function SuperAdminPage() {
             <Tab active={tab === 'organizations'} onClick={() => setTab('organizations')}>Empresas</Tab>
             <Tab active={tab === 'users'} onClick={() => setTab('users')}>Usuarios</Tab>
             <Tab active={tab === 'agents'} onClick={() => setTab('agents')}>Agentes</Tab>
+            <Tab active={tab === 'skills'} onClick={() => setTab('skills')}>Skills</Tab>
             <Tab active={tab === 'departments'} onClick={() => setTab('departments')}>Departamentos</Tab>
             <Tab active={tab === 'plans'} onClick={() => setTab('plans')}>Planos</Tab>
             <Tab active={tab === 'audit'} onClick={() => setTab('audit')}>Auditoria</Tab>
@@ -155,6 +157,13 @@ export default function SuperAdminPage() {
         )}
         {tab === 'agents' && (
           <AgentsPanel
+            organizations={organizations}
+            loading={loadingOrgs}
+            onChanged={refresh}
+          />
+        )}
+        {tab === 'skills' && (
+          <SkillsPanel
             organizations={organizations}
             loading={loadingOrgs}
             onChanged={refresh}

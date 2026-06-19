@@ -15,6 +15,7 @@ import { AgentsService } from './agents/agents.service';
 import { AgentsController } from './agents/agents.controller';
 import { ToolsCatalogService } from './catalog/tools.service';
 import { SkillsCatalogService } from './catalog/skills.service';
+import { OrganizationSecretService } from './catalog/organization-secret.service';
 import { AiCatalogController } from './catalog/catalog.controller';
 
 // ─── Fase 2 — AI Intelligence Layer ──────────────
@@ -53,6 +54,7 @@ import { EvalsModule } from './evals/evals.module';
     AgentsService,
     ToolsCatalogService,
     SkillsCatalogService,
+    OrganizationSecretService,
     CatalogSyncService,
     MediaUrlResolverService,
   ],

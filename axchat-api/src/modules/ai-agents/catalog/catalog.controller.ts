@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -13,8 +14,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { ToolsCatalogService } from './tools.service';
 import { SkillsCatalogService } from './skills.service';
+import { OrganizationSecretService } from './organization-secret.service';
 import { UpsertToolDto } from './dto/upsert-tool.dto';
 import { UpsertSkillDto } from './dto/upsert-skill.dto';
+import { UpsertSecretDto } from './dto/upsert-secret.dto';
 import { CurrentOrg, CurrentUser, Roles } from '../../../common/decorators';
 import {
   JwtAuthGuard,
@@ -30,6 +33,7 @@ export class AiCatalogController {
   constructor(
     private readonly tools: ToolsCatalogService,
     private readonly skills: SkillsCatalogService,
+    private readonly secrets: OrganizationSecretService,
   ) {}
 
   // ── Tools ────────────────────────────────────────────────────────
@@ -131,6 +135,37 @@ export class AiCatalogController {
     @Body() body: { skillIds: string[] },
   ) {
     return this.skills.setAgentSkills(orgId, agentId, body.skillIds ?? []);
+  }
+
+  // ── Organization Secrets (variáveis de ambiente) ───────────────
+
+  @Get('secrets')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Lista secrets da org (valores mascarados)' })
+  listSecrets(@CurrentOrg('id') orgId: string) {
+    return this.secrets.list(orgId);
+  }
+
+  @Put('secrets')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Cria ou atualiza uma secret' })
+  upsertSecret(
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: UpsertSecretDto,
+  ) {
+    if (!dto.key?.trim()) throw new BadRequestException('key is required');
+    if (!dto.value?.trim()) throw new BadRequestException('value is required');
+    return this.secrets.upsert(orgId, { key: dto.key.trim(), value: dto.value.trim() });
+  }
+
+  @Delete('secrets/:key')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Remove uma secret' })
+  removeSecret(
+    @CurrentOrg('id') orgId: string,
+    @Param('key') key: string,
+  ) {
+    return this.secrets.remove(orgId, key);
   }
 
 }

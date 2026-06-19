@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AiSkill, AiTool } from '@prisma/client';
 import { Pool } from 'pg';
+import { PrismaService } from '../../../database/prisma.service';
 import { ToolContext, ToolResult } from './tool.types';
 
 /**
@@ -13,7 +14,10 @@ export class SqlToolExecutorService implements OnModuleDestroy {
   private readonly logger = new Logger(SqlToolExecutorService.name);
   private readonly pools = new Map<string, Pool>();
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async onModuleDestroy() {
     for (const pool of this.pools.values()) {
@@ -54,12 +58,17 @@ export class SqlToolExecutorService implements OnModuleDestroy {
       };
     }
 
-    const dsn = this.config.get<string>(tool.sqlConnectionRef);
+    // 1. Tenta resolver a conexão da OrganizationSecret (DB multi-tenant)
+    // 2. Fallback pra env var do servidor
+    const dsn = await this.resolveConnectionString(
+      ctx.organizationId,
+      tool.sqlConnectionRef,
+    );
     if (!dsn) {
       return {
         output: {
           ok: false,
-          error: `Env var "${tool.sqlConnectionRef}" não configurada no servidor`,
+          error: `Env var "${tool.sqlConnectionRef}" não configurada (nem na org, nem no servidor)`,
         },
       };
     }
@@ -109,6 +118,19 @@ export class SqlToolExecutorService implements OnModuleDestroy {
     } finally {
       client.release();
     }
+  }
+
+  /** Resolve DSN: DB da org (OrganizationSecret) > env var do servidor. */
+  private async resolveConnectionString(
+    organizationId: string,
+    refKey: string,
+  ): Promise<string | null> {
+    const secret = await this.prisma.organizationSecret.findUnique({
+      where: { uq_org_secret_key: { organizationId, key: refKey } },
+      select: { value: true },
+    });
+    if (secret?.value) return secret.value;
+    return this.config.get<string>(refKey) ?? null;
   }
 
   private getOrCreatePool(refName: string, dsn: string): Pool {
