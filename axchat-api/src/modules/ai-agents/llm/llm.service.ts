@@ -166,7 +166,12 @@ export class LlmService {
     if (req.organizationId) {
       const custom = await this.resolveCustomProvider(req.organizationId, req.modelId);
       if (custom) {
-        return custom.complete(req, this.stripProviderPrefix(req.modelId));
+        // Provider customizado (DeepSeek, OpenRouter, etc.) —
+        // a maioria não suporta image_url. Remove imagens se houver.
+        const safeReq = this.requestHasImage(req)
+          ? this.stripImagesToStub(req)
+          : req;
+        return custom.complete(safeReq, this.stripProviderPrefix(req.modelId));
       }
     }
 
@@ -200,7 +205,11 @@ export class LlmService {
           'OPENAI_API_KEY não configurada — provider OpenAI indisponível',
         );
       }
-      return this.openai.complete(req, this.stripProviderPrefix(req.modelId));
+      // GPT-3.5 e modelos mais antigos não suportam image_url — remove se for o caso
+      const safeReq = this.requestHasImage(req)
+        ? this.stripImagesToStub(req)
+        : req;
+      return this.openai.complete(safeReq, this.stripProviderPrefix(req.modelId));
     }
 
     return this.completeWithAnthropic(this.normalizeModelId(req.modelId), req);

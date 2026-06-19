@@ -11,29 +11,34 @@ import { api } from '@/lib/api';
  * Agora o backend salva URLs relativas (/api/v1/uploads/...), mas
  * precisamos garantir compatibilidade com registros antigos.
  *
- * Regras:
- * - URL vazia → undefined
- * - URL já relativa (/api/v1/...) → prefixa com a base da API
- * - URL absoluta que não bate com a base atual → substitui a origin
- * - URL absoluta que já está correta → mantém
+ * O `api.defaults.baseURL` já inclui /api/v1 (ex: https://api-chat.axory.com.br/api/v1),
+ * então quando a URL salva começa com /api/v1 precisamos usar só a ORIGIN.
  */
 export function resolveUploadUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
 
   const apiBase = api.defaults.baseURL || '';
 
-  // Já é relativa ao próprio domínio — prefixa com a base da API
+  // Já é relativa (começa com /) — extrai só a origin da base
   if (url.startsWith('/')) {
-    // Se a base tem trailing slash, remove pra não duplicar
-    const base = apiBase.replace(/\/+$/, '');
-    return `${base}${url}`;
+    try {
+      const origin = apiBase ? new URL(apiBase).origin : window.location.origin;
+      return `${origin}${url}`;
+    } catch {
+      return url;
+    }
   }
 
   // URL absoluta — verifica se precisa trocar a origin
   try {
     const parsed = new URL(url);
     const currentOrigin = window.location.origin;
-    const apiOrigin = apiBase ? new URL(apiBase).origin : currentOrigin;
+    let apiOrigin: string;
+    try {
+      apiOrigin = apiBase ? new URL(apiBase).origin : currentOrigin;
+    } catch {
+      apiOrigin = currentOrigin;
+    }
 
     // Se a URL aponta para localhost ou para uma origin diferente da API,
     // substitui pela base correta
@@ -41,8 +46,7 @@ export function resolveUploadUrl(url: string | undefined | null): string | undef
       (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') ||
       (parsed.origin !== apiOrigin && parsed.origin !== currentOrigin)
     ) {
-      const base = apiBase.replace(/\/+$/, '');
-      return `${base}${parsed.pathname}`;
+      return `${apiOrigin}${parsed.pathname}`;
     }
   } catch {
     // URL inválida — retorna como está
