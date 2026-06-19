@@ -413,7 +413,8 @@ export class AiAgentRunnerService {
         // stop the loop even if the model would have wanted another turn.
         if (
           finalAction === AiFinalAction.TRANSFERRED_TO_HUMAN ||
-          finalAction === AiFinalAction.CLOSED_CONVERSATION
+          finalAction === AiFinalAction.CLOSED_CONVERSATION ||
+          finalAction === AiFinalAction.HANDED_BACK
         ) {
           break;
         }
@@ -464,24 +465,23 @@ export class AiAgentRunnerService {
         ),
       );
 
-      // Auto-chain: if this run delegated to a worker, immediately fire the
-      // worker run so the customer gets the new agent's first message right
-      // away — no need to wait for them to send something. The worker reads
-      // the full history (including the orchestrator's "vou te passar pra X")
-      // and starts speaking. Bounded by MAX_CHAIN_DEPTH to avoid recursion.
-      if (
-        finalAction === AiFinalAction.DELEGATED &&
-        chainDepth < MAX_CHAIN_DEPTH
-      ) {
+      // Auto-chain: delegation and hand-back should continue in the same turn
+      // so the customer gets a response without sending another message.
+      // Bounded by MAX_CHAIN_DEPTH to avoid recursion.
+      if (chainDepth < MAX_CHAIN_DEPTH) {
         const refreshed = await this.prisma.conversation.findUnique({
           where: { id: conversation.id },
         });
-        if (refreshed && refreshed.activeAgentId && refreshed.activeAgentId !== agent.id) {
+        if (!refreshed) return;
+
+        if (
+          finalAction === AiFinalAction.DELEGATED &&
+          refreshed.activeAgentId &&
+          refreshed.activeAgentId !== agent.id
+        ) {
           this.logger.log(
             `Auto-chaining run for new active agent ${refreshed.activeAgentId} on conv ${conversation.id} (depth ${chainDepth + 1})`,
           );
-          // Fire-and-forget — don't block the caller. The worker runs
-          // asynchronously and emits its messages via realtime as usual.
           this.run({
             conversation: refreshed,
             triggerMessage,
@@ -489,6 +489,22 @@ export class AiAgentRunnerService {
           }).catch((err) =>
             this.logger.error(
               `Auto-chain run failed for conv ${conversation.id}: ${err?.message ?? err}`,
+            ),
+          );
+        } else if (
+          finalAction === AiFinalAction.HANDED_BACK &&
+          !refreshed.activeAgentId
+        ) {
+          this.logger.log(
+            `Auto-chaining orchestrator after hand-back on conv ${conversation.id} (depth ${chainDepth + 1})`,
+          );
+          this.run({
+            conversation: refreshed,
+            triggerMessage,
+            chainDepth: chainDepth + 1,
+          }).catch((err) =>
+            this.logger.error(
+              `Auto-chain orchestrator after hand-back failed for conv ${conversation.id}: ${err?.message ?? err}`,
             ),
           );
         }
@@ -569,6 +585,22 @@ export class AiAgentRunnerService {
       });
       if (active) return active;
     }
+
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: conversation.channelId },
+      select: { defaultOrchestratorId: true },
+    });
+    if (channel?.defaultOrchestratorId) {
+      const defaultOrchestrator = await this.prisma.aiAgent.findFirst({
+        where: {
+          id: channel.defaultOrchestratorId,
+          isActive: true,
+          deletedAt: null,
+        },
+      });
+      if (defaultOrchestrator) return defaultOrchestrator;
+    }
+
     // Hoje agents são auto-linkados a todos os canais. Sem prioridade,
     // qualquer worker AUTONOMOUS poderia capturar o primeiro turno e
     // ignorar a hierarquia. Sempre que houver ORCHESTRATOR no canal,

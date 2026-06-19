@@ -84,7 +84,7 @@ export class HandBackToOrchestratorTool implements AiTool {
       output: {
         ok: true,
         message:
-          'Devolvido ao orquestrador. A próxima mensagem do cliente vai cair no fluxo de roteamento.',
+          'Devolvido ao orquestrador. Ele vai reavaliar o assunto e encaminhar para o especialista correto — o cliente não precisa mandar outra mensagem.',
       },
       finalAction: 'HANDED_BACK',
     };

@@ -28,6 +28,38 @@ async function bootstrap() {
     config.get<string>('UPLOADS_DIR') || path.join(process.cwd(), 'uploads'),
   );
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+  const corsOriginRaw = config.get<string>('CORS_ORIGIN', 'http://localhost:3000');
+  const corsOrigins = corsOriginRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const applyUploadCors = (
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    const origin = req.headers.origin;
+    if (origin && corsOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else if (corsOrigins.length === 1) {
+      res.setHeader('Access-Control-Allow-Origin', corsOrigins[0]);
+    }
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.status(204).end();
+      return;
+    }
+    next();
+  };
+
+  // CORS must run before express.static — otherwise static responses skip headers.
+  app.use('/api/v1/uploads', applyUploadCors);
   app.use(
     '/api/v1/uploads',
     express.static(uploadsDir, {
@@ -36,11 +68,7 @@ async function bootstrap() {
       index: false,
     }),
   );
-  const corsOriginRaw = config.get<string>('CORS_ORIGIN', 'http://localhost:3000');
-  const corsOrigins = corsOriginRaw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+
   app.enableCors({
     origin: corsOrigins,
     credentials: true,

@@ -19,7 +19,13 @@ export function resolveUploadUrl(url: string | undefined | null): string | undef
 
   const apiBase = api.defaults.baseURL || '';
 
-  // Já é relativa (começa com /) — extrai só a origin da base
+  // Uploads servidos via rewrite same-origin no Next — evita CORS em prod
+  // (chat.axory.com.br carrega /api/v1/uploads/... pelo próprio domínio).
+  if (url.startsWith('/api/v1/uploads')) {
+    return `${window.location.origin}${url}`;
+  }
+
+  // Outras URLs relativas — usa a origin da API
   if (url.startsWith('/')) {
     try {
       const origin = apiBase ? new URL(apiBase).origin : window.location.origin;
@@ -38,6 +44,11 @@ export function resolveUploadUrl(url: string | undefined | null): string | undef
       apiOrigin = apiBase ? new URL(apiBase).origin : currentOrigin;
     } catch {
       apiOrigin = currentOrigin;
+    }
+
+    // URLs de upload absolutas (legado ou resolvidas pela API) → proxy same-origin
+    if (parsed.pathname.startsWith('/api/v1/uploads')) {
+      return `${currentOrigin}${parsed.pathname}${parsed.search}`;
     }
 
     // Se a URL aponta para localhost ou para uma origin diferente da API,
