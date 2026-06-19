@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import type { SignOptions } from 'jsonwebtoken';
+import { ToolsModule } from '../ai-agents/tools/tools.module';
 import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminService } from './super-admin.service';
 
@@ -16,6 +17,7 @@ import { SuperAdminService } from './super-admin.service';
         },
       }),
     }),
+    ToolsModule,
   ],
   controllers: [SuperAdminController],
   providers: [SuperAdminService],

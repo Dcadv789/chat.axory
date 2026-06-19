@@ -13,12 +13,13 @@ import {
   Activity,
   User,
   ShieldCheck,
+  Code2,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 
 const STORAGE_KEY = 'jarvis-tree-expanded';
 
-type Tab = 'overview' | 'metrics' | 'agents' | 'skills' | 'tools' | 'runs' | 'agent' | 'watchdog';
+type Tab = 'overview' | 'metrics' | 'agents' | 'skills' | 'tools' | 'runs' | 'agent' | 'watchdog' | 'builtin-tools';
 
 const TABS: Array<{
   id: Tab;
@@ -26,6 +27,7 @@ const TABS: Array<{
   icon: React.ElementType;
 }> = [
   { id: 'overview', label: 'Visão geral', icon: BarChart3 },
+  { id: 'builtin-tools', label: 'Tools do sistema', icon: Code2 },
   { id: 'metrics', label: 'Métricas Gerais', icon: PieChart },
   { id: 'agents', label: 'Agentes', icon: Bot },
   { id: 'skills', label: 'Skills', icon: Sparkles },
@@ -55,7 +57,11 @@ export function JarvisTree() {
   const defaultTab: Tab = isSuperAdmin ? 'overview' : 'metrics';
   const rawTab = searchParams.get('tab') as Tab | null;
   const activeTab = rawTab === 'overview' && !isSuperAdmin ? defaultTab : rawTab ?? defaultTab;
-  const visibleTabs = isSuperAdmin ? TABS : TABS.filter((tab) => tab.id !== 'overview');
+
+  // Super admin vê tudo. Usuário normal vê tudo exceto overview e builtin-tools.
+  const visibleTabs = isSuperAdmin
+    ? TABS
+    : TABS.filter((tab) => tab.id !== 'overview' && tab.id !== 'builtin-tools');
 
   const toggleExpanded = () => {
     const next = !expanded;

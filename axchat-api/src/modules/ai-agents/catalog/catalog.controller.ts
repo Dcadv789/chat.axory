@@ -35,7 +35,7 @@ export class AiCatalogController {
   // ── Tools ────────────────────────────────────────────────────────
 
   @Get('tools')
-  @ApiOperation({ summary: 'Lista tools (built-in + custom da org)' })
+  @ApiOperation({ summary: 'Lista tools custom da org' })
   listTools(@CurrentOrg('id') orgId: string) {
     return this.tools.list(orgId);
   }

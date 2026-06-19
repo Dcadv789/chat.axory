@@ -403,6 +403,13 @@ export const superAdminService = {
   async removeAgentFromSector(sectorId: string, agentId: string) {
     await api.delete(`/super-admin/sectors/${sectorId}/agents/${agentId}`);
   },
+
+  // ─── Built-in Tools (referência) ──────────────────
+
+  async listBuiltinTools() {
+    const { data } = await api.get<{ data: BuiltinTool[] }>('/super-admin/builtin-tools');
+    return data.data;
+  },
 };
 
 export interface GlobalDepartment {
@@ -423,4 +430,11 @@ export interface AiModelProvider {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BuiltinTool {
+  name: string;
+  description: string;
+  kinds: string[];
+  clientOps: boolean;
 }

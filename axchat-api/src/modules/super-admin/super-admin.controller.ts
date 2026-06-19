@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } f
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard, SuperAdminGuard } from '../../common/guards';
+import { ToolRegistry } from '../ai-agents/tools/tool-registry.service';
 import { AddOrganizationMemberDto } from './dto/add-organization-member.dto';
 import { CreateOrganizationAdminDto } from './dto/create-organization-admin.dto';
 import { CreateSuperUserDto } from './dto/create-super-user.dto';
@@ -17,7 +18,10 @@ import { SuperAdminService } from './super-admin.service';
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 @Controller('super-admin')
 export class SuperAdminController {
-  constructor(private readonly service: SuperAdminService) {}
+  constructor(
+    private readonly service: SuperAdminService,
+    private readonly toolRegistry: ToolRegistry,
+  ) {}
 
   @Get('overview')
   overview(@CurrentUser('id') actorId: string) {
@@ -277,5 +281,13 @@ export class SuperAdminController {
     @Param('agentId') agentId: string,
   ) {
     return this.service.removeAgentFromSector(actorId, sectorId, agentId);
+  }
+
+  // ─── Built-in Tools (referência) ──────────────────────
+
+  @Get('builtin-tools')
+  @ApiOperation({ summary: 'Lista todas as tools built-in do sistema' })
+  listBuiltinTools() {
+    return this.toolRegistry.listAllBuiltin();
   }
 }

@@ -14,35 +14,18 @@ export class ToolsCatalogService {
     private readonly registry: ToolRegistry,
   ) {}
 
+  /** Lista APENAS tools custom da org — sem built-in. */
   async list(organizationId: string) {
-    const customTools = await this.prisma.aiTool.findMany({
+    return this.prisma.aiTool.findMany({
       where: { organizationId, deletedAt: null },
       orderBy: [{ source: 'asc' }, { name: 'asc' }],
       include: { _count: { select: { skills: true } } },
     });
+  }
 
-    // Built-in tools do registry (hardcoded no código), marcadas como
-    // BUILTIN pra aparecerem no frontend como read-only.
-    const builtins = this.registry.listAllBuiltin().map((t) => ({
-      id: `builtin:${t.name}`,
-      organizationId,
-      name: t.name,
-      description: t.description,
-      source: 'BUILTIN' as const,
-      httpBaseUrl: null,
-      httpHeaders: null,
-      sqlConnectionRef: null,
-      isActive: true,
-      builtinKinds: t.kinds,
-      builtinClientOps: t.clientOps,
-      createdAt: new Date(0),
-      updatedAt: new Date(0),
-      deletedAt: null,
-      _count: { skills: 0 },
-    }));
-
-    // Mescla: built-in + custom, built-in primeiro
-    return [...builtins, ...customTools.map((t) => ({ ...t, builtinKinds: null as string[] | null, builtinClientOps: false }))];
+  /** Lista tools built-in do sistema — uso exclusivo Super Admin. */
+  listBuiltin() {
+    return this.registry.listAllBuiltin();
   }
 
   async findOne(organizationId: string, id: string) {
