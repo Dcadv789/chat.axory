@@ -13,6 +13,7 @@ const VALID_TRANSITIONS: Transition[] = [
   { from: ConversationStatus.PENDING, to: ConversationStatus.OPEN },
   { from: ConversationStatus.PENDING, to: ConversationStatus.BOT },
   { from: ConversationStatus.BOT, to: ConversationStatus.PENDING },
+  { from: ConversationStatus.BOT, to: ConversationStatus.CLOSED },
   { from: ConversationStatus.OPEN, to: ConversationStatus.WAITING },
   { from: ConversationStatus.OPEN, to: ConversationStatus.CLOSED },
   { from: ConversationStatus.WAITING, to: ConversationStatus.OPEN },

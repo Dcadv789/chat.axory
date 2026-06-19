@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart, Grid3X3, GitBranch, Code2 } from 'lucide-react';
+import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart, Grid3X3, GitBranch } from 'lucide-react';
 import { AgentsList } from '@/features/ai-agents/components/agents-list';
 import { AgentsSectorView } from '@/features/ai-agents/components/agents-sector-view';
 import { AgentsSectorFilterBar } from '@/features/ai-agents/components/agents-sector-filter-bar';
@@ -18,10 +18,9 @@ import { JarvisToolsTab } from '@/features/ai-agents/components/jarvis/tools-tab
 import { JarvisRunsTab } from '@/features/ai-agents/components/jarvis/runs-tab';
 import { JarvisWatchdogTab } from '@/features/ai-agents/components/jarvis/watchdog-tab';
 import { JarvisMetricsTab } from '@/features/ai-agents/components/jarvis/metrics-tab';
-import { JarvisBuiltinToolsTab } from '@/features/ai-agents/components/jarvis/builtin-tools-tab';
 import { useAuthStore } from '@/stores/auth-store';
 
-type Tab = 'overview' | 'metrics' | 'agents' | 'skills' | 'tools' | 'agent' | 'runs' | 'watchdog' | 'builtin-tools';
+type Tab = 'overview' | 'metrics' | 'agents' | 'skills' | 'tools' | 'agent' | 'runs' | 'watchdog';
 
 const TAB_META: Record<Tab, { label: string; icon: React.ElementType; subtitle: string }> = {
   overview: {
@@ -64,14 +63,9 @@ const TAB_META: Record<Tab, { label: string; icon: React.ElementType; subtitle: 
     icon: User,
     subtitle: 'Métricas e execuções por agente individual',
   },
-  'builtin-tools': {
-    label: 'Tools do sistema',
-    icon: Code2,
-    subtitle: 'Tools nativas do backend — apenas leitura',
-  },
 };
 
-const VALID_TABS: Tab[] = ['overview', 'metrics', 'agents', 'skills', 'tools', 'runs', 'watchdog', 'agent', 'builtin-tools'];
+const VALID_TABS: Tab[] = ['overview', 'metrics', 'agents', 'skills', 'tools', 'runs', 'watchdog', 'agent'];
 
 export default function AiAgentsPage() {
   const router = useRouter();
@@ -126,7 +120,6 @@ export default function AiAgentsPage() {
 
       <div className="flex-1 overflow-y-auto">
         {tab === 'overview' && isSuperAdmin && <JarvisOverviewTab />}
-        {tab === 'builtin-tools' && isSuperAdmin && <JarvisBuiltinToolsTab />}
         {tab === 'metrics' && <JarvisMetricsTab />}
         {tab === 'agents' && (
           <div className="flex h-full flex-col">

@@ -36,6 +36,7 @@ import {
 import { EditUserDialog } from '@/features/super-admin/components/edit-user-dialog';
 import { AgentsPanel } from '@/features/super-admin/components/agents-panel';
 import { DepartmentsPanel } from '@/features/super-admin/components/departments-panel';
+import { JarvisBuiltinToolsTab } from '@/features/ai-agents/components/jarvis/builtin-tools-tab';
 import { useAuthStore } from '@/stores/auth-store';
 
 const planOptions = ['free', 'starter', 'pro', 'enterprise'];
@@ -44,7 +45,7 @@ const billingStatusOptions: BillingStatus[] = ['TRIALING', 'ACTIVE', 'PAST_DUE',
 export default function SuperAdminPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<'organizations' | 'users' | 'agents' | 'departments' | 'plans' | 'audit'>('organizations');
+  const [tab, setTab] = useState<'organizations' | 'users' | 'agents' | 'departments' | 'plans' | 'audit' | 'tools'>('organizations');
   const [search, setSearch] = useState('');
 
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -133,6 +134,7 @@ export default function SuperAdminPage() {
             <Tab active={tab === 'departments'} onClick={() => setTab('departments')}>Departamentos</Tab>
             <Tab active={tab === 'plans'} onClick={() => setTab('plans')}>Planos</Tab>
             <Tab active={tab === 'audit'} onClick={() => setTab('audit')}>Auditoria</Tab>
+            <Tab active={tab === 'tools'} onClick={() => setTab('tools')}>Tools do sistema</Tab>
           </div>
         </div>
 
@@ -163,6 +165,7 @@ export default function SuperAdminPage() {
         )}
         {tab === 'plans' && <PlansPanel overview={overview} onChanged={refresh} />}
         {tab === 'audit' && <AuditPanel logs={auditLogs} loading={loadingAudit} />}
+        {tab === 'tools' && <JarvisBuiltinToolsTab />}
         </div>
       </div>
     </div>
