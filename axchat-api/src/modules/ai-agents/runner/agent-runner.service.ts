@@ -422,6 +422,54 @@ export class AiAgentRunnerService {
         }
       }
 
+      // ─── Fallback: se o LLM não conseguiu responder após todas as tentativas ───
+      if (!replyAlreadySuccessful && finalAction === AiFinalAction.NO_ACTION) {
+        try {
+          this.logger.warn(
+            `Run ${run.id}: LLM exhausted iterations without replying — sending fallback message`,
+          );
+          const replyTool = this.registry.get('replyToConversation');
+          const fallbackMsg =
+            agent.kind === 'ORCHESTRATOR'
+              ? 'Não consegui identificar qual área pode te ajudar agora. Vou transferir pro time humano que resolve rapidinho.'
+              : 'Não consegui acessar essa informação agora. Pode ser algo temporário — vou verificar com o time e volto pra você.';
+          const fallbackCtx: ToolContext = {
+            organizationId: conversation.organizationId,
+            conversationId: conversation.id,
+            contactId: conversation.contactId,
+            channelId: conversation.channelId,
+            agentId: agent.id,
+            runId: run.id,
+            triggerMessageId: triggerMessage?.id,
+          };
+          const fallbackResult = await replyTool.execute(
+            { text: fallbackMsg },
+            fallbackCtx,
+          );
+          // Salva a tool call de fallback no banco
+          await this.prisma.aiToolCall.create({
+            data: {
+              runId: run.id,
+              toolName: 'replyToConversation',
+              input: { text: fallbackMsg, _fallback: true } as object,
+              output: fallbackResult as object,
+            },
+          });
+          // Libera a conversa pro humano
+          await this.prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { activeAgentId: null },
+          });
+          this.logger.log(
+            `Run ${run.id}: fallback message sent, conversation escalated to human`,
+          );
+        } catch (fallbackErr: any) {
+          this.logger.error(
+            `Run ${run.id}: fallback reply also failed: ${fallbackErr?.message ?? fallbackErr}`,
+          );
+        }
+      }
+
       const finishedAt = new Date();
       const durationMs = Date.now() - startedAt;
       await this.prisma.aiAgentRun.update({
@@ -519,6 +567,37 @@ export class AiAgentRunnerService {
       const finishedAt = new Date();
       const durationMs = Date.now() - startedAt;
       const errorMessage = err?.message ?? String(err);
+
+      // Fallback: manda mensagem amigável pro cliente quando o run quebra
+      try {
+        const replyTool = this.registry.get('replyToConversation');
+        const fallbackCtx: ToolContext = {
+          organizationId: conversation.organizationId,
+          conversationId: conversation.id,
+          contactId: conversation.contactId,
+          channelId: conversation.channelId,
+          agentId: agent.id,
+          runId: run.id,
+          triggerMessageId: triggerMessage?.id,
+        };
+        await replyTool.execute(
+          {
+            text:
+              'Opa, tive um probleminha aqui pra acessar essa informação agora. Pode ser algo temporário — já vou avisar o time pra olharem e te responderem em breve.',
+          },
+          fallbackCtx,
+        );
+        await this.prisma.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            activeAgentId: null,
+          },
+        });
+      } catch (fallbackErr: any) {
+        this.logger.error(
+          `Run ${run.id}: fallback on exception also failed: ${fallbackErr?.message ?? fallbackErr}`,
+        );
+      }
       await this.prisma.aiAgentRun.update({
         where: { id: run.id },
         data: {
@@ -919,12 +998,16 @@ export class AiAgentRunnerService {
           tableNames,
         );
 
-        const schemaBlocks = schemas.map(
-          (s) =>
-            `- "${s.tableName}" (colunas: ${s.columns
-              .map((c) => `${c.columnName} (${c.dataType})`)
-              .join(', ')})`,
-        );
+        const schemaBlocks = schemas.map((s) => {
+          const cols = s.columns.map((c) => {
+            let desc = `${c.columnName} (${c.dataType})`;
+            if (c.enumValues?.length > 0) {
+              desc += ` [valores permitidos: ${c.enumValues.join(', ')}]`;
+            }
+            return desc;
+          });
+          return `- "${s.tableName}" (colunas: ${cols.join(', ')})`;
+        });
 
         if (schemaBlocks.length > 0) {
           skillInstructions.push(
@@ -933,6 +1016,8 @@ export class AiAgentRunnerService {
               schemaBlocks.join('\n') +
               `\n\n⚠️ Use a skill \`${skill.name}\` com o parâmetro generatedSql contendo a query SQL. ` +
               `Sempre use $1, $2... para valores dinâmicos e preencha params. ` +
+              `ATENÇÃO: Respeite exatamente os valores permitidos listados entre colchetes [valores permitidos: ...] ao lado de cada coluna. ` +
+              `Nunca invente valores — consulte a lista fornecida. ` +
               `Sempre use LIMIT para evitar excesso de dados.\n`,
           );
         }

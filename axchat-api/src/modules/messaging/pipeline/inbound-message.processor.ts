@@ -174,6 +174,7 @@ export class InboundMessageProcessor extends WorkerHost {
         channelId,
         contactId,
         message.isGroup,
+        message.channelType,
       );
 
       const isEcho = !!message.isEcho;

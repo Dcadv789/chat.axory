@@ -8,6 +8,7 @@ export interface TableColumn {
   columnName: string;
   dataType: string;
   isNullable: boolean;
+  enumValues: string[];
 }
 
 export interface TableSchema {
@@ -118,10 +119,17 @@ export class DatabaseIntrospectionService {
     try {
       const placeholders = tableNames.map((_, i) => `$${i + 1}`).join(', ');
       const result = await pool.query(
-        `SELECT table_name, column_name, data_type, is_nullable
-         FROM information_schema.columns
-         WHERE table_name IN (${placeholders})
-         ORDER BY table_name, ordinal_position`,
+        `SELECT c.table_name, c.column_name, c.data_type, c.is_nullable,
+          COALESCE(
+            (SELECT array_agg(e.enumlabel::text ORDER BY e.enumsortorder)
+             FROM pg_type t
+             JOIN pg_enum e ON e.enumtypid = t.oid
+             WHERE t.typname = c.udt_name AND t.typtype = 'e'),
+            '{}'
+          ) AS enum_values
+         FROM information_schema.columns c
+         WHERE c.table_name IN (${placeholders})
+         ORDER BY c.table_name, c.ordinal_position`,
         tableNames,
       );
 
@@ -132,6 +140,7 @@ export class DatabaseIntrospectionService {
           columnName: row.column_name,
           dataType: row.data_type,
           isNullable: row.is_nullable === 'YES',
+          enumValues: row.enum_values || [],
         });
         grouped.set(row.table_name, cols);
       }

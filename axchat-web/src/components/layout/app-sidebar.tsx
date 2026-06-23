@@ -9,9 +9,11 @@ import {
   Building2,
   ChevronUp,
   Zap,
+  Headset,
+  Megaphone,
 } from 'lucide-react';
 import { InboxTree } from '@/features/inbox-views/components/inbox-tree';
-import { JarvisTree } from '@/features/ai-agents/components/jarvis-tree';
+import { AgentSectorTree } from '@/features/ai-agents/components/agent-sector-tree';
 import { PipelinesTree } from '@/features/pipelines/components/pipelines-tree';
 import { ThemeToggle } from '@/components/theme-toggle';
 
@@ -86,7 +88,16 @@ export function AppSidebar() {
         <SidebarSection>
           <InboxTree />
           <PipelinesTree />
-          <JarvisTree />
+          <AgentSectorTree
+            label="Atendimento"
+            icon={Headset}
+            sector="atendimento"
+          />
+          <AgentSectorTree
+            label="Marketing"
+            icon={Megaphone}
+            sector="marketing"
+          />
           {navItems.map((item) => (
             <SidebarItem key={item.href} href={item.href}>
               <item.icon className="size-5" />

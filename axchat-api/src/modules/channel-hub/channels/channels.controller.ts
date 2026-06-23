@@ -16,6 +16,7 @@ import { ChannelsService } from './channels.service';
 import { WhatsAppHealthService } from './whatsapp-health.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
+import { CoexistenceChannelDto } from './dto/coexistence-channel.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 import { CurrentChannelAccess, CurrentOrg, Roles } from '../../../common/decorators';
 import type { ChannelAccess } from '../../iam/channel-access/channel-access.service';
@@ -45,8 +46,31 @@ export class ChannelsController {
     });
   }
 
+  @Get('integrations/coexistence')
+  @ApiOperation({
+    summary:
+      'Public coexistence config for the org popup (appId + configId, no secret). enabled=false if not set up by super admin.',
+  })
+  getCoexistenceConfig() {
+    return this.service.getCoexistenceConfig();
+  }
+
+  @Post('whatsapp/coexistence')
+  @ApiOperation({
+    summary:
+      'Create a WhatsApp Official channel via Coexistence (Embedded Signup). Exchanges the popup code for an access token server-side.',
+  })
+  createCoexistence(
+    @CurrentOrg() org: { id: string; userOrganizationId: string; userRole: OrgRole },
+    @Body() dto: CoexistenceChannelDto,
+  ) {
+    return this.service.createFromCoexistence(org.id, dto, {
+      userOrganizationId: org.userOrganizationId,
+      role: org.userRole,
+    });
+  }
+
   @Get()
-  @ApiOperation({ summary: 'List all channels for the organization' })
   findAll(
     @CurrentOrg('id') orgId: string,
     @CurrentChannelAccess() access: ChannelAccess,

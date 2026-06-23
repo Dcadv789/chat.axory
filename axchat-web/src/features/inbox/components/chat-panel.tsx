@@ -69,15 +69,13 @@ function EngagementWindowBanner({
   if (!expired || !ageLabel) return null;
 
   return (
-    <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200">
+    <div className="flex items-start gap-2 border-b border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-900 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
       <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
       <div className="flex-1 leading-relaxed">
         <strong>Janela de 24h expirada</strong> — última mensagem do cliente
         foi há {ageLabel}. WhatsApp só aceita{' '}
-        <strong>templates aprovados</strong> agora. Mensagem de texto livre
-        vai falhar com erro <code className="font-mono text-[11px]">Re-engagement message</code>.
-        Peça pro cliente mandar qualquer mensagem pra reabrir a janela, ou
-        envie um template HSM via Meta Business.
+        <strong>templates aprovados</strong> agora. Peça para o cliente uma
+        nova mensagem, ou envie um template HSM via Meta Business.
       </div>
     </div>
   );

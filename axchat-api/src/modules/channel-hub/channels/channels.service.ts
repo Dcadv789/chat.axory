@@ -10,6 +10,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { ChannelsRepository } from './channels.repository';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
+import { CoexistenceChannelDto } from './dto/coexistence-channel.dto';
 import { ChannelAdapterRegistry } from '../channel-adapter.registry';
 import { ZappfyHttpClient } from '../adapters/zappfy/zappfy.http-client';
 import { WhatsAppOfficialHttpClient } from '../adapters/whatsapp-official/whatsapp-official.http-client';
@@ -116,6 +117,90 @@ export class ChannelsService {
     }
 
     return channel;
+  }
+
+  /**
+   * Lê a config de Coexistência (app Meta da plataforma) do PlatformSetting,
+   * gravada pelo Super Admin. Fonte única para appId/appSecret/configId.
+   */
+  private async loadMetaCoexistenceConfig(): Promise<{
+    appId: string;
+    appSecret: string;
+    configId: string;
+  }> {
+    const row = await this.prisma.platformSetting.findUnique({
+      where: { key: 'meta_coexistence' },
+    });
+    const value =
+      row?.value && typeof row.value === 'object' && !Array.isArray(row.value)
+        ? (row.value as Record<string, unknown>)
+        : {};
+    return {
+      appId: typeof value.appId === 'string' ? value.appId : '',
+      appSecret: typeof value.appSecret === 'string' ? value.appSecret : '',
+      configId: typeof value.configId === 'string' ? value.configId : '',
+    };
+  }
+
+  /**
+   * Config pública de coexistência para a org montar o popup Embedded Signup.
+   * NÃO inclui o appSecret — só appId + configId, e se está habilitado.
+   */
+  async getCoexistenceConfig() {
+    const { appId, appSecret, configId } = await this.loadMetaCoexistenceConfig();
+    return {
+      appId,
+      configId,
+      enabled: !!(appId && appSecret && configId),
+    };
+  }
+
+  /**
+   * Coexistência: o número continua funcionando no app WhatsApp Business e
+   * em paralelo é conectado à Cloud API. O dono escaneia o QR exibido pelo
+   * popup Embedded Signup da Meta; o popup devolve `code` + `phone_number_id`
+   * + `waba_id`. Aqui trocamos o code por um access token e criamos o canal
+   * reusando o fluxo padrão (`create`), que já assina o app no webhook.
+   *
+   * O `appSecret` para validar a assinatura HMAC dos webhooks é o secret do
+   * NOSSO app (configurado pelo Super Admin) — em coexistência não há um app
+   * por cliente.
+   */
+  async createFromCoexistence(
+    organizationId: string,
+    dto: CoexistenceChannelDto,
+    creator?: { userOrganizationId: string; role: OrgRole },
+  ) {
+    const { appId, appSecret } = await this.loadMetaCoexistenceConfig();
+    if (!appId || !appSecret) {
+      throw new BadRequestException(
+        'App Meta de Coexistência não configurado. Peça ao Super Admin para preencher App ID e App Secret em Integrações.',
+      );
+    }
+
+    const accessToken = await this.waOfficialHttpClient.exchangeCodeForToken(
+      dto.code,
+      appId,
+      appSecret,
+    );
+
+    return this.create(
+      organizationId,
+      {
+        type: ChannelType.WHATSAPP_OFFICIAL,
+        name: dto.name,
+        config: {
+          accessToken,
+          phoneNumberId: dto.phoneNumberId,
+          businessAccountId: dto.businessAccountId,
+          appSecret,
+          apiVersion: 'v21.0',
+          coexistence: true,
+        },
+        ...(dto.visibility ? { visibility: dto.visibility } : {}),
+      },
+      creator,
+    );
   }
 
   /**

@@ -86,6 +86,10 @@ export function ChatInput({
   const canRecord = !!onSendAudio;
   const typingEmittedRef = useRef(false);
 
+  // Janela de 24h expirada bloqueia o composer — exceto no modo privado,
+  // onde só se escreve anotação interna (não vai pro cliente).
+  const composerLocked = !!engagementBlocked && !privateMode;
+
   const handleOpenMicSettings = useCallback(() => {
     void recorder.refreshDevices(true);
   }, [recorder.refreshDevices]);
@@ -243,7 +247,7 @@ export function ChatInput({
 
   const micControls = canRecord ? (
     <>
-      <button onClick={() => void recorder.start()} type="button" className={composerActionBtn} aria-label="Gravar áudio">
+      <button onClick={() => void recorder.start()} type="button" disabled={composerLocked} className={composerActionBtn} aria-label="Gravar áudio">
         <Mic className="h-5 w-5" />
       </button>
       <MicSettingsButton
@@ -372,9 +376,9 @@ export function ChatInput({
 
         {/* Janela 24h expirada */}
         {engagementBlocked && (
-          <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/50 dark:bg-amber-900/10">
-            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            <p className="text-[11px] leading-tight text-amber-800 dark:text-amber-200">
+          <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-3 py-2 dark:border-red-900/50 dark:bg-red-900/10">
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+            <p className="text-[11px] leading-tight text-red-800 dark:text-red-200">
               Janela de 24h expirada. Só é permitido enviar{' '}
               <strong>templates aprovados</strong>.
             </p>
@@ -387,7 +391,10 @@ export function ChatInput({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
-          placeholder={privateMode
+          disabled={composerLocked}
+          placeholder={composerLocked
+            ? 'Janela de 24h expirada — envie um template ou use o modo Privada para anotações...'
+            : privateMode
             ? 'Digite uma anotação interna (não será enviada ao cliente)...'
             : 'Digite uma mensagem...'}
           rows={2}
@@ -395,7 +402,7 @@ export function ChatInput({
             minHeight: isExpanded ? TEXTAREA_EXPANDED_MIN_HEIGHT : TEXTAREA_MIN_HEIGHT,
             maxHeight: isExpanded ? expandedTextareaMaxHeight() : TEXTAREA_MAX_HEIGHT,
           }}
-          className={`block w-full resize-none border-0 bg-transparent px-3 pt-3 text-sm leading-relaxed text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-0 dark:text-zinc-100 ${COMPOSER_ACTIONS_RESERVE} ${COMPOSER_EXPAND_RESERVE}`}
+          className={`block w-full resize-none border-0 bg-transparent px-3 pt-3 text-sm leading-relaxed text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed dark:text-zinc-100 ${COMPOSER_ACTIONS_RESERVE} ${COMPOSER_EXPAND_RESERVE}`}
         />
 
         <button type="button" onClick={() => setIsExpanded((v) => !v)}
@@ -413,7 +420,7 @@ export function ChatInput({
             </button>
           )}
           <button type="button" onClick={() => fileInputRef.current?.click()}
-            disabled={!onSendFile || isSendingFile} className={composerActionBtn}
+            disabled={!onSendFile || isSendingFile || composerLocked} className={composerActionBtn}
             aria-label="Anexar arquivo">
             {isSendingFile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
           </button>

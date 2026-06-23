@@ -333,6 +333,27 @@ export const superAdminService = {
     return data.data as SuperAdminUser;
   },
 
+  // ─── Integrations: Meta Coexistence ─────────────────
+
+  async getMetaCoexistence(): Promise<MetaCoexistenceConfig> {
+    const { data } = await api.get<{ data: MetaCoexistenceConfig }>(
+      '/super-admin/integrations/meta-coexistence',
+    );
+    return data.data;
+  },
+
+  async updateMetaCoexistence(payload: {
+    appId?: string;
+    appSecret?: string;
+    configId?: string;
+  }): Promise<MetaCoexistenceConfig> {
+    const { data } = await api.patch<{ data: MetaCoexistenceConfig }>(
+      '/super-admin/integrations/meta-coexistence',
+      payload,
+    );
+    return data.data;
+  },
+
   // ─── AI Agents ──────────────────────────────────────
 
   async listAllAgents(organizationId?: string) {
@@ -431,6 +452,12 @@ export interface GlobalDepartment {
   name: string;
   sortOrder: number;
   createdAt: string;
+}
+
+export interface MetaCoexistenceConfig {
+  appId: string;
+  configId: string;
+  hasSecret: boolean;
 }
 
 export interface AiModelProvider {

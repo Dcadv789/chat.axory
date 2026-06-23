@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart, Grid3X3, GitBranch } from 'lucide-react';
+import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart, Grid3X3, GitBranch, Headset, Megaphone } from 'lucide-react';
 import { AgentsList } from '@/features/ai-agents/components/agents-list';
 import { AgentsSectorView } from '@/features/ai-agents/components/agents-sector-view';
 import { AgentsSectorFilterBar } from '@/features/ai-agents/components/agents-sector-filter-bar';
@@ -21,6 +21,11 @@ import { JarvisMetricsTab } from '@/features/ai-agents/components/jarvis/metrics
 import { useAuthStore } from '@/stores/auth-store';
 
 type Tab = 'overview' | 'metrics' | 'agents' | 'skills' | 'tools' | 'agent' | 'runs' | 'watchdog';
+
+const SECTOR_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
+  atendimento: { label: 'Atendimento', icon: Headset },
+  marketing: { label: 'Marketing', icon: Megaphone },
+};
 
 const TAB_META: Record<Tab, { label: string; icon: React.ElementType; subtitle: string }> = {
   overview: {
@@ -76,10 +81,14 @@ export default function AiAgentsPage() {
   const requestedTab = raw && VALID_TABS.includes(raw) ? raw : null;
   const tab: Tab = requestedTab === 'overview' && !isSuperAdmin ? 'metrics' : requestedTab ?? defaultTab;
   const meta = TAB_META[tab];
-  const TabIcon = meta.icon;
   const [sectorView, setSectorView] = useState(false);
   const [sectorFilter, setSectorFilter] = useState<SectorFilter>('all');
   const orgId = useOrgId();
+
+  // Setor vindo da URL (sidebar) — padrão é atendimento
+  const sector = searchParams.get('sector') || 'atendimento';
+  const sectorMeta = SECTOR_LABELS[sector] ?? SECTOR_LABELS.atendimento;
+  const SectorIcon = sectorMeta.icon;
 
   const { data: sectors = [] } = useQuery({
     queryKey: ['agent-sectors'],
@@ -95,25 +104,55 @@ export default function AiAgentsPage() {
 
   useEffect(() => {
     if (raw === 'overview' && !isSuperAdmin) {
-      router.replace('/ai-agents?tab=metrics');
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('tab', 'metrics');
+      router.replace(`/ai-agents?${params.toString()}`);
     }
-  }, [isSuperAdmin, raw, router]);
+  }, [isSuperAdmin, raw, router, searchParams]);
 
   return (
     <div className="flex h-full flex-col">
       <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 shrink-0 text-primary" />
-          <div className="min-w-0">
-            <h1 className="flex flex-wrap items-center gap-x-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-              <span>Jarvis</span>
-              <span className="font-normal text-zinc-300 dark:text-zinc-600">/</span>
-              <span className="inline-flex items-center gap-1.5">
-                <TabIcon className="h-4 w-4 text-zinc-400" />
-                {meta.label}
-              </span>
-            </h1>
-            <p className="text-xs text-zinc-500">{meta.subtitle}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <SectorIcon className="h-5 w-5 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <h1 className="flex flex-wrap items-center gap-x-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                <span>{sectorMeta.label}</span>
+                <span className="font-normal text-zinc-300 dark:text-zinc-600">/</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <meta.icon className="h-4 w-4 text-zinc-400" />
+                  {meta.label}
+                </span>
+              </h1>
+              <p className="text-xs text-zinc-500">{meta.subtitle}</p>
+            </div>
+          </div>
+          {/* Seletor de setor */}
+          <div className="inline-flex items-center rounded-md bg-zinc-100 p-0.5 dark:bg-black">
+            {Object.entries(SECTOR_LABELS).map(([key, sm]) => {
+              const SmIcon = sm.icon;
+              const isActive = sector === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.set('sector', key);
+                    router.push(`/ai-agents?${params.toString()}`);
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
+                      : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
+                  }`}
+                >
+                  <SmIcon className="h-3.5 w-3.5" />
+                  {sm.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </header>

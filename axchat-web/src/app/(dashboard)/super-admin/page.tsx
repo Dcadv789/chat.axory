@@ -46,7 +46,7 @@ const billingStatusOptions: BillingStatus[] = ['TRIALING', 'ACTIVE', 'PAST_DUE',
 export default function SuperAdminPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<'organizations' | 'users' | 'agents' | 'skills' | 'departments' | 'plans' | 'audit' | 'tools'>('organizations');
+  const [tab, setTab] = useState<'organizations' | 'users' | 'agents' | 'skills' | 'departments' | 'plans' | 'audit' | 'tools' | 'integrations'>('organizations');
   const [search, setSearch] = useState('');
 
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -137,6 +137,7 @@ export default function SuperAdminPage() {
             <Tab active={tab === 'plans'} onClick={() => setTab('plans')}>Planos</Tab>
             <Tab active={tab === 'audit'} onClick={() => setTab('audit')}>Auditoria</Tab>
             <Tab active={tab === 'tools'} onClick={() => setTab('tools')}>Tools do sistema</Tab>
+            <Tab active={tab === 'integrations'} onClick={() => setTab('integrations')}>Integrações</Tab>
           </div>
         </div>
 
@@ -175,6 +176,7 @@ export default function SuperAdminPage() {
         {tab === 'plans' && <PlansPanel overview={overview} onChanged={refresh} />}
         {tab === 'audit' && <AuditPanel logs={auditLogs} loading={loadingAudit} />}
         {tab === 'tools' && <JarvisBuiltinToolsTab />}
+        {tab === 'integrations' && <IntegrationsPanel />}
         </div>
       </div>
     </div>
@@ -950,6 +952,102 @@ function PlanLimitInput({
         className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
       />
     </label>
+  );
+}
+
+function IntegrationsPanel() {
+  const queryClient = useQueryClient();
+  const { data: config, isLoading } = useQuery({
+    queryKey: ['super-admin-meta-coexistence'],
+    queryFn: superAdminService.getMetaCoexistence,
+  });
+
+  const [appId, setAppId] = useState('');
+  const [configId, setConfigId] = useState('');
+  const [appSecret, setAppSecret] = useState('');
+
+  useEffect(() => {
+    if (config) {
+      setAppId(config.appId);
+      setConfigId(config.configId);
+      setAppSecret('');
+    }
+  }, [config]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      superAdminService.updateMetaCoexistence({
+        appId: appId.trim(),
+        configId: configId.trim(),
+        // Só envia o secret se o usuário digitou algo novo.
+        ...(appSecret.trim() ? { appSecret: appSecret.trim() } : {}),
+      }),
+    onSuccess: () => {
+      toast.success('Configuração do Meta salva');
+      setAppSecret('');
+      queryClient.invalidateQueries({ queryKey: ['super-admin-meta-coexistence'] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Erro ao salvar'),
+  });
+
+  const enabled = !!(appId.trim() && configId.trim() && (config?.hasSecret || appSecret.trim()));
+
+  return (
+    <section className="mt-6 max-w-2xl">
+      <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
+        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+          WhatsApp Coexistência (Embedded Signup)
+        </h2>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          Credenciais do app Meta da plataforma (Tech Provider). Válidas para
+          todos os clientes — usadas no fluxo de QR Code de coexistência ao criar
+          um canal WhatsApp.
+        </p>
+
+        <div className="mt-4 flex items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+              enabled
+                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
+                : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300'
+            }`}
+          >
+            {enabled ? 'Coexistência habilitada' : 'Incompleto — coexistência desabilitada'}
+          </span>
+        </div>
+
+        {isLoading ? (
+          <p className="mt-4 text-sm text-zinc-400">Carregando…</p>
+        ) : (
+          <div className="mt-4 space-y-4">
+            <Input label="Meta App ID" value={appId} onChange={setAppId} placeholder="ex: 123456789012345" />
+            <Input label="Embedded Signup Config ID" value={configId} onChange={setConfigId} placeholder="config_id da configuração de coexistência" />
+            <div>
+              <Input
+                label="Meta App Secret"
+                type="password"
+                value={appSecret}
+                onChange={setAppSecret}
+                placeholder={config?.hasSecret ? '•••••••• (salvo — preencha só para trocar)' : 'cole o App Secret'}
+              />
+              <p className="mt-1 text-[11px] text-zinc-400">
+                {config?.hasSecret
+                  ? 'Já existe um secret salvo. Deixe em branco para mantê-lo.'
+                  : 'O secret nunca é exibido depois de salvo.'}
+              </p>
+            </div>
+
+            <button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || !appId.trim() || !configId.trim()}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saveMutation.isPending ? 'Salvando…' : 'Salvar configuração'}
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

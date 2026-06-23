@@ -5,9 +5,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, X, Copy, Check } from 'lucide-react';
+import { Loader2, X, Copy, Check, HelpCircle, ChevronDown } from 'lucide-react';
 import { channelsService, type ChannelType } from '../services/channels.service';
 import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
+import { CoexistenceConnect } from './coexistence-connect';
 
 const channelTypes: { value: ChannelType; label: string; icon: React.ElementType; color: string; description: string }[] = [
   {
@@ -94,6 +95,9 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   // Default ORG = qualquer membro com permissão padrão enxerga.
   // PRIVATE = apenas quem tiver grant explícito (pra canais sensíveis).
   const [visibility, setVisibility] = useState<'ORG' | 'PRIVATE'>('ORG');
+  const [showTelegramHelp, setShowTelegramHelp] = useState(false);
+  // WhatsApp Official: 'api' = formulário manual; 'coexistence' = QR Embedded Signup.
+  const [waMode, setWaMode] = useState<'api' | 'coexistence'>('api');
 
   const zappfyForm = useForm<ZappfyFormData>({
     resolver: zodResolver(zappfySchema),
@@ -158,6 +162,29 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
       data.webhookSecret,
     );
 
+  const onConnectCoexistence = async (payload: {
+    code: string;
+    phoneNumberId: string;
+    businessAccountId: string;
+  }) => {
+    setIsLoading(true);
+    try {
+      await channelsService.createCoexistence({
+        name: waForm.getValues('name') || 'WhatsApp Coexistência',
+        ...payload,
+        visibility,
+      });
+      toast.success('Canal conectado por coexistência!');
+      handleClose();
+      onCreated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao conectar canal');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const onSubmitInstagram = (data: InstagramFormData) =>
     submitChannel(
       'INSTAGRAM',
@@ -187,6 +214,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   const handleClose = () => {
     setStep('type');
     setSelectedType(null);
+    setWaMode('api');
     zappfyForm.reset();
     waForm.reset();
     igForm.reset();
@@ -204,10 +232,10 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-black">
-        <div className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
+      <div className="relative z-50 flex h-full w-full max-w-lg flex-col bg-white shadow-2xl dark:bg-black">
+        <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/10">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             {step === 'type' ? 'Novo Canal' : titleMap[selectedType || '']}
           </h2>
@@ -215,6 +243,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
             <X className="h-5 w-5" />
           </button>
         </div>
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
 
         {step === 'type' ? (
           <div className="mt-6 grid gap-3">
@@ -243,16 +272,63 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
             <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
           </form>
         ) : selectedType === 'WHATSAPP_OFFICIAL' ? (
-          <form onSubmit={waForm.handleSubmit(onSubmitWaOfficial)} className="mt-6 space-y-4">
-            <Field label="Nome do canal" placeholder="Ex: WhatsApp Business" error={waForm.formState.errors.name?.message} {...waForm.register('name')} />
-            <Field label="Phone Number ID" placeholder="Encontrado no Meta Business Suite" error={waForm.formState.errors.phoneNumberId?.message} {...waForm.register('phoneNumberId')} />
-            <Field label="Access Token" type="text" placeholder="System User Token ou Temporary Token" error={waForm.formState.errors.accessToken?.message} {...waForm.register('accessToken')} />
-            <Field label="App Secret" type="text" placeholder="Chave secreta do app (Settings → Basic na Meta)" error={waForm.formState.errors.appSecret?.message} {...waForm.register('appSecret')} />
-            <Field label="Business Account ID (WABA)" placeholder="Opcional — habilita auto-subscribe do webhook" optional {...waForm.register('businessAccountId')} />
-            <Field label="Webhook Verify Token" placeholder="Token que você definiu no Meta" optional {...waForm.register('webhookSecret')} />
-            <WebhookUrl url={`${apiBaseUrl}/webhooks/WHATSAPP_OFFICIAL`} copied={copied} onCopy={() => handleCopyWebhook('WHATSAPP_OFFICIAL')} />
-            <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
-          </form>
+          <div className="mt-6 space-y-4">
+            <div className="flex gap-2 rounded-lg border border-zinc-200 p-1 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setWaMode('api')}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  waMode === 'api'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
+                }`}
+              >
+                API Padrão
+              </button>
+              <button
+                type="button"
+                onClick={() => setWaMode('coexistence')}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  waMode === 'coexistence'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
+                }`}
+              >
+                Coexistência
+              </button>
+            </div>
+
+            {waMode === 'api' ? (
+              <form onSubmit={waForm.handleSubmit(onSubmitWaOfficial)} className="space-y-4">
+                <Field label="Nome do canal" placeholder="Ex: WhatsApp Business" error={waForm.formState.errors.name?.message} {...waForm.register('name')} />
+                <Field label="Phone Number ID" placeholder="Encontrado no Meta Business Suite" error={waForm.formState.errors.phoneNumberId?.message} {...waForm.register('phoneNumberId')} />
+                <Field label="Access Token" type="text" placeholder="System User Token ou Temporary Token" error={waForm.formState.errors.accessToken?.message} {...waForm.register('accessToken')} />
+                <Field label="App Secret" type="text" placeholder="Chave secreta do app (Settings → Basic na Meta)" error={waForm.formState.errors.appSecret?.message} {...waForm.register('appSecret')} />
+                <Field label="Business Account ID (WABA)" placeholder="Opcional — habilita auto-subscribe do webhook" optional {...waForm.register('businessAccountId')} />
+                <Field label="Webhook Verify Token" placeholder="Token que você definiu no Meta" optional {...waForm.register('webhookSecret')} />
+                <WebhookUrl url={`${apiBaseUrl}/webhooks/WHATSAPP_OFFICIAL`} copied={copied} onCopy={() => handleCopyWebhook('WHATSAPP_OFFICIAL')} />
+                <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
+              </form>
+            ) : (
+              <>
+                <Field label="Nome do canal" placeholder="Ex: WhatsApp Business" error={waForm.formState.errors.name?.message} {...waForm.register('name')} />
+                <CoexistenceConnect
+                  name={waForm.watch('name') || ''}
+                  onConnect={onConnectCoexistence}
+                  isSubmitting={isLoading}
+                />
+                <div className="flex items-center justify-start pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('type')}
+                    className="rounded-md px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         ) : selectedType === 'INSTAGRAM' ? (
           <form onSubmit={igForm.handleSubmit(onSubmitInstagram)} className="mt-6 space-y-4">
             <Field label="Nome do canal" placeholder="Ex: Instagram Loja" error={igForm.formState.errors.name?.message} {...igForm.register('name')} />
@@ -266,6 +342,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
           </form>
         ) : selectedType === 'TELEGRAM' ? (
           <form onSubmit={telegramForm.handleSubmit(onSubmitTelegram)} className="mt-6 space-y-4">
+            <TelegramHelp open={showTelegramHelp} onToggle={() => setShowTelegramHelp((v) => !v)} />
             <Field label="Nome do canal" placeholder="Ex: Telegram Suporte" error={telegramForm.formState.errors.name?.message} {...telegramForm.register('name')} />
             <Field label="Bot Token" type="text" placeholder="Token do BotFather" error={telegramForm.formState.errors.botToken?.message} {...telegramForm.register('botToken')} />
             <Field label="Bot Username" placeholder="Opcional - ex: axory_suporte_bot" optional {...telegramForm.register('botUsername')} />
@@ -274,6 +351,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
             <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
           </form>
         ) : null}
+        </div>
       </div>
     </div>
   );
@@ -352,6 +430,96 @@ function FormFooter({ isLoading, onBack }: { isLoading: boolean; onBack: () => v
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Criar Canal
       </button>
+    </div>
+  );
+}
+
+function TelegramHelp({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <div className="rounded-lg border border-sky-200 bg-sky-50 dark:border-sky-900/50 dark:bg-sky-950/30">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-sky-800 dark:text-sky-200">
+          <HelpCircle className="h-4 w-4 shrink-0" />
+          Como criar o bot no Telegram (passo a passo)
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-sky-600 transition-transform dark:text-sky-400 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-sky-200 px-3 py-3 dark:border-sky-900/50">
+          <ol className="space-y-2.5 text-xs leading-relaxed text-sky-900 dark:text-sky-100">
+            <li className="flex gap-2">
+              <span className="font-semibold">1.</span>
+              <span>
+                Abra o Telegram (no celular ou no computador) e, na busca,
+                digite <strong>@BotFather</strong>. Abra o contato com o selo
+                azul de verificado.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">2.</span>
+              <span>
+                Toque em <strong>Iniciar</strong> (ou envie <code className="rounded bg-sky-100 px-1 py-0.5 font-mono dark:bg-sky-900/50">/start</code>).
+                Ele vai responder com a lista de comandos.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">3.</span>
+              <span>
+                Envie <code className="rounded bg-sky-100 px-1 py-0.5 font-mono dark:bg-sky-900/50">/newbot</code>{' '}
+                para criar um novo bot.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">4.</span>
+              <span>
+                Ele vai pedir um <strong>nome</strong> para o bot (pode ser
+                qualquer um, ex: <em>Axory Suporte</em>). Digite e envie.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">5.</span>
+              <span>
+                Depois ele pede um <strong>username</strong>, que precisa
+                terminar em <strong>bot</strong> (ex:{' '}
+                <em>axory_suporte_bot</em>). Se já estiver em uso, ele avisa e
+                você tenta outro.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">6.</span>
+              <span>
+                Pronto! O BotFather vai responder com uma mensagem contendo o{' '}
+                <strong>token de acesso</strong> — algo parecido com{' '}
+                <code className="rounded bg-sky-100 px-1 py-0.5 font-mono text-[10px] dark:bg-sky-900/50">
+                  123456789:AAE...xYz
+                </code>
+                .
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">7.</span>
+              <span>
+                <strong>Copie esse token inteiro</strong> e cole no campo{' '}
+                <strong>Bot Token</strong> aqui embaixo. É só isso — o resto
+                (webhook, secret token) é configurado automaticamente quando
+                você salvar.
+              </span>
+            </li>
+          </ol>
+          <p className="mt-3 rounded-md bg-sky-100/70 px-2.5 py-2 text-[11px] text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">
+            Dica: guarde o token em local seguro. Se ele vazar, é possível
+            gerar um novo no próprio BotFather com{' '}
+            <code className="font-mono">/revoke</code>.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

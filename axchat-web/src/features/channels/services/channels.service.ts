@@ -32,6 +32,20 @@ export interface CreateChannelPayload {
   visibility?: ChannelVisibility;
 }
 
+export interface CoexistenceChannelPayload {
+  name: string;
+  code: string;
+  phoneNumberId: string;
+  businessAccountId: string;
+  visibility?: ChannelVisibility;
+}
+
+export interface CoexistenceConfig {
+  appId: string;
+  configId: string;
+  enabled: boolean;
+}
+
 export interface UpdateChannelPayload {
   name?: string;
   config?: Record<string, any>;
@@ -82,6 +96,21 @@ export const channelsService = {
 
   async create(payload: CreateChannelPayload): Promise<Channel> {
     const { data } = await api.post<{ data: Channel }>('/channels', payload);
+    return data.data;
+  },
+
+  async createCoexistence(payload: CoexistenceChannelPayload): Promise<Channel> {
+    const { data } = await api.post<{ data: Channel }>(
+      '/channels/whatsapp/coexistence',
+      payload,
+    );
+    return data.data;
+  },
+
+  async getCoexistenceConfig(): Promise<CoexistenceConfig> {
+    const { data } = await api.get<{ data: CoexistenceConfig }>(
+      '/channels/integrations/coexistence',
+    );
     return data.data;
   },
 

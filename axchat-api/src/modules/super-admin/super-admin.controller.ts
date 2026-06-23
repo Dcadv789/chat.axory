@@ -11,6 +11,7 @@ import { SuspendOrganizationDto } from './dto/suspend-organization.dto';
 import { UpdateBillingDto } from './dto/update-billing.dto';
 import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
 import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
+import { UpdateMetaCoexistenceDto } from './dto/update-meta-coexistence.dto';
 import { SuperAdminService } from './super-admin.service';
 
 @ApiTags('Super Admin')
@@ -26,6 +27,26 @@ export class SuperAdminController {
   @Get('overview')
   overview(@CurrentUser('id') actorId: string) {
     return this.service.overview(actorId);
+  }
+
+  // ─── Integrations: Meta Coexistence ──────────────────
+
+  @Get('integrations/meta-coexistence')
+  @ApiOperation({
+    summary:
+      'Get Meta Coexistence (Embedded Signup) config. App Secret is never returned — only hasSecret.',
+  })
+  getMetaCoexistence() {
+    return this.service.getMetaCoexistence();
+  }
+
+  @Patch('integrations/meta-coexistence')
+  @ApiOperation({
+    summary:
+      'Update Meta Coexistence config (App ID, App Secret, config_id). Platform-wide (Tech Provider app).',
+  })
+  updateMetaCoexistence(@Body() dto: UpdateMetaCoexistenceDto) {
+    return this.service.updateMetaCoexistence(dto);
   }
 
   @Get('organizations')

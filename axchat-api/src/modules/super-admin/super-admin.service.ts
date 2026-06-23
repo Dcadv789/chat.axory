@@ -21,6 +21,7 @@ import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
 
 const BCRYPT_ROUNDS = 12;
 const PLAN_TEMPLATES_KEY = 'plan_templates';
+const META_COEXISTENCE_KEY = 'meta_coexistence';
 const KNOWN_PLANS = ['free', 'starter', 'pro', 'enterprise'] as const;
 
 const BUILTIN_PLAN_TEMPLATES: Record<string, Record<string, number>> = {
@@ -1240,6 +1241,64 @@ export class SuperAdminService {
     } catch {
       return { ...BUILTIN_PLAN_TEMPLATES };
     }
+  }
+
+  // ─── Meta Coexistence (Embedded Signup) ──────────────
+  // App ID/Secret/config_id são do NOSSO app Meta (Tech Provider), válidos
+  // para a plataforma inteira — guardados em PlatformSetting, não por tenant.
+
+  async getMetaCoexistence() {
+    const row = await this.prisma.platformSetting.findUnique({
+      where: { key: META_COEXISTENCE_KEY },
+    });
+    const value =
+      row?.value && typeof row.value === 'object' && !Array.isArray(row.value)
+        ? (row.value as Record<string, unknown>)
+        : {};
+    return {
+      appId: typeof value.appId === 'string' ? value.appId : '',
+      configId: typeof value.configId === 'string' ? value.configId : '',
+      // Nunca devolve o secret em texto — só informa se já está salvo.
+      hasSecret: typeof value.appSecret === 'string' && value.appSecret.length > 0,
+    };
+  }
+
+  async updateMetaCoexistence(dto: {
+    appId?: string;
+    appSecret?: string;
+    configId?: string;
+  }) {
+    const existing = await this.prisma.platformSetting.findUnique({
+      where: { key: META_COEXISTENCE_KEY },
+    });
+    const current =
+      existing?.value &&
+      typeof existing.value === 'object' &&
+      !Array.isArray(existing.value)
+        ? (existing.value as Record<string, unknown>)
+        : {};
+
+    const next: Record<string, unknown> = {
+      appId: dto.appId ?? current.appId ?? '',
+      configId: dto.configId ?? current.configId ?? '',
+      // Só sobrescreve o secret quando um novo valor não-vazio é enviado.
+      appSecret:
+        dto.appSecret && dto.appSecret.length > 0
+          ? dto.appSecret
+          : current.appSecret ?? '',
+    };
+
+    await this.prisma.platformSetting.upsert({
+      where: { key: META_COEXISTENCE_KEY },
+      create: { key: META_COEXISTENCE_KEY, value: next as Prisma.InputJsonValue },
+      update: { value: next as Prisma.InputJsonValue },
+    });
+
+    return {
+      appId: next.appId as string,
+      configId: next.configId as string,
+      hasSecret: (next.appSecret as string).length > 0,
+    };
   }
 
   private async resolvePlanSettings(plan: string) {

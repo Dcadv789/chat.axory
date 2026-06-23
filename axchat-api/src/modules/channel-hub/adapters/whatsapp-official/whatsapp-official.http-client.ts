@@ -146,6 +146,42 @@ export class WhatsAppOfficialHttpClient {
   }
 
   /**
+   * Coexistência (Embedded Signup): troca o `code` devolvido pelo popup da
+   * Meta por um access token de negócio. Usa as credenciais do NOSSO app
+   * (configuradas pelo Super Admin em PlatformSetting). O App Secret nunca
+   * trafega pelo frontend.
+   */
+  async exchangeCodeForToken(
+    code: string,
+    appId: string,
+    appSecret: string,
+    apiVersion = 'v21.0',
+  ): Promise<string> {
+    if (!appId || !appSecret) {
+      throw new Error(
+        'App Meta não configurado — defina App ID e App Secret em Super Admin > Integrações.',
+      );
+    }
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/oauth/access_token`,
+        {
+          params: { client_id: appId, client_secret: appSecret, code },
+          timeout: 30000,
+        },
+      );
+      if (!data?.access_token) {
+        throw new Error('Meta não retornou access_token na troca do código');
+      }
+      return data.access_token as string;
+    } catch (error: any) {
+      const msg = error.response?.data?.error?.message || error.message;
+      this.logger.error(`WA coexistence token exchange failed: ${msg}`);
+      throw new Error(`Falha ao trocar código por token: ${msg}`);
+    }
+  }
+
+  /**
    * Subscribes our app to receive webhooks for this WABA. Idempotent on
    * Meta's side — re-calling is safe. Requires `whatsapp_business_management`
    * scope on the access token.
