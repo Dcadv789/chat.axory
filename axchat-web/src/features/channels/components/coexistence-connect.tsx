@@ -137,8 +137,11 @@ export function CoexistenceConnect({
     setLaunching(true);
     sessionInfoRef.current = {};
 
+    // O SDK do Facebook rejeita callbacks `async` ("Expression is of type
+    // asyncfunction, not function"). Mantemos o callback síncrono e disparamos
+    // o trabalho assíncrono por dentro.
     window.FB.login(
-      async (response: any) => {
+      (response: any) => {
         const code = response?.authResponse?.code;
         if (!code) {
           setError('Não foi possível obter o código de autorização da Meta.');
@@ -155,17 +158,19 @@ export function CoexistenceConnect({
           return;
         }
 
-        try {
-          await onConnect({
-            code,
-            phoneNumberId,
-            businessAccountId: wabaId,
-          });
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Falha ao criar o canal.');
-        } finally {
-          setLaunching(false);
-        }
+        void (async () => {
+          try {
+            await onConnect({
+              code,
+              phoneNumberId,
+              businessAccountId: wabaId,
+            });
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Falha ao criar o canal.');
+          } finally {
+            setLaunching(false);
+          }
+        })();
       },
       {
         config_id: config.configId,
