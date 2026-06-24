@@ -20,6 +20,9 @@ import { InstagramSyncAdapter } from './adapters/instagram/instagram.sync-adapte
 import { TelegramModule } from './adapters/telegram/telegram.module';
 import { TelegramInboundAdapter } from './adapters/telegram/telegram.inbound-adapter';
 import { TelegramOutboundAdapter } from './adapters/telegram/telegram.outbound-adapter';
+import { InternalModule } from './adapters/internal/internal.module';
+import { InternalInboundAdapter } from './adapters/internal/internal.inbound-adapter';
+import { InternalOutboundAdapter } from './adapters/internal/internal.outbound-adapter';
 import { ChannelSyncOrchestrator } from './sync/channel-sync.orchestrator';
 import { ChannelSyncProcessor } from './sync/channel-sync.processor';
 import { CHANNEL_SYNC_QUEUE } from './sync/channel-sync.constants';
@@ -45,6 +48,7 @@ import { WhatsappTemplateService } from './templates/whatsapp-template.service';
     WhatsAppOfficialModule,
     InstagramModule,
     TelegramModule,
+    InternalModule,
     forwardRef(() => MessagingModule),
   ],
   controllers: [WebhookGatewayController, ChannelsController, WhatsappTemplatesController],
@@ -82,6 +86,8 @@ export class ChannelHubModule implements OnModuleInit {
     private readonly instagramSync: InstagramSyncAdapter,
     private readonly telegramInbound: TelegramInboundAdapter,
     private readonly telegramOutbound: TelegramOutboundAdapter,
+    private readonly internalInbound: InternalInboundAdapter,
+    private readonly internalOutbound: InternalOutboundAdapter,
   ) {}
 
   onModuleInit() {
@@ -89,6 +95,7 @@ export class ChannelHubModule implements OnModuleInit {
     this.registry.register(this.waOfficialInbound, this.waOfficialOutbound);
     this.registry.register(this.instagramInbound, this.instagramOutbound);
     this.registry.register(this.telegramInbound, this.telegramOutbound);
+    this.registry.register(this.internalInbound, this.internalOutbound);
     this.registry.registerHistorySync(this.zappfySync);
     this.registry.registerHistorySync(this.instagramSync);
   }

@@ -51,7 +51,11 @@ const FINAL_ACTION_LABEL: Record<string, string> = {
  * history so the operator can spot silent skill failures (e.g. resetPassword
  * returning 404). Auto-refreshes every 10s while the tab is open.
  */
-export function JarvisRunsTab() {
+export function JarvisRunsTab({
+  agentSector,
+}: {
+  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+}) {
   const [timeRange, setTimeRange] = useState<FeedTimeRangeFilter>({
     kind: 'preset',
     period: '7d',
@@ -62,18 +66,19 @@ export function JarvisRunsTab() {
   const [selectedRun, setSelectedRun] = useState<FeedRun | null>(null);
 
   const { data: agents } = useQuery({
-    queryKey: ['ai-agents'],
-    queryFn: () => aiAgentsService.list(),
+    queryKey: ['ai-agents', agentSector ?? 'all'],
+    queryFn: () => aiAgentsService.list(agentSector),
   });
 
   const { data: runs, isLoading } = useQuery({
-    queryKey: ['ai-agents-runs-feed', { timeRange, status, hasErrors, agentId }],
+    queryKey: ['ai-agents-runs-feed', { timeRange, status, hasErrors, agentId, agentSector }],
     queryFn: () =>
       aiAgentsService.feed({
         ...timeRangeToParams(timeRange),
         status: status || undefined,
         hasErrors: hasErrors || undefined,
         agentId: agentId || undefined,
+        sector: agentSector,
         limit: 100,
       }),
     refetchInterval: 10_000,

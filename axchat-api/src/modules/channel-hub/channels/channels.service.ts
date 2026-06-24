@@ -105,6 +105,17 @@ export class ChannelsService {
       );
     }
 
+    // Canal interno: console de conversa com o orquestrador. Cria o contato
+    // sintético + conversa aberta e amarra o orquestrador escolhido como
+    // defaultOrchestrator. Sem webhook, sem provider externo.
+    if (dto.type === ChannelType.INTERNAL) {
+      channel = await this.setupInternalChannel(
+        organizationId,
+        channel.id,
+        dto,
+      );
+    }
+
     // Unified sync path — any adapter that registered a HistorySyncPort.
     if (this.adapterRegistry.hasHistorySync(dto.type)) {
       this.syncOrchestrator
@@ -120,10 +131,65 @@ export class ChannelsService {
   }
 
   /**
-   * Lê a config de Coexistência (app Meta da plataforma) do PlatformSetting,
-   * gravada pelo Super Admin. Fonte única para appId/appSecret/configId.
+   * Canal interno: cria o contato sintético (com quem o operador "conversa"),
+   * o ContactChannel, uma conversa já aberta, e amarra o orquestrador
+   * escolhido (config.orchestratorId) como defaultOrchestrator do canal —
+   * é ele quem responde as mensagens do operador.
    */
-  private async loadMetaCoexistenceConfig(): Promise<{
+  private async setupInternalChannel(
+    organizationId: string,
+    channelId: string,
+    dto: CreateChannelDto,
+  ) {
+    const config = (dto.config ?? {}) as Record<string, any>;
+    const orchestratorId =
+      typeof config.orchestratorId === 'string' ? config.orchestratorId : null;
+
+    if (orchestratorId) {
+      const orchestrator = await this.prisma.aiAgent.findFirst({
+        where: {
+          id: orchestratorId,
+          organizationId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      if (!orchestrator) {
+        throw new BadRequestException(
+          'Orquestrador selecionado não encontrado nesta organização.',
+        );
+      }
+    }
+
+    const contactExternalId = `internal-${channelId}`;
+    const contact = await this.prisma.contact.create({
+      data: {
+        organizationId,
+        name: dto.name,
+        channels: {
+          create: {
+            channelId,
+            externalId: contactExternalId,
+            profileName: dto.name,
+          },
+        },
+      },
+    });
+
+    await this.prisma.conversation.create({
+      data: {
+        organizationId,
+        channelId,
+        contactId: contact.id,
+        status: 'OPEN',
+      },
+    });
+
+    // Amarra o orquestrador como default do canal — driver do roteamento.
+    return this.repository.update(channelId, {
+      ...(orchestratorId ? { defaultOrchestratorId: orchestratorId } : {}),
+    });
+  }
     appId: string;
     appSecret: string;
     configId: string;

@@ -29,7 +29,11 @@ const CHANNEL_LABELS: Record<string, string> = {
   TELEGRAM: 'Telegram',
 };
 
-export function JarvisMetricsTab() {
+export function JarvisMetricsTab({
+  agentSector,
+}: {
+  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+}) {
   const orgId = useOrgId();
   const [timeRange, setTimeRange] = useState<TimeRangeFilter>({
     kind: 'preset',
@@ -37,8 +41,8 @@ export function JarvisMetricsTab() {
   });
 
   const { data: metrics, isLoading } = useQuery({
-    queryKey: ['ai-business-metrics', orgId, timeRange],
-    queryFn: () => aiAgentsService.businessMetrics(timeRange),
+    queryKey: ['ai-business-metrics', orgId, timeRange, agentSector ?? 'all'],
+    queryFn: () => aiAgentsService.businessMetrics(timeRange, agentSector),
     refetchInterval: 30000,
   });
 

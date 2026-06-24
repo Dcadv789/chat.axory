@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, X, Copy, Check, HelpCircle, ChevronDown } from 'lucide-react';
+import { Loader2, X, Copy, Check, HelpCircle, ChevronDown, MessageSquareText } from 'lucide-react';
 import { channelsService, type ChannelType } from '../services/channels.service';
+import { aiAgentsService } from '@/features/ai-agents/services/ai-agents.service';
 import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
 import { CoexistenceConnect } from './coexistence-connect';
 
@@ -38,6 +40,13 @@ const channelTypes: { value: ChannelType; label: string; icon: React.ElementType
     icon: TelegramIcon,
     color: 'bg-sky-50 dark:bg-sky-950/40',
     description: 'Telegram Bot API para conversas privadas, grupos e midia',
+  },
+  {
+    value: 'INTERNAL',
+    label: 'Canal Interno',
+    icon: MessageSquareText,
+    color: 'bg-violet-50 dark:bg-violet-950/40',
+    description: 'Converse direto com o orquestrador de marketing dentro do app',
   },
 ];
 
@@ -72,10 +81,16 @@ const telegramSchema = z.object({
   secretToken: z.string().min(16, 'Secret token precisa ter pelo menos 16 caracteres'),
 });
 
+const internalSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório'),
+  orchestratorId: z.string().min(1, 'Escolha o orquestrador que vai responder'),
+});
+
 type ZappfyFormData = z.infer<typeof zappfySchema>;
 type WaOfficialFormData = z.infer<typeof waOfficialSchema>;
 type InstagramFormData = z.infer<typeof instagramSchema>;
 type TelegramFormData = z.infer<typeof telegramSchema>;
+type InternalFormData = z.infer<typeof internalSchema>;
 
 const inputCls = 'flex h-10 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100';
 const labelCls = 'text-sm font-medium text-zinc-700 dark:text-zinc-300';
@@ -118,6 +133,21 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
     resolver: zodResolver(telegramSchema),
     defaultValues: { name: '', botToken: '', botUsername: '', secretToken: makeSecretToken() },
   });
+
+  const internalForm = useForm<InternalFormData>({
+    resolver: zodResolver(internalSchema),
+    defaultValues: { name: '', orchestratorId: '' },
+  });
+
+  // Orquestradores de marketing — só esses podem responder no canal interno.
+  const { data: orchestrators = [] } = useQuery({
+    queryKey: ['ai-agents', 'MARKETING'],
+    queryFn: () => aiAgentsService.list('MARKETING'),
+    enabled: open && selectedType === 'INTERNAL',
+  });
+  const marketingOrchestrators = orchestrators.filter(
+    (a) => a.kind === 'ORCHESTRATOR',
+  );
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
@@ -211,6 +241,11 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
       data.secretToken,
     );
 
+  const onSubmitInternal = (data: InternalFormData) =>
+    submitChannel('INTERNAL', data.name, {
+      orchestratorId: data.orchestratorId,
+    });
+
   const handleClose = () => {
     setStep('type');
     setSelectedType(null);
@@ -219,6 +254,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
     waForm.reset();
     igForm.reset();
     telegramForm.reset({ name: '', botToken: '', botUsername: '', secretToken: makeSecretToken() });
+    internalForm.reset();
     onClose();
   };
 
@@ -229,6 +265,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
     WHATSAPP_OFFICIAL: 'Configurar WhatsApp Official',
     INSTAGRAM: 'Configurar Instagram',
     TELEGRAM: 'Configurar Telegram',
+    INTERNAL: 'Configurar Canal Interno',
   };
 
   return (
@@ -348,6 +385,40 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
             <Field label="Bot Username" placeholder="Opcional - ex: axory_suporte_bot" optional {...telegramForm.register('botUsername')} />
             <Field label="Secret Token" type="text" placeholder="Gerado automaticamente" error={telegramForm.formState.errors.secretToken?.message} {...telegramForm.register('secretToken')} />
             <WebhookUrl url={`${apiBaseUrl}/webhooks/TELEGRAM`} copied={copied} onCopy={() => handleCopyWebhook('TELEGRAM')} />
+            <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
+          </form>
+        ) : selectedType === 'INTERNAL' ? (
+          <form onSubmit={internalForm.handleSubmit(onSubmitInternal)} className="mt-6 space-y-4">
+            <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-3 text-xs leading-relaxed text-violet-900 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-100">
+              <p className="font-medium">Canal Interno de Marketing</p>
+              <p className="mt-1">
+                Um espaço privado pra você conversar direto com o orquestrador de
+                marketing — dar comandos, pedir ideias, acompanhar campanhas. Nada
+                aqui é enviado pra clientes; é só entre você e o agente.
+              </p>
+            </div>
+            <Field label="Nome do canal" placeholder="Ex: Comando de Marketing" error={internalForm.formState.errors.name?.message} {...internalForm.register('name')} />
+            <div className="space-y-1.5">
+              <label className={labelCls}>Orquestrador que vai responder</label>
+              <select
+                className={inputCls}
+                {...internalForm.register('orchestratorId')}
+              >
+                <option value="">Selecione um orquestrador…</option>
+                {marketingOrchestrators.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+              {marketingOrchestrators.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Nenhum orquestrador de marketing encontrado. Crie um agente do tipo
+                  Orquestrador no setor Marketing primeiro.
+                </p>
+              )}
+              {internalForm.formState.errors.orchestratorId && (
+                <p className={errorCls}>{internalForm.formState.errors.orchestratorId.message}</p>
+              )}
+            </div>
             <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
           </form>
         ) : null}

@@ -22,7 +22,11 @@ import { BreakdownList } from './breakdown-list';
 import { RunsTable } from './runs-table';
 import { fmtMs, fmtNum, fmtUsdShort } from './format';
 
-export function JarvisOverviewTab() {
+export function JarvisOverviewTab({
+  agentSector,
+}: {
+  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+}) {
   const orgId = useOrgId();
   const [timeRange, setTimeRange] = useState<TimeRangeFilter>({
     kind: 'preset',
@@ -30,20 +34,20 @@ export function JarvisOverviewTab() {
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['ai-stats', orgId, timeRange],
-    queryFn: () => aiAgentsService.orgStats(timeRange),
+    queryKey: ['ai-stats', orgId, timeRange, agentSector ?? 'all'],
+    queryFn: () => aiAgentsService.orgStats(timeRange, agentSector),
     refetchInterval: 5000,
   });
 
   const { data: runs, isLoading: runsLoading } = useQuery({
-    queryKey: ['ai-feed', orgId],
-    queryFn: () => aiAgentsService.feed({ limit: 50 }),
+    queryKey: ['ai-feed', orgId, agentSector ?? 'all'],
+    queryFn: () => aiAgentsService.feed({ limit: 50, sector: agentSector }),
     refetchInterval: 5000,
   });
 
   const { data: agents } = useQuery({
-    queryKey: ['ai-agents', orgId],
-    queryFn: () => aiAgentsService.list(),
+    queryKey: ['ai-agents', orgId, agentSector ?? 'all'],
+    queryFn: () => aiAgentsService.list(agentSector),
   });
 
   const agentsById = new Map((agents ?? []).map((a) => [a.id, a]));

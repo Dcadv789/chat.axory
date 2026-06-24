@@ -116,7 +116,13 @@ function layoutOrganogram(agents: AiAgent[]): {
   return { nodes, edges };
 }
 
-export function AgentsList({ sectorFilter = 'all' }: { sectorFilter?: SectorFilter }) {
+export function AgentsList({
+  sectorFilter = 'all',
+  agentSector,
+}: {
+  sectorFilter?: SectorFilter;
+  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+}) {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
@@ -124,8 +130,8 @@ export function AgentsList({ sectorFilter = 'all' }: { sectorFilter?: SectorFilt
   const [deptFilter, setDeptFilter] = useState<string | null>(null);
 
   const { data: agents, isLoading } = useQuery({
-    queryKey: ['ai-agents', orgId],
-    queryFn: () => aiAgentsService.list(),
+    queryKey: ['ai-agents', orgId, agentSector ?? 'all'],
+    queryFn: () => aiAgentsService.list(agentSector),
   });
 
   const { data: sectors = [] } = useQuery({
@@ -296,6 +302,7 @@ export function AgentsList({ sectorFilter = 'all' }: { sectorFilter?: SectorFilt
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={refresh}
+        defaultSector={agentSector}
       />
       <EditAgentDialog
         agent={editing}

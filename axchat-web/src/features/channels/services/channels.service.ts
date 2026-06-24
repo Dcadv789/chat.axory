@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
 
-export type ChannelType = 'WHATSAPP_OFFICIAL' | 'WHATSAPP_ZAPPFY' | 'INSTAGRAM' | 'TELEGRAM';
+export type ChannelType = 'WHATSAPP_OFFICIAL' | 'WHATSAPP_ZAPPFY' | 'INSTAGRAM' | 'TELEGRAM' | 'INTERNAL';
 
 export type ChannelVisibility = 'ORG' | 'PRIVATE';
 

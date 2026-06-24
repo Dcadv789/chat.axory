@@ -24,6 +24,7 @@ export class AgentsService {
         description: dto.description,
         avatarUrl: dto.avatarUrl,
         kind: dto.kind ?? 'WORKER',
+        sector: dto.sector ?? 'ATENDIMENTO',
         category: dto.category,
         capabilities: dto.capabilities ?? [],
         modelId: dto.modelId,
@@ -64,9 +65,13 @@ export class AgentsService {
     return agent;
   }
 
-  async list(organizationId: string) {
+  async list(organizationId: string, sector?: 'ATENDIMENTO' | 'MARKETING') {
     return this.prisma.aiAgent.findMany({
-      where: { organizationId, deletedAt: null },
+      where: {
+        organizationId,
+        deletedAt: null,
+        ...(sector ? { sector } : {}),
+      },
       orderBy: [{ kind: 'asc' }, { createdAt: 'asc' }],
       include: {
         channels: {
@@ -253,9 +258,11 @@ export class AgentsService {
       from?: string;
       to?: string;
     } = {},
+    sector?: 'ATENDIMENTO' | 'MARKETING',
   ) {
     const w = this.resolveTimeWindow(window);
     const since = w.since!;
+    const sectorFilter = this.runSectorFilter(sector);
 
     const [
       runs,
@@ -265,7 +272,7 @@ export class AgentsService {
       handoffStats,
     ] = await Promise.all([
       this.prisma.aiAgentRun.findMany({
-        where: { organizationId, ...this.startedAtFilter(w) },
+        where: { organizationId, ...sectorFilter, ...this.startedAtFilter(w) },
         select: {
           id: true,
           agentId: true,
@@ -280,19 +287,22 @@ export class AgentsService {
           durationMs: true,
         },
       }),
-      this.aggregateMonthlyTokens(organizationId),
+      this.aggregateMonthlyTokens(organizationId, sector),
       this.prisma.organization.findUnique({
         where: { id: organizationId },
         select: { aiMonthlyTokenCap: true },
       }),
       this.prisma.aiToolCall.groupBy({
         by: ['toolName'],
-        where: { run: { organizationId, ...this.startedAtFilter(w) } },
+        where: {
+          run: { organizationId, ...sectorFilter, ...this.startedAtFilter(w) },
+        },
         _count: { _all: true },
       }),
       this.prisma.aiAgentHandoff.findMany({
         where: {
           conversation: { organizationId },
+          ...(sector ? { toAgent: { sector } } : {}),
           ...this.createdAtFilter(w),
         },
         select: { fromAgentId: true, toAgentId: true },
@@ -402,11 +412,17 @@ export class AgentsService {
       from?: string;
       to?: string;
     } = {},
+    sector?: 'ATENDIMENTO' | 'MARKETING',
   ) {
     const w = this.resolveTimeWindow(window);
     const since = w.since!;
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const runSector = this.runSectorFilter(sector);
+    // Conversas são separadas pelo setor do canal (via orquestrador padrão).
+    const convSector = sector
+      ? { channel: { defaultOrchestrator: { sector } } }
+      : {};
 
     const [
       runs,
@@ -418,13 +434,14 @@ export class AgentsService {
       org,
     ] = await Promise.all([
       this.prisma.aiAgentRun.findMany({
-        where: { organizationId, ...this.startedAtFilter(w) },
+        where: { organizationId, ...runSector, ...this.startedAtFilter(w) },
         select: { finalAction: true },
       }),
       this.prisma.conversation.findMany({
         where: {
           organizationId,
           deletedAt: null,
+          ...convSector,
           ...this.createdAtFilter(w),
           firstResponseAt: { not: null },
         },
@@ -438,13 +455,18 @@ export class AgentsService {
         where: {
           organizationId,
           ...this.respondedAtFilter(w),
-          conversation: { aiRuns: { some: {} } },
+          conversation: { aiRuns: { some: {} }, ...convSector },
         },
         _avg: { score: true },
         _count: { _all: true },
       }),
       this.prisma.conversation.findMany({
-        where: { organizationId, deletedAt: null, ...this.createdAtFilter(w) },
+        where: {
+          organizationId,
+          deletedAt: null,
+          ...convSector,
+          ...this.createdAtFilter(w),
+        },
         select: { channel: { select: { type: true } } },
       }),
       this.prisma.conversation.count({
@@ -452,12 +474,14 @@ export class AgentsService {
           organizationId,
           deletedAt: null,
           isStuck: true,
+          ...convSector,
           ...this.updatedAtFilter(w),
         },
       }),
       this.prisma.aiAgentRun.count({
         where: {
           organizationId,
+          ...runSector,
           startedAt: { gte: monthStart },
           AND: [
             { finalAction: { not: AiFinalAction.NO_ACTION } },
@@ -658,6 +682,7 @@ export class AgentsService {
       hasErrors?: boolean;
       status?: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
       finalAction?: string;
+      sector?: 'ATENDIMENTO' | 'MARKETING';
       limit?: number;
       cursor?: string;
     },
@@ -672,6 +697,7 @@ export class AgentsService {
     const runs = await this.prisma.aiAgentRun.findMany({
       where: {
         organizationId,
+        ...this.runSectorFilter(options.sector),
         ...(options.agentId ? { agentId: options.agentId } : {}),
         ...(options.conversationId
           ? { conversationId: options.conversationId }
@@ -815,15 +841,31 @@ export class AgentsService {
     return new Date(now.getTime() - ms);
   }
 
-  private async aggregateMonthlyTokens(organizationId: string) {
+  private async aggregateMonthlyTokens(
+    organizationId: string,
+    sector?: 'ATENDIMENTO' | 'MARKETING',
+  ) {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
     const agg = await this.prisma.aiAgentRun.aggregate({
-      where: { organizationId, startedAt: { gte: startOfMonth } },
+      where: {
+        organizationId,
+        ...this.runSectorFilter(sector),
+        startedAt: { gte: startOfMonth },
+      },
       _sum: { inputTokens: true, outputTokens: true },
     });
     return (agg._sum.inputTokens ?? 0) + (agg._sum.outputTokens ?? 0);
+  }
+
+  /**
+   * Filtro Prisma pra runs de um setor específico (via o agent dono da run).
+   * Sem setor, devolve {} (não filtra). Runs são separadas por
+   * `agent.sector` — marketing e atendimento têm agentes distintos.
+   */
+  private runSectorFilter(sector?: 'ATENDIMENTO' | 'MARKETING') {
+    return sector ? { agent: { sector } } : {};
   }
 
   // ─── Watchdog stats (monitoramento de conversas presas) ──────────

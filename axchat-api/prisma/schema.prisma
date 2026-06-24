@@ -41,6 +41,7 @@ enum ChannelType {
   WHATSAPP_ZAPPFY
   INSTAGRAM
   TELEGRAM
+  INTERNAL
 }
 
 // ORG    = todos os membros da org enxergam (default — preserva o comportamento legado)
@@ -176,6 +177,9 @@ model Organization {
   aiAutoDisableOnHuman Boolean @default(true) @map("ai_auto_disable_on_human")
   aiMonthlyTokenCap    Int?    @map("ai_monthly_token_cap")
   monthlyConversationLimit Int? @map("monthly_conversation_limit")
+  /// Add-on vendável: habilita o módulo de Marketing (agentes/menu próprios).
+  /// Controlado pelo Super Admin. Quando false, o cliente nem vê o menu.
+  marketingEnabled     Boolean @default(false) @map("marketing_enabled")
   /// Chave de API do DeepSeek por organização (definida pela UI em
   /// Settings > IA). NULL = usa o fallback global DEEPSEEK_API_KEY da env.
   deepseekApiKey       String? @map("deepseek_api_key") @db.Text
@@ -963,6 +967,11 @@ enum AiAgentKind {
   WORKER
 }
 
+enum AiAgentSector {
+  ATENDIMENTO
+  MARKETING
+}
+
 enum AiAgentMode {
   AUTONOMOUS
   COPILOT
@@ -998,7 +1007,8 @@ model AiAgent {
   description    String?
   avatarUrl      String? @map("avatar_url")
 
-  kind         AiAgentKind @default(WORKER)
+  kind         AiAgentKind   @default(WORKER)
+  sector       AiAgentSector @default(ATENDIMENTO)
   category     String?
   capabilities String[]    @default([])
 

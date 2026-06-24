@@ -23,6 +23,7 @@ import {
 } from '../../iam/channel-access/channel-access.service';
 import { WatchdogService } from '../../routing/watchdog/watchdog.service';
 import { ChannelAdapterRegistry } from '../../channel-hub/channel-adapter.registry';
+import { AiAgentRunnerService } from '../../ai-agents/runner/agent-runner.service';
 
 @Injectable()
 export class MessagesService {
@@ -35,6 +36,7 @@ export class MessagesService {
     private readonly channelAccess: ChannelAccessService,
     private readonly watchdog: WatchdogService,
     private readonly adapterRegistry: ChannelAdapterRegistry,
+    private readonly agentRunner: AiAgentRunnerService,
     @InjectQueue('outbound-messages') private readonly outboundQueue: Queue,
   ) {}
 
@@ -57,6 +59,14 @@ export class MessagesService {
       throw new ForbiddenException();
     }
     this.channelAccess.assertChannelAccess(access, conversation.channelId);
+
+    // Canal interno: o operador conversa com o orquestrador dentro do app.
+    // A mensagem do operador NÃO vai pra provider externo — ela entra como
+    // INBOUND (gatilho) e dispara o orquestrador na hora. Sem auto-desligar
+    // a IA (que é o comportamento de um humano respondendo a um cliente).
+    if (conversation.channel.type === 'INTERNAL') {
+      return this.sendInternal(dto, senderId, conversation);
+    }
 
     const contactChannel = conversation.contact.channels.find(
       (cc) => cc.channelId === conversation.channelId,
@@ -314,6 +324,68 @@ export class MessagesService {
           removeOnFail: false,
         },
       );
+    }
+
+    return message;
+  }
+
+  /**
+   * Canal interno: a mensagem do operador entra como INBOUND (gatilho) e
+   * dispara o orquestrador na hora. Não vai pra provider externo e não
+   * desliga a IA (que é o comportamento de um humano respondendo cliente).
+   * O orquestrador responde via replyToConversation (OUTBOUND), que já
+   * persiste e emite via realtime.
+   */
+  private async sendInternal(
+    dto: SendMessageDto,
+    senderId: string,
+    conversation: {
+      id: string;
+      organizationId: string;
+      channelId: string;
+      contactId: string;
+    },
+  ) {
+    const message = await this.prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        direction: MessageDirection.INBOUND,
+        type: MessageContentType.TEXT,
+        content: dto.content,
+        status: MessageStatus.DELIVERED,
+        senderId,
+        deliveredAt: new Date(),
+      },
+    });
+
+    await this.prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { lastMessageAt: new Date() },
+    });
+
+    this.realtimeGateway.emitToChannel(conversation.channelId, 'message:new', {
+      message,
+      conversationId: conversation.id,
+      contactId: conversation.contactId,
+    });
+    this.realtimeGateway.emitToConversation(conversation.id, 'message:new', {
+      message,
+    });
+
+    // Dispara o orquestrador imediatamente — é um console, a resposta tem
+    // que ser instantânea (sem o debounce de 10s que existe pra rajadas de
+    // cliente real). Fire-and-forget: falha aqui não derruba o envio.
+    const fullConversation = await this.prisma.conversation.findUnique({
+      where: { id: conversation.id },
+    });
+    if (fullConversation) {
+      this.agentRunner
+        .run({ conversation: fullConversation, triggerMessage: message })
+        .catch((err) =>
+          this.logger.error(
+            `Internal agent run failed for conv ${conversation.id}: ${err?.message ?? err}`,
+          ),
+        );
     }
 
     return message;

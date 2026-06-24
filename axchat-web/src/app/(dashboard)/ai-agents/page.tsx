@@ -87,6 +87,8 @@ export default function AiAgentsPage() {
 
   // Setor vindo da URL (sidebar) — padrão é atendimento
   const sector = searchParams.get('sector') || 'atendimento';
+  const agentSector: 'ATENDIMENTO' | 'MARKETING' =
+    sector === 'marketing' ? 'MARKETING' : 'ATENDIMENTO';
   const sectorMeta = SECTOR_LABELS[sector] ?? SECTOR_LABELS.atendimento;
   const SectorIcon = sectorMeta.icon;
 
@@ -158,8 +160,8 @@ export default function AiAgentsPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        {tab === 'overview' && isSuperAdmin && <JarvisOverviewTab />}
-        {tab === 'metrics' && <JarvisMetricsTab />}
+        {tab === 'overview' && isSuperAdmin && <JarvisOverviewTab agentSector={agentSector} />}
+        {tab === 'metrics' && <JarvisMetricsTab agentSector={agentSector} />}
         {tab === 'agents' && (
           <div className="flex h-full flex-col">
             <div className="flex items-center justify-end gap-2 border-b border-zinc-200 px-6 py-2 dark:border-white/10">
@@ -197,15 +199,18 @@ export default function AiAgentsPage() {
             {sectorView ? (
               <AgentsSectorView sectorFilter={sectorFilter} />
             ) : (
-              <AgentsList sectorFilter={sectorFilter} />
+              <AgentsList
+                sectorFilter={sectorFilter}
+                agentSector={sector === 'marketing' ? 'MARKETING' : 'ATENDIMENTO'}
+              />
             )}
           </div>
         )}
         {tab === 'skills' && <JarvisSkillsTab />}
         {tab === 'tools' && <JarvisToolsTab />}
-        {tab === 'runs' && <JarvisRunsTab />}
+        {tab === 'runs' && <JarvisRunsTab agentSector={agentSector} />}
         {tab === 'watchdog' && <JarvisWatchdogTab />}
-        {tab === 'agent' && <JarvisAgentTab />}
+        {tab === 'agent' && <JarvisAgentTab agentSector={agentSector} />}
       </div>
     </div>
   );

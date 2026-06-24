@@ -36,6 +36,7 @@ export interface SuperAdminOrganization {
   trialEndsAt: string | null;
   currentPeriodEndsAt: string | null;
   aiEnabled: boolean;
+  marketingEnabled: boolean;
   aiMonthlyTokenCap: number | null;
   monthlyConversationLimit: number | null;
   createdAt: string;
@@ -203,6 +204,7 @@ export const superAdminService = {
       plan?: string;
       settings?: Record<string, unknown>;
       aiEnabled?: boolean;
+      marketingEnabled?: boolean;
       aiMonthlyTokenCap?: number | null;
       monthlyConversationLimit?: number | null;
     },

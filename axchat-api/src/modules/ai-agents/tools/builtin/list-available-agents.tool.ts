@@ -24,10 +24,19 @@ export class ListAvailableAgentsTool implements AiTool {
     _input: Record<string, unknown>,
     ctx: ToolContext,
   ): Promise<ToolResult> {
+    // O orquestrador só pode delegar pra workers do MESMO setor (marketing
+    // não cruza com atendimento). Resolve o setor do agente ativo primeiro.
+    const self = await this.prisma.aiAgent.findUnique({
+      where: { id: ctx.agentId },
+      select: { sector: true },
+    });
+    const sector = self?.sector ?? 'ATENDIMENTO';
+
     const workers = await this.prisma.aiAgent.findMany({
       where: {
         organizationId: ctx.organizationId,
         kind: 'WORKER',
+        sector,
         isActive: true,
         deletedAt: null,
         id: { not: ctx.agentId },

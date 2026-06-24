@@ -14,7 +14,11 @@ import { BreakdownList } from './breakdown-list';
 import { RunsTable } from './runs-table';
 import { fmtMs, fmtNum, fmtUsdShort } from './format';
 
-export function JarvisAgentTab() {
+export function JarvisAgentTab({
+  agentSector,
+}: {
+  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+}) {
   const orgId = useOrgId();
   const [timeRange, setTimeRange] = useState<TimeRangeFilter>({
     kind: 'preset',
@@ -23,13 +27,13 @@ export function JarvisAgentTab() {
   const [agentId, setAgentId] = useState<string>('');
 
   const { data: agents } = useQuery({
-    queryKey: ['ai-agents', orgId],
-    queryFn: () => aiAgentsService.list(),
+    queryKey: ['ai-agents', orgId, agentSector ?? 'all'],
+    queryFn: () => aiAgentsService.list(agentSector),
   });
 
   // Auto-select first agent
   useEffect(() => {
-    if (!agentId && agents && agents.length > 0) {
+    if (agents && agents.length > 0 && !agents.some((a) => a.id === agentId)) {
       setAgentId(agents[0].id);
     }
   }, [agents, agentId]);

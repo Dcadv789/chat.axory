@@ -8,6 +8,7 @@ import {
   aiAgentsService,
   DEPARTMENTS,
   type AgentKind,
+  type AgentSector,
 } from '../services/ai-agents.service';
 import { aiModelProvidersService } from '@/features/settings/services/ai-model-providers.service';
 import { agentSectorsService } from '@/features/ai-agents/services/agent-sectors.service';
@@ -17,6 +18,7 @@ interface CreateAgentDialogProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  defaultSector?: AgentSector;
 }
 
 const DEFAULT_PROMPT = `Você é o(a) atendente da empresa. Sua missão é responder os clientes com simpatia, agilidade e clareza.
@@ -30,11 +32,13 @@ export function CreateAgentDialog({
   open,
   onClose,
   onCreated,
+  defaultSector = 'ATENDIMENTO',
 }: CreateAgentDialogProps) {
   const orgId = useOrgId();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [kind, setKind] = useState<AgentKind>('WORKER');
+  const [sector, setSector] = useState<AgentSector>(defaultSector);
   const [category, setCategory] = useState('');
   const [modelId, setModelId] = useState('anthropic/claude-sonnet-4-6');
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT);
@@ -89,6 +93,7 @@ export function CreateAgentDialog({
         name: name.trim(),
         description: description.trim() || undefined,
         kind,
+        sector,
         category: category.trim() || undefined,
         modelId,
         systemPrompt: systemPrompt.trim(),
@@ -233,6 +238,20 @@ export function CreateAgentDialog({
                       {a.name} {a.kind === 'ORCHESTRATOR' ? '(Orquestrador)' : ''}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Setor
+                </label>
+                <select
+                  value={sector}
+                  onChange={(e) => setSector(e.target.value as AgentSector)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
+                >
+                  <option value="ATENDIMENTO">Atendimento</option>
+                  <option value="MARKETING">Marketing</option>
                 </select>
               </div>
 

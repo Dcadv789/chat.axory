@@ -10,6 +10,7 @@ import {
   DEPARTMENTS,
   type AiAgent,
   type AgentMode,
+  type AgentSector,
 } from '../services/ai-agents.service';
 import { aiCatalogService } from '../services/ai-catalog.service';
 import { channelsService } from '@/features/channels/services/channels.service';
@@ -35,6 +36,7 @@ export function EditAgentDialog({
   const [systemPrompt, setSystemPrompt] = useState('');
   const [temperature, setTemperature] = useState(0.7);
   const [parentAgentId, setParentAgentId] = useState<string>('');
+  const [sector, setSector] = useState<AgentSector>('ATENDIMENTO');
   const [department, setDepartment] = useState<string>('');
   const [squad, setSquad] = useState('');
   const [operationalContext, setOperationalContext] = useState('');
@@ -82,6 +84,7 @@ export function EditAgentDialog({
     setSystemPrompt(agent.systemPrompt);
     setTemperature(agent.temperature);
     setParentAgentId(agent.parentAgentId ?? '');
+    setSector(agent.sector ?? 'ATENDIMENTO');
     setDepartment(agent.department ?? '');
     setSquad(agent.squad ?? '');
     setOperationalContext(agent.operationalContext ?? '');
@@ -104,6 +107,7 @@ export function EditAgentDialog({
         modelId,
         systemPrompt,
         temperature,
+        sector,
         parentAgentId: parentAgentId || null,
         department: department || null,
         squad: squad.trim() || null,
@@ -340,6 +344,20 @@ export function EditAgentDialog({
                         {a.kind === 'ORCHESTRATOR' ? '(Orquestrador)' : ''}
                       </option>
                     ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  Setor
+                </label>
+                <select
+                  value={sector}
+                  onChange={(e) => setSector(e.target.value as AgentSector)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
+                >
+                  <option value="ATENDIMENTO">Atendimento</option>
+                  <option value="MARKETING">Marketing</option>
                 </select>
               </div>
 

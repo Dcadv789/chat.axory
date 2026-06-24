@@ -13,6 +13,10 @@ export class UpdateOrganizationPlanDto {
   @IsOptional()
   aiEnabled?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  marketingEnabled?: boolean;
+
   @IsInt()
   @Min(0)
   @IsOptional()

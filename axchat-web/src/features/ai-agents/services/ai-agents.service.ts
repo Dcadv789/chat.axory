@@ -1,6 +1,7 @@
 import { api } from '@/lib/api';
 
 export type AgentKind = 'ORCHESTRATOR' | 'WORKER';
+export type AgentSector = 'ATENDIMENTO' | 'MARKETING';
 export type AgentMode = 'AUTONOMOUS' | 'COPILOT' | 'DISABLED';
 export type AgentTrigger = 'ALWAYS' | 'OFF_HOURS' | 'NO_HUMAN_ASSIGNED';
 
@@ -53,6 +54,7 @@ export interface AiAgent {
   description: string | null;
   avatarUrl: string | null;
   kind: AgentKind;
+  sector: AgentSector;
   category: string | null;
   capabilities: string[];
   modelId: string;
@@ -78,6 +80,7 @@ export interface CreateAgentInput {
   name: string;
   description?: string;
   kind?: AgentKind;
+  sector?: AgentSector;
   category?: string;
   capabilities?: string[];
   modelId: string;
@@ -126,8 +129,10 @@ export interface AgentRun {
 }
 
 export const aiAgentsService = {
-  async list(): Promise<AiAgent[]> {
-    const { data } = await api.get('/ai-agents');
+  async list(sector?: AgentSector): Promise<AiAgent[]> {
+    const { data } = await api.get('/ai-agents', {
+      params: sector ? { sector } : undefined,
+    });
     return data.data ?? data;
   },
 
@@ -197,6 +202,7 @@ export const aiAgentsService = {
       status?: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
       finalAction?: string;
       hasErrors?: boolean;
+      sector?: AgentSector;
       limit?: number;
       cursor?: string;
     } = {},
@@ -210,18 +216,22 @@ export const aiAgentsService = {
     return data.data ?? data;
   },
 
-  async orgStats(filter: TimeRangeFilter = { kind: 'preset', period: '7d' }): Promise<OrgStats> {
+  async orgStats(
+    filter: TimeRangeFilter = { kind: 'preset', period: '7d' },
+    sector?: AgentSector,
+  ): Promise<OrgStats> {
     const { data } = await api.get('/ai-agents/stats/overview', {
-      params: timeRangeToParams(filter),
+      params: { ...timeRangeToParams(filter), sector },
     });
     return data.data ?? data;
   },
 
   async businessMetrics(
     filter: TimeRangeFilter = { kind: 'preset', period: '7d' },
+    sector?: AgentSector,
   ): Promise<BusinessMetrics> {
     const { data } = await api.get('/ai-agents/stats/business', {
-      params: timeRangeToParams(filter),
+      params: { ...timeRangeToParams(filter), sector },
     });
     return data.data ?? data;
   },

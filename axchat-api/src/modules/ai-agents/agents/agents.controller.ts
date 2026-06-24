@@ -38,8 +38,13 @@ export class AgentsController {
 
   @Get()
   @ApiOperation({ summary: 'List AI agents for the organization' })
-  list(@CurrentOrg('id') orgId: string) {
-    return this.service.list(orgId);
+  list(
+    @CurrentOrg('id') orgId: string,
+    @Query('sector') sector?: string,
+  ) {
+    const validSector =
+      sector === 'ATENDIMENTO' || sector === 'MARKETING' ? sector : undefined;
+    return this.service.list(orgId, validSector);
   }
 
   @Get(':id')
@@ -157,6 +162,7 @@ export class AgentsController {
     @Query('status') status?: string,
     @Query('finalAction') finalAction?: string,
     @Query('hasErrors') hasErrors?: string,
+    @Query('sector') sector?: string,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
@@ -168,6 +174,7 @@ export class AgentsController {
       to,
       status: this.parseRunStatus(status),
       finalAction,
+      sector: this.parseSector(sector),
       hasErrors: hasErrors === '1' || hasErrors === 'true',
       limit: limit ? Math.min(parseInt(limit, 10) || 50, 200) : 50,
       cursor: cursor || undefined,
@@ -183,12 +190,17 @@ export class AgentsController {
     @Query('period') period?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('sector') sector?: string,
   ) {
-    return this.service.getOrgStats(orgId, {
-      period: this.parsePeriodOptional(period),
-      from,
-      to,
-    });
+    return this.service.getOrgStats(
+      orgId,
+      {
+        period: this.parsePeriodOptional(period),
+        from,
+        to,
+      },
+      this.parseSector(sector),
+    );
   }
 
   @Get('stats/business')
@@ -201,12 +213,17 @@ export class AgentsController {
     @Query('period') period?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('sector') sector?: string,
   ) {
-    return this.service.getBusinessMetrics(orgId, {
-      period: this.parsePeriodOptional(period),
-      from,
-      to,
-    });
+    return this.service.getBusinessMetrics(
+      orgId,
+      {
+        period: this.parsePeriodOptional(period),
+        from,
+        to,
+      },
+      this.parseSector(sector),
+    );
   }
 
   @Get(':id/stats')
@@ -241,6 +258,11 @@ export class AgentsController {
     if (s === 'RUNNING' || s === 'COMPLETED' || s === 'FAILED' || s === 'SKIPPED') {
       return s;
     }
+    return undefined;
+  }
+
+  private parseSector(s?: string): 'ATENDIMENTO' | 'MARKETING' | undefined {
+    if (s === 'ATENDIMENTO' || s === 'MARKETING') return s;
     return undefined;
   }
 }

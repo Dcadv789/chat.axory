@@ -93,11 +93,13 @@ export function AppSidebar() {
             icon={Headset}
             sector="atendimento"
           />
-          <AgentSectorTree
-            label="Marketing"
-            icon={Megaphone}
-            sector="marketing"
-          />
+          {activeOrg?.marketingEnabled && (
+            <AgentSectorTree
+              label="Marketing"
+              icon={Megaphone}
+              sector="marketing"
+            />
+          )}
           {navItems.map((item) => (
             <SidebarItem key={item.href} href={item.href}>
               <item.icon className="size-5" />

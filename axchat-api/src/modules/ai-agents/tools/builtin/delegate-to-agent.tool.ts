@@ -81,15 +81,21 @@ export class DelegateToAgentTool implements AiTool {
       return { output: { ok: false, error: 'agentId is required' } };
     }
 
-    const target = await this.prisma.aiAgent.findFirst({
-      where: {
-        id: targetAgentId,
-        organizationId: ctx.organizationId,
-        isActive: true,
-        deletedAt: null,
-      },
-      select: { id: true, name: true, kind: true },
-    });
+    const [target, self] = await Promise.all([
+      this.prisma.aiAgent.findFirst({
+        where: {
+          id: targetAgentId,
+          organizationId: ctx.organizationId,
+          isActive: true,
+          deletedAt: null,
+        },
+        select: { id: true, name: true, kind: true, sector: true },
+      }),
+      this.prisma.aiAgent.findUnique({
+        where: { id: ctx.agentId },
+        select: { sector: true },
+      }),
+    ]);
 
     if (!target) {
       return {
@@ -105,6 +111,18 @@ export class DelegateToAgentTool implements AiTool {
         output: {
           ok: false,
           error: `Cannot delegate to ${target.name}: only WORKER agents accept delegation.`,
+        },
+      };
+    }
+
+    // Não cruza marketing com atendimento: orquestrador só delega a workers
+    // do próprio setor.
+    const selfSector = self?.sector ?? 'ATENDIMENTO';
+    if (target.sector !== selfSector) {
+      return {
+        output: {
+          ok: false,
+          error: `Cannot delegate to ${target.name}: agent belongs to a different sector (${target.sector}).`,
         },
       };
     }

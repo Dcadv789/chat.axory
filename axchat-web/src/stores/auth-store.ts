@@ -13,6 +13,8 @@ interface OrgInfo {
   name: string;
   slug: string;
   role: string;
+  // Add-on vendável: habilita o módulo de Marketing. Default false.
+  marketingEnabled?: boolean;
   // 'ALL' for OWNER/ADMIN. Array of channel IDs for AGENT (deny-by-default).
   accessibleChannelIds: 'ALL' | string[];
 }

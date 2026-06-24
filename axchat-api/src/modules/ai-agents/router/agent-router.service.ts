@@ -78,6 +78,19 @@ export class AgentRouterService {
       }
     }
 
+    // Setor do canal (derivado do orquestrador padrão). Mensagens de um canal
+    // de MARKETING só roteiam pra agentes de marketing, e vice-versa.
+    const channelSector = await this.resolveChannelSector(
+      conversation.channelId,
+    );
+
+    // Canal de MARKETING pula o classificador — a taxonomia dele é de
+    // vendas/suporte (atendimento) e não faz sentido pra marketing. Vai
+    // direto pro orquestrador do canal.
+    if (channelSector === 'MARKETING') {
+      return this.fallbackToOrchestrator(conversation, channelSector);
+    }
+
     // 2. Carrega threshold da org
     const org = await this.prisma.organization.findUnique({
       where: { id: conversation.organizationId },
@@ -100,7 +113,7 @@ export class AgentRouterService {
         msg: 'classifier_failed_fallback_orchestrator',
         error: (err as Error).message,
       });
-      return this.fallbackToOrchestrator(conversation);
+      return this.fallbackToOrchestrator(conversation, channelSector);
     }
 
     // 4. Se confidence alta e intent direcionável → vai direto pro worker
@@ -116,6 +129,7 @@ export class AgentRouterService {
           name: classification.suggestedAgent,
           isActive: true,
           deletedAt: null,
+          sector: channelSector,
         },
         select: { id: true, name: true },
       });
@@ -154,6 +168,7 @@ export class AgentRouterService {
 
   private async fallbackToOrchestrator(
     conversation: Conversation,
+    channelSector: 'ATENDIMENTO' | 'MARKETING' = 'ATENDIMENTO',
   ): Promise<AgentSelection | null> {
     // 1. Verifica se o canal tem um orquestrador padrão configurado
     const channel = await this.prisma.channel.findUnique({
@@ -186,11 +201,17 @@ export class AgentRouterService {
     // kind: ORCHESTRATOR é obrigatório — sem esse filtro o findFirst
     // devolvia um worker arbitrário do canal (visto em prod: Daniel
     // recebendo small talk/spam/fallback que era do Augusto).
+    // sector filtra pra não cruzar marketing com atendimento.
     let link = await this.prisma.aiAgentChannel.findFirst({
       where: {
         channelId: conversation.channelId,
         mode: 'AUTONOMOUS',
-        agent: { isActive: true, deletedAt: null, kind: 'ORCHESTRATOR' },
+        agent: {
+          isActive: true,
+          deletedAt: null,
+          kind: 'ORCHESTRATOR',
+          sector: channelSector,
+        },
       },
       include: {
         agent: { select: { id: true, name: true } },
@@ -198,12 +219,12 @@ export class AgentRouterService {
     });
     if (!link) {
       // Canal sem orquestrador vinculado: melhor um worker qualquer
-      // do que ninguém responder.
+      // do mesmo setor do que ninguém responder.
       link = await this.prisma.aiAgentChannel.findFirst({
         where: {
           channelId: conversation.channelId,
           mode: 'AUTONOMOUS',
-          agent: { isActive: true, deletedAt: null },
+          agent: { isActive: true, deletedAt: null, sector: channelSector },
         },
         include: {
           agent: { select: { id: true, name: true } },
@@ -214,6 +235,7 @@ export class AgentRouterService {
       this.logger.warn({
         msg: 'no_orchestrator_for_channel',
         channelId: conversation.channelId,
+        sector: channelSector,
       });
       return null;
     }
@@ -225,6 +247,25 @@ export class AgentRouterService {
       skippedOrchestrator: false,
       classifierCostUsd: 0,
     };
+  }
+
+  /**
+   * Setor do canal = setor do seu orquestrador padrão. Sem orquestrador
+   * padrão definido, assume ATENDIMENTO (preserva comportamento legado).
+   */
+  private async resolveChannelSector(
+    channelId: string,
+  ): Promise<'ATENDIMENTO' | 'MARKETING'> {
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+      select: { defaultOrchestratorId: true },
+    });
+    if (!channel?.defaultOrchestratorId) return 'ATENDIMENTO';
+    const orchestrator = await this.prisma.aiAgent.findUnique({
+      where: { id: channel.defaultOrchestratorId },
+      select: { sector: true },
+    });
+    return orchestrator?.sector ?? 'ATENDIMENTO';
   }
 
   /**

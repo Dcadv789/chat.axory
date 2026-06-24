@@ -313,6 +313,9 @@ export class SuperAdminService {
           ? { settings: settingsToSet as Prisma.InputJsonValue }
           : {}),
         ...(dto.aiEnabled !== undefined ? { aiEnabled: dto.aiEnabled } : {}),
+        ...(dto.marketingEnabled !== undefined
+          ? { marketingEnabled: dto.marketingEnabled }
+          : {}),
         ...(dto.aiMonthlyTokenCap !== undefined
           ? { aiMonthlyTokenCap: dto.aiMonthlyTokenCap }
           : {}),
@@ -326,12 +329,14 @@ export class SuperAdminService {
       before: {
         plan: organization.plan,
         aiEnabled: organization.aiEnabled,
+        marketingEnabled: organization.marketingEnabled,
         aiMonthlyTokenCap: organization.aiMonthlyTokenCap,
         monthlyConversationLimit: organization.monthlyConversationLimit,
       },
       after: {
         plan: updated.plan,
         aiEnabled: updated.aiEnabled,
+        marketingEnabled: updated.marketingEnabled,
         aiMonthlyTokenCap: updated.aiMonthlyTokenCap,
         monthlyConversationLimit: updated.monthlyConversationLimit,
       },

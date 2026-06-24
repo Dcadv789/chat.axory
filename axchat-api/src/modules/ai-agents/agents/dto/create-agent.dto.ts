@@ -1,4 +1,4 @@
-import { AiAgentKind } from '@prisma/client';
+import { AiAgentKind, AiAgentSector } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
@@ -37,6 +37,11 @@ export class CreateAgentDto {
   @IsOptional()
   @IsEnum(AiAgentKind)
   kind?: AiAgentKind;
+
+  @ApiPropertyOptional({ enum: AiAgentSector, default: AiAgentSector.ATENDIMENTO })
+  @IsOptional()
+  @IsEnum(AiAgentSector)
+  sector?: AiAgentSector;
 
   @ApiPropertyOptional({ example: 'vendas' })
   @IsOptional()

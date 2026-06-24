@@ -507,6 +507,13 @@ function OrganizationDetails({
           <Input label="Cap mensal tokens IA" value={limits.aiMonthlyTokenCap} onChange={(v) => setLimits({ ...limits, aiMonthlyTokenCap: v })} placeholder="sem limite" />
           <Input label="Limite mensal conversas IA" value={limits.monthlyConversationLimit} onChange={(v) => setLimits({ ...limits, monthlyConversationLimit: v })} placeholder="ilimitado" />
         </div>
+        <div className="mt-3 flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 dark:border-white/10">
+          <div>
+            <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Módulo Marketing</p>
+            <p className="text-[11px] text-zinc-400">Add-on: libera o menu e agentes de marketing.</p>
+          </div>
+          <MarketingToggle org={org} onChanged={onChanged} />
+        </div>
         <button
           onClick={saveLimits}
           className="mt-4 rounded-md bg-zinc-950 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
@@ -1108,6 +1115,19 @@ function AiToggle({ org, onChanged }: { org: SuperAdminOrganization; onChanged: 
   return (
     <button onClick={toggle} className="text-zinc-500 hover:text-primary">
       {org.aiEnabled ? <ToggleRight className="h-5 w-5 text-primary" /> : <ToggleLeft className="h-5 w-5" />}
+    </button>
+  );
+}
+
+function MarketingToggle({ org, onChanged }: { org: SuperAdminOrganization; onChanged: () => void }) {
+  const toggle = async () => {
+    await superAdminService.updateOrganizationPlan(org.id, { marketingEnabled: !org.marketingEnabled });
+    toast.success(org.marketingEnabled ? 'Marketing desligado' : 'Marketing ligado');
+    onChanged();
+  };
+  return (
+    <button onClick={toggle} className="text-zinc-500 hover:text-primary">
+      {org.marketingEnabled ? <ToggleRight className="h-5 w-5 text-primary" /> : <ToggleLeft className="h-5 w-5" />}
     </button>
   );
 }
