@@ -109,11 +109,9 @@ export class ChannelsService {
     // sintético + conversa aberta e amarra o orquestrador escolhido como
     // defaultOrchestrator. Sem webhook, sem provider externo.
     if (dto.type === ChannelType.INTERNAL) {
-      channel = await this.setupInternalChannel(
-        organizationId,
-        channel.id,
-        dto,
-      );
+      channel =
+        (await this.setupInternalChannel(organizationId, channel.id, dto)) ??
+        channel;
     }
 
     // Unified sync path — any adapter that registered a HistorySyncPort.
@@ -186,10 +184,19 @@ export class ChannelsService {
     });
 
     // Amarra o orquestrador como default do canal — driver do roteamento.
-    return this.repository.update(channelId, {
-      ...(orchestratorId ? { defaultOrchestratorId: orchestratorId } : {}),
-    });
+    if (orchestratorId) {
+      return this.repository.update(channelId, {
+        defaultOrchestrator: { connect: { id: orchestratorId } },
+      });
+    }
+    return this.repository.findById(channelId);
   }
+
+  /**
+   * Lê a config de Coexistência (app Meta da plataforma) do PlatformSetting,
+   * gravada pelo Super Admin. Fonte única para appId/appSecret/configId.
+   */
+  private async loadMetaCoexistenceConfig(): Promise<{
     appId: string;
     appSecret: string;
     configId: string;
