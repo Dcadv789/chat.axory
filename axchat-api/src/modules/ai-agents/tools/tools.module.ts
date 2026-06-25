@@ -16,6 +16,7 @@ import { ConsultarN8nClienteTool } from './builtin/consultar-n8n-cliente.tool';
 import { ListarReunioesClienteTool } from './builtin/listar-reunioes-cliente.tool';
 import { LerTranscricaoReuniaoTool } from './builtin/ler-transcricao-reuniao.tool';
 import { AgendarReuniaoTool } from './builtin/agendar-reuniao.tool';
+import { GenerateMarketingImageTool } from './builtin/generate-marketing-image.tool';
 import { HoppeClientService } from './client-ops/hoppe-client.service';
 import { GoogleAuthService } from './client-ops/google-auth.service';
 import { GoogleCalendarService } from './client-ops/google-calendar.service';
@@ -59,6 +60,7 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     ListarReunioesClienteTool,
     LerTranscricaoReuniaoTool,
     AgendarReuniaoTool,
+    GenerateMarketingImageTool,
     ToolRegistry,
     HttpToolExecutorService,
     SqlToolExecutorService,

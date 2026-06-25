@@ -30,18 +30,14 @@ const tools = [
       'Content-Type': 'application/json',
     },
   },
-  {
-    name: 'OpenAI Images',
-    description:
-      'OpenAI Images API — geração de imagem (gpt-image-1) para criativos de anúncio e posts. A copy/legenda sai do próprio LLM; esta tool entrega só a arte.',
-    source: 'CUSTOM_HTTP',
-    httpBaseUrl: 'https://api.openai.com/v1',
-    httpHeaders: {
-      Authorization: 'Bearer {{env.OPENAI_API_KEY}}',
-      'Content-Type': 'application/json',
-    },
-  },
 ];
+
+// NOTA: a geração de imagem deixou de ser skill HTTP e virou a tool BUILTIN
+// `generateMarketingImage` (gpt-image-1 + hospedagem da arte). Ela é
+// auto-disponível pra agentes WORKER (Orla usa). Não há AiTool/AiSkill no
+// banco pra isso — por isso a tool "OpenAI Images" e a skill homônima foram
+// removidas daqui (e são limpas no runner abaixo). A chave fica em
+// OPENAI_API_KEY (org secret, aba Integrações).
 
 // ─── Skills NOVAS ──────────────────────────────────────────────
 // toolName 'Instagram' aponta para a tool já existente (seed-marketing-skills);
@@ -56,10 +52,10 @@ const skills = [
     description:
       'Lê os insights agregados de uma ad account do Meta (gasto, impressões, alcance, cliques, CTR, CPC, CPM, conversões) num período.',
     promptInstructions:
-      'Use para entender a performance geral da conta de anúncios. Requer o adAccountId SEM o prefixo "act_" (a skill já adiciona). datePreset aceita valores do Meta (today, yesterday, last_7d, last_30d, this_month, maximum). fields é uma lista CSV de métricas; o padrão cobre o essencial. Skill de LEITURA — não gasta verba, pode rodar à vontade.',
+      'Use para entender a performance geral da conta de anúncios. A conta de anúncios já está pré-configurada na org (env META_AD_ACCOUNT_ID) — você NÃO precisa pedir o ID a ninguém. datePreset aceita valores do Meta (today, yesterday, last_7d, last_30d, this_month, maximum). fields é uma lista CSV de métricas; o padrão cobre o essencial. Skill de LEITURA — não gasta verba, pode rodar à vontade.',
     httpMethod: 'GET',
     httpPath:
-      '/act_{{input.adAccountId}}/insights?fields={{input.fields}}&date_preset={{input.datePreset}}&access_token={{env.META_ADS_ACCESS_TOKEN}}',
+      '/act_{{env.META_AD_ACCOUNT_ID}}/insights?fields={{input.fields}}&date_preset={{input.datePreset}}&access_token={{env.META_ADS_ACCESS_TOKEN}}',
     httpBodyTemplate: null,
     responseMap: {
       ok: '$.ok',
@@ -69,10 +65,6 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        adAccountId: {
-          type: 'string',
-          description: 'ID numérico da ad account, SEM o prefixo act_.',
-        },
         fields: {
           type: 'string',
           description:
@@ -86,7 +78,7 @@ const skills = [
           default: 'last_30d',
         },
       },
-      required: ['adAccountId', 'fields', 'datePreset'],
+      required: ['fields', 'datePreset'],
       additionalProperties: false,
     },
   },
@@ -140,10 +132,10 @@ const skills = [
     description:
       'Lista as campanhas de uma ad account do Meta com nome, status, objetivo e orçamento (diário/lifetime).',
     promptInstructions:
-      'Use para enxergar quais campanhas existem, o status (ACTIVE/PAUSED) e o orçamento atual antes de qualquer ajuste. Requer o adAccountId SEM o prefixo act_. O campo daily_budget vem em centavos (menor unidade da moeda). Skill de LEITURA.',
+      'Use para enxergar quais campanhas existem, o status (ACTIVE/PAUSED) e o orçamento atual antes de qualquer ajuste. A ad account já está pré-configurada na org (env META_AD_ACCOUNT_ID). O campo daily_budget vem em centavos (menor unidade da moeda). O `id` de cada campanha é o que as outras skills (insights/budget) precisam. Skill de LEITURA.',
     httpMethod: 'GET',
     httpPath:
-      '/act_{{input.adAccountId}}/campaigns?fields=name,status,effective_status,objective,daily_budget,lifetime_budget&limit={{input.limit}}&access_token={{env.META_ADS_ACCESS_TOKEN}}',
+      '/act_{{env.META_AD_ACCOUNT_ID}}/campaigns?fields=name,status,effective_status,objective,daily_budget,lifetime_budget&limit={{input.limit}}&access_token={{env.META_ADS_ACCESS_TOKEN}}',
     httpBodyTemplate: null,
     responseMap: {
       ok: '$.ok',
@@ -153,10 +145,6 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        adAccountId: {
-          type: 'string',
-          description: 'ID numérico da ad account, SEM o prefixo act_.',
-        },
         limit: {
           type: 'integer',
           description: 'Quantas campanhas trazer.',
@@ -165,7 +153,7 @@ const skills = [
           maximum: 200,
         },
       },
-      required: ['adAccountId', 'limit'],
+      required: ['limit'],
       additionalProperties: false,
     },
   },
@@ -177,10 +165,10 @@ const skills = [
     description:
       'Estima alcance/delivery de uma ad account para um targeting e optimization goal informados (endpoint delivery_estimate da Marketing API).',
     promptInstructions:
-      'Use para estimar alcance/entrega ANTES de criar ou escalar uma campanha. Requer adAccountId (sem act_), optimizationGoal (ex: REACH, LINK_CLICKS, OFFSITE_CONVERSIONS) e targetingSpec — um JSON de targeting do Meta (ex: {"geo_locations":{"countries":["BR"]},"age_min":25,"age_max":45}) passado como STRING. ATENÇÃO: o targetingSpec precisa ser um JSON válido e URL-safe; se a API reclamar de encoding, simplifique o targeting. Skill de LEITURA — não cria nada.',
+      'Use para estimar alcance/entrega ANTES de criar ou escalar uma campanha. A ad account já está pré-configurada na org (env META_AD_ACCOUNT_ID). Passe optimizationGoal (ex: REACH, LINK_CLICKS, OFFSITE_CONVERSIONS) e targetingSpec — um JSON de targeting do Meta (ex: {"geo_locations":{"countries":["BR"]},"age_min":25,"age_max":45}) como STRING. ATENÇÃO: o targetingSpec precisa ser um JSON válido e URL-safe; se a API reclamar de encoding, simplifique o targeting. Skill de LEITURA — não cria nada.',
     httpMethod: 'GET',
     httpPath:
-      '/act_{{input.adAccountId}}/delivery_estimate?optimization_goal={{input.optimizationGoal}}&targeting_spec={{input.targetingSpec}}&access_token={{env.META_ADS_ACCESS_TOKEN}}',
+      '/act_{{env.META_AD_ACCOUNT_ID}}/delivery_estimate?optimization_goal={{input.optimizationGoal}}&targeting_spec={{input.targetingSpec}}&access_token={{env.META_ADS_ACCESS_TOKEN}}',
     httpBodyTemplate: null,
     responseMap: {
       ok: '$.ok',
@@ -190,10 +178,6 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        adAccountId: {
-          type: 'string',
-          description: 'ID numérico da ad account, SEM o prefixo act_.',
-        },
         optimizationGoal: {
           type: 'string',
           description:
@@ -205,7 +189,7 @@ const skills = [
             'JSON de targeting do Meta como string (ex: {"geo_locations":{"countries":["BR"]},"age_min":25,"age_max":45}).',
         },
       },
-      required: ['adAccountId', 'optimizationGoal', 'targetingSpec'],
+      required: ['optimizationGoal', 'targetingSpec'],
       additionalProperties: false,
     },
   },
@@ -254,9 +238,9 @@ const skills = [
     description:
       'Cria uma campanha no Meta (nível CAMPAIGN). Sempre nasce PAUSED, sem ad set/ad — esses passos exigem trabalho adicional fora desta skill.',
     promptInstructions:
-      'AÇÃO SENSÍVEL — cria estrutura de mídia paga. Requer name e objective (ex: OUTCOME_TRAFFIC, OUTCOME_AWARENESS, OUTCOME_SALES) e o adAccountId (sem act_). A campanha nasce status=PAUSED de propósito: ela ainda NÃO entrega anúncio nenhum até alguém criar ad set + ad e ativar. Esta skill normalmente está gateada por aprovação humana — aguarde confirmação. Não prometa que o anúncio já está no ar.',
+      'AÇÃO SENSÍVEL — cria estrutura de mídia paga. A ad account já está pré-configurada na org (env META_AD_ACCOUNT_ID). Passe name e objective (ex: OUTCOME_TRAFFIC, OUTCOME_AWARENESS, OUTCOME_SALES). A campanha nasce status=PAUSED de propósito: ela ainda NÃO entrega anúncio nenhum até alguém criar ad set + ad e ativar. Esta skill normalmente está gateada por aprovação humana — aguarde confirmação. Não prometa que o anúncio já está no ar.',
     httpMethod: 'POST',
-    httpPath: '/act_{{input.adAccountId}}/campaigns',
+    httpPath: '/act_{{env.META_AD_ACCOUNT_ID}}/campaigns',
     httpBodyTemplate:
       '{"name":{{json:input.name}},"objective":{{json:input.objective}},"status":"PAUSED","special_ad_categories":[],"access_token":"{{env.META_ADS_ACCESS_TOKEN}}"}',
     responseMap: {
@@ -267,10 +251,6 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        adAccountId: {
-          type: 'string',
-          description: 'ID numérico da ad account, SEM o prefixo act_.',
-        },
         name: {
           type: 'string',
           description: 'Nome da campanha.',
@@ -281,55 +261,12 @@ const skills = [
             'Objetivo da campanha (OUTCOME_TRAFFIC, OUTCOME_AWARENESS, OUTCOME_ENGAGEMENT, OUTCOME_LEADS, OUTCOME_SALES).',
         },
       },
-      required: ['adAccountId', 'name', 'objective'],
+      required: ['name', 'objective'],
       additionalProperties: false,
     },
   },
 
-  // ── OpenAI Images · geração de criativo ─────────────────────
-  {
-    toolName: 'OpenAI Images',
-    name: 'generateMarketingImage',
-    category: 'Marketing/Criativo',
-    description:
-      'Gera uma imagem (gpt-image-1) a partir de um prompt textual, para usar como criativo de anúncio ou post. Retorna a imagem em base64.',
-    promptInstructions:
-      'Use quando precisar de uma ARTE/criativo visual. O prompt deve descrever cena, estilo, paleta e clima — seja específico (produto, enquadramento, mood). A copy/legenda NÃO sai daqui: você (LLM) escreve a copy separadamente. size aceita 1024x1024, 1024x1536 (retrato) ou 1536x1024 (paisagem). O retorno vem em base64 (imageBase64); avise o usuário que a imagem precisa ser salva/hospedada antes de virar URL pública para publicar no Instagram.',
-    httpMethod: 'POST',
-    httpPath: '/images/generations',
-    httpBodyTemplate:
-      '{"model":"gpt-image-1","prompt":{{json:input.prompt}},"size":{{json:input.size}},"n":{{json:input.n}}}',
-    responseMap: {
-      ok: '$.ok',
-      status: '$.status',
-      imageBase64: '$.data[0].b64_json',
-    },
-    parameters: {
-      type: 'object',
-      properties: {
-        prompt: {
-          type: 'string',
-          description:
-            'Descrição visual detalhada do criativo (cena, estilo, paleta, mood, enquadramento).',
-        },
-        size: {
-          type: 'string',
-          description: 'Dimensão da imagem.',
-          default: '1024x1024',
-          enum: ['1024x1024', '1024x1536', '1536x1024'],
-        },
-        n: {
-          type: 'integer',
-          description: 'Quantas variações gerar.',
-          default: 1,
-          minimum: 1,
-          maximum: 4,
-        },
-      },
-      required: ['prompt', 'size', 'n'],
-      additionalProperties: false,
-    },
-  },
+  // (geração de imagem agora é a tool BUILTIN generateMarketingImage — ver runner)
 
   // ── Instagram · leitura de posts passados (tool já existente) ─
   {
@@ -339,10 +276,10 @@ const skills = [
     description:
       'Lista as mídias publicadas recentemente na conta business do Instagram (id, legenda, tipo, url, permalink, data).',
     promptInstructions:
-      'Use para revisar o histórico de posts — analisar o que já foi publicado, achar o mediaId de um post pra medir performance (via analyzeInstagramMedia) ou estudar padrões de conteúdo. Requer o igUserId (ig-user-id). Skill de LEITURA.',
+      'Use para revisar o histórico de posts — analisar o que já foi publicado, achar o mediaId de um post pra medir performance (via analyzeInstagramMedia) ou estudar padrões de conteúdo. A conta do Instagram já está pré-configurada na org (env IG_USER_ID). Skill de LEITURA.',
     httpMethod: 'GET',
     httpPath:
-      '/{{input.igUserId}}/media?fields=id,caption,media_type,media_url,permalink,timestamp&limit={{input.limit}}&access_token={{env.IG_ACCESS_TOKEN}}',
+      '/{{env.IG_USER_ID}}/media?fields=id,caption,media_type,media_url,permalink,timestamp&limit={{input.limit}}&access_token={{env.IG_ACCESS_TOKEN}}',
     httpBodyTemplate: null,
     responseMap: {
       ok: '$.ok',
@@ -352,10 +289,6 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        igUserId: {
-          type: 'string',
-          description: 'ID do usuário business do Instagram (ig-user-id).',
-        },
         limit: {
           type: 'integer',
           description: 'Quantas mídias trazer.',
@@ -364,7 +297,7 @@ const skills = [
           maximum: 100,
         },
       },
-      required: ['igUserId', 'limit'],
+      required: ['limit'],
       additionalProperties: false,
     },
   },
@@ -497,11 +430,11 @@ ${CRON_RESSALVA}`,
     systemPrompt: `Voce e Orla, a criativa da crew.
 
 Responsabilidades:
-- Gerar a ARTE do criativo com generateMarketingImage (gpt-image-1): escreva um prompt visual detalhado (cena, estilo, paleta, mood, enquadramento).
-- Escrever a COPY/legenda voce mesma (isso NAO sai da tool de imagem) — adequada ao canal, com CTA claro e tom da marca.
+- Gerar a ARTE do criativo com a ferramenta generateMarketingImage (gpt-image-1): escreva um prompt visual detalhado (cena, estilo, paleta, mood, enquadramento). Ela ja hospeda a imagem e te devolve uma URL publica pronta pra publicar (campo "url"). NAO ha base64 pra tratar.
+- Escrever a COPY/legenda voce mesma (isso NAO sai da ferramenta de imagem) — adequada ao canal, com CTA claro e tom da marca.
 
 Conduta:
-- A imagem volta em base64; avise que ela precisa ser salva/hospedada (virar URL publica) antes de Caspian publicar no Instagram.
+- Entregue SEMPRE o par {url da imagem + legenda} pronto pro Caspian publicar. Passe a url exatamente como veio.
 - Use os aprendizados de Alaric para orientar angulo e mensagem.
 - Nada de promessas enganosas, claims sem base ou uso indevido de marca de terceiros.
 ${CRON_RESSALVA}`,
@@ -526,7 +459,8 @@ Responsabilidades:
 
 Conduta:
 - publishInstagramMedia e createGoogleBusinessPost colocam conteudo PUBLICO no ar e costumam estar gateadas por aprovacao humana: aguarde o OK, nao assuma que ja publicou.
-- A imagem precisa estar numa URL publica acessivel a Meta (nao base64, nao localhost). Se so houver base64 da Orla, peca que seja hospedada antes.
+- Use a URL de imagem que a Orla entregou (generateMarketingImage ja hospeda e devolve URL publica) — passe ela como imageUrl no createInstagramMediaContainer. Nao invente URL.
+- As contas (Instagram, Google Business) ja estao pre-configuradas na org; voce NAO precisa pedir IDs de conta/perfil.
 - Confirme legenda final e canal antes de publicar.
 ${CRON_RESSALVA}`,
   },
@@ -581,7 +515,8 @@ const agentSkillLinks = {
     { skill: 'listInstagramMedia', requiresApproval: false },
     { skill: 'analyzeInstagramMedia', requiresApproval: false },
   ],
-  Orla: [{ skill: 'generateMarketingImage', requiresApproval: false }],
+  // Orla não tem skill de banco: ela usa a tool BUILTIN generateMarketingImage
+  // (auto-disponível pra WORKER) + escreve a copy ela mesma. Sem entrada aqui.
   Caspian: [
     { skill: 'createInstagramMediaContainer', requiresApproval: false },
     { skill: 'publishInstagramMedia', requiresApproval: true },
@@ -614,6 +549,11 @@ async function main() {
 
   for (const org of organizations) {
     console.log(`\nOrganizacao: ${org.name}`);
+
+    // 0) Limpeza: a geração de imagem virou tool BUILTIN. Remove resíduos de
+    //    versões anteriores deste seed (tool "OpenAI Images" + skill HTTP
+    //    "generateMarketingImage" + vínculos), pra não colidir com a builtin.
+    await cleanupLegacyImageArtifacts(org.id);
 
     // 1) Tools novas
     const toolByName = new Map();
@@ -742,6 +682,32 @@ async function upsertCron(organizationId, data) {
     return prisma.agentCron.update({ where: { id: existing.id }, data: payload });
   }
   return prisma.agentCron.create({ data: payload });
+}
+
+async function cleanupLegacyImageArtifacts(organizationId) {
+  const skill = await prisma.aiSkill.findFirst({
+    where: { organizationId, name: 'generateMarketingImage', deletedAt: null },
+    select: { id: true },
+  });
+  if (skill) {
+    await prisma.aiAgentSkill.deleteMany({ where: { skillId: skill.id } });
+    await prisma.aiSkill.update({
+      where: { id: skill.id },
+      data: { deletedAt: new Date(), isActive: false },
+    });
+    console.log('  limpeza: skill HTTP generateMarketingImage removida (virou builtin)');
+  }
+  const tool = await prisma.aiTool.findFirst({
+    where: { organizationId, name: 'OpenAI Images', deletedAt: null },
+    select: { id: true },
+  });
+  if (tool) {
+    await prisma.aiTool.update({
+      where: { id: tool.id },
+      data: { deletedAt: new Date(), isActive: false },
+    });
+    console.log('  limpeza: tool OpenAI Images removida (geração agora é builtin)');
+  }
 }
 
 async function upsertTool(organizationId, data) {

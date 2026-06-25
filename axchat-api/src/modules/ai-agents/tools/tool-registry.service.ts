@@ -17,6 +17,7 @@ import { ConsultarN8nClienteTool } from './builtin/consultar-n8n-cliente.tool';
 import { ListarReunioesClienteTool } from './builtin/listar-reunioes-cliente.tool';
 import { LerTranscricaoReuniaoTool } from './builtin/ler-transcricao-reuniao.tool';
 import { AgendarReuniaoTool } from './builtin/agendar-reuniao.tool';
+import { GenerateMarketingImageTool } from './builtin/generate-marketing-image.tool';
 
 /**
  * Registry of BUILT-IN skills (named "tools" in the code for legacy reasons).
@@ -53,6 +54,7 @@ export class ToolRegistry {
     listarReunioesCliente: ListarReunioesClienteTool,
     lerTranscricaoReuniao: LerTranscricaoReuniaoTool,
     agendarReuniao: AgendarReuniaoTool,
+    generateMarketingImage: GenerateMarketingImageTool,
   ) {
     this.register(reply, ['ORCHESTRATOR', 'WORKER']);
     this.register(transfer, ['ORCHESTRATOR', 'WORKER']);
@@ -71,6 +73,9 @@ export class ToolRegistry {
     // Usado pra "não recebi o brinde" / "cadê o agente grátis" antes
     // de pedir email novamente ou prometer liberação.
     this.register(checkMembersAccess, ['ORCHESTRATOR', 'WORKER']);
+    // Criativo de marketing (gpt-image-1 + hospedagem). Worker only —
+    // a Orla usa pra gerar a arte; devolve URL pública pronta pra publicar.
+    this.register(generateMarketingImage, ['WORKER']);
 
     // Client-ops (implementação): restritas aos agentes do env
     // CLIENT_OPS_AGENT_IDS (csv) — default Sofia. Mexem com credenciais

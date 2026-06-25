@@ -6,6 +6,7 @@ import {
   Copy,
   Instagram,
   MapPin,
+  Sparkles,
   Loader2,
   Eye,
   EyeOff,
@@ -30,16 +31,23 @@ interface Endpoint {
   label: string;
 }
 
+// Cada credencial/ID que a org precisa preencher uma vez.
+interface Field {
+  key: string;
+  label: string;
+  hint: string;
+  secret: boolean; // token sensível (mascarado) vs ID público (texto)
+}
+
 interface Integration {
   id: string;
   name: string;
   icon: React.ElementType;
-  accent: string; // tailwind text color
+  accent: string;
   description: string;
   apiBase: string;
-  secretKey: string;
-  secretHint: string;
-  webhookUrl?: string; // só Meta/Instagram tem inbound webhook
+  fields: Field[];
+  webhookUrl?: string;
   endpoints: Endpoint[];
   setupUrl: string;
 }
@@ -51,17 +59,41 @@ const INTEGRATIONS: Integration[] = [
     icon: Instagram,
     accent: 'text-pink-600 dark:text-pink-400',
     description:
-      'Publicar posts, ler insights de mídia e responder comentários via Graph API. O webhook recebe DMs e eventos em tempo real.',
+      'Publicar posts, ler insights de mídia, responder comentários e gerir anúncios (Meta Ads). O webhook recebe DMs e eventos em tempo real.',
     apiBase: 'https://graph.facebook.com/v21.0',
-    secretKey: 'IG_ACCESS_TOKEN',
-    secretHint:
-      'Token de acesso de longa duração da conta business (Graph API). Gere no Meta for Developers > seu app > Instagram > tokens.',
+    fields: [
+      {
+        key: 'IG_ACCESS_TOKEN',
+        label: 'Token Instagram (Graph API)',
+        hint: 'Token de longa duração da conta business. Meta for Developers > seu app > Instagram > tokens.',
+        secret: true,
+      },
+      {
+        key: 'IG_USER_ID',
+        label: 'IG User ID (ig-user-id)',
+        hint: 'ID numérico da conta business do Instagram. As skills de publicação/leitura usam este ID automaticamente.',
+        secret: false,
+      },
+      {
+        key: 'META_ADS_ACCESS_TOKEN',
+        label: 'Token Meta Ads (Marketing API)',
+        hint: 'Token com permissão ads_management/ads_read para gerir campanhas e ler insights.',
+        secret: true,
+      },
+      {
+        key: 'META_AD_ACCOUNT_ID',
+        label: 'Ad Account ID',
+        hint: 'ID numérico da conta de anúncios SEM o prefixo "act_". As skills do Wystan adicionam o prefixo sozinhas.',
+        secret: false,
+      },
+    ],
     webhookUrl: `${API_BASE}/webhooks/INSTAGRAM`,
     endpoints: [
       { method: 'GET', path: '/{ig-media-id}/insights', label: 'Métricas/insights de uma mídia' },
       { method: 'POST', path: '/{ig-user-id}/media', label: 'Cria container do post (passo 1)' },
       { method: 'POST', path: '/{ig-user-id}/media_publish', label: 'Publica o container (passo 2)' },
-      { method: 'POST', path: '/{ig-comment-id}/replies', label: 'Responde a um comentário' },
+      { method: 'GET', path: '/act_{ad-account}/insights', label: 'Insights da conta de anúncios' },
+      { method: 'POST', path: '/act_{ad-account}/campaigns', label: 'Cria/lista campanhas' },
     ],
     setupUrl: 'https://developers.facebook.com/apps',
   },
@@ -73,15 +105,53 @@ const INTEGRATIONS: Integration[] = [
     description:
       'Publicar posts e gerenciar avaliações (reviews) do perfil do Google Business. Sem webhook — as skills consultam a API sob demanda.',
     apiBase: 'https://mybusiness.googleapis.com/v4',
-    secretKey: 'GBP_ACCESS_TOKEN',
-    secretHint:
-      'Access token OAuth com escopo do Business Profile. Gere no Google Cloud Console > credenciais OAuth.',
+    fields: [
+      {
+        key: 'GBP_ACCESS_TOKEN',
+        label: 'Access Token (OAuth)',
+        hint: 'Token OAuth com escopo do Business Profile. Google Cloud Console > credenciais OAuth.',
+        secret: true,
+      },
+      {
+        key: 'GBP_ACCOUNT_ID',
+        label: 'Account ID',
+        hint: 'ID da conta no Google Business (parte numérica de accounts/{id}).',
+        secret: false,
+      },
+      {
+        key: 'GBP_LOCATION_ID',
+        label: 'Location ID',
+        hint: 'ID da localização (parte numérica de locations/{id}).',
+        secret: false,
+      },
+    ],
     endpoints: [
       { method: 'POST', path: '/accounts/{account}/locations/{location}/localPosts', label: 'Cria um post' },
       { method: 'GET', path: '/accounts/{account}/locations/{location}/reviews', label: 'Lista avaliações' },
       { method: 'PUT', path: '/accounts/{account}/locations/{location}/reviews/{review}/reply', label: 'Responde uma avaliação' },
     ],
     setupUrl: 'https://console.cloud.google.com/apis/credentials',
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI (imagem)',
+    icon: Sparkles,
+    accent: 'text-emerald-600 dark:text-emerald-400',
+    description:
+      'Geração de criativos (gpt-image-1) para a agente Orla. A imagem é gerada e hospedada automaticamente, devolvendo uma URL pública pronta pra publicar.',
+    apiBase: 'https://api.openai.com/v1',
+    fields: [
+      {
+        key: 'OPENAI_API_KEY',
+        label: 'API Key',
+        hint: 'Chave secreta da OpenAI (sk-...). Usada pela ferramenta generateMarketingImage.',
+        secret: true,
+      },
+    ],
+    endpoints: [
+      { method: 'POST', path: '/images/generations', label: 'Gera a arte (gpt-image-1)' },
+    ],
+    setupUrl: 'https://platform.openai.com/api-keys',
   },
 ];
 
@@ -113,9 +183,9 @@ export function IntegrationsView() {
           Integrações de Marketing
         </h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Conecte Instagram/Meta e Google Business para os agentes de marketing
-          publicarem, responderem e lerem métricas. Configure a credencial de
-          cada plataforma e registre o webhook onde indicado.
+          Cada organização preenche suas credenciais e IDs aqui uma vez. Depois
+          disso os agentes de marketing operam de forma autônoma — eles puxam
+          tokens e IDs automaticamente, sem precisar perguntar a ninguém.
         </p>
       </div>
 
@@ -129,7 +199,7 @@ export function IntegrationsView() {
           <IntegrationCard
             key={it.id}
             integration={it}
-            configured={configuredKeys.has(it.secretKey)}
+            configuredKeys={configuredKeys}
             onSaved={load}
           />
         ))
@@ -140,43 +210,20 @@ export function IntegrationsView() {
 
 function IntegrationCard({
   integration,
-  configured,
+  configuredKeys,
   onSaved,
 }: {
   integration: Integration;
-  configured: boolean;
+  configuredKeys: Set<string>;
   onSaved: () => void;
 }) {
   const Icon = integration.icon;
-  const [tokenValue, setTokenValue] = useState('');
-  const [showValue, setShowValue] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!tokenValue.trim()) {
-      toast.error('Informe o valor da credencial');
-      return;
-    }
-    setSaving(true);
-    try {
-      await secretsService.upsert({
-        key: integration.secretKey,
-        value: tokenValue.trim(),
-      });
-      toast.success(`${integration.secretKey} salvo`);
-      setTokenValue('');
-      setShowValue(false);
-      onSaved();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Erro ao salvar credencial');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const total = integration.fields.length;
+  const done = integration.fields.filter((f) => configuredKeys.has(f.key)).length;
+  const allDone = done === total;
 
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 dark:border-white/10">
         <div className="flex items-center gap-3">
           <span className={`flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 dark:bg-white/5 ${integration.accent}`}>
@@ -189,15 +236,15 @@ function IntegrationCard({
             <p className="text-xs text-zinc-500">{integration.apiBase}</p>
           </div>
         </div>
-        {configured ? (
+        {allDone ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
             <CircleCheck className="h-3.5 w-3.5" />
-            Credencial ativa
+            Tudo configurado
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
             <CircleAlert className="h-3.5 w-3.5" />
-            Falta credencial
+            {done}/{total} configuradas
           </span>
         )}
       </div>
@@ -207,7 +254,6 @@ function IntegrationCard({
           {integration.description}
         </p>
 
-        {/* Webhook (só Meta) */}
         {integration.webhookUrl && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
@@ -221,7 +267,21 @@ function IntegrationCard({
           </div>
         )}
 
-        {/* Endpoints */}
+        {/* Credenciais + IDs */}
+        <div className="space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Credenciais e IDs ({done}/{total})
+          </p>
+          {integration.fields.map((field) => (
+            <SecretField
+              key={field.key}
+              field={field}
+              configured={configuredKeys.has(field.key)}
+              onSaved={onSaved}
+            />
+          ))}
+        </div>
+
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Endpoints usados pelas skills ({integration.endpoints.length})
@@ -232,9 +292,7 @@ function IntegrationCard({
                 {integration.endpoints.map((ep) => (
                   <tr key={ep.path}>
                     <td className="px-3 py-2 align-top">
-                      <span
-                        className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${methodColor(ep.method)}`}
-                      >
+                      <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${methodColor(ep.method)}`}>
                         {ep.method}
                       </span>
                     </td>
@@ -250,46 +308,88 @@ function IntegrationCard({
             </table>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* Credencial */}
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Credencial · <span className="font-mono normal-case">{integration.secretKey}</span>
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">{integration.secretHint}</p>
-          <div className="mt-2 flex gap-2">
-            <div className="relative flex-1">
-              <input
-                value={tokenValue}
-                onChange={(e) => setTokenValue(e.target.value)}
-                type={showValue ? 'text' : 'password'}
-                placeholder={configured ? 'Substituir valor atual…' : 'Cole o token aqui'}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 pr-9 font-mono text-sm outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
-              />
-              {tokenValue && (
-                <button
-                  type="button"
-                  onClick={() => setShowValue((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
-                >
-                  {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              )}
-            </div>
+function SecretField({
+  field,
+  configured,
+  onSaved,
+}: {
+  field: Field;
+  configured: boolean;
+  onSaved: () => void;
+}) {
+  const [value, setValue] = useState('');
+  const [showValue, setShowValue] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!value.trim()) {
+      toast.error('Informe o valor');
+      return;
+    }
+    setSaving(true);
+    try {
+      await secretsService.upsert({ key: field.key, value: value.trim() });
+      toast.success(`${field.key} salvo`);
+      setValue('');
+      setShowValue(false);
+      onSaved();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+          {field.label} ·{' '}
+          <span className="font-mono text-[11px] font-normal text-zinc-400">{field.key}</span>
+        </p>
+        {configured ? (
+          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+            <CircleCheck className="h-3 w-3" /> ok
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+            <CircleAlert className="h-3 w-3" /> falta
+          </span>
+        )}
+      </div>
+      <p className="mt-0.5 text-[11px] text-zinc-500">{field.hint}</p>
+      <div className="mt-1.5 flex gap-2">
+        <div className="relative flex-1">
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            type={field.secret && !showValue ? 'password' : 'text'}
+            placeholder={configured ? 'Substituir valor atual…' : `Cole ${field.secret ? 'o token' : 'o ID'} aqui`}
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 pr-9 font-mono text-sm outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+          />
+          {field.secret && value && (
             <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              type="button"
+              onClick={() => setShowValue((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300"
             >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {configured ? 'Atualizar' : 'Salvar'}
+              {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
-          </div>
-          <p className="mt-1.5 text-[11px] text-zinc-400">
-            Salvo como variável de ambiente da organização. As skills consomem
-            via <span className="font-mono">{`{{env.${integration.secretKey}}}`}</span>.
-          </p>
+          )}
         </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+        >
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          {configured ? 'Atualizar' : 'Salvar'}
+        </button>
       </div>
     </div>
   );

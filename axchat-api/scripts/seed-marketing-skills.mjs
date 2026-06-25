@@ -85,9 +85,9 @@ const skills = [
     description:
       'Cria um container de mídia no Instagram (passo 1/2 da publicação). Retorna um creationId que deve ser passado pra publishInstagramMedia.',
     promptInstructions:
-      'Publicar post no Instagram é um fluxo de 2 etapas: (1) chame esta skill com igUserId + imageUrl (ou videoUrl) + caption; (2) pegue o `creationId` do retorno e passe pra `publishInstagramMedia`. NÃO publique automaticamente após criar o container sem confirmar com o usuário, exceto se ele já deu OK explícito. Caption suporta hashtags e quebras de linha.',
+      'Publicar post no Instagram é um fluxo de 2 etapas: (1) chame esta skill com imageUrl (URL pública, ex: a que a Orla gerou) + caption; (2) pegue o `creationId` do retorno e passe pra `publishInstagramMedia`. A conta do Instagram já está pré-configurada na org (env IG_USER_ID) — não peça o ID. NÃO publique automaticamente após criar o container sem confirmar com o usuário, exceto se ele já deu OK explícito. Caption suporta hashtags e quebras de linha.',
     httpMethod: 'POST',
-    httpPath: '/{{input.igUserId}}/media',
+    httpPath: '/{{env.IG_USER_ID}}/media',
     httpBodyTemplate:
       '{"image_url":{{json:input.imageUrl}},"caption":{{json:input.caption}},"access_token":"{{env.IG_ACCESS_TOKEN}}"}',
     responseMap: {
@@ -98,10 +98,6 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        igUserId: {
-          type: 'string',
-          description: 'ID do usuário business do Instagram (ig-user-id).',
-        },
         imageUrl: {
           type: 'string',
           description:
@@ -113,7 +109,7 @@ const skills = [
             'Legenda do post, com hashtags e quebras de linha. Pode estar vazia.',
         },
       },
-      required: ['igUserId', 'imageUrl', 'caption'],
+      required: ['imageUrl', 'caption'],
       additionalProperties: false,
     },
   },
@@ -126,9 +122,9 @@ const skills = [
     description:
       'Publica um container previamente criado por createInstagramMediaContainer. Passo 2/2 do fluxo de publicação no feed.',
     promptInstructions:
-      'Só chame esta skill DEPOIS de criar o container via `createInstagramMediaContainer` e ter o creationId em mãos. Esta é a ação que efetivamente faz o post aparecer no perfil — peça confirmação explícita ao usuário antes se a skill não estiver gateada por aprovação.',
+      'Só chame esta skill DEPOIS de criar o container via `createInstagramMediaContainer` e ter o creationId em mãos. A conta já está pré-configurada na org (env IG_USER_ID). Esta é a ação que efetivamente faz o post aparecer no perfil — peça confirmação explícita ao usuário antes se a skill não estiver gateada por aprovação.',
     httpMethod: 'POST',
-    httpPath: '/{{input.igUserId}}/media_publish',
+    httpPath: '/{{env.IG_USER_ID}}/media_publish',
     httpBodyTemplate:
       '{"creation_id":{{json:input.creationId}},"access_token":"{{env.IG_ACCESS_TOKEN}}"}',
     responseMap: {
@@ -139,16 +135,12 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        igUserId: {
-          type: 'string',
-          description: 'ID do usuário business do Instagram (ig-user-id).',
-        },
         creationId: {
           type: 'string',
           description: 'creationId retornado por createInstagramMediaContainer.',
         },
       },
-      required: ['igUserId', 'creationId'],
+      required: ['creationId'],
       additionalProperties: false,
     },
   },
@@ -197,9 +189,9 @@ const skills = [
     description:
       'Cria um post (localPost) numa localização do Google Business Profile. Tipo padrão STANDARD com summary obrigatório.',
     promptInstructions:
-      'Use quando o usuário pedir pra publicar um post no perfil do Google Business. Requer accountId e locationId da localização. Summary é o texto principal (até 1500 chars). topicType padrão é STANDARD; OFFER e EVENT exigem campos extras que esta skill não cobre — pra esses casos avise o usuário e devolva ao humano.',
+      'Use quando o usuário pedir pra publicar um post no perfil do Google Business. A conta e a localização já estão pré-configuradas na org (env GBP_ACCOUNT_ID e GBP_LOCATION_ID) — não peça esses IDs. Summary é o texto principal (até 1500 chars). topicType padrão é STANDARD; OFFER e EVENT exigem campos extras que esta skill não cobre — pra esses casos avise o usuário e devolva ao humano.',
     httpMethod: 'POST',
-    httpPath: '/accounts/{{input.accountId}}/locations/{{input.locationId}}/localPosts',
+    httpPath: '/accounts/{{env.GBP_ACCOUNT_ID}}/locations/{{env.GBP_LOCATION_ID}}/localPosts',
     httpBodyTemplate:
       '{"languageCode":"pt-BR","summary":{{json:input.summary}},"topicType":"STANDARD"}',
     responseMap: {
@@ -210,20 +202,12 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        accountId: {
-          type: 'string',
-          description: 'ID da conta no Google Business (accounts/{id}).',
-        },
-        locationId: {
-          type: 'string',
-          description: 'ID da localização (locations/{id}).',
-        },
         summary: {
           type: 'string',
           description: 'Texto do post (até 1500 caracteres).',
         },
       },
-      required: ['accountId', 'locationId', 'summary'],
+      required: ['summary'],
       additionalProperties: false,
     },
   },
@@ -236,10 +220,10 @@ const skills = [
     description:
       'Lista as avaliações (reviews) recebidas numa localização do Google Business Profile, ordenadas da mais recente pra mais antiga.',
     promptInstructions:
-      'Use quando o usuário quiser ver as reviews recebidas — pra monitorar, classificar ou pedir resposta. pageSize padrão 20, ordenação por updateTime desc. O reviewId retornado em cada item é o que `replyToGoogleBusinessReview` precisa.',
+      'Use quando o usuário quiser ver as reviews recebidas — pra monitorar, classificar ou pedir resposta. A conta e a localização já estão pré-configuradas na org (env GBP_ACCOUNT_ID e GBP_LOCATION_ID). pageSize padrão 20, ordenação por updateTime desc. O reviewId retornado em cada item é o que `replyToGoogleBusinessReview` precisa.',
     httpMethod: 'GET',
     httpPath:
-      '/accounts/{{input.accountId}}/locations/{{input.locationId}}/reviews?pageSize={{input.pageSize}}&orderBy=updateTime%20desc',
+      '/accounts/{{env.GBP_ACCOUNT_ID}}/locations/{{env.GBP_LOCATION_ID}}/reviews?pageSize={{input.pageSize}}&orderBy=updateTime%20desc',
     httpBodyTemplate: null,
     responseMap: {
       ok: '$.ok',
@@ -251,14 +235,6 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        accountId: {
-          type: 'string',
-          description: 'ID da conta no Google Business (accounts/{id}).',
-        },
-        locationId: {
-          type: 'string',
-          description: 'ID da localização (locations/{id}).',
-        },
         pageSize: {
           type: 'integer',
           description: 'Quantas reviews trazer (1-50).',
@@ -267,7 +243,7 @@ const skills = [
           maximum: 50,
         },
       },
-      required: ['accountId', 'locationId', 'pageSize'],
+      required: ['pageSize'],
       additionalProperties: false,
     },
   },
@@ -280,10 +256,10 @@ const skills = [
     description:
       'Publica/atualiza a resposta do estabelecimento a uma review específica do Google Business Profile.',
     promptInstructions:
-      'Use quando o usuário pedir pra responder uma review específica. Requer accountId, locationId e reviewId (este último vem de listGoogleBusinessReviews). Resposta tem que ser cordial e seguir as diretrizes do Google: sem dados pessoais do cliente, sem promessas comerciais, sem links suspeitos. Para reviews negativas, peça aprovação humana antes (não responda solo).',
+      'Use quando o usuário pedir pra responder uma review específica. A conta e a localização já estão pré-configuradas na org (env GBP_ACCOUNT_ID e GBP_LOCATION_ID); você só precisa do reviewId (vem de listGoogleBusinessReviews). Resposta tem que ser cordial e seguir as diretrizes do Google: sem dados pessoais do cliente, sem promessas comerciais, sem links suspeitos. Para reviews negativas, peça aprovação humana antes (não responda solo).',
     httpMethod: 'PUT',
     httpPath:
-      '/accounts/{{input.accountId}}/locations/{{input.locationId}}/reviews/{{input.reviewId}}/reply',
+      '/accounts/{{env.GBP_ACCOUNT_ID}}/locations/{{env.GBP_LOCATION_ID}}/reviews/{{input.reviewId}}/reply',
     httpBodyTemplate: '{"comment":{{json:input.comment}}}',
     responseMap: {
       ok: '$.ok',
@@ -294,14 +270,6 @@ const skills = [
     parameters: {
       type: 'object',
       properties: {
-        accountId: {
-          type: 'string',
-          description: 'ID da conta no Google Business (accounts/{id}).',
-        },
-        locationId: {
-          type: 'string',
-          description: 'ID da localização (locations/{id}).',
-        },
         reviewId: {
           type: 'string',
           description: 'ID da review (obtido via listGoogleBusinessReviews).',
@@ -312,7 +280,7 @@ const skills = [
             'Texto da resposta. Cordial, em PT-BR, sem dados pessoais do cliente.',
         },
       },
-      required: ['accountId', 'locationId', 'reviewId', 'comment'],
+      required: ['reviewId', 'comment'],
       additionalProperties: false,
     },
   },
