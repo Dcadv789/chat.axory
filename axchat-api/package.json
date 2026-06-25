@@ -14,6 +14,7 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:seed:agents": "node scripts/seed-ai-agents.mjs",
+    "prisma:seed:marketing": "node scripts/seed-marketing-skills.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",
