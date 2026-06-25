@@ -152,7 +152,7 @@ export default function AiAgentsPage() {
         {tab === 'skills' && <JarvisSkillsTab />}
         {tab === 'tools' && <JarvisToolsTab />}
         {tab === 'runs' && <JarvisRunsTab agentSector={agentSector} />}
-        {tab === 'watchdog' && <JarvisWatchdogTab />}
+        {tab === 'watchdog' && <JarvisWatchdogTab agentSector={agentSector} />}
         {tab === 'agent' && <JarvisAgentTab agentSector={agentSector} />}
       </div>
     </div>

@@ -19,10 +19,14 @@ import { aiAgentsService, type WatchdogConversationLite } from '../../services/a
  * - Lista de conversas em alerta (stuckAttempts > 0)
  * - Lista de conversas marcadas isStuck=true (precisam revisão humana)
  */
-export function JarvisWatchdogTab() {
+export function JarvisWatchdogTab({
+  agentSector,
+}: {
+  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+}) {
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['watchdog-stats'],
-    queryFn: () => aiAgentsService.watchdogStats(),
+    queryKey: ['watchdog-stats', agentSector ?? 'all'],
+    queryFn: () => aiAgentsService.watchdogStats(agentSector),
     refetchInterval: 15_000, // refetch automático a cada 15s
     staleTime: 5_000,
   });

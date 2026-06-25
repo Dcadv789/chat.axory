@@ -98,8 +98,11 @@ export class AgentsController {
     summary:
       'Snapshot do watchdog: KPIs (timers ativos, checks 24h, reativações, presas) + listas de conversas em alerta',
   })
-  watchdogStats(@CurrentOrg('id') orgId: string) {
-    return this.service.watchdogStats(orgId);
+  watchdogStats(
+    @CurrentOrg('id') orgId: string,
+    @Query('sector') sector?: string,
+  ) {
+    return this.service.watchdogStats(orgId, this.parseSector(sector));
   }
 
   @Get(':id/skills')

@@ -877,7 +877,10 @@ export class AgentsService {
    *   - lista das conversas com stuck_attempts > 0 (em alerta)
    *   - últimas conversas que entraram em isStuck=true (precisam atenção)
    */
-  async watchdogStats(organizationId: string) {
+  async watchdogStats(
+    organizationId: string,
+    sector?: 'ATENDIMENTO' | 'MARKETING',
+  ) {
     const org = await this.prisma.organization.findUniqueOrThrow({
       where: { id: organizationId },
       select: {
@@ -889,6 +892,11 @@ export class AgentsService {
     });
 
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // Conversas são separadas pelo setor do canal (via orquestrador padrão).
+    const convSector = sector
+      ? { channel: { defaultOrchestrator: { sector } } }
+      : {};
 
     const [
       activeTimers,
@@ -902,6 +910,7 @@ export class AgentsService {
         where: {
           organizationId,
           deletedAt: null,
+          ...convSector,
           watchdogJobId: { not: null },
         },
       }),
@@ -909,6 +918,7 @@ export class AgentsService {
         where: {
           organizationId,
           deletedAt: null,
+          ...convSector,
           lastWatchdogCheckAt: { gte: since24h },
         },
       }),
@@ -916,18 +926,20 @@ export class AgentsService {
         where: {
           organizationId,
           deletedAt: null,
+          ...convSector,
           lastWatchdogCheckAt: { gte: since24h },
           stuckAttempts: { gt: 0 },
         },
         _sum: { stuckAttempts: true },
       }),
       this.prisma.conversation.count({
-        where: { organizationId, deletedAt: null, isStuck: true },
+        where: { organizationId, deletedAt: null, ...convSector, isStuck: true },
       }),
       this.prisma.conversation.findMany({
         where: {
           organizationId,
           deletedAt: null,
+          ...convSector,
           stuckAttempts: { gt: 0 },
           isStuck: false,
         },
@@ -945,7 +957,7 @@ export class AgentsService {
         },
       }),
       this.prisma.conversation.findMany({
-        where: { organizationId, deletedAt: null, isStuck: true },
+        where: { organizationId, deletedAt: null, ...convSector, isStuck: true },
         orderBy: { lastWatchdogCheckAt: 'desc' },
         take: 10,
         select: {

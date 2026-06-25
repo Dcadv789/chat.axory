@@ -177,8 +177,10 @@ export const aiAgentsService = {
     return data.data ?? data;
   },
 
-  async watchdogStats(): Promise<WatchdogStats> {
-    const { data } = await api.get('/ai-agents/watchdog/stats');
+  async watchdogStats(sector?: AgentSector): Promise<WatchdogStats> {
+    const { data } = await api.get('/ai-agents/watchdog/stats', {
+      params: sector ? { sector } : undefined,
+    });
     return data.data ?? data;
   },
 
