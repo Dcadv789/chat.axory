@@ -291,34 +291,49 @@ export class HttpToolExecutorService {
     scopes: { input: Record<string, unknown>; ctx: ToolContext },
     orgSecrets: Map<string, string>,
   ): string {
-    return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, expr) => {
-      const [scope, ...rest] = String(expr).split('.');
-      const path = rest.join('.');
-      let source: Record<string, unknown> | undefined;
-      if (scope === 'input') source = scopes.input;
-      else if (scope === 'ctx') source = scopes.ctx as unknown as Record<string, unknown>;
-      else if (scope === 'env') {
-        // Tenta a secret da org primeiro, depois fallback pra env var do servidor
-        const orgValue = orgSecrets.get(path);
-        if (orgValue !== undefined) return orgValue;
-        const v = this.config.get<string>(path);
-        if (v === undefined) {
-          this.logger.warn(`Template references unknown env: ${path}`);
-          return '';
+    // `{{json:input.x}}` emite um literal JSON completo (string com aspas e
+    // escapes) — use em bodies JSON pra texto livre (legendas, comentários)
+    // que pode conter aspas/quebras de linha. `{{input.x}}` continua cru.
+    return template.replace(
+      /\{\{\s*(json:)?\s*([\w.]+)\s*\}\}/g,
+      (_match, jsonMod, expr) => {
+        const json = !!jsonMod;
+        const missing = () => (json ? 'null' : '');
+        const format = (v: unknown): string =>
+          json
+            ? JSON.stringify(v ?? null)
+            : typeof v === 'string'
+              ? v
+              : JSON.stringify(v);
+
+        const [scope, ...rest] = String(expr).split('.');
+        const path = rest.join('.');
+        let source: Record<string, unknown> | undefined;
+        if (scope === 'input') source = scopes.input;
+        else if (scope === 'ctx') source = scopes.ctx as unknown as Record<string, unknown>;
+        else if (scope === 'env') {
+          // Tenta a secret da org primeiro, depois fallback pra env var do servidor
+          const orgValue = orgSecrets.get(path);
+          if (orgValue !== undefined) return format(orgValue);
+          const v = this.config.get<string>(path);
+          if (v === undefined) {
+            this.logger.warn(`Template references unknown env: ${path}`);
+            return missing();
+          }
+          return format(v);
         }
-        return v;
-      }
-      if (!source) {
-        this.logger.warn(`Unknown template scope: ${scope}`);
-        return '';
-      }
-      const value = this.lookup(source, path);
-      if (value === undefined || value === null) {
-        this.logger.warn(`Unknown template path: ${expr}`);
-        return '';
-      }
-      return typeof value === 'string' ? value : JSON.stringify(value);
-    });
+        if (!source) {
+          this.logger.warn(`Unknown template scope: ${scope}`);
+          return missing();
+        }
+        const value = this.lookup(source, path);
+        if (value === undefined || value === null) {
+          this.logger.warn(`Unknown template path: ${expr}`);
+          return missing();
+        }
+        return format(value);
+      },
+    );
   }
 
   private mapResponse(

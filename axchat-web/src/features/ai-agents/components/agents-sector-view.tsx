@@ -2,20 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bot, Layers, Plus, Pencil, Power, PowerOff } from 'lucide-react';
+import { Bot, Plus, Pencil, Power, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { agentSectorsService, type AgentSector } from '../services/agent-sectors.service';
 import { aiAgentsService, type AiAgent } from '../services/ai-agents.service';
-import {
-  filterAgentsForSectorCards,
-  type SectorFilter,
-} from './agents-sector-utils';
+import { filterAgentsForSectorCards } from './agents-sector-utils';
 import { EditAgentDialog } from './edit-agent-dialog';
 import { CreateAgentDialog } from './create-agent-dialog';
 import { useOrgId } from '@/hooks/use-org-query-key';
 
 interface AgentsSectorViewProps {
-  sectorFilter: SectorFilter;
+  agentSector?: 'ATENDIMENTO' | 'MARKETING';
 }
 
 function AgentCard({
@@ -87,7 +84,7 @@ function AgentCard({
   );
 }
 
-export function AgentsSectorView({ sectorFilter }: AgentsSectorViewProps) {
+export function AgentsSectorView({ agentSector }: AgentsSectorViewProps) {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<AiAgent | null>(null);
@@ -99,8 +96,8 @@ export function AgentsSectorView({ sectorFilter }: AgentsSectorViewProps) {
   });
 
   const { data: agents = [], isLoading: agentsLoading } = useQuery({
-    queryKey: ['ai-agents', orgId],
-    queryFn: () => aiAgentsService.list(),
+    queryKey: ['ai-agents', orgId, agentSector ?? 'all'],
+    queryFn: () => aiAgentsService.list(agentSector),
   });
 
   const refresh = () => {
@@ -121,16 +118,6 @@ export function AgentsSectorView({ sectorFilter }: AgentsSectorViewProps) {
   const unassigned = useMemo(
     () => filterAgentsForSectorCards(agents, sectors, 'unassigned'),
     [agents, sectors],
-  );
-
-  const selectedSector = useMemo(
-    () => sectors.find((s) => s.id === sectorFilter) ?? null,
-    [sectors, sectorFilter],
-  );
-
-  const visibleAgents = useMemo(
-    () => filterAgentsForSectorCards(agents, sectors, sectorFilter),
-    [agents, sectors, sectorFilter],
   );
 
   const isLoading = sectorsLoading || agentsLoading;
@@ -164,7 +151,7 @@ export function AgentsSectorView({ sectorFilter }: AgentsSectorViewProps) {
               </p>
             </div>
           </div>
-        ) : sectorFilter === 'all' ? (
+        ) : (
           <div className="space-y-8">
             {sectors.map((sector) => {
               const sectorAgents = agents.filter((a) =>
@@ -203,44 +190,6 @@ export function AgentsSectorView({ sectorFilter }: AgentsSectorViewProps) {
               </div>
             )}
           </div>
-        ) : (
-          <div>
-            {sectorFilter !== 'unassigned' && selectedSector && (
-              <SectorHeader
-                name={selectedSector.name}
-                description={selectedSector.description || 'Setor sem descrição cadastrada.'}
-                color={selectedSector.color ?? '#8b5cf6'}
-                count={visibleAgents.length}
-              />
-            )}
-            {sectorFilter === 'unassigned' && (
-              <SectorHeader
-                name="Sem setor"
-                description="Agentes ainda não vinculados a nenhum setor de operação."
-                color="#a1a1aa"
-                count={visibleAgents.length}
-              />
-            )}
-
-            {visibleAgents.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 py-16 dark:border-white/10">
-                <Layers className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
-                <p className="mt-3 text-sm text-zinc-500">Nenhum agente neste setor.</p>
-              </div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {visibleAgents.map((agent) => (
-                  <AgentCard
-                    key={agent.id}
-                    agent={agent}
-                    dashed={sectorFilter === 'unassigned'}
-                    onEdit={() => setEditing(agent)}
-                    onToggleActive={handleToggleActive}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
         )}
       </div>
 
@@ -248,6 +197,7 @@ export function AgentsSectorView({ sectorFilter }: AgentsSectorViewProps) {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={refresh}
+        defaultSector={agentSector}
       />
       <EditAgentDialog
         agent={editing}

@@ -38,7 +38,6 @@ export function CreateAgentDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [kind, setKind] = useState<AgentKind>('WORKER');
-  const [sector, setSector] = useState<AgentSector>(defaultSector);
   const [category, setCategory] = useState('');
   const [modelId, setModelId] = useState('anthropic/claude-sonnet-4-6');
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT);
@@ -93,7 +92,7 @@ export function CreateAgentDialog({
         name: name.trim(),
         description: description.trim() || undefined,
         kind,
-        sector,
+        sector: defaultSector,
         category: category.trim() || undefined,
         modelId,
         systemPrompt: systemPrompt.trim(),
@@ -142,11 +141,12 @@ export function CreateAgentDialog({
   const eligibleParents = agents ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-black">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/10">
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-50 flex h-full w-full max-w-lg flex-col bg-white shadow-2xl dark:bg-black">
+        <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/10">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Novo agente
+            Novo agente · {defaultSector === 'MARKETING' ? 'Marketing' : 'Atendimento'}
           </h3>
           <button
             onClick={onClose}
@@ -156,7 +156,7 @@ export function CreateAgentDialog({
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-5">
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
           <div>
             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
               Nome *
@@ -238,20 +238,6 @@ export function CreateAgentDialog({
                       {a.name} {a.kind === 'ORCHESTRATOR' ? '(Orquestrador)' : ''}
                     </option>
                   ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  Setor
-                </label>
-                <select
-                  value={sector}
-                  onChange={(e) => setSector(e.target.value as AgentSector)}
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
-                >
-                  <option value="ATENDIMENTO">Atendimento</option>
-                  <option value="MARKETING">Marketing</option>
                 </select>
               </div>
 
@@ -401,7 +387,7 @@ export function CreateAgentDialog({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-white/10 dark:bg-black">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-zinc-200 bg-zinc-50 px-6 py-3 dark:border-white/10 dark:bg-black">
           <button
             onClick={onClose}
             className="rounded-md px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
