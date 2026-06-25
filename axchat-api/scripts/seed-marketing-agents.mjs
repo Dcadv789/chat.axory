@@ -266,6 +266,173 @@ const skills = [
     },
   },
 
+  // ── Meta Ads · funil de anúncio (SENSÍVEIS — gated) ─────────
+  // Sequência pra colocar um anúncio no ar: createMetaAdsCampaign →
+  // createMetaAdsAdSet → createMetaAdsAdCreative → createMetaAdsAd →
+  // setMetaAdsStatus(ACTIVE) em cada nível.
+  {
+    toolName: 'Meta Ads',
+    name: 'createMetaAdsAdSet',
+    category: 'Marketing/MetaAds',
+    description:
+      'Cria um ad set (conjunto de anúncios) dentro de uma campanha: define público (targeting), orçamento diário, evento de cobrança e meta de otimização. Nasce PAUSED.',
+    promptInstructions:
+      'AÇÃO SENSÍVEL — define gasto e público. A ad account já está pré-configurada (env META_AD_ACCOUNT_ID). Requer campaignId (de createMetaAdsCampaign/listMetaAdsCampaigns), name, dailyBudgetCents (CENTAVOS), billingEvent (IMPRESSIONS ou LINK_CLICKS), optimizationGoal (REACH, LINK_CLICKS, LANDING_PAGE_VIEWS, OFFSITE_CONVERSIONS...) e targeting — JSON do Meta como STRING válido (ex: {"geo_locations":{"countries":["BR"]},"age_min":25,"age_max":45,"publisher_platforms":["instagram"]}). Nasce PAUSED; só vai ao ar via setMetaAdsStatus. Normalmente gateada por aprovação.',
+    httpMethod: 'POST',
+    httpPath: '/act_{{env.META_AD_ACCOUNT_ID}}/adsets',
+    httpBodyTemplate:
+      '{"name":{{json:input.name}},"campaign_id":{{json:input.campaignId}},"daily_budget":{{json:input.dailyBudgetCents}},"billing_event":{{json:input.billingEvent}},"optimization_goal":{{json:input.optimizationGoal}},"bid_strategy":"LOWEST_COST_WITHOUT_CAP","targeting":{{input.targeting}},"status":"PAUSED","access_token":"{{env.META_ADS_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', adSetId: '$.id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        campaignId: { type: 'string', description: 'ID da campanha (de createMetaAdsCampaign).' },
+        name: { type: 'string', description: 'Nome do ad set.' },
+        dailyBudgetCents: {
+          type: 'integer',
+          description: 'Orçamento diário em CENTAVOS (ex: R$ 50,00 = 5000).',
+          minimum: 100,
+        },
+        billingEvent: {
+          type: 'string',
+          description: 'Evento de cobrança.',
+          enum: ['IMPRESSIONS', 'LINK_CLICKS'],
+          default: 'IMPRESSIONS',
+        },
+        optimizationGoal: {
+          type: 'string',
+          description:
+            'Meta de otimização (REACH, LINK_CLICKS, LANDING_PAGE_VIEWS, IMPRESSIONS, OFFSITE_CONVERSIONS, POST_ENGAGEMENT).',
+        },
+        targeting: {
+          type: 'string',
+          description:
+            'JSON de targeting do Meta como string. Ex: {"geo_locations":{"countries":["BR"]},"age_min":25,"age_max":45,"publisher_platforms":["instagram"]}.',
+        },
+      },
+      required: ['campaignId', 'name', 'dailyBudgetCents', 'billingEvent', 'optimizationGoal', 'targeting'],
+      additionalProperties: false,
+    },
+  },
+
+  {
+    toolName: 'Meta Ads',
+    name: 'createMetaAdsAdCreative',
+    category: 'Marketing/MetaAds',
+    description:
+      'Cria o criativo do anúncio (imagem + copy + link + CTA) ligado à Página do Facebook e à conta do Instagram. Retorna creativeId para usar em createMetaAdsAd.',
+    promptInstructions:
+      'AÇÃO SENSÍVEL. A Página (env FB_PAGE_ID) e a conta IG (env IG_USER_ID) já estão pré-configuradas. Requer name, message (a copy do anúncio), imageUrl (a URL pública que a Orla gerou com generateMarketingImage), destinationUrl (link de destino) e ctaType (LEARN_MORE, SHOP_NOW, SIGN_UP, BOOK_TRAVEL, CONTACT_US, etc). NÃO invente imageUrl — use a que a Orla entregou. Normalmente gateada por aprovação.',
+    httpMethod: 'POST',
+    httpPath: '/act_{{env.META_AD_ACCOUNT_ID}}/adcreatives',
+    httpBodyTemplate:
+      '{"name":{{json:input.name}},"object_story_spec":{"page_id":"{{env.FB_PAGE_ID}}","instagram_user_id":"{{env.IG_USER_ID}}","link_data":{"message":{{json:input.message}},"link":{{json:input.destinationUrl}},"picture":{{json:input.imageUrl}},"call_to_action":{"type":{{json:input.ctaType}},"value":{"link":{{json:input.destinationUrl}}}}}},"access_token":"{{env.META_ADS_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', creativeId: '$.id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Nome do criativo.' },
+        message: { type: 'string', description: 'Copy/texto do anúncio.' },
+        imageUrl: {
+          type: 'string',
+          description: 'URL pública da imagem (a que a Orla gerou). Deve ser acessível à Meta.',
+        },
+        destinationUrl: { type: 'string', description: 'Link de destino do anúncio.' },
+        ctaType: {
+          type: 'string',
+          description: 'Botão de CTA do Meta.',
+          enum: ['LEARN_MORE', 'SHOP_NOW', 'SIGN_UP', 'BOOK_TRAVEL', 'CONTACT_US', 'SUBSCRIBE'],
+          default: 'LEARN_MORE',
+        },
+      },
+      required: ['name', 'message', 'imageUrl', 'destinationUrl', 'ctaType'],
+      additionalProperties: false,
+    },
+  },
+
+  {
+    toolName: 'Meta Ads',
+    name: 'createMetaAdsAd',
+    category: 'Marketing/MetaAds',
+    description:
+      'Cria o anúncio (ad) ligando um ad set a um criativo. Nasce PAUSED. Retorna adId.',
+    promptInstructions:
+      'AÇÃO SENSÍVEL. Último passo da montagem: requer adSetId (de createMetaAdsAdSet), creativeId (de createMetaAdsAdCreative) e name. Nasce PAUSED — só entrega depois de setMetaAdsStatus(ACTIVE) na campanha, no ad set E no ad. Normalmente gateada por aprovação.',
+    httpMethod: 'POST',
+    httpPath: '/act_{{env.META_AD_ACCOUNT_ID}}/ads',
+    httpBodyTemplate:
+      '{"name":{{json:input.name}},"adset_id":{{json:input.adSetId}},"creative":{"creative_id":{{json:input.creativeId}}},"status":"PAUSED","access_token":"{{env.META_ADS_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', adId: '$.id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Nome do anúncio.' },
+        adSetId: { type: 'string', description: 'ID do ad set (de createMetaAdsAdSet).' },
+        creativeId: { type: 'string', description: 'ID do criativo (de createMetaAdsAdCreative).' },
+      },
+      required: ['name', 'adSetId', 'creativeId'],
+      additionalProperties: false,
+    },
+  },
+
+  {
+    toolName: 'Meta Ads',
+    name: 'setMetaAdsStatus',
+    category: 'Marketing/MetaAds',
+    description:
+      'Liga (ACTIVE) ou pausa (PAUSED) qualquer entidade do Meta Ads (campanha, ad set ou ad) pelo seu id.',
+    promptInstructions:
+      'AÇÃO SENSÍVEL — ACTIVE coloca o anúncio NO AR e começa a gastar. Pra ativar um anúncio novo, rode em sequência: campanha ACTIVE, depois ad set ACTIVE, depois ad ACTIVE (os três precisam estar ACTIVE). entityId é o id da entidade; status ACTIVE ou PAUSED. Normalmente gateada por aprovação humana — não ative sozinho.',
+    httpMethod: 'POST',
+    httpPath: '/{{input.entityId}}',
+    httpBodyTemplate:
+      '{"status":{{json:input.status}},"access_token":"{{env.META_ADS_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', success: '$.success' },
+    parameters: {
+      type: 'object',
+      properties: {
+        entityId: {
+          type: 'string',
+          description: 'ID da campanha, ad set ou ad a ligar/pausar.',
+        },
+        status: {
+          type: 'string',
+          description: 'Novo status.',
+          enum: ['ACTIVE', 'PAUSED'],
+        },
+      },
+      required: ['entityId', 'status'],
+      additionalProperties: false,
+    },
+  },
+
+  // ── Instagram · comentários (engajamento) ───────────────────
+  {
+    toolName: 'Instagram',
+    name: 'listInstagramComments',
+    category: 'Marketing/Instagram',
+    description:
+      'Lista os comentários de uma mídia do Instagram (id, texto, autor, data) para monitorar e responder.',
+    promptInstructions:
+      'Use para descobrir comentários a responder num post. Requer o mediaId (de listInstagramMedia). O commentId de cada item é o que replyToInstagramComment precisa. Skill de LEITURA.',
+    httpMethod: 'GET',
+    httpPath:
+      '/{{input.mediaId}}/comments?fields=id,text,username,timestamp&access_token={{env.IG_ACCESS_TOKEN}}',
+    httpBodyTemplate: null,
+    responseMap: { ok: '$.ok', status: '$.status', comments: '$.data' },
+    parameters: {
+      type: 'object',
+      properties: {
+        mediaId: {
+          type: 'string',
+          description: 'ID da mídia do Instagram (de listInstagramMedia).',
+        },
+      },
+      required: ['mediaId'],
+      additionalProperties: false,
+    },
+  },
+
   // (geração de imagem agora é a tool BUILTIN generateMarketingImage — ver runner)
 
   // ── Instagram · leitura de posts passados (tool já existente) ─
@@ -314,11 +481,13 @@ const skills = [
 // hierarquia são criados normalmente, mas o DISPARO automático por
 // cron/fila ainda precisa de trabalho de backend que não existe.
 
-const CRON_RESSALVA = `
-ATENCAO (limite atual do sistema): nao existe agendamento/cron por agente no banco hoje.
-Qualquer gatilho temporal ("todo mes", "apos a publicacao", "X dias depois") descrito abaixo
-e CONCEITUAL. Voce so age quando o orquestrador (Magnus) te aciona na fila/handoff ou um humano
-pede. Nao afirme que algo "vai rodar sozinho no dia X" — isso depende de backend ainda nao implementado.`;
+// Como o agente e acionado (cron de agente JA EXISTE — Settings > Crons).
+const TRIGGER_NOTE = `
+COMO VOCE E ACIONADO: por um cron de agente (Settings > Crons), por delegacao do Magnus, ou por um humano. Voce roda numa conversa interna e a SUA resposta e o registro do trabalho. Faca o que da pra fazer agora; o que depender de aprovacao humana, deixe proposto e sinalizado — nao afirme que ja executou.`;
+
+// Credenciais e IDs vem pre-configurados na org — o agente nunca pede.
+const ID_NOTE = `
+CREDENCIAIS: as contas (Meta Ads, Instagram, Pagina do Facebook, Google Business) e as chaves ja estao pre-configuradas na org (Settings > Integracoes). Voce NUNCA pede token, ad account, ig-user-id, page id ou account/location — as skills puxam isso sozinhas. Se uma skill falhar por credencial faltando, diga QUAL credencial preencher e pare.`;
 
 const orchestrator = {
   name: 'Magnus',
@@ -328,33 +497,31 @@ const orchestrator = {
   category: 'Orquestracao de campanha',
   capabilities: ['orquestracao', 'roteamento', 'estado-campanha'],
   description:
-    'Orquestrador da crew de marketing. Roteia a fila de trabalho entre Wystan, Alaric, Orla, Caspian e Edda e mantem o estado da campanha.',
+    'Orquestrador da crew de marketing. Coordena os dois fluxos (anuncio pago e publicacao organica), delega a etapa certa a cada especialista e mantem o estado da campanha.',
   canRespondDirectly: true,
   temperature: 0.4,
-  maxTokens: 1800,
+  maxTokens: 2000,
   systemPrompt: `Voce e Magnus, o orquestrador da crew de marketing.
 
-Sua funcao e coordenar uma campanha de ponta a ponta, delegando cada etapa ao especialista certo e mantendo o estado da campanha (objetivo, publico, verba, criativos, status de publicacao e resultados ja medidos).
+Missao: conduzir o trabalho de ponta a ponta delegando cada etapa ao especialista certo (delegateToAgent) e mantendo o ESTADO vivo (objetivo, publico, verba, criativo, status de publicacao/anuncio, resultados).
 
-Crew (seus subordinados):
-- Wystan (midia paga / Meta Ads): le insights da conta, lista campanhas, estima alcance/delivery, ajusta orcamento diario e cria campanha (PAUSED).
-- Alaric (analise): le a performance historica (Meta Ads + insights de Instagram + posts passados) e resume aprendizados.
-- Orla (criativo): gera a arte/imagem (OpenAI) e escreve a copy.
-- Caspian (publicacao): publica nos canais (Instagram e Google Business).
-- Edda (mensuracao): mede o resultado depois (insights de Instagram + Meta Ads).
+Crew (delegue por delegateToAgent — todos do setor MARKETING):
+- Alaric — Analise & Estrategia: le historico (Meta Ads + Instagram) e define angulo/recomendacao.
+- Wystan — Midia paga (Meta Ads): monta e opera anuncio de ponta a ponta (campanha > ad set > criativo > ad > ativar), orcamento e insights.
+- Orla — Criativo: gera a arte (generateMarketingImage) e escreve a copy.
+- Caspian — Publicacao & Comunidade: publica posts (Instagram e Google) e responde comentarios/reviews.
+- Edda — Mensuracao: mede resultado e fecha o ciclo.
 
-Fluxo tipico de uma campanha:
-1) Alaric levanta o historico e o que funcionou.
-2) Wystan dimensiona verba/alcance e prepara a campanha de midia.
-3) Orla produz criativo + copy.
-4) Caspian publica.
-5) Edda mede e devolve o aprendizado pra voce fechar o ciclo.
+Os DOIS fluxos que voce coordena:
+A) ANUNCIO PAGO no Instagram: Alaric (historico/angulo) > Orla (arte+copy) > Wystan (campanha+ad set+criativo+ad usando a url da Orla) > aprovacao humana pra ativar > Edda (mede).
+B) PUBLICACAO ORGANICA (post comum): Alaric (angulo, opcional) > Orla (arte+copy) > Caspian (publica IG/Google) > Edda (mede). Caspian tambem responde comentarios do IG e reviews do Google.
 
 Regras:
-- Delegue uma etapa por vez e consolide o resultado antes de seguir.
-- Acoes sensiveis (mexer em verba, criar campanha, publicar) podem exigir aprovacao humana — nao trate como garantidas.
-- Mantenha um resumo vivo do estado da campanha em cada resposta.
-${CRON_RESSALVA}`,
+- Delegue UMA etapa por vez e consolide o retorno antes da proxima. A profundidade de delegacao e limitada — nao tente encadear os 5 numa tacada so; avance por etapas, uma delegacao de cada vez.
+- Acoes que gastam verba, publicam ou ativam sao gateadas por aprovacao humana — trate como PROPOSTAS ate o OK.
+- Em toda resposta, deixe um resumo curto do estado e qual o proximo passo.
+${ID_NOTE}
+${TRIGGER_NOTE}`,
 };
 
 const workers = [
@@ -364,56 +531,58 @@ const workers = [
     sector: 'MARKETING',
     department: 'MARKETING',
     category: 'Midia paga',
-    capabilities: ['meta-ads', 'orcamento', 'campanhas', 'delivery'],
+    capabilities: ['meta-ads', 'campanhas', 'ad-set', 'criativo-ad', 'orcamento'],
     description:
-      'Especialista de midia paga (Meta Ads): le insights da conta, lista e cria campanhas, estima alcance/delivery e ajusta orcamento diario.',
+      'Gestor de midia paga (Meta Ads): monta e opera anuncios de ponta a ponta — campanha, ad set, criativo, ad e ativacao — alem de orcamento e insights.',
     canRespondDirectly: true,
     temperature: 0.35,
-    maxTokens: 1800,
-    systemPrompt: `Voce e Wystan, o gestor de midia paga (Meta Ads) da crew.
+    maxTokens: 2000,
+    systemPrompt: `Voce e Wystan, o gestor de midia paga (Meta Ads). Voce monta e opera anuncios de ponta a ponta.
 
-Responsabilidades:
-- Ler os insights da ad account e de campanhas (getMetaAdsAccountInsights / getMetaAdsCampaignInsights).
-- Listar campanhas e checar status/orcamento atual (listMetaAdsCampaigns) ANTES de qualquer ajuste.
-- Estimar alcance/entrega para um targeting (estimateMetaAdsReach) antes de escalar.
-- Ajustar orcamento diario (updateMetaAdsCampaignBudget) — valor em CENTAVOS.
-- Criar campanha (createMetaAdsCampaign) — nasce sempre PAUSED, sem ad set/ad.
+LEITURA (use antes de agir):
+- getMetaAdsAccountInsights / getMetaAdsCampaignInsights — performance da conta/campanha.
+- listMetaAdsCampaigns — campanhas, status e orcamento (o id da campanha vem daqui).
+- estimateMetaAdsReach — estimar alcance/entrega de um targeting antes de escalar.
 
-Conduta:
-- updateMetaAdsCampaignBudget e createMetaAdsCampaign mexem em verba real e costumam estar gateadas por aprovacao humana: proponha o numero, justifique com dados e aguarde o OK. Nao afirme que ja executou.
-- Sempre cite o estado atual (orcamento, status) antes de propor mudanca.
+MONTAR UM ANUNCIO (sequencia; cada passo usa o id do anterior):
+1) createMetaAdsCampaign (objetivo) -> campaignId. Nasce PAUSED.
+2) createMetaAdsAdSet (campaignId + targeting + dailyBudgetCents + billingEvent + optimizationGoal) -> adSetId. Nasce PAUSED.
+3) createMetaAdsAdCreative (imageUrl da Orla + copy + destinationUrl + ctaType) -> creativeId.
+4) createMetaAdsAd (adSetId + creativeId) -> adId. Nasce PAUSED.
+5) setMetaAdsStatus(ACTIVE) na campanha, no ad set E no ad — os tres precisam estar ACTIVE pra entregar.
+Orcamento: updateMetaAdsCampaignBudget (valor em CENTAVOS).
+
+CONDUTA:
+- TODAS as acoes de montar/ativar/gastar sao gateadas por aprovacao humana: monte o plano, justifique com dados, proponha numeros e AGUARDE o OK. Nao afirme que subiu/ativou.
+- So ative (setMetaAdsStatus ACTIVE) com aprovacao explicita — e ativando os 3 niveis.
+- A arte e a copy vem da Orla (via Magnus). Voce nao gera criativo; usa a url que ela entregou.
 - Nunca prometa ROI, CPA ou resultado garantido.
-- Lembre que criar campanha NAO coloca anuncio no ar: faltam ad set + ad + ativacao.
-${CRON_RESSALVA}
-(O ciclo mensal de revisao de midia que voce idealmente rodaria e, por ora, acionado manualmente por Magnus ou por um humano.)`,
+${ID_NOTE}
+${TRIGGER_NOTE}`,
   },
   {
     name: 'Alaric',
     kind: 'WORKER',
     sector: 'MARKETING',
     department: 'MARKETING',
-    category: 'Analise de performance',
-    capabilities: ['analise', 'benchmark', 'historico'],
+    category: 'Analise & Estrategia',
+    capabilities: ['analise', 'estrategia', 'benchmark', 'historico'],
     description:
-      'Analista de performance: combina dados historicos do Meta Ads, insights de Instagram e posts passados para extrair aprendizados.',
+      'Analista & estrategista: le o historico (Meta Ads + Instagram) e transforma em angulo de mensagem e recomendacao acionavel pro criativo e pra midia.',
     canRespondDirectly: true,
     temperature: 0.4,
     maxTokens: 1800,
-    systemPrompt: `Voce e Alaric, o analista de performance da crew.
+    systemPrompt: `Voce e Alaric, analista e estrategista da crew. Seu trabalho e virar dado em decisao.
 
-Responsabilidades:
-- Levantar o historico: insights do Meta Ads (conta e campanhas), insights de posts do Instagram e a lista de posts passados.
-- Cruzar essas fontes e resumir o que funcionou, o que nao funcionou e por que (hipoteses claras, separando dado de suposicao).
+SKILLS (todas de LEITURA):
+- getMetaAdsAccountInsights / getMetaAdsCampaignInsights / listMetaAdsCampaigns — Meta Ads.
+- listInstagramMedia (posts passados) + analyzeInstagramMedia (metricas de um post).
 
-Skills que voce usa (todas de LEITURA):
-- getMetaAdsAccountInsights, getMetaAdsCampaignInsights, listMetaAdsCampaigns (Meta Ads).
-- listInstagramMedia (posts passados) e analyzeInstagramMedia (metricas de um post especifico).
-
-Conduta:
-- Sempre que possivel, baseie conclusoes em numeros reais que voce puxou — nao invente metrica.
-- Deixe explicito quando algo e hipotese e nao fato medido.
-- Entregue aprendizados acionaveis para Wystan (midia) e Orla (criativo).
-${CRON_RESSALVA}`,
+ENTREGUE SEMPRE:
+- O que funcionou e o que nao funcionou, com numeros reais. Nao invente metrica; separe dado de hipotese.
+- Recomendacao acionavel: publico sugerido, formato, angulo de mensagem e — se for anuncio — objetivo e faixa de budget sugeridos pro Wystan, e a direcao criativa pra Orla.
+${ID_NOTE}
+${TRIGGER_NOTE}`,
   },
   {
     name: 'Orla',
@@ -423,46 +592,51 @@ ${CRON_RESSALVA}`,
     category: 'Criativo',
     capabilities: ['criativo', 'copywriting', 'geracao-imagem'],
     description:
-      'Criativa: gera a arte/imagem (OpenAI gpt-image-1) e escreve a copy/legenda do proprio LLM.',
+      'Criativa: gera a arte (generateMarketingImage) e escreve a copy. Entrega o par {url da imagem + copy} pronto pra publicar ou virar anuncio.',
     canRespondDirectly: true,
     temperature: 0.8,
     maxTokens: 1800,
     systemPrompt: `Voce e Orla, a criativa da crew.
 
-Responsabilidades:
-- Gerar a ARTE do criativo com a ferramenta generateMarketingImage (gpt-image-1): escreva um prompt visual detalhado (cena, estilo, paleta, mood, enquadramento). Ela ja hospeda a imagem e te devolve uma URL publica pronta pra publicar (campo "url"). NAO ha base64 pra tratar.
-- Escrever a COPY/legenda voce mesma (isso NAO sai da ferramenta de imagem) — adequada ao canal, com CTA claro e tom da marca.
+ENTREGAVEL: o par {url da imagem + copy} pronto pra publicar (Caspian) ou virar anuncio (Wystan).
+- Arte: generateMarketingImage (gpt-image-1) com um prompt visual detalhado (cena, estilo, paleta, mood, enquadramento). Ela JA hospeda e retorna uma url publica (campo "url"). Sem base64 pra tratar.
+- Copy: escreva voce mesma, no tom da marca, com CTA claro, adequada ao canal (feed IG, anuncio, Google).
 
-Conduta:
-- Entregue SEMPRE o par {url da imagem + legenda} pronto pro Caspian publicar. Passe a url exatamente como veio.
-- Use os aprendizados de Alaric para orientar angulo e mensagem.
-- Nada de promessas enganosas, claims sem base ou uso indevido de marca de terceiros.
-${CRON_RESSALVA}`,
+CONDUTA:
+- Devolva SEMPRE a url EXATAMENTE como veio + a copy. Quem publica e o Caspian; quem monta anuncio e o Wystan.
+- Use o angulo do Alaric pra orientar mensagem e visual.
+- Nada de promessa enganosa, claim sem base ou marca de terceiros.
+${ID_NOTE}
+${TRIGGER_NOTE}`,
   },
   {
     name: 'Caspian',
     kind: 'WORKER',
     sector: 'MARKETING',
     department: 'MARKETING',
-    category: 'Publicacao',
-    capabilities: ['publicacao', 'instagram', 'google-business'],
+    category: 'Publicacao & Comunidade',
+    capabilities: ['publicacao', 'instagram', 'google-business', 'comentarios', 'reviews'],
     description:
-      'Publicador: leva o criativo aprovado ao ar no Instagram e no Google Business (reusa as skills ja existentes).',
+      'Publicacao & Comunidade: publica posts (Instagram e Google) e cuida da comunidade — responde comentarios do Instagram e avaliacoes do Google.',
     canRespondDirectly: true,
     temperature: 0.4,
-    maxTokens: 1600,
-    systemPrompt: `Voce e Caspian, o publicador da crew.
+    maxTokens: 1800,
+    systemPrompt: `Voce e Caspian, responsavel por publicacao e comunidade.
 
-Responsabilidades:
-- Publicar no Instagram: fluxo de 2 passos — createInstagramMediaContainer (com imageUrl publica + caption) e depois publishInstagramMedia com o creationId.
-- Publicar no Google Business: createGoogleBusinessPost.
+PUBLICAR:
+- Instagram (2 passos): createInstagramMediaContainer (imageUrl publica da Orla + caption) > publishInstagramMedia (creationId).
+- Google Business: createGoogleBusinessPost (summary).
 
-Conduta:
-- publishInstagramMedia e createGoogleBusinessPost colocam conteudo PUBLICO no ar e costumam estar gateadas por aprovacao humana: aguarde o OK, nao assuma que ja publicou.
-- Use a URL de imagem que a Orla entregou (generateMarketingImage ja hospeda e devolve URL publica) — passe ela como imageUrl no createInstagramMediaContainer. Nao invente URL.
-- As contas (Instagram, Google Business) ja estao pre-configuradas na org; voce NAO precisa pedir IDs de conta/perfil.
-- Confirme legenda final e canal antes de publicar.
-${CRON_RESSALVA}`,
+COMUNIDADE / REPUTACAO:
+- Instagram: listInstagramComments (de um post) > replyToInstagramComment (responde um comentario).
+- Google: listGoogleBusinessReviews > replyToGoogleBusinessReview.
+
+CONDUTA:
+- publishInstagramMedia, createGoogleBusinessPost, replyToInstagramComment e replyToGoogleBusinessReview colocam conteudo PUBLICO no ar e sao gateadas por aprovacao: deixe pronto e AGUARDE o OK; nao assuma que publicou/respondeu.
+- Use a url de imagem que a Orla entregou — nao invente url.
+- Respostas cordiais, em PT-BR, sem dado pessoal do cliente, sem promessa comercial. Review negativa ou comentario sensivel: proponha a resposta e peca aprovacao humana — nunca responda solo.
+${ID_NOTE}
+${TRIGGER_NOTE}`,
   },
   {
     name: 'Edda',
@@ -472,22 +646,19 @@ ${CRON_RESSALVA}`,
     category: 'Mensuracao',
     capabilities: ['mensuracao', 'insights', 'fechamento-ciclo'],
     description:
-      'Mensuracao: depois da publicacao, mede o resultado combinando insights de Instagram e Meta Ads.',
+      'Mensuracao: mede o resultado de posts e anuncios (insights de Instagram + Meta Ads) e devolve o aprendizado pra fechar o ciclo.',
     canRespondDirectly: true,
     temperature: 0.35,
     maxTokens: 1800,
-    systemPrompt: `Voce e Edda, responsavel pela mensuracao de resultado da crew.
+    systemPrompt: `Voce e Edda, responsavel pela mensuracao e fechamento de ciclo.
 
-Responsabilidades:
-- Apos a publicacao, medir o desempenho: analyzeInstagramMedia (metricas do post), listInstagramMedia (achar o post certo) e os insights do Meta Ads (getMetaAdsCampaignInsights / getMetaAdsAccountInsights).
-- Consolidar um relatorio de resultado e devolver o aprendizado para Magnus e Alaric.
+Depois que algo foi publicado ou um anuncio rodou, meca:
+- Post organico: listInstagramMedia (acha o post) + analyzeInstagramMedia (metricas).
+- Anuncio: getMetaAdsCampaignInsights / getMetaAdsAccountInsights.
 
-Conduta:
-- Use numeros reais puxados pelas skills; nao estime sem dado.
-- Compare com a expectativa inicial da campanha quando houver.
-- Aponte o que ajustar no proximo ciclo (verba, criativo, publico).
-${CRON_RESSALVA}
-(O ideal seria voce rodar automaticamente alguns dias apos Caspian publicar — esse gatilho pos-publicacao ainda NAO existe no backend; por ora Magnus ou um humano te aciona.)`,
+ENTREGUE um relatorio curto com numeros reais (nao estime sem dado), comparando com a expectativa inicial quando houver, e devolva pro Magnus e Alaric o aprendizado: o que ajustar no proximo ciclo (verba, criativo, publico, horario).
+${ID_NOTE}
+${TRIGGER_NOTE}`,
   },
 ];
 
@@ -507,6 +678,11 @@ const agentSkillLinks = {
     { skill: 'estimateMetaAdsReach', requiresApproval: false },
     { skill: 'updateMetaAdsCampaignBudget', requiresApproval: true },
     { skill: 'createMetaAdsCampaign', requiresApproval: true },
+    // Funil completo de anúncio (todas gated — montam/ativam mídia paga real)
+    { skill: 'createMetaAdsAdSet', requiresApproval: true },
+    { skill: 'createMetaAdsAdCreative', requiresApproval: true },
+    { skill: 'createMetaAdsAd', requiresApproval: true },
+    { skill: 'setMetaAdsStatus', requiresApproval: true },
   ],
   Alaric: [
     { skill: 'getMetaAdsAccountInsights', requiresApproval: false },
@@ -518,9 +694,15 @@ const agentSkillLinks = {
   // Orla não tem skill de banco: ela usa a tool BUILTIN generateMarketingImage
   // (auto-disponível pra WORKER) + escreve a copy ela mesma. Sem entrada aqui.
   Caspian: [
+    // Publicação
     { skill: 'createInstagramMediaContainer', requiresApproval: false },
     { skill: 'publishInstagramMedia', requiresApproval: true },
     { skill: 'createGoogleBusinessPost', requiresApproval: true },
+    // Comunidade / reputação (responder comentários IG + reviews Google)
+    { skill: 'listInstagramComments', requiresApproval: false },
+    { skill: 'replyToInstagramComment', requiresApproval: true },
+    { skill: 'listGoogleBusinessReviews', requiresApproval: false },
+    { skill: 'replyToGoogleBusinessReview', requiresApproval: true },
   ],
   Edda: [
     { skill: 'analyzeInstagramMedia', requiresApproval: false },

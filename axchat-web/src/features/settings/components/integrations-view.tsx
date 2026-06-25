@@ -86,6 +86,12 @@ const INTEGRATIONS: Integration[] = [
         hint: 'ID numérico da conta de anúncios SEM o prefixo "act_". As skills do Wystan adicionam o prefixo sozinhas.',
         secret: false,
       },
+      {
+        key: 'FB_PAGE_ID',
+        label: 'Facebook Page ID',
+        hint: 'ID da Página do Facebook vinculada à conta. Necessário para criar o criativo do anúncio (object_story_spec).',
+        secret: false,
+      },
     ],
     webhookUrl: `${API_BASE}/webhooks/INSTAGRAM`,
     endpoints: [
