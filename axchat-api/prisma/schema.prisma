@@ -239,6 +239,7 @@ model Organization {
   aiModelProviders   AiModelProvider[]
   agentSectors       AgentSector[]
   organizationSecrets OrganizationSecret[]
+  agentCrons         AgentCron[]
 
   @@map("organizations")
 }
@@ -1063,6 +1064,7 @@ model AiAgent {
   skills       AiAgentSkill[]
   sectorMemberships AgentSectorAgent[]
   defaultOrchestratorForChannels Channel[] @relation("DefaultOrchestrator")
+  crons        AgentCron[]
 
   @@index([organizationId], name: "idx_ai_agent_org")
   @@index([organizationId, kind], name: "idx_ai_agent_org_kind")
@@ -1237,6 +1239,47 @@ model AiAgentSkill {
 
   @@id([agentId, skillId])
   @@map("ai_agent_skills")
+}
+
+// ─── Agendamento de agentes (cron) ────────────────────────────
+// Dispara um agente numa cadência cron, sem mensagem de cliente. O scheduler
+// (BullMQ tick de 1min) varre os crons vencidos (nextRunAt <= now), roda o
+// agente numa CONVERSA INTERNA (canal type=INTERNAL, outbound no-op) injetando
+// `task` como mensagem-gatilho, e recalcula nextRunAt. A saída do agente fica
+// como thread interna visível no inbox.
+model AgentCron {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  agentId        String  @map("agent_id")
+
+  name           String // rótulo humano, ex: "Revisão mensal de mídia"
+  task           String  @db.Text // o que o agente deve fazer quando disparar
+  cronExpression String  @map("cron_expression") // 5 campos, ex: "0 9 1 * *"
+  timezone       String  @default("America/Sao_Paulo")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  // Estado de execução — atualizado a cada disparo.
+  lastRunAt  DateTime? @map("last_run_at")
+  lastRunId  String?   @map("last_run_id") // AiAgentRun.id do último disparo
+  lastStatus String?   @map("last_status") // COMPLETED | FAILED | SKIPPED
+  lastError  String?   @map("last_error") @db.Text
+  nextRunAt  DateTime? @map("next_run_at")
+
+  // Conversa interna reutilizada como thread deste cron (uma por cron).
+  conversationId String? @map("conversation_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agent        AiAgent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId], name: "idx_agent_cron_org")
+  @@index([agentId], name: "idx_agent_cron_agent")
+  @@index([isActive, nextRunAt], name: "idx_agent_cron_due")
+  @@map("agent_crons")
 }
 
 model AiAgentChannel {

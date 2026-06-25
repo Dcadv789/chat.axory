@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../../database/prisma.module';
 import { LlmModule } from './llm/llm.module';
 import { ToolsModule } from './tools/tools.module';
@@ -29,6 +30,14 @@ import { ConfirmationExecutorModule } from './confirmations/confirmation-executo
 import { RagModule } from './rag/rag.module';
 import { EvalsModule } from './evals/evals.module';
 
+// ─── Agendamento de agentes (cron) ───────────────
+import { AgentCronsService } from './crons/agent-crons.service';
+import { AgentCronsController } from './crons/agent-crons.controller';
+import { AgentCronSchedulerService } from './crons/agent-cron-scheduler.service';
+import { AgentCronProcessor } from './crons/agent-cron.processor';
+import { CronTriggerService } from './crons/cron-trigger.service';
+import { IsCronExpressionConstraint } from './crons/dto/create-agent-cron.dto';
+
 @Module({
   imports: [
     ConfigModule,
@@ -46,8 +55,9 @@ import { EvalsModule } from './evals/evals.module';
     ConfirmationExecutorModule,
     RagModule,
     EvalsModule,
+    BullModule.registerQueue({ name: 'agent-crons' }),
   ],
-  controllers: [AgentsController, AiCatalogController],
+  controllers: [AgentsController, AiCatalogController, AgentCronsController],
   providers: [
     PromptBuilderService,
     AiAgentRunnerService,
@@ -59,6 +69,11 @@ import { EvalsModule } from './evals/evals.module';
     CatalogSyncService,
     MediaUrlResolverService,
     DatabaseIntrospectionService,
+    AgentCronsService,
+    AgentCronSchedulerService,
+    AgentCronProcessor,
+    CronTriggerService,
+    IsCronExpressionConstraint,
   ],
   exports: [AiAgentRunnerService, AgentRouterService],
 })

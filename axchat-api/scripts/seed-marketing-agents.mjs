@@ -692,7 +692,56 @@ async function main() {
       }
       console.log(`    vinculos de ${agentName}: ${links.length}`);
     }
+
+    // 7) Cron de exemplo — revisão mensal de mídia do Wystan.
+    //    Idempotente (findFirst por org+nome). nextRunAt aproximado
+    //    (dia 1 09:00 BRT); o scheduler recalcula com precisão no 1º
+    //    disparo, e a UI recalcula ao editar.
+    const wystanId = agentByName.get('Wystan');
+    if (wystanId) {
+      await upsertCron(org.id, {
+        agentId: wystanId,
+        name: 'Revisão mensal de mídia',
+        task:
+          'Revise a performance de mídia paga (Meta Ads) do último mês: puxe os insights da ad account e das campanhas, identifique as de pior CPA/CTR e proponha ajustes de orçamento diário. Liste claramente o que recomenda mudar e por quê — não aplique mudança de budget sem aprovação.',
+        cronExpression: '0 9 1 * *',
+        timezone: 'America/Sao_Paulo',
+        nextRunAt: nextMonthly9amBrt(),
+      });
+      console.log('    cron: Revisão mensal de mídia (Wystan, 0 9 1 * *)');
+    }
   }
+}
+
+// Próximo dia 1 às 09:00 BRT (UTC-3, fixo desde 2019) => 12:00 UTC.
+function nextMonthly9amBrt() {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 12, 0, 0),
+  );
+}
+
+async function upsertCron(organizationId, data) {
+  const existing = await prisma.agentCron.findFirst({
+    where: { organizationId, name: data.name, deletedAt: null },
+    select: { id: true },
+  });
+
+  const payload = {
+    organizationId,
+    agentId: data.agentId,
+    name: data.name,
+    task: data.task,
+    cronExpression: data.cronExpression,
+    timezone: data.timezone ?? 'America/Sao_Paulo',
+    isActive: true,
+    nextRunAt: data.nextRunAt ?? null,
+  };
+
+  if (existing) {
+    return prisma.agentCron.update({ where: { id: existing.id }, data: payload });
+  }
+  return prisma.agentCron.create({ data: payload });
 }
 
 async function upsertTool(organizationId, data) {

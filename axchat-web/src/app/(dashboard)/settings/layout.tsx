@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap, Variable, Plug } from 'lucide-react';
+import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap, Variable, Plug, Clock } from 'lucide-react';
 
 const tabs = [
   { href: '/settings/channels', label: 'Canais', icon: Radio, subtitle: 'Gerencie seus canais de atendimento' },
@@ -17,6 +17,7 @@ const tabs = [
   { href: '/settings/api-keys', label: 'API Keys', icon: KeyRound, subtitle: 'Chaves de acesso programático para integrações' },
   { href: '/settings/secrets', label: 'Variáveis', icon: Variable, subtitle: 'Variáveis de ambiente para Skills HTTP/SQL' },
   { href: '/settings/integrations', label: 'Integrações', icon: Plug, subtitle: 'Conecte Instagram/Meta e Google Business para os agentes de marketing' },
+  { href: '/settings/crons', label: 'Crons', icon: Clock, subtitle: 'Agende agentes para rodar tarefas numa cadência (cron)' },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
