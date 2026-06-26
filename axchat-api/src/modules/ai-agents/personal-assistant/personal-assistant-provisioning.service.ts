@@ -83,6 +83,12 @@ export class PersonalAssistantProvisioningService {
       this.logger.log(
         `Assistente já provisionado p/ user ${ownerUserId} (org ${organizationId}).`,
       );
+      // Garante a visão fixa mesmo quando já existia (idempotente).
+      await this.ensureAssistantInboxView(
+        organizationId,
+        ownerUserId,
+        existingCfg.channelId,
+      );
       return {
         agentId: existingCfg.agentId,
         channelId: existingCfg.channelId,
@@ -147,10 +153,44 @@ export class PersonalAssistantProvisioningService {
       },
     });
 
+    // 7) Visão fixa na caixa de entrada: como o canal interno fica oculto por
+    //    padrão, criamos um atalho ("inbox view") filtrado nesse canal pro dono
+    //    acessar o assistente direto da lateral. Idempotente.
+    await this.ensureAssistantInboxView(organizationId, ownerUserId, channel.id);
+
     this.logger.log(
       `Assistente pessoal provisionado: org=${organizationId} user=${ownerUserId} agent=${agent.id}`,
     );
     return { agentId: agent.id, channelId: channel.id, configId: cfg.id };
+  }
+
+  private async ensureAssistantInboxView(
+    organizationId: string,
+    userId: string,
+    channelId: string,
+  ): Promise<void> {
+    const existing = await this.prisma.inboxView.findFirst({
+      where: {
+        organizationId,
+        userId,
+        metadata: { path: ['assistant'], equals: true },
+      },
+      select: { id: true },
+    });
+    const data = {
+      name: 'Assistente',
+      icon: 'Bot',
+      color: 'violet',
+      filters: { channelIds: [channelId] },
+      metadata: { builtin: true, assistant: true },
+    };
+    if (existing) {
+      await this.prisma.inboxView.update({ where: { id: existing.id }, data });
+    } else {
+      await this.prisma.inboxView.create({
+        data: { organizationId, userId, order: -1, ...data },
+      });
+    }
   }
 
   private async upsertAgent(organizationId: string, ownerName: string) {

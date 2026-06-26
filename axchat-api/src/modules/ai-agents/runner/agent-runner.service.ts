@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   AiFinalAction,
   AiAgentSector,
@@ -68,8 +68,31 @@ interface RunInput {
 const MAX_CHAIN_DEPTH = 3;
 
 @Injectable()
-export class AiAgentRunnerService {
+export class AiAgentRunnerService implements OnModuleInit {
   private readonly logger = new Logger(AiAgentRunnerService.name);
+
+  /**
+   * Na inicialização, qualquer AiAgentRun ainda RUNNING é órfão — o processo que
+   * o executava morreu (deploy/restart) sem finalizá-lo. Marca como FAILED pra
+   * não ficar travado "Aguardando primeira tool…" pra sempre na UI.
+   */
+  async onModuleInit(): Promise<void> {
+    try {
+      const res = await this.prisma.aiAgentRun.updateMany({
+        where: { status: AiRunStatus.RUNNING },
+        data: {
+          status: AiRunStatus.FAILED,
+          errorMessage: 'Run interrompido (reinício do servidor)',
+          finishedAt: new Date(),
+        },
+      });
+      if (res.count > 0) {
+        this.logger.warn(`Finalizados ${res.count} run(s) órfão(s) RUNNING no boot`);
+      }
+    } catch (err: any) {
+      this.logger.error(`Falha ao limpar runs órfãos: ${err?.message ?? err}`);
+    }
+  }
 
   constructor(
     private readonly prisma: PrismaService,
