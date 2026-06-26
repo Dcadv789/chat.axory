@@ -183,14 +183,20 @@ export class PersonalAssistantService {
   async updateConfig(
     organizationId: string,
     userId: string,
-    data: { dailyBriefingHour?: number | null; timezone?: string },
+    data: {
+      dailyBriefingHour?: number | null;
+      eveningSummaryHour?: number | null;
+      timezone?: string;
+    },
   ) {
+    const clampHour = (h: number | null) =>
+      h === null ? null : Math.max(0, Math.min(23, Number(h)));
     const update: any = {};
     if (data.dailyBriefingHour !== undefined) {
-      update.dailyBriefingHour =
-        data.dailyBriefingHour === null
-          ? null
-          : Math.max(0, Math.min(23, Number(data.dailyBriefingHour)));
+      update.dailyBriefingHour = clampHour(data.dailyBriefingHour);
+    }
+    if (data.eveningSummaryHour !== undefined) {
+      update.eveningSummaryHour = clampHour(data.eveningSummaryHour);
     }
     if (data.timezone) update.timezone = data.timezone;
     return this.prisma.personalAssistantConfig.update({

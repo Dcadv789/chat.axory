@@ -32,11 +32,13 @@ import {
 import {
   CreatePersonalReminderTool,
   ListPersonalRemindersTool,
+  SnoozePersonalReminderTool,
   CancelPersonalReminderTool,
 } from './builtin/personal/personal-reminder.tools';
 import {
   CreatePersonalEventTool,
   ListPersonalEventsTool,
+  PrepareForEventTool,
 } from './builtin/personal/personal-calendar.tools';
 
 /**
@@ -86,9 +88,11 @@ export class ToolRegistry {
     listPersonalNotes: ListPersonalNotesTool,
     createPersonalReminder: CreatePersonalReminderTool,
     listPersonalReminders: ListPersonalRemindersTool,
+    snoozePersonalReminder: SnoozePersonalReminderTool,
     cancelPersonalReminder: CancelPersonalReminderTool,
     createPersonalEvent: CreatePersonalEventTool,
     listPersonalEvents: ListPersonalEventsTool,
+    prepareForEvent: PrepareForEventTool,
   ) {
     this.register(reply, ['ORCHESTRATOR', 'WORKER']);
     this.register(transfer, ['ORCHESTRATOR', 'WORKER']);
@@ -126,9 +130,11 @@ export class ToolRegistry {
     this.register(listPersonalNotes, BOTH, undefined, PESSOAL);
     this.register(createPersonalReminder, BOTH, undefined, PESSOAL);
     this.register(listPersonalReminders, BOTH, undefined, PESSOAL);
+    this.register(snoozePersonalReminder, BOTH, undefined, PESSOAL);
     this.register(cancelPersonalReminder, BOTH, undefined, PESSOAL);
     this.register(createPersonalEvent, BOTH, undefined, PESSOAL);
     this.register(listPersonalEvents, BOTH, undefined, PESSOAL);
+    this.register(prepareForEvent, BOTH, undefined, PESSOAL);
 
     // Client-ops (implementação): restritas aos agentes do env
     // CLIENT_OPS_AGENT_IDS (csv) — default Sofia. Mexem com credenciais

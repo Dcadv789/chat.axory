@@ -5,6 +5,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { PERSONAL_REMINDER_QUEUE } from './reminder-scheduler.service';
 import { AssistantDeliveryService } from './assistant-delivery.service';
 import { DailyBriefingService } from './daily-briefing.service';
+import { nextOccurrence } from './recurrence.util';
 
 /**
  * Tick de 1 min do assistente: (1) dispara os lembretes vencidos (remindAt<=now)
@@ -37,16 +38,28 @@ export class ReminderProcessor extends WorkerHost {
     const due = await this.prisma.personalReminder.findMany({
       where: { status: 'PENDING', remindAt: { lte: now } },
       take: 100,
-      select: { id: true, organizationId: true, userId: true, message: true },
+      select: {
+        id: true,
+        organizationId: true,
+        userId: true,
+        message: true,
+        remindAt: true,
+        recurrence: true,
+      },
     });
     if (due.length === 0) return 0;
 
     let sent = 0;
     for (const r of due) {
-      // Marca SENT antes de entregar (evita reenvio no tick seguinte).
+      // Recorrente: re-agenda a próxima ocorrência (continua PENDING).
+      // Único: marca SENT. Faz ANTES de entregar pra evitar reenvio no tick seguinte.
+      const next =
+        r.recurrence !== 'NONE' ? nextOccurrence(r.remindAt, r.recurrence) : null;
       await this.prisma.personalReminder.update({
         where: { id: r.id },
-        data: { status: 'SENT', sentAt: new Date() },
+        data: next
+          ? { remindAt: next, sentAt: new Date() }
+          : { status: 'SENT', sentAt: new Date() },
       });
       try {
         await this.delivery.deliver(

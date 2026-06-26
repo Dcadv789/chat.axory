@@ -32,11 +32,13 @@ import {
 import {
   CreatePersonalReminderTool,
   ListPersonalRemindersTool,
+  SnoozePersonalReminderTool,
   CancelPersonalReminderTool,
 } from './builtin/personal/personal-reminder.tools';
 import {
   CreatePersonalEventTool,
   ListPersonalEventsTool,
+  PrepareForEventTool,
 } from './builtin/personal/personal-calendar.tools';
 import { HoppeClientService } from './client-ops/hoppe-client.service';
 import { GoogleAuthService } from './client-ops/google-auth.service';
@@ -94,9 +96,11 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     ListPersonalNotesTool,
     CreatePersonalReminderTool,
     ListPersonalRemindersTool,
+    SnoozePersonalReminderTool,
     CancelPersonalReminderTool,
     CreatePersonalEventTool,
     ListPersonalEventsTool,
+    PrepareForEventTool,
     ToolRegistry,
     HttpToolExecutorService,
     SqlToolExecutorService,

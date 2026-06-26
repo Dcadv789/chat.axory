@@ -40,6 +40,12 @@ export class CreatePersonalReminderTool implements AiTool {
         type: 'string',
         description: 'ID de uma tarefa a vincular ao lembrete (opcional).',
       },
+      recurrence: {
+        type: 'string',
+        enum: ['NONE', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'],
+        description:
+          'Recorrência: DAILY (todo dia), WEEKLY, MONTHLY, YEARLY (aniversários/datas anuais). Omita ou NONE = uma vez só.',
+      },
     },
   };
 
@@ -78,6 +84,11 @@ export class CreatePersonalReminderTool implements AiTool {
       };
     }
 
+    const RECUR = ['NONE', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'];
+    const recurrence = RECUR.includes(String(input.recurrence))
+      ? (String(input.recurrence) as any)
+      : 'NONE';
+
     const reminder = await this.prisma.personalReminder.create({
       data: {
         organizationId: ctx.organizationId,
@@ -86,8 +97,9 @@ export class CreatePersonalReminderTool implements AiTool {
         remindAt,
         eventId,
         taskId: input.taskId ? String(input.taskId) : null,
+        recurrence,
       },
-      select: { id: true, remindAt: true, message: true },
+      select: { id: true, remindAt: true, message: true, recurrence: true },
     });
     return { output: { ok: true, reminder } };
   }
@@ -118,6 +130,44 @@ export class ListPersonalRemindersTool implements AiTool {
       select: { id: true, message: true, remindAt: true },
     });
     return { output: { ok: true, count: reminders.length, reminders } };
+  }
+}
+
+@Injectable()
+export class SnoozePersonalReminderTool implements AiTool {
+  readonly name = 'snoozePersonalReminder';
+  readonly description =
+    'Adia um lembrete: re-agenda pra daqui X minutos OU pra um novo horário. Use quando o usuário disser "me lembra de novo daqui 1h" ou "adia pra amanhã".';
+  readonly parameters = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['reminderId'],
+    properties: {
+      reminderId: { type: 'string', description: 'ID do lembrete (de listPersonalReminders).' },
+      minutes: { type: 'integer', description: 'Adiar por N minutos a partir de agora.', minimum: 1 },
+      remindAt: { type: 'string', description: 'Novo horário absoluto (ISO 8601), alternativa a minutes.' },
+    },
+  };
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly personal: PersonalContextService,
+  ) {}
+
+  async execute(input: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
+    const userId = await this.personal.resolveUserId(ctx);
+    if (!userId) return NO_OWNER;
+    let when = parseDate(input.remindAt);
+    if (!when && input.minutes != null) {
+      when = new Date(Date.now() + Number(input.minutes) * 60_000);
+    }
+    if (!when) return { output: { ok: false, error: 'informe minutes ou remindAt' } };
+
+    const r = await this.prisma.personalReminder.updateMany({
+      where: { id: String(input.reminderId ?? ''), organizationId: ctx.organizationId, userId },
+      data: { remindAt: when, status: 'PENDING', sentAt: null },
+    });
+    return { output: { ok: r.count > 0, remindAt: when } };
   }
 }
 

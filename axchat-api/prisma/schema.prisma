@@ -1431,6 +1431,14 @@ enum PersonalReminderStatus {
   CANCELLED
 }
 
+enum PersonalRecurrence {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY // aniversários / datas anuais
+}
+
 enum PersonalEventSource {
   NATIVE // criado no AxChat (pra quem não usa Google)
   GOOGLE // espelhado do Google Calendar
@@ -1452,6 +1460,9 @@ model PersonalAssistantConfig {
   // null = desligado. lastBriefingSentAt evita reenviar no mesmo dia.
   dailyBriefingHour      Int?      @map("daily_briefing_hour")
   lastBriefingSentAt     DateTime? @map("last_briefing_sent_at")
+  // Resumo de fim de dia (pendências + agenda de amanhã). null = desligado.
+  eveningSummaryHour     Int?      @map("evening_summary_hour")
+  lastEveningSentAt      DateTime? @map("last_evening_sent_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1514,6 +1525,8 @@ model PersonalReminder {
   remindAt       DateTime               @map("remind_at")
   status         PersonalReminderStatus @default(PENDING)
   sentAt         DateTime?              @map("sent_at")
+  // Recorrência: ao disparar, re-agenda a próxima ocorrência. NONE = uma vez.
+  recurrence     PersonalRecurrence     @default(NONE)
 
   // Vínculos opcionais (lembrete de uma tarefa ou de um evento da agenda).
   taskId  String? @map("task_id")

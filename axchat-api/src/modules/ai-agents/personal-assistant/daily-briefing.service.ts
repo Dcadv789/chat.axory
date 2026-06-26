@@ -42,33 +42,46 @@ export class DailyBriefingService {
     private readonly delivery: AssistantDeliveryService,
   ) {}
 
+  /** Roda os dois resumos: matinal (briefing) e noturno (review). */
   async runDue(now: Date): Promise<number> {
+    const morning = await this.scan(now, 'morning');
+    const evening = await this.scan(now, 'evening');
+    return morning + evening;
+  }
+
+  private async scan(now: Date, kind: 'morning' | 'evening'): Promise<number> {
+    const hourField = kind === 'morning' ? 'dailyBriefingHour' : 'eveningSummaryHour';
+    const lastField = kind === 'morning' ? 'lastBriefingSentAt' : 'lastEveningSentAt';
+
     const configs = await this.prisma.personalAssistantConfig.findMany({
-      where: { dailyBriefingHour: { not: null }, channelId: { not: null } },
+      where: { [hourField]: { not: null }, channelId: { not: null } } as any,
       select: {
         organizationId: true,
         userId: true,
         timezone: true,
         dailyBriefingHour: true,
+        eveningSummaryHour: true,
         lastBriefingSentAt: true,
+        lastEveningSentAt: true,
       },
     });
 
     let sent = 0;
     for (const cfg of configs) {
       const tz = cfg.timezone || 'America/Sao_Paulo';
+      const targetHour = (cfg as any)[hourField] as number;
+      const lastSent = (cfg as any)[lastField] as Date | null;
       const { hour, ymd } = localParts(now, tz);
-      if (hour !== cfg.dailyBriefingHour) continue;
-      // Já enviou hoje (mesma data local)?
-      if (cfg.lastBriefingSentAt) {
-        const last = localParts(cfg.lastBriefingSentAt, tz);
-        if (last.ymd === ymd) continue;
-      }
+      if (hour !== targetHour) continue;
+      if (lastSent && localParts(lastSent, tz).ymd === ymd) continue;
 
       try {
-        const text = await this.compose(cfg.organizationId, cfg.userId, tz, now);
+        const text =
+          kind === 'morning'
+            ? await this.composeMorning(cfg.organizationId, cfg.userId, tz, now)
+            : await this.composeEvening(cfg.organizationId, cfg.userId, tz, now);
         const ok = await this.delivery.deliver(cfg.organizationId, cfg.userId, text, {
-          dailyBriefing: true,
+          [kind === 'morning' ? 'dailyBriefing' : 'eveningSummary']: true,
         });
         if (ok) {
           await this.prisma.personalAssistantConfig.update({
@@ -78,21 +91,21 @@ export class DailyBriefingService {
                 userId: cfg.userId,
               },
             },
-            data: { lastBriefingSentAt: now },
+            data: { [lastField]: now } as any,
           });
           sent++;
         }
       } catch (err: any) {
         this.logger.error(
-          `briefing falhou (org=${cfg.organizationId} user=${cfg.userId}): ${err?.message ?? err}`,
+          `${kind} resumo falhou (org=${cfg.organizationId} user=${cfg.userId}): ${err?.message ?? err}`,
         );
       }
     }
-    if (sent > 0) this.logger.log(`daily briefing: ${sent} enviado(s)`);
+    if (sent > 0) this.logger.log(`${kind} resumo: ${sent} enviado(s)`);
     return sent;
   }
 
-  private async compose(
+  private async composeMorning(
     organizationId: string,
     userId: string,
     tz: string,
@@ -152,6 +165,53 @@ export class DailyBriefingService {
 
     if (events.length === 0 && tasks.length === 0 && reminders.length === 0) {
       lines.push('', 'Agenda livre e nada pendente. Bom dia pra organizar o que importa. 🙌');
+    }
+
+    return lines.join('\n');
+  }
+
+  /** Resumo de fim de dia: o que ficou pendente + agenda de amanhã. */
+  private async composeEvening(
+    organizationId: string,
+    userId: string,
+    tz: string,
+    now: Date,
+  ): Promise<string> {
+    const scope = { organizationId, userId };
+    const { ymd } = localParts(now, tz);
+    const endOfToday = new Date(`${ymd}T23:59:59`);
+    const tomorrowStart = new Date(endOfToday.getTime() + 1000);
+    const tomorrowEnd = new Date(tomorrowStart.getTime() + 24 * 3600_000);
+
+    const [pending, doneToday, tomorrow] = await Promise.all([
+      this.prisma.personalTask.findMany({
+        where: { ...scope, status: { in: ['TODO', 'DOING'] } },
+        orderBy: [{ dueAt: 'asc' }],
+        take: 10,
+      }),
+      this.prisma.personalTask.count({
+        where: { ...scope, status: 'DONE', completedAt: { gte: new Date(`${ymd}T00:00:00`) } },
+      }),
+      this.prisma.personalCalendarEvent.findMany({
+        where: { ...scope, startAt: { gte: tomorrowStart, lte: tomorrowEnd } },
+        orderBy: { startAt: 'asc' },
+        take: 10,
+      }),
+    ]);
+
+    const lines: string[] = ['🌙 Resumo do dia:'];
+    lines.push('', `✅ Concluídas hoje: ${doneToday}`);
+
+    if (pending.length) {
+      lines.push('', '📌 Ainda pendente:');
+      for (const t of pending.slice(0, 8)) lines.push(`• ${t.title}`);
+    } else {
+      lines.push('', 'Nada pendente — dia fechado. 👏');
+    }
+
+    if (tomorrow.length) {
+      lines.push('', '📅 Amanhã:');
+      for (const e of tomorrow) lines.push(`• ${fmtTime(e.startAt, tz)} — ${e.title}`);
     }
 
     return lines.join('\n');
