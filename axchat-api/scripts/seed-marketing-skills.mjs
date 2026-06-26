@@ -487,8 +487,13 @@ async function main() {
     throw new Error('DATABASE_URL não encontrado. Confira axchat-api/.env');
   }
 
+  // Skills de marketing (IG/Google) só pra orgs com o add-on. SEED_ORG_ID
+  // escopa a uma org (auto-provisionamento on-enable).
+  const orgWhere = process.env.SEED_ORG_ID
+    ? { id: process.env.SEED_ORG_ID, deletedAt: null, marketingEnabled: true }
+    : { deletedAt: null, marketingEnabled: true };
   const organizations = await prisma.organization.findMany({
-    where: { deletedAt: null },
+    where: orgWhere,
     select: { id: true, name: true },
     orderBy: { createdAt: 'asc' },
   });

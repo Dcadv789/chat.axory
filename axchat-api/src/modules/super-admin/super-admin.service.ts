@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -18,6 +19,7 @@ import { UpdateSuperUserDto } from './dto/update-super-user.dto';
 import { UpdateBillingDto } from './dto/update-billing.dto';
 import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
 import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
+import { MarketingProvisioningService } from '../ai-agents/marketing/marketing-provisioning.service';
 
 const BCRYPT_ROUNDS = 12;
 const PLAN_TEMPLATES_KEY = 'plan_templates';
@@ -33,10 +35,13 @@ const BUILTIN_PLAN_TEMPLATES: Record<string, Record<string, number>> = {
 
 @Injectable()
 export class SuperAdminService {
+  private readonly logger = new Logger(SuperAdminService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly marketingProvisioning: MarketingProvisioningService,
   ) {}
 
   async overview(actorId: string) {
@@ -341,6 +346,27 @@ export class SuperAdminService {
         monthlyConversationLimit: updated.monthlyConversationLimit,
       },
     });
+
+    // Add-on de Marketing ligou/desligou → provisiona/pausa a crew.
+    const wasEnabled = organization.marketingEnabled;
+    const nowEnabled = updated.marketingEnabled;
+    if (!wasEnabled && nowEnabled) {
+      // Provisionar pode levar alguns segundos (roda os seeds) — não bloqueia
+      // a resposta do admin; loga erro se falhar.
+      this.marketingProvisioning.provisionForOrg(id).catch((err) =>
+        this.logger.error(
+          `Auto-provisionamento de marketing falhou (org ${id}): ${err?.message ?? err}`,
+        ),
+      );
+    } else if (wasEnabled && !nowEnabled) {
+      await this.marketingProvisioning
+        .pauseForOrg(id)
+        .catch((err) =>
+          this.logger.error(
+            `Pausa de marketing falhou (org ${id}): ${err?.message ?? err}`,
+          ),
+        );
+    }
 
     return updated;
   }

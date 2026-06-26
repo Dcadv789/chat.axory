@@ -1013,8 +1013,12 @@ async function main() {
 
   // Add-on vendável: só provisiona a crew de marketing pra orgs com
   // marketingEnabled=true (o dono do SaaS decide quem tem, via Super Admin).
+  // SEED_ORG_ID escopa a UMA org (usado pelo auto-provisionamento on-enable).
+  const orgWhere = process.env.SEED_ORG_ID
+    ? { id: process.env.SEED_ORG_ID, deletedAt: null, marketingEnabled: true }
+    : { deletedAt: null, marketingEnabled: true };
   const organizations = await prisma.organization.findMany({
-    where: { deletedAt: null, marketingEnabled: true },
+    where: orgWhere,
     select: { id: true, name: true },
     orderBy: { createdAt: 'asc' },
   });
