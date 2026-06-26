@@ -103,6 +103,14 @@ const INTEGRATIONS: Integration[] = [
         tutorial:
           'Abra a Página no Facebook → menu "Sobre"/"Transparência da Página" → role até "ID da Página". Ou no Graph API Explorer: GET /me/accounts → o "id" da Página.',
       },
+      {
+        key: 'META_PIXEL_ID',
+        label: 'Pixel ID (conversões)',
+        hint: 'ID do Pixel/Dataset do Meta. Necessário para campanhas de conversão/venda (otimização por evento do Pixel).',
+        secret: false,
+        tutorial:
+          'Gerenciador de Eventos (business.facebook.com/events_manager) → selecione sua Fonte de Dados (Pixel) → o número que aparece é o Pixel ID. Garanta que o Pixel está instalado no site e disparando os eventos (Purchase, Lead, etc).',
+      },
     ],
     webhookUrl: `${API_BASE}/webhooks/INSTAGRAM`,
     endpoints: [

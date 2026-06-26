@@ -317,6 +317,44 @@ const skills = [
 
   {
     toolName: 'Meta Ads',
+    name: 'createMetaAdsConversionAdSet',
+    category: 'Marketing/MetaAds',
+    description:
+      'Cria um ad set de CONVERSÃO, otimizando por evento do Pixel (compra, lead, etc). Amarra o Pixel da org automaticamente. Nasce PAUSED.',
+    promptInstructions:
+      'AÇÃO SENSÍVEL. Use pra campanha de venda/lead (objetivo OUTCOME_SALES/OUTCOME_LEADS). O Pixel já está pré-configurado na org (env META_PIXEL_ID) — não peça. Requer campaignId, name, dailyBudgetCents (CENTAVOS), conversionEvent (PURCHASE, LEAD, ADD_TO_CART, COMPLETE_REGISTRATION, INITIATE_CHECKOUT) e targeting (JSON string). Se o Pixel não estiver configurado, a chamada falha — avise pra cadastrar em Integrações. Respeite o teto de verba.',
+    httpMethod: 'POST',
+    httpPath: '/act_{{env.META_AD_ACCOUNT_ID}}/adsets',
+    httpBodyTemplate:
+      '{"name":{{json:input.name}},"campaign_id":{{json:input.campaignId}},"daily_budget":{{json:input.dailyBudgetCents}},"billing_event":"IMPRESSIONS","optimization_goal":"OFFSITE_CONVERSIONS","bid_strategy":"LOWEST_COST_WITHOUT_CAP","promoted_object":{"pixel_id":"{{env.META_PIXEL_ID}}","custom_event_type":{{json:input.conversionEvent}}},"targeting":{{input.targeting}},"status":"PAUSED","access_token":"{{env.META_ADS_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', adSetId: '$.id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        campaignId: { type: 'string', description: 'ID da campanha (objetivo de conversão).' },
+        name: { type: 'string', description: 'Nome do ad set.' },
+        dailyBudgetCents: {
+          type: 'integer',
+          description: 'Orçamento diário em CENTAVOS.',
+          minimum: 100,
+        },
+        conversionEvent: {
+          type: 'string',
+          description: 'Evento de conversão do Pixel a otimizar.',
+          enum: ['PURCHASE', 'LEAD', 'ADD_TO_CART', 'COMPLETE_REGISTRATION', 'INITIATE_CHECKOUT'],
+        },
+        targeting: {
+          type: 'string',
+          description: 'JSON de targeting do Meta como string.',
+        },
+      },
+      required: ['campaignId', 'name', 'dailyBudgetCents', 'conversionEvent', 'targeting'],
+      additionalProperties: false,
+    },
+  },
+
+  {
+    toolName: 'Meta Ads',
     name: 'createMetaAdsAdCreative',
     category: 'Marketing/MetaAds',
     description:
@@ -729,11 +767,14 @@ GESTAO DE TRAFEGO / OTIMIZACAO (o ciclo continuo):
 4) Aja: PAUSE o que esta caro/ruim (setMetaAdsStatus PAUSED no ad/ad set), ESCALE o vencedor (updateMetaAdsAdSetBudget ou updateMetaAdsCampaignBudget, +20-30% por vez, respeitando o teto), REFINE publico ruim (updateMetaAdsAdSetTargeting).
 5) Registre a decisao com recordMarketingAnalysis (kind=PERFORMANCE) — o que mudou e por que.
 
+CONVERSAO / VENDAS: pra campanha de conversao (objetivo OUTCOME_SALES / OUTCOME_LEADS), use createMetaAdsConversionAdSet (em vez de createMetaAdsAdSet) — ela ja amarra o Pixel da org (env META_PIXEL_ID) via promoted_object; voce so escolhe o conversionEvent (PURCHASE, LEAD, ADD_TO_CART...). Se o Pixel nao estiver configurado, avise pra cadastrar em Integracoes e nao monte campanha de conversao.
+
 CONDUTA:
-- Acoes que GASTAM/ATIVAM/MONTAM mídia paga sao gateadas por aprovacao humana (montar funil, ajustar budget, ativar): monte o plano, justifique com dados e proponha numeros. Leitura (insights/listagens) e livre — rode a vontade.
+- Acoes que GASTAM/ATIVAM/MONTAM mídia paga sao gateadas por aprovacao humana SEMPRE (montar funil, ajustar budget, ativar). Leitura (insights/listagens) e livre — rode a vontade.
+- VOCE PODE recomendar budget ACIMA do teto das regras (getMarketingProfile) — mas, quando fizer, deixe explicito: valor atual vs proposto vs teto, o PORQUE (dado que sustenta), e uma PROJECAO comparando aumentar vs nao aumentar (ex: "no CPA atual de R$X, +R$Y/dia tende a ~Z conversoes a mais; sem aumentar, segue em ~W"). A decisao final e do humano na aprovacao.
 - So ative (setMetaAdsStatus ACTIVE) ativando os 3 niveis (campanha, ad set, ad).
 - A arte e a copy vem da Orla (via Magnus). Voce nao gera criativo; usa a url que ela entregou.
-- Escale gradual (nao dobre budget de uma vez — o algoritmo do Meta re-aprende). Nunca prometa ROI/CPA garantido.
+- Escale gradual (nao dobre budget de uma vez — o algoritmo do Meta re-aprende). Nunca prometa ROI/CPA garantido; projete com base no dado real, marcando que e estimativa.
 ${DATA_NOTE}
 ${ID_NOTE}
 ${TRIGGER_NOTE}`,
@@ -750,15 +791,22 @@ ${TRIGGER_NOTE}`,
     canRespondDirectly: true,
     temperature: 0.4,
     maxTokens: 1800,
-    systemPrompt: `Voce e Alaric, analista e estrategista da crew. Seu trabalho e virar dado em decisao.
+    systemPrompt: `Voce e Alaric, analista e estrategista da crew. Seu trabalho e virar dado em decisao — e VOCE e o dono da estrategia de portfolio e da alocacao de verba.
 
 SKILLS (todas de LEITURA):
 - getMetaAdsAccountInsights / getMetaAdsCampaignInsights / listMetaAdsCampaigns — Meta Ads.
 - listInstagramMedia (posts passados) + analyzeInstagramMedia (metricas de um post).
+- getMarketingProfile — regras da org: PRODUTOS oferecidos, publico, tom e o TETO de verba mensal/diario.
 
-ENTREGUE SEMPRE:
-- O que funcionou e o que nao funcionou, com numeros reais. Nao invente metrica; separe dado de hipotese.
-- Recomendacao acionavel: publico sugerido, formato, angulo de mensagem e — se for anuncio — objetivo e faixa de budget sugeridos pro Wystan, e a direcao criativa pra Orla.
+ESTEIRA DE PRODUTOS & ALOCACAO DE VERBA (sua responsabilidade principal):
+- Analise a esteira de produtos (de getMarketingProfile.products) cruzando com a performance real (insights por campanha) pra achar o que tem MAIOR POTENCIAL DE RETORNO.
+- Dado o orcamento TOTAL do mes (monthlyAdBudgetCents), recomende COMO dividir a verba entre produtos/campanhas — onde colocar mais grana e onde cortar — com a logica explicita (ex: "produto A tem CPA menor e ticket maior -> 50% da verba; produto B -> 30%; teste C -> 20%").
+- Se a org tiver dados de venda/receita num banco externo, use a skill SQL configurada (externalRulesSkill em getMarketingProfile) pra puxar receita por produto e calcular retorno de verdade (ROAS), nao so metrica de plataforma. Sem isso, deixe claro que a priorizacao e por proxy (CPA/CTR/engajamento), nao receita.
+
+ENTREGUE SEMPRE (e grave com recordMarketingAnalysis, kind=STRATEGY ou PERFORMANCE):
+- O que funcionou e o que nao, com numeros reais. Nao invente metrica; separe dado de hipotese.
+- O plano de alocacao de verba do mes por produto/campanha (respeitando o teto total).
+- Recomendacao acionavel pro Wystan (objetivo, faixa de budget por produto) e direcao criativa pra Orla (angulo, formato).
 ${DATA_NOTE}
 ${ID_NOTE}
 ${TRIGGER_NOTE}`,
@@ -866,6 +914,7 @@ const agentSkillLinks = {
     { skill: 'createMetaAdsCampaign', requiresApproval: true },
     // Funil completo de anúncio (todas gated — montam/ativam mídia paga real)
     { skill: 'createMetaAdsAdSet', requiresApproval: true },
+    { skill: 'createMetaAdsConversionAdSet', requiresApproval: true }, // conversão (Pixel)
     { skill: 'createMetaAdsAdCreative', requiresApproval: true },
     { skill: 'createMetaAdsAd', requiresApproval: true },
     { skill: 'setMetaAdsStatus', requiresApproval: true },
@@ -1047,7 +1096,29 @@ async function main() {
       });
       console.log('    cron: Otimização diária de tráfego (Wystan, 0 8 * * *)');
     }
+
+    const alaricId = agentByName.get('Alaric');
+    if (alaricId) {
+      await upsertCron(org.id, {
+        agentId: alaricId,
+        name: 'Planejamento de verba do mês',
+        task:
+          'Planeje a alocação de verba do mês: leia as regras (getMarketingProfile — produtos e teto mensal). Analise a esteira de produtos cruzando com a performance real das campanhas (insights) e identifique o que tem maior potencial de retorno. Se houver skill SQL de dados externos, puxe a receita por produto pra calcular ROAS. Recomende como dividir o orçamento total do mês entre produtos/campanhas (onde colocar mais grana e onde cortar), com a lógica explícita. Grave o plano com recordMarketingAnalysis (kind=STRATEGY).',
+        cronExpression: '0 7 1 * *',
+        timezone: 'America/Sao_Paulo',
+        nextRunAt: nextMonthlyUtc(10),
+      });
+      console.log('    cron: Planejamento de verba do mês (Alaric, 0 7 1 * *)');
+    }
   }
+}
+
+// Próximo dia 1 do mês às hourUtc:00 UTC.
+function nextMonthlyUtc(hourUtc) {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, hourUtc, 0, 0),
+  );
 }
 
 // Próximo dia 1 às 09:00 BRT (UTC-3, fixo desde 2019) => 12:00 UTC.
