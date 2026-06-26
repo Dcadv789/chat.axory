@@ -115,9 +115,10 @@ export class ConversationsController {
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
     @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
   ) {
-    return this.service.setArchived(id, orgId, true, userId, access);
+    return this.service.setArchived(id, orgId, true, userId, access, userRole);
   }
 
   @Post(':id/unarchive')
@@ -126,9 +127,10 @@ export class ConversationsController {
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
     @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
   ) {
-    return this.service.setArchived(id, orgId, false, userId, access);
+    return this.service.setArchived(id, orgId, false, userId, access, userRole);
   }
 
   @Post(':id/read')
@@ -190,9 +192,10 @@ export class ConversationsController {
     @CurrentOrg('id') orgId: string,
     @Body() dto: UpdateConversationDto,
     @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
   ) {
-    return this.service.update(id, orgId, dto, userId, access);
+    return this.service.update(id, orgId, dto, userId, access, userRole);
   }
 
   @Post(':id/assign-me')
@@ -201,9 +204,10 @@ export class ConversationsController {
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
     @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
   ) {
-    return this.service.assignToMe(id, orgId, userId, access);
+    return this.service.assignToMe(id, orgId, userId, access, userRole);
   }
 
   @Patch(':id/ai')
@@ -310,9 +314,11 @@ export class ConversationsController {
   remove(
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
     @Query('confirm') confirm: string,
   ) {
-    return this.service.hardDelete(id, orgId, access, confirm);
+    return this.service.hardDelete(id, orgId, access, confirm, userId, userRole);
   }
 }

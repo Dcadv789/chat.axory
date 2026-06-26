@@ -51,10 +51,13 @@ export class ReminderProcessor extends WorkerHost {
 
     let sent = 0;
     for (const r of due) {
-      // Recorrente: re-agenda a próxima ocorrência (continua PENDING).
-      // Único: marca SENT. Faz ANTES de entregar pra evitar reenvio no tick seguinte.
-      const next =
-        r.recurrence !== 'NONE' ? nextOccurrence(r.remindAt, r.recurrence) : null;
+      // Recorrente: re-agenda a PRÓXIMA ocorrência FUTURA (continua PENDING).
+      // Pula períodos perdidos (servidor offline) pra não disparar uma rajada
+      // de notificações atrasadas — dispara no máximo 1x. Único: marca SENT.
+      let next = r.recurrence !== 'NONE' ? nextOccurrence(r.remindAt, r.recurrence) : null;
+      while (next && next.getTime() <= now.getTime()) {
+        next = nextOccurrence(next, r.recurrence);
+      }
       await this.prisma.personalReminder.update({
         where: { id: r.id },
         data: next

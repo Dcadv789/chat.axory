@@ -27,6 +27,40 @@ function fmtTime(date: Date, timeZone: string): string {
   }).format(date);
 }
 
+/** Offset (minutos) que o timezone está à frente do UTC neste instante. */
+function tzOffsetMinutes(date: Date, timeZone: string): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const m: Record<string, number> = {};
+  for (const p of dtf.formatToParts(date)) if (p.type !== 'literal') m[p.type] = Number(p.value);
+  const asUTC = Date.UTC(m.year, m.month - 1, m.day, m.hour === 24 ? 0 : m.hour, m.minute, m.second);
+  return Math.round((asUTC - date.getTime()) / 60000);
+}
+
+/** Início e fim do dia LOCAL do usuário, como instantes UTC corretos. */
+function localDayBounds(now: Date, timeZone: string): { start: Date; end: Date } {
+  const off = tzOffsetMinutes(now, timeZone);
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const [y, mo, d] = fmt.format(now).split('-').map(Number);
+  // Meia-noite local (00:00) convertida pra UTC = (00:00 como UTC) - offset.
+  const start = new Date(Date.UTC(y, mo - 1, d, 0, 0, 0) - off * 60000);
+  const end = new Date(start.getTime() + 24 * 3600_000 - 1000);
+  return { start, end };
+}
+
 /**
  * Briefing diário ("bom dia, hoje você tem..."). Varrido a cada minuto (junto
  * do tick de lembretes): pra cada assistente com dailyBriefingHour, se a hora
@@ -112,8 +146,7 @@ export class DailyBriefingService {
     now: Date,
   ): Promise<string> {
     // Janela "hoje" no fuso do usuário (do agora até o fim do dia local).
-    const { ymd } = localParts(now, tz);
-    const endOfDay = new Date(`${ymd}T23:59:59`);
+    const { end: endOfDay } = localDayBounds(now, tz);
     const scope = { organizationId, userId };
 
     const [events, tasks, reminders] = await Promise.all([
@@ -178,8 +211,7 @@ export class DailyBriefingService {
     now: Date,
   ): Promise<string> {
     const scope = { organizationId, userId };
-    const { ymd } = localParts(now, tz);
-    const endOfToday = new Date(`${ymd}T23:59:59`);
+    const { start: startOfToday, end: endOfToday } = localDayBounds(now, tz);
     const tomorrowStart = new Date(endOfToday.getTime() + 1000);
     const tomorrowEnd = new Date(tomorrowStart.getTime() + 24 * 3600_000);
 
@@ -190,7 +222,7 @@ export class DailyBriefingService {
         take: 10,
       }),
       this.prisma.personalTask.count({
-        where: { ...scope, status: 'DONE', completedAt: { gte: new Date(`${ymd}T00:00:00`) } },
+        where: { ...scope, status: 'DONE', completedAt: { gte: startOfToday } },
       }),
       this.prisma.personalCalendarEvent.findMany({
         where: { ...scope, startAt: { gte: tomorrowStart, lte: tomorrowEnd } },

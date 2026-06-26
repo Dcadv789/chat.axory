@@ -150,8 +150,9 @@ export class ConversationsService {
     dto: UpdateConversationDto,
     actorId: string,
     access: ChannelAccess = 'ALL',
+    actorRole?: string,
   ) {
-    const conversation = await this.findOne(id, organizationId, access);
+    const conversation = await this.findOne(id, organizationId, access, actorId, actorRole);
 
     if (dto.assignedToId) {
       await this.fsm.assign(id, dto.assignedToId, actorId);
@@ -425,8 +426,10 @@ export class ConversationsService {
     organizationId: string,
     access: ChannelAccess = 'ALL',
     confirm?: string,
+    actorId?: string,
+    actorRole?: string,
   ) {
-    const conversation = await this.findOne(id, organizationId, access);
+    const conversation = await this.findOne(id, organizationId, access, actorId, actorRole);
     const expectedName = (conversation as any).contact?.name?.trim();
     const expectedPhone = (conversation as any).contact?.phone?.trim();
     const provided = (confirm ?? '').trim();
@@ -460,8 +463,9 @@ export class ConversationsService {
     archived: boolean,
     actorId: string,
     access: ChannelAccess = 'ALL',
+    actorRole?: string,
   ) {
-    await this.findOne(id, organizationId, access);
+    await this.findOne(id, organizationId, access, actorId, actorRole);
     const updated = await this.prisma.conversation.update({
       where: { id },
       data: archived
@@ -487,8 +491,9 @@ export class ConversationsService {
     organizationId: string,
     userId: string,
     access: ChannelAccess = 'ALL',
+    userRole?: string,
   ) {
-    await this.findOne(id, organizationId, access);
+    await this.findOne(id, organizationId, access, userId, userRole);
     await this.fsm.assign(id, userId, userId);
     const updated = await this.repository.findById(id);
     this.broadcastUpdate(updated as Conversation | null);
