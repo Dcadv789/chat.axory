@@ -240,6 +240,10 @@ model Organization {
   agentSectors       AgentSector[]
   organizationSecrets OrganizationSecret[]
   agentCrons         AgentCron[]
+  marketingProfile     MarketingProfile?
+  marketingMediaAssets MarketingMediaAsset[]
+  marketingAnalyses    MarketingAnalysis[]
+  marketingActivities  MarketingActivity[]
 
   @@map("organizations")
 }
@@ -1280,6 +1284,118 @@ model AgentCron {
   @@index([agentId], name: "idx_agent_cron_agent")
   @@index([isActive, nextRunAt], name: "idx_agent_cron_due")
   @@map("agent_crons")
+}
+
+// ─── Marketing: perfil/regras, mídia, análises e log ──────────
+// Persistência de tudo que a crew de marketing precisa: as REGRAS da org
+// (orçamento, o que a empresa faz, produtos, público), o registro de toda
+// MÍDIA hospedada (URL salva no banco), as ANÁLISES que os workers gravam, e
+// um LOG append-only de TODA atividade de marketing (auditoria 100%).
+
+// Uma linha por org — as "regras de negócio" que guiam os agentes de marketing.
+// Fonte interna (preenchida no front). Orgs com banco externo usam, além disso,
+// uma skill SQL (AiTool CUSTOM_SQL) apontando pro banco delas.
+model MarketingProfile {
+  id             String @id @default(cuid())
+  organizationId String @unique @map("organization_id")
+
+  companyDescription String? @map("company_description") @db.Text // o que a empresa faz
+  products           String? @db.Text // produtos/serviços oferecidos (texto ou JSON em texto)
+  targetAudience     String? @map("target_audience") @db.Text // público-alvo padrão
+  toneOfVoice        String? @map("tone_of_voice") @db.Text // tom de voz da marca
+  guidelines         String? @db.Text // regras/limites (o que pode e não pode)
+
+  // Regras de verba para anúncios.
+  monthlyAdBudgetCents Int?    @map("monthly_ad_budget_cents") // teto mensal total de mídia
+  maxDailyBudgetCents  Int?    @map("max_daily_budget_cents") // teto por campanha/dia
+  currency             String  @default("BRL")
+
+  // Se a org puxa as regras de um banco EXTERNO, qual skill SQL usar.
+  externalRulesSkill String? @map("external_rules_skill") // nome da AiSkill SQL, se houver
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("marketing_profiles")
+}
+
+enum MarketingMediaKind {
+  IMAGE
+  VIDEO
+}
+
+// Registro de toda mídia hospedada (no MinIO/storage). A URL fica salva aqui.
+model MarketingMediaAsset {
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  kind           MarketingMediaKind @default(IMAGE)
+
+  url        String  @db.Text // URL pública (MinIO/local) — fonte da verdade
+  storageKey String? @map("storage_key") // caminho no bucket (ex: <tenant>/abc.png)
+  bucket     String? // nome do bucket
+  mimeType   String? @map("mime_type")
+  bytes      Int?
+  source     String? // ex: "openai-gpt-image-1", "upload"
+  prompt     String? @db.Text // prompt usado, quando gerada por IA
+
+  agentId String? @map("agent_id")
+  runId   String? @map("run_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt], name: "idx_mkt_asset_org_time")
+  @@map("marketing_media_assets")
+}
+
+// Análises que os workers GRAVAM (Alaric/Edda etc.) — fica tudo no banco.
+model MarketingAnalysis {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  agentId        String? @map("agent_id")
+  runId          String? @map("run_id")
+
+  kind            String // PERFORMANCE | STRATEGY | MEASUREMENT | AUDIENCE | OUTRO
+  title           String
+  summary         String  @db.Text // texto da análise
+  data            Json?   // métricas/achados estruturados (JSON)
+  recommendations String? @db.Text // o que fazer a seguir
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt], name: "idx_mkt_analysis_org_time")
+  @@index([organizationId, kind], name: "idx_mkt_analysis_org_kind")
+  @@map("marketing_analyses")
+}
+
+// Log append-only de TODA atividade de marketing (auditoria 100% no domínio).
+// Complementa o log técnico que já existe em AiAgentRun + AiToolCall (toda
+// tool-call com input/output/erro). Aqui é o evento de negócio legível.
+model MarketingActivity {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  agentId        String? @map("agent_id")
+  runId          String? @map("run_id")
+
+  action  String // POST_PUBLISHED | CAMPAIGN_CREATED | AD_CREATED | BUDGET_CHANGED | REVIEW_REPLIED | COMMENT_REPLIED | IMAGE_GENERATED | ANALYSIS_RECORDED | ...
+  channel String? // INSTAGRAM | GOOGLE_BUSINESS | META_ADS
+  status  String  @default("OK") // OK | PENDING_APPROVAL | FAILED
+  title   String? // resumo curto legível
+  externalId String? @map("external_id") // id retornado pela plataforma (post id, campaign id...)
+  payload Json? // dados do evento
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt], name: "idx_mkt_activity_org_time")
+  @@index([organizationId, action], name: "idx_mkt_activity_org_action")
+  @@map("marketing_activities")
 }
 
 model AiAgentChannel {

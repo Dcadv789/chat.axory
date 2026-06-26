@@ -18,6 +18,8 @@ import { ListarReunioesClienteTool } from './builtin/listar-reunioes-cliente.too
 import { LerTranscricaoReuniaoTool } from './builtin/ler-transcricao-reuniao.tool';
 import { AgendarReuniaoTool } from './builtin/agendar-reuniao.tool';
 import { GenerateMarketingImageTool } from './builtin/generate-marketing-image.tool';
+import { GetMarketingProfileTool } from './builtin/get-marketing-profile.tool';
+import { RecordMarketingAnalysisTool } from './builtin/record-marketing-analysis.tool';
 
 /**
  * Registry of BUILT-IN skills (named "tools" in the code for legacy reasons).
@@ -55,6 +57,8 @@ export class ToolRegistry {
     lerTranscricaoReuniao: LerTranscricaoReuniaoTool,
     agendarReuniao: AgendarReuniaoTool,
     generateMarketingImage: GenerateMarketingImageTool,
+    getMarketingProfile: GetMarketingProfileTool,
+    recordMarketingAnalysis: RecordMarketingAnalysisTool,
   ) {
     this.register(reply, ['ORCHESTRATOR', 'WORKER']);
     this.register(transfer, ['ORCHESTRATOR', 'WORKER']);
@@ -76,6 +80,10 @@ export class ToolRegistry {
     // Criativo de marketing (gpt-image-1 + hospedagem). Worker only —
     // a Orla usa pra gerar a arte; devolve URL pública pronta pra publicar.
     this.register(generateMarketingImage, ['WORKER']);
+    // Regras da org (leitura) — todos; permite definir público/verba sozinho.
+    this.register(getMarketingProfile, ['ORCHESTRATOR', 'WORKER']);
+    // Gravar análise no banco — workers persistem o que descobriram.
+    this.register(recordMarketingAnalysis, ['WORKER']);
 
     // Client-ops (implementação): restritas aos agentes do env
     // CLIENT_OPS_AGENT_IDS (csv) — default Sofia. Mexem com credenciais

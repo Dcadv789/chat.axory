@@ -17,6 +17,8 @@ import { ListarReunioesClienteTool } from './builtin/listar-reunioes-cliente.too
 import { LerTranscricaoReuniaoTool } from './builtin/ler-transcricao-reuniao.tool';
 import { AgendarReuniaoTool } from './builtin/agendar-reuniao.tool';
 import { GenerateMarketingImageTool } from './builtin/generate-marketing-image.tool';
+import { GetMarketingProfileTool } from './builtin/get-marketing-profile.tool';
+import { RecordMarketingAnalysisTool } from './builtin/record-marketing-analysis.tool';
 import { HoppeClientService } from './client-ops/hoppe-client.service';
 import { GoogleAuthService } from './client-ops/google-auth.service';
 import { GoogleCalendarService } from './client-ops/google-calendar.service';
@@ -61,6 +63,8 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     LerTranscricaoReuniaoTool,
     AgendarReuniaoTool,
     GenerateMarketingImageTool,
+    GetMarketingProfileTool,
+    RecordMarketingAnalysisTool,
     ToolRegistry,
     HttpToolExecutorService,
     SqlToolExecutorService,

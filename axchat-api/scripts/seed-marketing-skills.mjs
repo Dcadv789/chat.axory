@@ -145,6 +145,133 @@ const skills = [
     },
   },
 
+  // (2.c) Reels / vídeo — cria o container (processamento é assíncrono)
+  {
+    toolName: 'Instagram',
+    name: 'createInstagramReel',
+    category: 'Marketing/Instagram',
+    description:
+      'Cria um container de REELS (vídeo) no Instagram. O vídeo é processado de forma assíncrona; cheque o status com getInstagramContainerStatus antes de publicar.',
+    promptInstructions:
+      'Fluxo de Reels: (1) createInstagramReel com videoUrl (URL pública .mp4) + caption → creationId; (2) getInstagramContainerStatus até status_code=FINISHED; (3) publishInstagramMedia com o creationId. A conta já está pré-configurada (env IG_USER_ID). Não publique antes de FINISHED.',
+    httpMethod: 'POST',
+    httpPath: '/{{env.IG_USER_ID}}/media',
+    httpBodyTemplate:
+      '{"media_type":"REELS","video_url":{{json:input.videoUrl}},"caption":{{json:input.caption}},"access_token":"{{env.IG_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', creationId: '$.id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        videoUrl: { type: 'string', description: 'URL pública do vídeo (.mp4) acessível à Meta.' },
+        caption: { type: 'string', description: 'Legenda do reel (hashtags e quebras de linha ok).' },
+      },
+      required: ['videoUrl', 'caption'],
+      additionalProperties: false,
+    },
+  },
+
+  // (2.d) Story — cria o container de story (imagem)
+  {
+    toolName: 'Instagram',
+    name: 'createInstagramStory',
+    category: 'Marketing/Instagram',
+    description:
+      'Cria um container de STORY (imagem) no Instagram. Publique com publishInstagramMedia.',
+    promptInstructions:
+      'Fluxo de Story: (1) createInstagramStory com imageUrl (URL pública da Orla) → creationId; (2) publishInstagramMedia com o creationId. A conta já está pré-configurada (env IG_USER_ID). Story não tem legenda no feed.',
+    httpMethod: 'POST',
+    httpPath: '/{{env.IG_USER_ID}}/media',
+    httpBodyTemplate:
+      '{"media_type":"STORIES","image_url":{{json:input.imageUrl}},"access_token":"{{env.IG_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', creationId: '$.id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        imageUrl: { type: 'string', description: 'URL pública da imagem do story.' },
+      },
+      required: ['imageUrl'],
+      additionalProperties: false,
+    },
+  },
+
+  // (2.e) Carrossel — passo A: cria cada item
+  {
+    toolName: 'Instagram',
+    name: 'createInstagramCarouselItem',
+    category: 'Marketing/Instagram',
+    description:
+      'Cria UM item de carrossel (imagem). Repita por imagem; junte os ids com createInstagramCarouselContainer.',
+    promptInstructions:
+      'Carrossel tem 3 passos: (1) createInstagramCarouselItem por imagem (2 a 10 itens) → guarde cada itemId; (2) createInstagramCarouselContainer com a lista de ids + caption → creationId; (3) publishInstagramMedia. A conta já está pré-configurada (env IG_USER_ID).',
+    httpMethod: 'POST',
+    httpPath: '/{{env.IG_USER_ID}}/media',
+    httpBodyTemplate:
+      '{"image_url":{{json:input.imageUrl}},"is_carousel_item":true,"access_token":"{{env.IG_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', itemId: '$.id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        imageUrl: { type: 'string', description: 'URL pública da imagem do item.' },
+      },
+      required: ['imageUrl'],
+      additionalProperties: false,
+    },
+  },
+
+  // (2.f) Carrossel — passo B: agrupa os itens
+  {
+    toolName: 'Instagram',
+    name: 'createInstagramCarouselContainer',
+    category: 'Marketing/Instagram',
+    description:
+      'Cria o container do carrossel a partir dos ids dos itens (2 a 10). Publique com publishInstagramMedia.',
+    promptInstructions:
+      'Passe children como um array JSON de itemIds (ex: ["178...","178..."]) obtidos de createInstagramCarouselItem, mais a caption. Retorna creationId pra publishInstagramMedia. A conta já está pré-configurada (env IG_USER_ID).',
+    httpMethod: 'POST',
+    httpPath: '/{{env.IG_USER_ID}}/media',
+    httpBodyTemplate:
+      '{"media_type":"CAROUSEL","children":{{input.children}},"caption":{{json:input.caption}},"access_token":"{{env.IG_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', creationId: '$.id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        children: {
+          type: 'string',
+          description: 'Array JSON de itemIds, ex: ["178...","178..."] (2 a 10).',
+        },
+        caption: { type: 'string', description: 'Legenda do carrossel.' },
+      },
+      required: ['children', 'caption'],
+      additionalProperties: false,
+    },
+  },
+
+  // (2.g) Status do container (necessário pra Reels/vídeo antes de publicar)
+  {
+    toolName: 'Instagram',
+    name: 'getInstagramContainerStatus',
+    category: 'Marketing/Instagram',
+    description:
+      'Lê o status de processamento de um container de mídia (status_code). Use em Reels/vídeo: só publique quando FINISHED.',
+    promptInstructions:
+      'Cheque o status_code de um creationId antes de publicar vídeo/Reels: IN_PROGRESS = aguarde e cheque de novo; FINISHED = pode publishInstagramMedia; ERROR = falhou, não publique. Skill de LEITURA.',
+    httpMethod: 'GET',
+    httpPath: '/{{input.containerId}}?fields=status_code,status&access_token={{env.IG_ACCESS_TOKEN}}',
+    httpBodyTemplate: null,
+    responseMap: { ok: '$.ok', status: '$.status', statusCode: '$.status_code' },
+    parameters: {
+      type: 'object',
+      properties: {
+        containerId: {
+          type: 'string',
+          description: 'creationId do container (de createInstagramReel/Story/Carousel).',
+        },
+      },
+      required: ['containerId'],
+      additionalProperties: false,
+    },
+  },
+
   // (3) Responder/comentar em posts do Instagram
   {
     toolName: 'Instagram',

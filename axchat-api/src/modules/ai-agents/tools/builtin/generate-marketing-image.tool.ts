@@ -104,9 +104,49 @@ export class GenerateMarketingImageTool implements AiTool {
         return { output: { ok: false, error: 'sem imagem no retorno da OpenAI' } };
       }
 
-      const url = await this.hostPng(Buffer.from(b64, 'base64'));
+      const buffer = Buffer.from(b64, 'base64');
+      const url = await this.hostPng(buffer);
+
+      // Persiste a mídia no banco (URL salva) + log de atividade. A troca do
+      // backend de storage (local -> MinIO) acontece em hostPng; o registro
+      // no banco já fica garantido aqui.
+      const asset = await this.prisma.marketingMediaAsset
+        .create({
+          data: {
+            organizationId: ctx.organizationId,
+            kind: 'IMAGE',
+            url,
+            mimeType: 'image/png',
+            bytes: buffer.length,
+            source: 'openai-gpt-image-1',
+            prompt,
+            agentId: ctx.agentId,
+            runId: ctx.runId,
+          },
+          select: { id: true },
+        })
+        .catch((e) => {
+          this.logger.warn(`falha ao registrar MediaAsset: ${e?.message ?? e}`);
+          return null;
+        });
+      if (asset) {
+        await this.prisma.marketingActivity
+          .create({
+            data: {
+              organizationId: ctx.organizationId,
+              agentId: ctx.agentId,
+              runId: ctx.runId,
+              action: 'IMAGE_GENERATED',
+              status: 'OK',
+              title: 'Criativo gerado',
+              payload: { assetId: asset.id, url },
+            },
+          })
+          .catch(() => undefined);
+      }
+
       this.logger.log(`generateMarketingImage: hospedada em ${url} (agent=${ctx.agentId})`);
-      return { output: { ok: true, url, size } };
+      return { output: { ok: true, url, size, assetId: asset?.id ?? null } };
     } catch (err: any) {
       this.logger.error(`generateMarketingImage erro: ${err?.message ?? err}`);
       return { output: { ok: false, error: String(err?.message ?? err) } };
