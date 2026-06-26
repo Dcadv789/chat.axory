@@ -406,6 +406,172 @@ const skills = [
     },
   },
 
+  // ── Meta Ads · otimização / gestão de tráfego ───────────────
+  // Pra OTIMIZAR é preciso enxergar e mexer nos níveis ad set e ad, não só
+  // campanha. Leitura (list/insights) livre; ações de gasto/targeting gated.
+  {
+    toolName: 'Meta Ads',
+    name: 'listMetaAdsAdSets',
+    category: 'Marketing/MetaAds',
+    description:
+      'Lista os ad sets de uma campanha com status, orçamento, otimização e targeting. Necessário pra saber o que otimizar.',
+    promptInstructions:
+      'Use pra ver os ad sets de uma campanha (de listMetaAdsCampaigns) antes de otimizar. Requer campaignId. daily_budget vem em centavos. O id de cada ad set é o que as skills de insights/budget/targeting/status precisam. LEITURA.',
+    httpMethod: 'GET',
+    httpPath:
+      '/{{input.campaignId}}/adsets?fields=name,status,effective_status,daily_budget,optimization_goal,billing_event,targeting&access_token={{env.META_ADS_ACCESS_TOKEN}}',
+    httpBodyTemplate: null,
+    responseMap: { ok: '$.ok', status: '$.status', adSets: '$.data' },
+    parameters: {
+      type: 'object',
+      properties: {
+        campaignId: { type: 'string', description: 'ID da campanha.' },
+      },
+      required: ['campaignId'],
+      additionalProperties: false,
+    },
+  },
+  {
+    toolName: 'Meta Ads',
+    name: 'listMetaAdsAds',
+    category: 'Marketing/MetaAds',
+    description:
+      'Lista os anúncios (ads) de um ad set com status e criativo. Use pra pausar/escalar anúncios individuais.',
+    promptInstructions:
+      'Use pra ver os ads de um ad set (de listMetaAdsAdSets). Requer adSetId. O id de cada ad é o que setMetaAdsStatus e getMetaAdsAdInsights precisam. LEITURA.',
+    httpMethod: 'GET',
+    httpPath:
+      '/{{input.adSetId}}/ads?fields=name,status,effective_status,creative&access_token={{env.META_ADS_ACCESS_TOKEN}}',
+    httpBodyTemplate: null,
+    responseMap: { ok: '$.ok', status: '$.status', ads: '$.data' },
+    parameters: {
+      type: 'object',
+      properties: {
+        adSetId: { type: 'string', description: 'ID do ad set.' },
+      },
+      required: ['adSetId'],
+      additionalProperties: false,
+    },
+  },
+  {
+    toolName: 'Meta Ads',
+    name: 'getMetaAdsAdSetInsights',
+    category: 'Marketing/MetaAds',
+    description:
+      'Insights de UM ad set (gasto, CPA, CTR, CPC, alcance, conversões) num período. Base pra decidir escalar/pausar/refinar.',
+    promptInstructions:
+      'Use pra medir um ad set específico antes de otimizar. Requer adSetId. fields/datePreset iguais aos outros insights. LEITURA.',
+    httpMethod: 'GET',
+    httpPath:
+      '/{{input.adSetId}}/insights?fields={{input.fields}}&date_preset={{input.datePreset}}&access_token={{env.META_ADS_ACCESS_TOKEN}}',
+    httpBodyTemplate: null,
+    responseMap: { ok: '$.ok', status: '$.status', insights: '$.data' },
+    parameters: {
+      type: 'object',
+      properties: {
+        adSetId: { type: 'string', description: 'ID do ad set.' },
+        fields: {
+          type: 'string',
+          description: 'CSV de métricas (ex: "spend,impressions,reach,clicks,ctr,cpc,cpm,actions,cost_per_action_type").',
+          default: 'spend,impressions,reach,clicks,ctr,cpc,cpm,actions',
+        },
+        datePreset: {
+          type: 'string',
+          description: 'Período do Meta (today, last_7d, last_30d...).',
+          default: 'last_7d',
+        },
+      },
+      required: ['adSetId', 'fields', 'datePreset'],
+      additionalProperties: false,
+    },
+  },
+  {
+    toolName: 'Meta Ads',
+    name: 'getMetaAdsAdInsights',
+    category: 'Marketing/MetaAds',
+    description:
+      'Insights de UM anúncio específico (criativo) num período. Pra comparar criativos e matar os ruins.',
+    promptInstructions:
+      'Use pra medir um anúncio/criativo específico (id de listMetaAdsAds). Requer adId. LEITURA.',
+    httpMethod: 'GET',
+    httpPath:
+      '/{{input.adId}}/insights?fields={{input.fields}}&date_preset={{input.datePreset}}&access_token={{env.META_ADS_ACCESS_TOKEN}}',
+    httpBodyTemplate: null,
+    responseMap: { ok: '$.ok', status: '$.status', insights: '$.data' },
+    parameters: {
+      type: 'object',
+      properties: {
+        adId: { type: 'string', description: 'ID do anúncio.' },
+        fields: {
+          type: 'string',
+          description: 'CSV de métricas.',
+          default: 'spend,impressions,reach,clicks,ctr,cpc,cpm,actions',
+        },
+        datePreset: {
+          type: 'string',
+          description: 'Período do Meta.',
+          default: 'last_7d',
+        },
+      },
+      required: ['adId', 'fields', 'datePreset'],
+      additionalProperties: false,
+    },
+  },
+  {
+    toolName: 'Meta Ads',
+    name: 'updateMetaAdsAdSetBudget',
+    category: 'Marketing/MetaAds',
+    description:
+      'Ajusta o orçamento diário de um AD SET (quando o budget está no nível do ad set — ABO). Valor em centavos.',
+    promptInstructions:
+      'AÇÃO SENSÍVEL — mexe em verba real. Use pra escalar um ad set vencedor ou cortar um perdedor. Requer adSetId e dailyBudgetCents (CENTAVOS). Respeite o teto diário das regras (getMarketingProfile). Confira o budget atual com listMetaAdsAdSets antes.',
+    httpMethod: 'POST',
+    httpPath: '/{{input.adSetId}}',
+    httpBodyTemplate:
+      '{"daily_budget":{{json:input.dailyBudgetCents}},"access_token":"{{env.META_ADS_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', success: '$.success' },
+    parameters: {
+      type: 'object',
+      properties: {
+        adSetId: { type: 'string', description: 'ID do ad set.' },
+        dailyBudgetCents: {
+          type: 'integer',
+          description: 'Novo orçamento diário em CENTAVOS.',
+          minimum: 100,
+        },
+      },
+      required: ['adSetId', 'dailyBudgetCents'],
+      additionalProperties: false,
+    },
+  },
+  {
+    toolName: 'Meta Ads',
+    name: 'updateMetaAdsAdSetTargeting',
+    category: 'Marketing/MetaAds',
+    description:
+      'Atualiza o targeting (público) de um ad set existente. Pra refinar a audiência sem recriar a campanha.',
+    promptInstructions:
+      'AÇÃO SENSÍVEL — muda quem vê o anúncio. Requer adSetId e targeting (JSON do Meta como STRING válido). Use pra refinar idade/geo/interesses de um ad set que está performando mal. Justifique com dados (insights) antes.',
+    httpMethod: 'POST',
+    httpPath: '/{{input.adSetId}}',
+    httpBodyTemplate:
+      '{"targeting":{{input.targeting}},"access_token":"{{env.META_ADS_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', success: '$.success' },
+    parameters: {
+      type: 'object',
+      properties: {
+        adSetId: { type: 'string', description: 'ID do ad set.' },
+        targeting: {
+          type: 'string',
+          description:
+            'JSON de targeting do Meta como string (ex: {"geo_locations":{"countries":["BR"]},"age_min":25,"age_max":45}).',
+        },
+      },
+      required: ['adSetId', 'targeting'],
+      additionalProperties: false,
+    },
+  },
+
   // ── Instagram · comentários (engajamento) ───────────────────
   {
     toolName: 'Instagram',
@@ -555,13 +721,19 @@ MONTAR UM ANUNCIO (sequencia; cada passo usa o id do anterior):
 3) createMetaAdsAdCreative (imageUrl da Orla + copy + destinationUrl + ctaType) -> creativeId.
 4) createMetaAdsAd (adSetId + creativeId) -> adId. Nasce PAUSED.
 5) setMetaAdsStatus(ACTIVE) na campanha, no ad set E no ad — os tres precisam estar ACTIVE pra entregar.
-Orcamento: updateMetaAdsCampaignBudget (valor em CENTAVOS).
+
+GESTAO DE TRAFEGO / OTIMIZACAO (o ciclo continuo):
+1) Leia o teto de verba nas regras: getMarketingProfile (monthlyAdBudgetCents / maxDailyBudgetCents) — NUNCA estoure o teto.
+2) Enxergue a estrutura: listMetaAdsCampaigns -> listMetaAdsAdSets(campaignId) -> listMetaAdsAds(adSetId).
+3) Meca cada nivel: getMetaAdsAccountInsights / getMetaAdsCampaignInsights / getMetaAdsAdSetInsights / getMetaAdsAdInsights (olhe spend, CPA/cost_per_action, CTR, CPC).
+4) Aja: PAUSE o que esta caro/ruim (setMetaAdsStatus PAUSED no ad/ad set), ESCALE o vencedor (updateMetaAdsAdSetBudget ou updateMetaAdsCampaignBudget, +20-30% por vez, respeitando o teto), REFINE publico ruim (updateMetaAdsAdSetTargeting).
+5) Registre a decisao com recordMarketingAnalysis (kind=PERFORMANCE) — o que mudou e por que.
 
 CONDUTA:
-- TODAS as acoes de montar/ativar/gastar sao gateadas por aprovacao humana: monte o plano, justifique com dados, proponha numeros e AGUARDE o OK. Nao afirme que subiu/ativou.
-- So ative (setMetaAdsStatus ACTIVE) com aprovacao explicita — e ativando os 3 niveis.
+- Acoes que GASTAM/ATIVAM/MONTAM mídia paga sao gateadas por aprovacao humana (montar funil, ajustar budget, ativar): monte o plano, justifique com dados e proponha numeros. Leitura (insights/listagens) e livre — rode a vontade.
+- So ative (setMetaAdsStatus ACTIVE) ativando os 3 niveis (campanha, ad set, ad).
 - A arte e a copy vem da Orla (via Magnus). Voce nao gera criativo; usa a url que ela entregou.
-- Nunca prometa ROI, CPA ou resultado garantido.
+- Escale gradual (nao dobre budget de uma vez — o algoritmo do Meta re-aprende). Nunca prometa ROI/CPA garantido.
 ${DATA_NOTE}
 ${ID_NOTE}
 ${TRIGGER_NOTE}`,
@@ -697,6 +869,13 @@ const agentSkillLinks = {
     { skill: 'createMetaAdsAdCreative', requiresApproval: true },
     { skill: 'createMetaAdsAd', requiresApproval: true },
     { skill: 'setMetaAdsStatus', requiresApproval: true },
+    // Otimização / gestão de tráfego — visibilidade (leitura) + ajustes (gated)
+    { skill: 'listMetaAdsAdSets', requiresApproval: false },
+    { skill: 'listMetaAdsAds', requiresApproval: false },
+    { skill: 'getMetaAdsAdSetInsights', requiresApproval: false },
+    { skill: 'getMetaAdsAdInsights', requiresApproval: false },
+    { skill: 'updateMetaAdsAdSetBudget', requiresApproval: true },
+    { skill: 'updateMetaAdsAdSetTargeting', requiresApproval: true },
   ],
   Alaric: [
     { skill: 'getMetaAdsAccountInsights', requiresApproval: false },
@@ -718,11 +897,13 @@ const agentSkillLinks = {
     { skill: 'getInstagramContainerStatus', requiresApproval: false }, // status (reels/vídeo)
     { skill: 'publishInstagramMedia', requiresApproval: true }, // passo público (todos os formatos)
     { skill: 'createGoogleBusinessPost', requiresApproval: true },
-    // Comunidade / reputação (responder comentários IG + reviews Google)
+    // Comunidade / reputação. Comentário IG + DM AUTÔNOMOS (ungated) pra a
+    // automação comentário->reply+DM rodar sozinha. Reviews do Google seguem
+    // gated (resposta pública mais sensível) — flip no Jarvis se quiser auto.
     { skill: 'listInstagramComments', requiresApproval: false },
-    { skill: 'replyToInstagramComment', requiresApproval: true },
-    { skill: 'sendInstagramDirectMessage', requiresApproval: true }, // DM texto/link
-    { skill: 'sendInstagramDirectMedia', requiresApproval: true }, // DM arquivo
+    { skill: 'replyToInstagramComment', requiresApproval: false },
+    { skill: 'sendInstagramDirectMessage', requiresApproval: false }, // DM texto/link
+    { skill: 'sendInstagramDirectMedia', requiresApproval: false }, // DM arquivo
     { skill: 'listGoogleBusinessReviews', requiresApproval: false },
     { skill: 'replyToGoogleBusinessReview', requiresApproval: true },
   ],
@@ -853,6 +1034,18 @@ async function main() {
         nextRunAt: nextMonthly9amBrt(),
       });
       console.log('    cron: Revisão mensal de mídia (Wystan, 0 9 1 * *)');
+
+      // Gestão de tráfego diária — o ciclo de otimização.
+      await upsertCron(org.id, {
+        agentId: wystanId,
+        name: 'Otimização diária de tráfego',
+        task:
+          'Gestão de tráfego do dia: leia o teto de verba (getMarketingProfile). Liste campanhas → ad sets → ads e meça cada nível (insights, foco em CPA/CTR/spend dos últimos 7 dias). Pause o que está caro/ruim, escale gradualmente (+20-30%) o que está performando bem (respeitando o teto diário) e refine público fraco. Registre o que mudou e por quê com recordMarketingAnalysis (PERFORMANCE).',
+        cronExpression: '0 8 * * *',
+        timezone: 'America/Sao_Paulo',
+        nextRunAt: nextDailyUtc(11),
+      });
+      console.log('    cron: Otimização diária de tráfego (Wystan, 0 8 * * *)');
     }
   }
 }
@@ -863,6 +1056,16 @@ function nextMonthly9amBrt() {
   return new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 12, 0, 0),
   );
+}
+
+// Próxima ocorrência de hourUtc:00 UTC (08:00 BRT = 11:00 UTC).
+function nextDailyUtc(hourUtc) {
+  const now = new Date();
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hourUtc, 0, 0),
+  );
+  if (today.getTime() > now.getTime()) return today;
+  return new Date(today.getTime() + 24 * 60 * 60 * 1000);
 }
 
 async function upsertCron(organizationId, data) {
