@@ -513,6 +513,18 @@ export class InboundMessageProcessor extends WorkerHost {
     conversation: { id: string; organizationId: string },
     triggerMessage: { id: string },
   ): Promise<void> {
+    // Gate de plano: só processa comentário se a org tem o add-on de Marketing.
+    const org = await this.prisma.organization.findUnique({
+      where: { id: conversation.organizationId },
+      select: { marketingEnabled: true },
+    });
+    if (!org?.marketingEnabled) {
+      this.logger.debug(
+        `Comentário IG ignorado: add-on de Marketing desativado (org ${conversation.organizationId})`,
+      );
+      return;
+    }
+
     const orchestrator = await this.prisma.aiAgent.findFirst({
       where: {
         organizationId: conversation.organizationId,

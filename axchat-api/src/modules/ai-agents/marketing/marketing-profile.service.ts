@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
 
@@ -6,13 +6,28 @@ import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
 export class MarketingProfileService {
   constructor(private readonly prisma: PrismaService) {}
 
-  get(organizationId: string) {
+  /** Gate de plano: o módulo de Marketing é um add-on vendável (marketingEnabled). */
+  private async ensureEnabled(organizationId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { marketingEnabled: true },
+    });
+    if (!org?.marketingEnabled) {
+      throw new ForbiddenException(
+        'Módulo de Marketing não habilitado para esta organização.',
+      );
+    }
+  }
+
+  async get(organizationId: string) {
+    await this.ensureEnabled(organizationId);
     return this.prisma.marketingProfile.findUnique({
       where: { organizationId },
     });
   }
 
-  upsert(organizationId: string, dto: UpsertMarketingProfileDto) {
+  async upsert(organizationId: string, dto: UpsertMarketingProfileDto) {
+    await this.ensureEnabled(organizationId);
     const data = {
       companyDescription: dto.companyDescription ?? null,
       products: dto.products ?? null,
@@ -33,6 +48,7 @@ export class MarketingProfileService {
 
   /** Log + análises recentes pra um painel de auditoria do marketing. */
   async activity(organizationId: string, limit = 50) {
+    await this.ensureEnabled(organizationId);
     const [activities, analyses] = await Promise.all([
       this.prisma.marketingActivity.findMany({
         where: { organizationId },

@@ -156,6 +156,7 @@ export class HttpToolExecutorService {
           ? mapped
           : { ok, status: response.status, body: parsed };
 
+      await this.recordMarketingActivity(skill, ctx, ok ? 'OK' : 'FAILED', output);
       return { output };
     } catch (err: any) {
       const isTimeout = err?.name === 'AbortError';
@@ -163,6 +164,10 @@ export class HttpToolExecutorService {
         ? `Skill ${skill.name} timed out after ${skill.timeoutMs}ms`
         : err?.message ?? String(err);
       this.logger.error(`[skill:${skill.name}] failed: ${message}`);
+      await this.recordMarketingActivity(skill, ctx, 'FAILED', {
+        ok: false,
+        error: message,
+      });
       return {
         output: { ok: false, error: message, timeout: isTimeout },
       };
@@ -172,6 +177,77 @@ export class HttpToolExecutorService {
   }
 
   // ─── helpers ───────────────────────────────────────────────────
+
+  /**
+   * Grava no log de negócio (marketing_activities) toda execução de skill de
+   * marketing — sucesso, falha OU aguardando aprovação. Só age em skills cuja
+   * category começa com "Marketing/". Fire-and-forget: nunca quebra a skill.
+   */
+  private async recordMarketingActivity(
+    skill: AiSkill,
+    ctx: ToolContext,
+    status: 'OK' | 'FAILED' | 'PENDING_APPROVAL',
+    output: unknown,
+  ): Promise<void> {
+    if (!skill.category || !skill.category.startsWith('Marketing/')) return;
+    try {
+      await this.prisma.marketingActivity.create({
+        data: {
+          organizationId: ctx.organizationId,
+          agentId: ctx.agentId,
+          runId: ctx.runId,
+          action: skill.name,
+          channel: this.channelFromCategory(skill.category),
+          status,
+          title: skill.name,
+          externalId: this.extractExternalId(output),
+          payload: this.safeActivityPayload(output),
+        },
+      });
+    } catch (e: any) {
+      this.logger.warn(
+        `marketing_activity log falhou (${skill.name}): ${e?.message ?? e}`,
+      );
+    }
+  }
+
+  private channelFromCategory(category?: string | null): string | null {
+    if (!category) return null;
+    if (category.includes('MetaAds')) return 'META_ADS';
+    if (category.includes('Instagram')) return 'INSTAGRAM';
+    if (category.includes('GoogleBusiness')) return 'GOOGLE_BUSINESS';
+    return null;
+  }
+
+  private extractExternalId(output: unknown): string | null {
+    if (!output || typeof output !== 'object') return null;
+    const o = output as Record<string, unknown>;
+    for (const k of [
+      'publishedId',
+      'creationId',
+      'campaignId',
+      'adSetId',
+      'adId',
+      'creativeId',
+      'replyId',
+      'messageId',
+      'postName',
+      'reviewId',
+      'pendingActionId',
+      'id',
+    ]) {
+      if (o[k]) return String(o[k]);
+    }
+    return null;
+  }
+
+  private safeActivityPayload(output: unknown): any {
+    try {
+      return JSON.parse(JSON.stringify(output ?? null));
+    } catch {
+      return null;
+    }
+  }
 
   /**
    * Cria um PendingAction pra skill destrutiva e devolve um ToolResult que
@@ -206,6 +282,10 @@ export class HttpToolExecutorService {
     this.logger.log(
       `[skill:${skill.name}] gated as pendingAction=${action.id} (impact=${impact})`,
     );
+
+    await this.recordMarketingActivity(skill, ctx, 'PENDING_APPROVAL', {
+      pendingActionId: action.id,
+    });
 
     return {
       output: {

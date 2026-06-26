@@ -30,6 +30,17 @@ const tools = [
       'Content-Type': 'application/json',
     },
   },
+  {
+    // Conexão (somente leitura) ao banco de vendas/CRM da org. Fica EM ABERTO:
+    // a org configura o DSN no secret `SALES_DB_URL` (Postgres) e ajusta as
+    // tabelas na skill getRevenueByProduct. Sem isso, a skill retorna erro
+    // limpo e o Alaric segue por proxy (CPA/CTR).
+    name: 'Banco de Vendas (externo)',
+    description:
+      'Conexão somente-leitura ao banco de vendas/CRM da organização, para o Alaric calcular receita/ROAS por produto. DSN no secret SALES_DB_URL.',
+    source: 'CUSTOM_SQL',
+    sqlConnectionRef: 'SALES_DB_URL',
+  },
 ];
 
 // NOTA: a geração de imagem deixou de ser skill HTTP e virou a tool BUILTIN
@@ -672,6 +683,34 @@ const skills = [
       additionalProperties: false,
     },
   },
+
+  // ── Vendas (banco externo) · receita por produto (SQL, EM ABERTO) ──
+  {
+    toolName: 'Banco de Vendas (externo)',
+    name: 'getRevenueByProduct',
+    source: 'SQL',
+    category: 'Marketing/Vendas',
+    description:
+      'Consulta receita/vendas por produto no banco externo da org (somente leitura). Base pra calcular ROAS e priorizar verba por produto.',
+    promptInstructions:
+      'Modo dinâmico: você escreve a query no parâmetro generatedSql — SOMENTE LEITURA (SELECT), contra as tabelas que a org configurou. Resuma receita por produto num período (ex: SELECT produto, SUM(valor) AS receita FROM vendas WHERE data >= ... GROUP BY produto ORDER BY receita DESC). Só funciona se a org configurou a conexão (secret SALES_DB_URL) e ajustou as tabelas desta skill. Se vier erro de conexão/tabela, avise que falta configurar e siga a priorização por proxy (CPA/CTR).',
+    // PLACEHOLDER — a org ajusta para as tabelas reais do banco dela (Jarvis > Skills).
+    sqlTables: ['vendas', 'produtos'],
+    sqlReadOnly: true,
+    sqlMaxRows: 200,
+    parameters: {
+      type: 'object',
+      properties: {
+        generatedSql: {
+          type: 'string',
+          description:
+            'Query SELECT (somente leitura) contra as tabelas configuradas. Agrupe receita por produto.',
+        },
+      },
+      required: ['generatedSql'],
+      additionalProperties: false,
+    },
+  },
 ];
 
 // ─── Agentes ───────────────────────────────────────────────────
@@ -801,7 +840,7 @@ SKILLS (todas de LEITURA):
 ESTEIRA DE PRODUTOS & ALOCACAO DE VERBA (sua responsabilidade principal):
 - Analise a esteira de produtos (de getMarketingProfile.products) cruzando com a performance real (insights por campanha) pra achar o que tem MAIOR POTENCIAL DE RETORNO.
 - Dado o orcamento TOTAL do mes (monthlyAdBudgetCents), recomende COMO dividir a verba entre produtos/campanhas — onde colocar mais grana e onde cortar — com a logica explicita (ex: "produto A tem CPA menor e ticket maior -> 50% da verba; produto B -> 30%; teste C -> 20%").
-- Se a org tiver dados de venda/receita num banco externo, use a skill SQL configurada (externalRulesSkill em getMarketingProfile) pra puxar receita por produto e calcular retorno de verdade (ROAS), nao so metrica de plataforma. Sem isso, deixe claro que a priorizacao e por proxy (CPA/CTR/engajamento), nao receita.
+- Se a org tiver dados de venda num banco externo, use getRevenueByProduct (skill SQL) pra puxar receita por produto e calcular retorno de verdade (ROAS), nao so metrica de plataforma. Se ela retornar erro de conexao/tabela, e porque a org ainda nao configurou o banco — deixe claro que a priorizacao e por proxy (CPA/CTR/engajamento), nao receita.
 
 ENTREGUE SEMPRE (e grave com recordMarketingAnalysis, kind=STRATEGY ou PERFORMANCE):
 - O que funcionou e o que nao, com numeros reais. Nao invente metrica; separe dado de hipotese.
@@ -932,6 +971,7 @@ const agentSkillLinks = {
     { skill: 'listMetaAdsCampaigns', requiresApproval: false },
     { skill: 'listInstagramMedia', requiresApproval: false },
     { skill: 'analyzeInstagramMedia', requiresApproval: false },
+    { skill: 'getRevenueByProduct', requiresApproval: false }, // receita por produto (banco externo)
   ],
   // Orla não tem skill de banco: ela usa a tool BUILTIN generateMarketingImage
   // (auto-disponível pra WORKER) + escreve a copy ela mesma. Sem entrada aqui.
@@ -971,14 +1011,19 @@ async function main() {
     throw new Error('DATABASE_URL nao encontrado. Confira axchat-api/.env');
   }
 
+  // Add-on vendável: só provisiona a crew de marketing pra orgs com
+  // marketingEnabled=true (o dono do SaaS decide quem tem, via Super Admin).
   const organizations = await prisma.organization.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, marketingEnabled: true },
     select: { id: true, name: true },
     orderBy: { createdAt: 'asc' },
   });
 
   if (organizations.length === 0) {
-    throw new Error('Nenhuma organizacao encontrada. Rode primeiro: npm run prisma:seed');
+    console.warn(
+      'Nenhuma org com marketingEnabled=true. Ative o add-on de Marketing na org (Super Admin) e rode de novo.',
+    );
+    return;
   }
 
   for (const org of organizations) {
@@ -1199,8 +1244,9 @@ async function upsertTool(organizationId, data) {
     name: data.name,
     description: data.description,
     source: data.source,
-    httpBaseUrl: data.httpBaseUrl,
-    httpHeaders: data.httpHeaders,
+    httpBaseUrl: data.httpBaseUrl ?? null,
+    httpHeaders: data.httpHeaders ?? null,
+    sqlConnectionRef: data.sqlConnectionRef ?? null,
     isActive: true,
   };
 
@@ -1222,14 +1268,19 @@ async function upsertSkill(organizationId, toolId, data) {
     description: data.description,
     category: data.category ?? null,
     promptInstructions: data.promptInstructions ?? null,
-    source: 'HTTP',
+    source: data.source ?? 'HTTP',
     parameters: data.parameters ?? {},
     toolId,
-    httpMethod: data.httpMethod,
-    httpPath: data.httpPath,
+    httpMethod: data.httpMethod ?? null,
+    httpPath: data.httpPath ?? null,
     httpHeadersExtra: data.httpHeadersExtra ?? null,
     httpBodyTemplate: data.httpBodyTemplate ?? null,
     responseMap: data.responseMap ?? null,
+    // SQL (somente quando source=SQL)
+    sqlQuery: data.sqlQuery ?? null,
+    sqlTables: data.sqlTables ?? null,
+    sqlReadOnly: data.sqlReadOnly ?? true,
+    sqlMaxRows: data.sqlMaxRows ?? 50,
     timeoutMs: data.timeoutMs ?? 15000,
     isActive: true,
   };

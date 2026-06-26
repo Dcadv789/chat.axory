@@ -33,7 +33,9 @@ export class CronTriggerService {
   async fire(cronId: string): Promise<void> {
     const cron = await this.prisma.agentCron.findFirst({
       where: { id: cronId, deletedAt: null },
-      include: { agent: { select: { id: true, isActive: true, name: true } } },
+      include: {
+        agent: { select: { id: true, isActive: true, name: true, sector: true } },
+      },
     });
     if (!cron) {
       this.logger.warn(`fire(${cronId}): cron não encontrado`);
@@ -42,6 +44,22 @@ export class CronTriggerService {
     if (!cron.agent || !cron.agent.isActive) {
       await this.markResult(cron.id, 'SKIPPED', 'Agente inativo ou removido.');
       return;
+    }
+
+    // Gate de plano: agente de marketing só roda se a org tem o add-on ligado.
+    if (cron.agent.sector === 'MARKETING') {
+      const org = await this.prisma.organization.findUnique({
+        where: { id: cron.organizationId },
+        select: { marketingEnabled: true },
+      });
+      if (!org?.marketingEnabled) {
+        await this.markResult(
+          cron.id,
+          'SKIPPED',
+          'Add-on de Marketing desativado para esta organização.',
+        );
+        return;
+      }
     }
 
     try {
