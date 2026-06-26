@@ -20,6 +20,7 @@ import { UpdateBillingDto } from './dto/update-billing.dto';
 import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
 import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
 import { MarketingProvisioningService } from '../ai-agents/marketing/marketing-provisioning.service';
+import { PersonalAssistantProvisioningService } from '../ai-agents/personal-assistant/personal-assistant-provisioning.service';
 
 const BCRYPT_ROUNDS = 12;
 const PLAN_TEMPLATES_KEY = 'plan_templates';
@@ -42,6 +43,7 @@ export class SuperAdminService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly marketingProvisioning: MarketingProvisioningService,
+    private readonly assistantProvisioning: PersonalAssistantProvisioningService,
   ) {}
 
   async overview(actorId: string) {
@@ -366,6 +368,15 @@ export class SuperAdminService {
             `Pausa de marketing falhou (org ${id}): ${err?.message ?? err}`,
           ),
         );
+    }
+
+    // Add-on de Assistente Pessoal ligou → provisiona o assistente do dono.
+    if (!organization.assistantEnabled && updated.assistantEnabled) {
+      this.assistantProvisioning.provisionForOrg(id).catch((err) =>
+        this.logger.error(
+          `Auto-provisionamento de assistente falhou (org ${id}): ${err?.message ?? err}`,
+        ),
+      );
     }
 
     return updated;

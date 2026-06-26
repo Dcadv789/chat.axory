@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AiAgentKind } from '@prisma/client';
+import { AiAgentKind, AiAgentSector } from '@prisma/client';
 import { AiTool as BuiltInSkillImpl, toLlmDefinition } from './tool.types';
 import { LlmToolDefinition } from '../llm/llm.types';
 import { ReplyToConversationTool } from './builtin/reply-to-conversation.tool';
@@ -20,6 +20,24 @@ import { AgendarReuniaoTool } from './builtin/agendar-reuniao.tool';
 import { GenerateMarketingImageTool } from './builtin/generate-marketing-image.tool';
 import { GetMarketingProfileTool } from './builtin/get-marketing-profile.tool';
 import { RecordMarketingAnalysisTool } from './builtin/record-marketing-analysis.tool';
+import {
+  CreatePersonalTaskTool,
+  ListPersonalTasksTool,
+  UpdatePersonalTaskTool,
+} from './builtin/personal/personal-task.tools';
+import {
+  CreatePersonalNoteTool,
+  ListPersonalNotesTool,
+} from './builtin/personal/personal-note.tools';
+import {
+  CreatePersonalReminderTool,
+  ListPersonalRemindersTool,
+  CancelPersonalReminderTool,
+} from './builtin/personal/personal-reminder.tools';
+import {
+  CreatePersonalEventTool,
+  ListPersonalEventsTool,
+} from './builtin/personal/personal-calendar.tools';
 
 /**
  * Registry of BUILT-IN skills (named "tools" in the code for legacy reasons).
@@ -39,6 +57,8 @@ export class ToolRegistry {
   private readonly scope = new Map<string, Set<AiAgentKind>>();
   /** Tool name → agentIds permitidos. Ausente = liberado pro kind inteiro. */
   private readonly agentAllowlist = new Map<string, Set<string>>();
+  /** Tool name → setores permitidos. Ausente = liberado pra todos os setores. */
+  private readonly sectorScope = new Map<string, Set<AiAgentSector>>();
 
   constructor(
     config: ConfigService,
@@ -59,6 +79,16 @@ export class ToolRegistry {
     generateMarketingImage: GenerateMarketingImageTool,
     getMarketingProfile: GetMarketingProfileTool,
     recordMarketingAnalysis: RecordMarketingAnalysisTool,
+    createPersonalTask: CreatePersonalTaskTool,
+    listPersonalTasks: ListPersonalTasksTool,
+    updatePersonalTask: UpdatePersonalTaskTool,
+    createPersonalNote: CreatePersonalNoteTool,
+    listPersonalNotes: ListPersonalNotesTool,
+    createPersonalReminder: CreatePersonalReminderTool,
+    listPersonalReminders: ListPersonalRemindersTool,
+    cancelPersonalReminder: CancelPersonalReminderTool,
+    createPersonalEvent: CreatePersonalEventTool,
+    listPersonalEvents: ListPersonalEventsTool,
   ) {
     this.register(reply, ['ORCHESTRATOR', 'WORKER']);
     this.register(transfer, ['ORCHESTRATOR', 'WORKER']);
@@ -85,6 +115,21 @@ export class ToolRegistry {
     // Gravar análise no banco — workers persistem o que descobriram.
     this.register(recordMarketingAnalysis, ['WORKER']);
 
+    // ─── Assistente Pessoal — só agentes do setor PESSOAL ───
+    // Sector-scoped: não aparecem pra agentes de atendimento/marketing.
+    const PESSOAL: AiAgentSector[] = ['PESSOAL'];
+    const BOTH: AiAgentKind[] = ['ORCHESTRATOR', 'WORKER'];
+    this.register(createPersonalTask, BOTH, undefined, PESSOAL);
+    this.register(listPersonalTasks, BOTH, undefined, PESSOAL);
+    this.register(updatePersonalTask, BOTH, undefined, PESSOAL);
+    this.register(createPersonalNote, BOTH, undefined, PESSOAL);
+    this.register(listPersonalNotes, BOTH, undefined, PESSOAL);
+    this.register(createPersonalReminder, BOTH, undefined, PESSOAL);
+    this.register(listPersonalReminders, BOTH, undefined, PESSOAL);
+    this.register(cancelPersonalReminder, BOTH, undefined, PESSOAL);
+    this.register(createPersonalEvent, BOTH, undefined, PESSOAL);
+    this.register(listPersonalEvents, BOTH, undefined, PESSOAL);
+
     // Client-ops (implementação): restritas aos agentes do env
     // CLIENT_OPS_AGENT_IDS (csv) — default Sofia. Mexem com credenciais
     // de clientes (ClickUp/n8n/Drive/Calendar via Hoppe).
@@ -109,6 +154,7 @@ export class ToolRegistry {
     tool: BuiltInSkillImpl,
     kinds: AiAgentKind[],
     agentIds?: string[],
+    sectors?: AiAgentSector[],
   ): void {
     if (this.tools.has(tool.name)) {
       throw new Error(`Duplicate built-in skill: ${tool.name}`);
@@ -118,6 +164,15 @@ export class ToolRegistry {
     if (agentIds && agentIds.length > 0) {
       this.agentAllowlist.set(tool.name, new Set(agentIds));
     }
+    if (sectors && sectors.length > 0) {
+      this.sectorScope.set(tool.name, new Set(sectors));
+    }
+  }
+
+  private allowedInSector(toolName: string, sector?: AiAgentSector): boolean {
+    const scope = this.sectorScope.get(toolName);
+    if (!scope) return true; // sem restrição de setor
+    return !!sector && scope.has(sector);
   }
 
   get(name: string): BuiltInSkillImpl {
@@ -139,6 +194,7 @@ export class ToolRegistry {
   getLlmDefinitionsForKind(
     kind: AiAgentKind,
     agentId?: string,
+    sector?: AiAgentSector,
   ): LlmToolDefinition[] {
     return [...this.tools.values()]
       .filter((t) => this.scope.get(t.name)?.has(kind) ?? false)
@@ -146,6 +202,7 @@ export class ToolRegistry {
         const allowlist = this.agentAllowlist.get(t.name);
         return !allowlist || (!!agentId && allowlist.has(agentId));
       })
+      .filter((t) => this.allowedInSector(t.name, sector))
       .map(toLlmDefinition);
   }
 
@@ -153,15 +210,17 @@ export class ToolRegistry {
     return this.scope.get(toolName)?.has(kind) ?? false;
   }
 
-  /** Gate de dispatch: kind certo E (sem allowlist OU agente na allowlist). */
+  /** Gate de dispatch: kind certo E (sem allowlist OU agente na allowlist) E setor. */
   isAllowedForAgent(
     toolName: string,
     kind: AiAgentKind,
     agentId: string,
+    sector?: AiAgentSector,
   ): boolean {
     if (!this.isAllowedForKind(toolName, kind)) return false;
     const allowlist = this.agentAllowlist.get(toolName);
-    return !allowlist || allowlist.has(agentId);
+    if (allowlist && !allowlist.has(agentId)) return false;
+    return this.allowedInSector(toolName, sector);
   }
 
   /**

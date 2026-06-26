@@ -19,6 +19,7 @@ import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { PublicApiModule } from './modules/public-api/public-api.module';
 import { ChannelAccessModule } from './modules/iam/channel-access/channel-access.module';
 import { AiAgentsModule } from './modules/ai-agents/ai-agents.module';
+import { PersonalAssistantModule } from './modules/ai-agents/personal-assistant/personal-assistant.module';
 import { InboxViewsModule } from './modules/inbox-views/inbox-views.module';
 import { PipelinesModule } from './modules/pipelines/pipelines.module';
 import { AutomationsModule } from './modules/automations/automations.module';
@@ -64,6 +65,7 @@ import redisConfig from './config/redis.config';
     ApiKeysModule,
     PublicApiModule,
     AiAgentsModule,
+    PersonalAssistantModule,
     InboxViewsModule,
     PipelinesModule,
     SuperAdminModule,
