@@ -37,6 +37,7 @@ interface Field {
   label: string;
   hint: string;
   secret: boolean; // token sensível (mascarado) vs ID público (texto)
+  tutorial?: string; // passo a passo curto de como conseguir
 }
 
 interface Integration {
@@ -65,32 +66,42 @@ const INTEGRATIONS: Integration[] = [
       {
         key: 'IG_ACCESS_TOKEN',
         label: 'Token Instagram (Graph API)',
-        hint: 'Token de longa duração da conta business. Meta for Developers > seu app > Instagram > tokens.',
+        hint: 'Token de longa duração da conta business.',
         secret: true,
+        tutorial:
+          '1) Acesse developers.facebook.com → seu App. 2) Adicione o produto "Instagram" e conecte a conta Business. 3) Em Ferramentas → Graph API Explorer, gere um token com as permissões instagram_basic, instagram_content_publish, instagram_manage_comments e pages_show_list. 4) Converta para token de LONGA duração (60 dias) em /oauth/access_token?grant_type=fb_exchange_token.',
       },
       {
         key: 'IG_USER_ID',
         label: 'IG User ID (ig-user-id)',
-        hint: 'ID numérico da conta business do Instagram. As skills de publicação/leitura usam este ID automaticamente.',
+        hint: 'ID numérico da conta business do Instagram.',
         secret: false,
+        tutorial:
+          'No Graph API Explorer: GET /me/accounts → pegue o "id" da sua Página. Depois GET /{page-id}?fields=instagram_business_account → o "id" retornado é o seu IG User ID.',
       },
       {
         key: 'META_ADS_ACCESS_TOKEN',
         label: 'Token Meta Ads (Marketing API)',
-        hint: 'Token com permissão ads_management/ads_read para gerir campanhas e ler insights.',
+        hint: 'Token com permissão ads_management/ads_read.',
         secret: true,
+        tutorial:
+          'Business Manager (business.facebook.com) → Configurações do Negócio → Usuários → Usuários do sistema → crie um e "Gerar novo token", marcando ads_management e ads_read. Esse token é de longa duração.',
       },
       {
         key: 'META_AD_ACCOUNT_ID',
         label: 'Ad Account ID',
-        hint: 'ID numérico da conta de anúncios SEM o prefixo "act_". As skills do Wystan adicionam o prefixo sozinhas.',
+        hint: 'ID numérico da conta de anúncios SEM o prefixo "act_".',
         secret: false,
+        tutorial:
+          'Gerenciador de Anúncios (adsmanager.facebook.com) → canto superior esquerdo aparece "Conta: act_XXXXXXXX". Cole apenas o número (sem o "act_").',
       },
       {
         key: 'FB_PAGE_ID',
         label: 'Facebook Page ID',
-        hint: 'ID da Página do Facebook vinculada à conta. Necessário para criar o criativo do anúncio (object_story_spec).',
+        hint: 'ID da Página do Facebook vinculada à conta (criativo do anúncio).',
         secret: false,
+        tutorial:
+          'Abra a Página no Facebook → menu "Sobre"/"Transparência da Página" → role até "ID da Página". Ou no Graph API Explorer: GET /me/accounts → o "id" da Página.',
       },
     ],
     webhookUrl: `${API_BASE}/webhooks/INSTAGRAM`,
@@ -115,20 +126,26 @@ const INTEGRATIONS: Integration[] = [
       {
         key: 'GBP_ACCESS_TOKEN',
         label: 'Access Token (OAuth)',
-        hint: 'Token OAuth com escopo do Business Profile. Google Cloud Console > credenciais OAuth.',
+        hint: 'Token OAuth com escopo do Business Profile.',
         secret: true,
+        tutorial:
+          '1) Google Cloud Console → ative a "Business Profile API". 2) Crie credenciais OAuth 2.0. 3) Gere um access token com o escopo https://www.googleapis.com/auth/business.manage (pelo OAuth Playground ou seu fluxo de OAuth).',
       },
       {
         key: 'GBP_ACCOUNT_ID',
         label: 'Account ID',
-        hint: 'ID da conta no Google Business (parte numérica de accounts/{id}).',
+        hint: 'Parte numérica de accounts/{id}.',
         secret: false,
+        tutorial:
+          'Chame GET https://mybusinessaccountmanagement.googleapis.com/v1/accounts com o token → use o número em "accounts/{id}".',
       },
       {
         key: 'GBP_LOCATION_ID',
         label: 'Location ID',
-        hint: 'ID da localização (parte numérica de locations/{id}).',
+        hint: 'Parte numérica de locations/{id}.',
         secret: false,
+        tutorial:
+          'Chame GET /v1/accounts/{accountId}/locations → use o número em "locations/{id}" da localização desejada.',
       },
     ],
     endpoints: [
@@ -152,6 +169,8 @@ const INTEGRATIONS: Integration[] = [
         label: 'API Key',
         hint: 'Chave secreta da OpenAI (sk-...). Usada pela ferramenta generateMarketingImage.',
         secret: true,
+        tutorial:
+          'Acesse platform.openai.com/api-keys → "Create new secret key" → copie a chave (sk-...). Garanta que a conta tem créditos e acesso ao modelo de imagem.',
       },
     ],
     endpoints: [
@@ -369,6 +388,16 @@ function SecretField({
         )}
       </div>
       <p className="mt-0.5 text-[11px] text-zinc-500">{field.hint}</p>
+      {field.tutorial && (
+        <details className="mt-1 rounded-md bg-zinc-50 px-2.5 py-1.5 dark:bg-white/5">
+          <summary className="cursor-pointer text-[11px] font-medium text-primary">
+            Como obter
+          </summary>
+          <p className="mt-1 whitespace-pre-line text-[11px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+            {field.tutorial}
+          </p>
+        </details>
+      )}
       <div className="mt-1.5 flex gap-2">
         <div className="relative flex-1">
           <input

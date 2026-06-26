@@ -308,6 +308,73 @@ const skills = [
     },
   },
 
+  // (3.b) Enviar DM (texto/link) no Instagram — automação pós-comentário
+  {
+    toolName: 'Instagram',
+    name: 'sendInstagramDirectMessage',
+    category: 'Marketing/Instagram',
+    description:
+      'Envia uma mensagem direta (DM) de texto no Instagram para um usuário. Use o link dentro do texto. Requer o recipientId (IGSID do usuário, vindo do comentário/DM).',
+    promptInstructions:
+      'Automação típica: quando alguém comenta, voce responde o comentario (replyToInstagramComment) E manda uma DM com o material/link (esta skill). recipientId é o IGSID do usuário (vem do evento de comentário/DM — NÃO é o @username). A conta já está pré-configurada (env IG_USER_ID). Só mande DM se houver gancho real (o usuário pediu/comentou); nada de spam. Inclua o link dentro do texto.',
+    httpMethod: 'POST',
+    httpPath: '/{{env.IG_USER_ID}}/messages',
+    httpBodyTemplate:
+      '{"recipient":{"id":{{json:input.recipientId}}},"message":{"text":{{json:input.text}}},"access_token":"{{env.IG_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', messageId: '$.message_id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        recipientId: {
+          type: 'string',
+          description: 'IGSID do destinatário (vem do evento de comentário/DM).',
+        },
+        text: {
+          type: 'string',
+          description: 'Texto da DM. Coloque o link aqui dentro, se houver.',
+        },
+      },
+      required: ['recipientId', 'text'],
+      additionalProperties: false,
+    },
+  },
+
+  // (3.c) Enviar arquivo/mídia por DM no Instagram (imagem, vídeo, doc)
+  {
+    toolName: 'Instagram',
+    name: 'sendInstagramDirectMedia',
+    category: 'Marketing/Instagram',
+    description:
+      'Envia um arquivo/mídia (imagem, vídeo, áudio) por DM no Instagram via URL pública. Use pra entregar um material após um comentário.',
+    promptInstructions:
+      'Use pra mandar um ARQUIVO na DM (ex: PDF/imagem do material que o usuário pediu no comentário). recipientId é o IGSID do usuário; attachmentType é image/video/audio; attachmentUrl é a URL pública do arquivo (ex: a hospedada pela Orla/MinIO). A conta já está pré-configurada (env IG_USER_ID). Só envie com gancho real (o usuário pediu).',
+    httpMethod: 'POST',
+    httpPath: '/{{env.IG_USER_ID}}/messages',
+    httpBodyTemplate:
+      '{"recipient":{"id":{{json:input.recipientId}}},"message":{"attachment":{"type":{{json:input.attachmentType}},"payload":{"url":{{json:input.attachmentUrl}}}}},"access_token":"{{env.IG_ACCESS_TOKEN}}"}',
+    responseMap: { ok: '$.ok', status: '$.status', messageId: '$.message_id' },
+    parameters: {
+      type: 'object',
+      properties: {
+        recipientId: {
+          type: 'string',
+          description: 'IGSID do destinatário (vem do evento de comentário/DM).',
+        },
+        attachmentType: {
+          type: 'string',
+          description: 'Tipo do anexo.',
+          enum: ['image', 'video', 'audio'],
+        },
+        attachmentUrl: {
+          type: 'string',
+          description: 'URL pública do arquivo a enviar.',
+        },
+      },
+      required: ['recipientId', 'attachmentType', 'attachmentUrl'],
+      additionalProperties: false,
+    },
+  },
+
   // (4.a) Criar post no Google Business
   {
     toolName: 'Google Business',

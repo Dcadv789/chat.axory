@@ -639,7 +639,8 @@ PUBLICAR no Instagram — todos os formatos terminam em publishInstagramMedia(cr
 PUBLICAR no Google Business: createGoogleBusinessPost (summary).
 
 COMUNIDADE / REPUTACAO:
-- Instagram: listInstagramComments (de um post) > replyToInstagramComment (responde um comentario).
+- Instagram (comentarios): listInstagramComments (de um post) > replyToInstagramComment.
+- AUTOMACAO comentario->DM: quando um usuario comenta pedindo algo (material, link, preco), responda o comentario (replyToInstagramComment) E mande o material na DM — sendInstagramDirectMessage (texto/link) ou sendInstagramDirectMedia (arquivo por URL publica). O recipientId e o IGSID do usuario que veio no evento do comentario (nao e o @username). So mande DM com gancho real (a pessoa pediu/comentou); nunca spam.
 - Google: listGoogleBusinessReviews > replyToGoogleBusinessReview.
 
 CONDUTA:
@@ -720,6 +721,8 @@ const agentSkillLinks = {
     // Comunidade / reputação (responder comentários IG + reviews Google)
     { skill: 'listInstagramComments', requiresApproval: false },
     { skill: 'replyToInstagramComment', requiresApproval: true },
+    { skill: 'sendInstagramDirectMessage', requiresApproval: true }, // DM texto/link
+    { skill: 'sendInstagramDirectMedia', requiresApproval: true }, // DM arquivo
     { skill: 'listGoogleBusinessReviews', requiresApproval: false },
     { skill: 'replyToGoogleBusinessReview', requiresApproval: true },
   ],

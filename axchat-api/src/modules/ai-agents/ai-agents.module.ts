@@ -37,6 +37,8 @@ import { AgentCronSchedulerService } from './crons/agent-cron-scheduler.service'
 import { AgentCronProcessor } from './crons/agent-cron.processor';
 import { CronTriggerService } from './crons/cron-trigger.service';
 import { IsCronExpressionConstraint } from './crons/dto/create-agent-cron.dto';
+import { MarketingProfileController } from './marketing/marketing-profile.controller';
+import { MarketingProfileService } from './marketing/marketing-profile.service';
 
 @Module({
   imports: [
@@ -57,7 +59,12 @@ import { IsCronExpressionConstraint } from './crons/dto/create-agent-cron.dto';
     EvalsModule,
     BullModule.registerQueue({ name: 'agent-crons' }),
   ],
-  controllers: [AgentsController, AiCatalogController, AgentCronsController],
+  controllers: [
+    AgentsController,
+    AiCatalogController,
+    AgentCronsController,
+    MarketingProfileController,
+  ],
   providers: [
     PromptBuilderService,
     AiAgentRunnerService,
@@ -74,6 +81,7 @@ import { IsCronExpressionConstraint } from './crons/dto/create-agent-cron.dto';
     AgentCronProcessor,
     CronTriggerService,
     IsCronExpressionConstraint,
+    MarketingProfileService,
   ],
   exports: [AiAgentRunnerService, AgentRouterService],
 })
