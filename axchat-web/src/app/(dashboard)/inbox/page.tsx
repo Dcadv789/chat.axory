@@ -10,6 +10,10 @@ import { AgentRunsSidebar } from '@/features/inbox/components/agent-runs-sidebar
 import { ContactSidebar } from '@/features/inbox/components/contact-sidebar';
 import { useShortcut, KeyboardShortcutProvider } from '@/features/keyboard-shortcuts/keyboard-shortcut-context';
 import { inboxService, type Conversation } from '@/features/inbox/services/inbox.service';
+import { AssistantPanel } from '@/features/assistant/components/assistant-panel';
+import { assistantService } from '@/features/assistant/services/assistant.service';
+import { useAuthStore } from '@/stores/auth-store';
+import { useOrgId } from '@/hooks/use-org-query-key';
 
 const AGENT_LOGS_PREF_KEY = 'inbox.agentLogsOpen';
 const CONTACT_SIDEBAR_PREF_KEY = 'inbox.contactSidebarOpen';
@@ -79,6 +83,22 @@ export default function InboxPage() {
   }, []);
   const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Detecta a conversa do Assistente Pessoal (canal interno privado do dono)
+  // pra mostrar o painel de tarefas/agenda à direita só nela.
+  const orgId = useOrgId();
+  const assistantEnabled = useAuthStore(
+    (s) => s.organizations.find((o) => o.id === s.activeOrgId)?.assistantEnabled,
+  );
+  const { data: assistantCfg } = useQuery({
+    queryKey: ['assistant-config', orgId],
+    queryFn: () => assistantService.config(),
+    enabled: !!assistantEnabled,
+    staleTime: 5 * 60 * 1000,
+  });
+  const isAssistantChat =
+    !!assistantCfg?.channelId &&
+    activeConversation?.channelId === assistantCfg.channelId;
 
   // Switching inbox view should clear the open conversation so the right
   // panel doesn't show a thread that may not even match the new filter.
@@ -159,19 +179,27 @@ export default function InboxPage() {
               onToggleContactSidebar={toggleContactSidebar}
               contactSidebarOpen={contactSidebarOpen}
             />
-            {agentLogsOpen && (
-              <AgentRunsSidebar
-                key={`logs-${activeConversation.id}`}
-                conversationId={activeConversation.id}
-                onClose={toggleAgentLogs}
-              />
-            )}
-            {contactSidebarOpen && (
-              <ContactSidebar
-                key={`contact-${activeConversation.id}`}
-                contactId={activeConversation.contact?.id}
-                onClose={toggleContactSidebar}
-              />
+            {/* Conversa do Assistente Pessoal: painel de tarefas/agenda no
+                lugar das barras de contato/agente (não fazem sentido aqui). */}
+            {isAssistantChat ? (
+              <AssistantPanel key={`assistant-${activeConversation.id}`} />
+            ) : (
+              <>
+                {agentLogsOpen && (
+                  <AgentRunsSidebar
+                    key={`logs-${activeConversation.id}`}
+                    conversationId={activeConversation.id}
+                    onClose={toggleAgentLogs}
+                  />
+                )}
+                {contactSidebarOpen && (
+                  <ContactSidebar
+                    key={`contact-${activeConversation.id}`}
+                    contactId={activeConversation.contact?.id}
+                    onClose={toggleContactSidebar}
+                  />
+                )}
+              </>
             )}
           </>
         ) : (

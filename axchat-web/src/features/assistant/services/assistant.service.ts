@@ -45,6 +45,11 @@ export interface AssistantOverview {
 }
 
 export const assistantService = {
+  /** Config leve — usada pelo inbox pra detectar a conversa do assistente. */
+  async config(): Promise<{ id: string; channelId: string | null; agentId: string | null } | null> {
+    const { data } = await api.get('/personal-assistant/config');
+    return data?.data ?? data ?? null;
+  },
   async overview(): Promise<AssistantOverview> {
     const { data } = await api.get('/personal-assistant/overview');
     return data?.data ?? data;

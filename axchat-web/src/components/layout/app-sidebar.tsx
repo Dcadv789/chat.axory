@@ -11,7 +11,6 @@ import {
   Zap,
   Headset,
   Megaphone,
-  UserCircle,
 } from 'lucide-react';
 import { InboxTree } from '@/features/inbox-views/components/inbox-tree';
 import { AgentSectorTree } from '@/features/ai-agents/components/agent-sector-tree';
@@ -100,12 +99,6 @@ export function AppSidebar() {
               icon={Megaphone}
               sector="marketing"
             />
-          )}
-          {activeOrg?.assistantEnabled && (
-            <SidebarItem href="/assistant">
-              <UserCircle className="size-5" />
-              <SidebarLabel>Assistente Pessoal</SidebarLabel>
-            </SidebarItem>
           )}
           {navItems.map((item) => (
             <SidebarItem key={item.href} href={item.href}>

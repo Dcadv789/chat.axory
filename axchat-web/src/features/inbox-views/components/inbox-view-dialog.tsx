@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { X, Inbox, MessageSquare, Phone, Instagram, Mail, Send, Users, Tag, Star, Filter } from 'lucide-react';
 import { toast } from 'sonner';
@@ -146,9 +147,12 @@ export function InboxViewDialog({ open, view, onClose, onSaved }: Props) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-xl dark:bg-black">
+  // Portal pro body: garante que o modal cubra o APP INTEIRO (centralizado),
+  // sem ser recortado/encolhido pela stacking-context da barra lateral.
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-2xl dark:bg-black">
         <div className="sticky top-0 flex items-center justify-between border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
           <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             {view ? 'Editar inbox' : 'Nova inbox'}
@@ -378,6 +382,7 @@ export function InboxViewDialog({ open, view, onClose, onSaved }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
