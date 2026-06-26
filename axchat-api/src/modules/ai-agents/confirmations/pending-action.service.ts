@@ -15,6 +15,7 @@ import type {
 } from './confirmation.types';
 import { PendingActionStorage } from './pending-action.storage';
 import { PENDING_ACTION_EXECUTOR_QUEUE } from './queue-names';
+import { PrismaService } from '../../../database/prisma.service';
 
 /**
  * Service that owns the lifecycle of `PendingAction` records.
@@ -32,7 +33,54 @@ export class PendingActionService {
     private readonly storage: PendingActionStorage,
     @InjectQueue(PENDING_ACTION_EXECUTOR_QUEUE)
     private readonly executorQueue: Queue,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /**
+   * Quando uma ação gated de MARKETING termina sem executar (rejeitada/expirada),
+   * grava a linha terminal no log de negócio (marketing_activities) — senão o log
+   * mostraria PENDING_APPROVAL pra sempre. Fire-and-forget, scoped por org.
+   */
+  private async logMarketingTerminal(
+    action: PendingAction,
+    terminal: 'REJECTED' | 'EXPIRED',
+  ): Promise<void> {
+    try {
+      const agent = await this.prisma.aiAgent.findUnique({
+        where: { id: action.agentId },
+        select: { organizationId: true },
+      });
+      if (!agent) return;
+      const skill = await this.prisma.aiSkill.findFirst({
+        where: {
+          organizationId: agent.organizationId,
+          name: action.toolName,
+          deletedAt: null,
+        },
+        select: { category: true },
+      });
+      if (!skill?.category?.startsWith('Marketing/')) return;
+      await this.prisma.marketingActivity.create({
+        data: {
+          organizationId: agent.organizationId,
+          agentId: action.agentId,
+          runId: action.agentRunId,
+          action: action.toolName,
+          status: 'FAILED',
+          title: `${action.toolName} ${terminal === 'REJECTED' ? 'rejeitada' : 'expirada'}`,
+          payload: {
+            pendingActionId: action.id,
+            terminal,
+            reason: (action as any).rejectedReason ?? null,
+          },
+        },
+      });
+    } catch (e: any) {
+      this.logger.warn(
+        `logMarketingTerminal(${action.toolName}) falhou: ${e?.message ?? e}`,
+      );
+    }
+  }
 
   /** Create a new PENDING action for human review. */
   async create(input: CreatePendingActionInput): Promise<PendingAction> {
@@ -88,6 +136,7 @@ export class PendingActionService {
       const previous = action.status;
       action.status = 'EXPIRED';
       await this.storage.save(action, previous);
+      await this.logMarketingTerminal(action, 'EXPIRED');
       throw new BadRequestException('Action expired');
     }
 
@@ -148,6 +197,7 @@ export class PendingActionService {
       const previous = action.status;
       action.status = 'EXPIRED';
       await this.storage.save(action, previous);
+      await this.logMarketingTerminal(action, 'EXPIRED');
       throw new BadRequestException('Action expired');
     }
 
@@ -164,6 +214,8 @@ export class PendingActionService {
       userId,
       toolName: action.toolName,
     });
+
+    await this.logMarketingTerminal(action, 'REJECTED');
 
     return action;
   }
@@ -211,6 +263,7 @@ export class PendingActionService {
           id: action.id,
           toolName: action.toolName,
         });
+        await this.logMarketingTerminal(action, 'EXPIRED');
       }
     }
     return moved;

@@ -61,12 +61,12 @@ export class HttpToolExecutorService {
       );
     }
     if (!tool.httpBaseUrl || !skill.httpMethod || !skill.httpPath) {
-      return {
-        output: {
-          ok: false,
-          error: 'Skill not fully configured (httpBaseUrl/httpMethod/httpPath missing)',
-        },
+      const out = {
+        ok: false,
+        error: 'Skill not fully configured (httpBaseUrl/httpMethod/httpPath missing)',
       };
+      await this.recordMarketingActivity(skill, ctx, 'FAILED', out);
+      return { output: out };
     }
 
     // Carrega todas as secrets da org pra resolução de {{env.X}} sem hits

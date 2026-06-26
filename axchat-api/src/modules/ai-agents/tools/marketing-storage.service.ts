@@ -49,7 +49,11 @@ export class MarketingStorageService {
     return this.client !== null;
   }
 
-  /** slug do nome da org pra usar como prefixo (pasta do tenant). */
+  /**
+   * Prefixo (pasta) do tenant: slug legível do NOME + sufixo do orgId.
+   * O sufixo (id imutável e único) garante isolamento mesmo se duas orgs
+   * tiverem o mesmo nome ou se o nome mudar — sem colidir/compartilhar pasta.
+   */
   tenantPrefix(orgName: string, orgId: string): string {
     const slug = (orgName || '')
       .normalize('NFD')
@@ -57,7 +61,8 @@ export class MarketingStorageService {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    return slug || `org-${orgId.slice(0, 8)}`;
+    const suffix = orgId.slice(0, 8);
+    return slug ? `${slug}-${suffix}` : `org-${suffix}`;
   }
 
   async upload(args: {

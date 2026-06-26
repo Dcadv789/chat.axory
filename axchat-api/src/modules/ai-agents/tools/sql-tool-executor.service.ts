@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AiSkill, AiTool } from '@prisma/client';
 import { Pool } from 'pg';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../../../database/prisma.service';
 import { ToolContext, ToolResult } from './tool.types';
 
@@ -99,7 +100,10 @@ export class SqlToolExecutorService implements OnModuleDestroy {
       };
     }
 
-    const pool = this.getOrCreatePool(tool.sqlConnectionRef, dsn);
+    // Pool keyed pelo DSN (não pelo nome do ref): orgs diferentes têm DSNs
+    // diferentes → conexões isoladas. Antes era keyed por refName, o que fazia
+    // a org B reusar a conexão/DSN da org A (vazamento cross-tenant).
+    const pool = this.getOrCreatePool(dsn);
     const params = isDynamic
       ? this.buildParamsFromInput(input)
       : this.buildParams(skill.sqlParamMap, { input, ctx });
@@ -107,16 +111,26 @@ export class SqlToolExecutorService implements OnModuleDestroy {
     const startedAt = Date.now();
     const client = await pool.connect();
     try {
+      // Transação real: SET LOCAL só vale dentro de um bloco transacional.
+      // READ ONLY no nível do Postgres rejeita QUALQUER escrita (inclusive
+      // CTE com DELETE/UPDATE e MERGE) — o regex hasMutatingVerb é só uma
+      // checagem extra. Em autocommit (sem BEGIN), o SET LOCAL anterior era
+      // um no-op e a query rodava READ WRITE.
+      await client.query('BEGIN');
+      await client.query(
+        `SET LOCAL statement_timeout = ${Number(skill.timeoutMs ?? 15000)}`,
+      );
       if (skill.sqlReadOnly) {
-        await client.query('SET LOCAL TRANSACTION READ ONLY');
+        await client.query('SET TRANSACTION READ ONLY');
       }
-      await client.query(`SET LOCAL statement_timeout = ${skill.timeoutMs ?? 15000}`);
 
       const result = await client.query({
         text: sqlToExecute,
         values: params,
         rowMode: 'array',
       } as any);
+
+      await client.query(skill.sqlReadOnly ? 'ROLLBACK' : 'COMMIT');
 
       const cols = (result.fields ?? []).map((f: any) => f.name);
       const rows = ((result.rows ?? []) as unknown[][])
@@ -141,6 +155,7 @@ export class SqlToolExecutorService implements OnModuleDestroy {
         },
       };
     } catch (err: any) {
+      await client.query('ROLLBACK').catch(() => undefined);
       this.logger.error(`[skill:${skill.name}] failed: ${err?.message ?? err}`);
       return { output: { ok: false, error: err?.message ?? String(err) } };
     } finally {
@@ -161,8 +176,12 @@ export class SqlToolExecutorService implements OnModuleDestroy {
     return this.config.get<string>(refKey) ?? null;
   }
 
-  private getOrCreatePool(refName: string, dsn: string): Pool {
-    let pool = this.pools.get(refName);
+  private getOrCreatePool(dsn: string): Pool {
+    // Cache keyed pelo hash do DSN (não pelo nome do ref) — garante isolamento
+    // por org: DSNs distintos => pools distintos. Sem isso, o mesmo refName
+    // ("SALES_DB_URL") fazia todas as orgs compartilharem a 1ª conexão criada.
+    const key = createHash('sha256').update(dsn).digest('hex');
+    let pool = this.pools.get(key);
     if (pool) return pool;
     // URL-encode automaticamente a senha pra evitar erro com caracteres especiais
     const safeDsn = this.encodePasswordInDsn(dsn);
@@ -173,9 +192,9 @@ export class SqlToolExecutorService implements OnModuleDestroy {
       connectionTimeoutMillis: 5_000,
     });
     pool.on('error', (err) =>
-      this.logger.error(`pg pool error [${refName}]: ${err.message}`),
+      this.logger.error(`pg pool error [${key.slice(0, 8)}]: ${err.message}`),
     );
-    this.pools.set(refName, pool);
+    this.pools.set(key, pool);
     return pool;
   }
 
@@ -260,7 +279,10 @@ export class SqlToolExecutorService implements OnModuleDestroy {
     const stripped = sql
       .replace(/--.*$/gm, '')
       .replace(/\/\*[\s\S]*?\*\//g, '');
-    return /(^|;)\s*(insert|update|delete|drop|alter|truncate|grant|revoke|create|comment\s+on|call|do)\b/i.test(
+    // Verbo de escrita no início, após ';', OU dentro de uma CTE (WITH ... AS
+    // (DELETE ...)). A transação READ ONLY do Postgres é a barreira real;
+    // isto só bloqueia cedo os casos óbvios, inclusive MERGE e DML em CTE.
+    return /(^|;|\()\s*(insert|update|delete|drop|alter|truncate|grant|revoke|create|merge|comment\s+on|call|do)\b/i.test(
       stripped,
     );
   }

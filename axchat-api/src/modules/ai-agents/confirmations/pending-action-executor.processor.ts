@@ -105,20 +105,69 @@ export class PendingActionExecutorProcessor extends WorkerHost {
    * repeatable job (a cada 5min) registrado em `confirmations.module`.
    */
   private async expireOverdueActions(): Promise<{ expired: number }> {
-    const result = await this.prisma.aiPendingAction.updateMany({
-      where: {
-        status: 'PENDING',
-        expiresAt: { lt: new Date() },
+    // Pega as ações que vão expirar ANTES do update, pra registrar a linha
+    // terminal no log de negócio das que são de marketing (senão o
+    // marketing_activities mostraria PENDING_APPROVAL pra sempre).
+    const overdue = await this.prisma.aiPendingAction.findMany({
+      where: { status: 'PENDING', expiresAt: { lt: new Date() } },
+      select: {
+        id: true,
+        toolName: true,
+        agentId: true,
+        agentRunId: true,
+        agent: { select: { organizationId: true } },
       },
+    });
+
+    const result = await this.prisma.aiPendingAction.updateMany({
+      where: { status: 'PENDING', expiresAt: { lt: new Date() } },
       data: { status: 'EXPIRED' },
     });
+
     if (result.count > 0) {
-      this.logger.log({
-        msg: 'pending_actions_expired',
-        count: result.count,
-      });
+      this.logger.log({ msg: 'pending_actions_expired', count: result.count });
+      await this.logExpiredMarketing(overdue);
     }
     return { expired: result.count };
+  }
+
+  /** Grava marketing_activities (FAILED/expirada) p/ ações de marketing expiradas. */
+  private async logExpiredMarketing(
+    actions: Array<{
+      id: string;
+      toolName: string;
+      agentId: string;
+      agentRunId: string;
+      agent: { organizationId: string } | null;
+    }>,
+  ): Promise<void> {
+    for (const a of actions) {
+      if (!a.agent) continue;
+      try {
+        const skill = await this.prisma.aiSkill.findFirst({
+          where: {
+            organizationId: a.agent.organizationId,
+            name: a.toolName,
+            deletedAt: null,
+          },
+          select: { category: true },
+        });
+        if (!skill?.category?.startsWith('Marketing/')) continue;
+        await this.prisma.marketingActivity.create({
+          data: {
+            organizationId: a.agent.organizationId,
+            agentId: a.agentId,
+            runId: a.agentRunId,
+            action: a.toolName,
+            status: 'FAILED',
+            title: `${a.toolName} expirada`,
+            payload: { pendingActionId: a.id, terminal: 'EXPIRED' },
+          },
+        });
+      } catch (e: any) {
+        this.logger.warn(`logExpiredMarketing(${a.toolName}) falhou: ${e?.message ?? e}`);
+      }
+    }
   }
 
   private async executeTransferToHuman(action: {

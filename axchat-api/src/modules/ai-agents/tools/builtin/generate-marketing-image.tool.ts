@@ -65,6 +65,7 @@ export class GenerateMarketingImageTool implements AiTool {
 
     const apiKey = await this.resolveOpenAiKey(ctx.organizationId);
     if (!apiKey) {
+      await this.logFailure(ctx, 'openai_key_missing');
       return {
         output: {
           ok: false,
@@ -88,6 +89,7 @@ export class GenerateMarketingImageTool implements AiTool {
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         this.logger.warn(`OpenAI images falhou (${res.status}): ${text.slice(0, 300)}`);
+        await this.logFailure(ctx, `openai_error:${res.status}`);
         return {
           output: {
             ok: false,
@@ -103,6 +105,7 @@ export class GenerateMarketingImageTool implements AiTool {
       };
       const b64 = json.data?.[0]?.b64_json;
       if (!b64) {
+        await this.logFailure(ctx, 'empty_openai_response');
         return { output: { ok: false, error: 'sem imagem no retorno da OpenAI' } };
       }
 
@@ -152,8 +155,26 @@ export class GenerateMarketingImageTool implements AiTool {
       return { output: { ok: true, url, size, assetId: asset?.id ?? null } };
     } catch (err: any) {
       this.logger.error(`generateMarketingImage erro: ${err?.message ?? err}`);
+      await this.logFailure(ctx, String(err?.message ?? err));
       return { output: { ok: false, error: String(err?.message ?? err) } };
     }
+  }
+
+  /** Log de atividade pra geração de imagem que FALHOU (custo/tentativa fica auditável). */
+  private async logFailure(ctx: ToolContext, reason: string): Promise<void> {
+    await this.prisma.marketingActivity
+      .create({
+        data: {
+          organizationId: ctx.organizationId,
+          agentId: ctx.agentId,
+          runId: ctx.runId,
+          action: 'IMAGE_GENERATED',
+          status: 'FAILED',
+          title: 'Falha ao gerar criativo',
+          payload: { reason: reason.slice(0, 500) },
+        },
+      })
+      .catch(() => undefined);
   }
 
   private async resolveOpenAiKey(organizationId: string): Promise<string | null> {
