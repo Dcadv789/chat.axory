@@ -412,7 +412,12 @@ export class ConversationsRepository {
     return this.prisma.conversation.update({ where: { id }, data });
   }
 
-  async countByStatus(organizationId: string, accessibleChannelIds?: string[]) {
+  async countByStatus(
+    organizationId: string,
+    accessibleChannelIds?: string[],
+    restrictToAssigneeOrUnassigned?: boolean,
+    currentUserId?: string,
+  ) {
     if (accessibleChannelIds !== undefined && accessibleChannelIds.length === 0) {
       return {} as Record<string, number>;
     }
@@ -423,6 +428,10 @@ export class ConversationsRepository {
         deletedAt: null,
         ...(accessibleChannelIds !== undefined
           ? { channelId: { in: accessibleChannelIds } }
+          : {}),
+        // Mesma regra da lista: AGENT só conta o que é dele ou sem dono.
+        ...(restrictToAssigneeOrUnassigned && currentUserId
+          ? { OR: [{ assignedToId: currentUserId }, { assignedToId: null }] }
           : {}),
       },
       _count: true,

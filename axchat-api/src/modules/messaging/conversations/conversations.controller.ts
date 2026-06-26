@@ -164,9 +164,11 @@ export class ConversationsController {
   @ApiOperation({ summary: 'Get conversation counts by status' })
   getCounts(
     @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
   ) {
-    return this.service.getStatusCounts(orgId, access);
+    return this.service.getStatusCounts(orgId, access, userId, userRole);
   }
 
   @Get(':id')
@@ -174,9 +176,11 @@ export class ConversationsController {
   findOne(
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
   ) {
-    return this.service.findOne(id, orgId, access);
+    return this.service.findOne(id, orgId, access, userId, userRole);
   }
 
   @Patch(':id')

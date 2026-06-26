@@ -255,6 +255,7 @@ export class RealtimeGateway
   }
 
   emitToOrg(orgId: string, event: string, data: any) {
+    if (!this.server) return;
     this.server.to(`org:${orgId}`).emit(event, data);
   }
 
@@ -266,14 +267,17 @@ export class RealtimeGateway
    * (message, conversation update, sync progress).
    */
   emitToChannel(channelId: string, event: string, data: any) {
+    if (!this.server) return;
     this.server.to(`channel:${channelId}`).emit(event, data);
   }
 
   emitToConversation(conversationId: string, event: string, data: any) {
+    if (!this.server) return;
     this.server.to(`conv:${conversationId}`).emit(event, data);
   }
 
   emitToUser(userId: string, event: string, data: any) {
+    if (!this.server) return;
     this.server.to(`user:${userId}`).emit(event, data);
   }
 
@@ -284,6 +288,7 @@ export class RealtimeGateway
    * (or not) immediately, no relogin required.
    */
   async grantChannelToUser(userId: string, channelId: string): Promise<void> {
+    if (!this.server) return;
     const sockets = await this.server.in(`user:${userId}`).fetchSockets();
     for (const s of sockets) {
       s.join(`channel:${channelId}`);
@@ -294,6 +299,7 @@ export class RealtimeGateway
   }
 
   async revokeChannelFromUser(userId: string, channelId: string): Promise<void> {
+    if (!this.server) return;
     const sockets = await this.server.in(`user:${userId}`).fetchSockets();
     for (const s of sockets) {
       s.leave(`channel:${channelId}`);

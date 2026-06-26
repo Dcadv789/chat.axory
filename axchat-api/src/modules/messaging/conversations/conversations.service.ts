@@ -115,13 +115,32 @@ export class ConversationsService {
     };
   }
 
-  async findOne(id: string, organizationId: string, access: ChannelAccess = 'ALL') {
+  async findOne(
+    id: string,
+    organizationId: string,
+    access: ChannelAccess = 'ALL',
+    currentUserId?: string,
+    currentUserRole?: string,
+  ) {
     const conversation = await this.repository.findById(id);
     if (!conversation) throw new NotFoundException('Conversation not found');
     if (conversation.organizationId !== organizationId) {
       throw new ForbiddenException();
     }
     this.channelAccess.assertChannelAccess(access, conversation.channelId);
+
+    // Visibilidade por atribuição: AGENT não abre conversa atribuída a OUTRA
+    // pessoa (mesmo sabendo o id). Sem dono ou atribuída a ele = ok. OWNER/ADMIN
+    // (sem role passada nas chamadas internas) não entram aqui.
+    if (
+      currentUserRole === 'AGENT' &&
+      conversation.assignedToId &&
+      conversation.assignedToId !== currentUserId
+    ) {
+      throw new ForbiddenException(
+        'Conversa atribuída a outro atendente.',
+      );
+    }
     return conversation;
   }
 
@@ -476,9 +495,19 @@ export class ConversationsService {
     return updated;
   }
 
-  async getStatusCounts(organizationId: string, access: ChannelAccess = 'ALL') {
+  async getStatusCounts(
+    organizationId: string,
+    access: ChannelAccess = 'ALL',
+    currentUserId?: string,
+    currentUserRole?: string,
+  ) {
     const accessibleIds = access === 'ALL' ? undefined : [...access];
-    return this.repository.countByStatus(organizationId, accessibleIds);
+    return this.repository.countByStatus(
+      organizationId,
+      accessibleIds,
+      currentUserRole === 'AGENT',
+      currentUserId,
+    );
   }
 
   /**
