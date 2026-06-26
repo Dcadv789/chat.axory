@@ -180,6 +180,33 @@ export class PersonalAssistantService {
     });
   }
 
+  /** Canais do assistente (com flag principal) + canais disponíveis pra adicionar. */
+  async listChannels(organizationId: string, userId: string) {
+    const cfg = await this.prisma.personalAssistantConfig.findUnique({
+      where: { uq_assistant_org_user: { organizationId, userId } },
+      select: { agentId: true, channelId: true },
+    });
+    if (!cfg?.agentId) return { channels: [], available: [] };
+
+    const links = await this.prisma.aiAgentChannel.findMany({
+      where: { agentId: cfg.agentId },
+      select: { channel: { select: { id: true, name: true, type: true } } },
+    });
+    const channels = links
+      .map((l) => l.channel)
+      .filter(Boolean)
+      .map((c) => ({ ...c!, isPrimary: c!.id === cfg.channelId }));
+    const inUse = new Set(channels.map((c) => c.id));
+
+    const all = await this.prisma.channel.findMany({
+      where: { organizationId, isActive: true, deletedAt: null },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: 'asc' },
+    });
+    const available = all.filter((c) => !inUse.has(c.id));
+    return { channels, available };
+  }
+
   async updateConfig(
     organizationId: string,
     userId: string,

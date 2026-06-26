@@ -83,4 +83,17 @@ export const assistantService = {
   async cancelReminder(id: string) {
     await api.delete(`/personal-assistant/reminders/${id}`);
   },
+  async listChannels(): Promise<{
+    channels: { id: string; name: string; type: string; isPrimary: boolean }[];
+    available: { id: string; name: string; type: string }[];
+  }> {
+    const { data } = await api.get('/personal-assistant/channels');
+    return data?.data ?? data;
+  },
+  async addChannel(channelId: string) {
+    await api.post('/personal-assistant/channels', { channelId });
+  },
+  async removeChannel(channelId: string) {
+    await api.delete(`/personal-assistant/channels/${channelId}`);
+  },
 };

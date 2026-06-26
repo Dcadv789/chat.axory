@@ -150,6 +150,12 @@ export class AiAgentRunnerService implements OnModuleInit {
       return;
     }
 
+    // Memória UNIFICADA do assistente pessoal: agentes PESSOAL leem/gravam a
+    // ficha sempre no contato CANÔNICO do dono (config.contactId), pra a
+    // memória/histórico ser o mesmo em todos os canais dele (interno, Telegram…).
+    // Demais agentes usam o contato da conversa normalmente.
+    const memoryContactId = await this.resolveMemoryContactId(agent, conversation);
+
     const [organization, channel, contact, recentMessages, memory, catalog] =
       await Promise.all([
         this.prisma.organization.findUniqueOrThrow({
@@ -170,7 +176,7 @@ export class AiAgentRunnerService implements OnModuleInit {
           where: {
             agentId_contactId: {
               agentId: agent.id,
-              contactId: conversation.contactId,
+              contactId: memoryContactId,
             },
           },
         }),
@@ -531,7 +537,7 @@ export class AiAgentRunnerService implements OnModuleInit {
       this.scheduleAfterRunJobs(
         agent.id,
         conversation.id,
-        conversation.contactId,
+        memoryContactId,
         triggerMessage,
         finalAction,
       ).catch((err) =>
@@ -682,6 +688,26 @@ export class AiAgentRunnerService implements OnModuleInit {
         createdAt: row.createdAt,
       },
     });
+  }
+
+  /**
+   * Contato usado pra LER/GRAVAR a memória de longo prazo. Pra o Assistente
+   * Pessoal (sector=PESSOAL), retorna o contato CANÔNICO do dono
+   * (PersonalAssistantConfig.contactId) — assim a ficha é a mesma em todos os
+   * canais do assistente. Pros demais agentes, é o contato da própria conversa.
+   */
+  private async resolveMemoryContactId(
+    agent: { id: string; sector: AiAgentSector },
+    conversation: Conversation,
+  ): Promise<string> {
+    if (agent.sector === 'PESSOAL') {
+      const cfg = await this.prisma.personalAssistantConfig.findFirst({
+        where: { organizationId: conversation.organizationId, agentId: agent.id },
+        select: { contactId: true },
+      });
+      if (cfg?.contactId) return cfg.contactId;
+    }
+    return conversation.contactId;
   }
 
   private async resolveAgent(conversation: Conversation) {

@@ -1452,7 +1452,11 @@ model PersonalAssistantConfig {
   userId         String  @map("user_id")
 
   agentId   String? @map("agent_id") // AiAgent (sector=PESSOAL) que atende
-  channelId String? @map("channel_id") // inbox onde o usuário fala com ele
+  channelId String? @map("channel_id") // canal PRINCIPAL (entrega de lembrete/briefing)
+  // Contato canônico do dono — usado pra UNIFICAR a memória/histórico do
+  // assistente entre todos os canais dele (cada canal tem seu contato, mas a
+  // ficha de longo prazo é lida/gravada sempre neste contato).
+  contactId String? @map("contact_id")
 
   timezone               String  @default("America/Sao_Paulo")
   googleCalendarConnected Boolean @default(false) @map("google_calendar_connected")

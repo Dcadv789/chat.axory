@@ -89,6 +89,19 @@ export class PersonalAssistantProvisioningService {
         ownerUserId,
         existingCfg.channelId,
       );
+      // Backfill do contato canônico (config antiga sem contactId).
+      if (!existingCfg.contactId) {
+        const conv = await this.prisma.conversation.findFirst({
+          where: { channelId: existingCfg.channelId, deletedAt: null },
+          select: { contactId: true },
+        });
+        if (conv?.contactId) {
+          await this.prisma.personalAssistantConfig.update({
+            where: { id: existingCfg.id },
+            data: { contactId: conv.contactId },
+          });
+        }
+      }
       return {
         agentId: existingCfg.agentId,
         channelId: existingCfg.channelId,
@@ -143,12 +156,13 @@ export class PersonalAssistantProvisioningService {
       where: {
         uq_assistant_org_user: { organizationId, userId: ownerUserId },
       },
-      update: { agentId: agent.id, channelId: channel.id },
+      update: { agentId: agent.id, channelId: channel.id, contactId: contact.id },
       create: {
         organizationId,
         userId: ownerUserId,
         agentId: agent.id,
         channelId: channel.id,
+        contactId: contact.id,
         dailyBriefingHour: 8,
       },
     });
@@ -162,6 +176,66 @@ export class PersonalAssistantProvisioningService {
       `Assistente pessoal provisionado: org=${organizationId} user=${ownerUserId} agent=${agent.id}`,
     );
     return { agentId: agent.id, channelId: channel.id, configId: cfg.id };
+  }
+
+  /**
+   * Adiciona um canal DEDICADO ao assistente: linka o agente e o torna o
+   * orquestrador padrão do canal, pra que toda mensagem ali seja atendida pelo
+   * assistente. (Use só canais pessoais — todo quem fala ali é tratado como o dono.)
+   */
+  async attachChannel(
+    organizationId: string,
+    userId: string,
+    channelId: string,
+  ): Promise<{ ok: boolean }> {
+    const cfg = await this.prisma.personalAssistantConfig.findUnique({
+      where: { uq_assistant_org_user: { organizationId, userId } },
+      select: { agentId: true },
+    });
+    if (!cfg?.agentId) {
+      throw new BadRequestException('Assistente não provisionado.');
+    }
+    const channel = await this.prisma.channel.findFirst({
+      where: { id: channelId, organizationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!channel) throw new BadRequestException('Canal não encontrado.');
+
+    await this.prisma.aiAgentChannel.upsert({
+      where: { agentId_channelId: { agentId: cfg.agentId, channelId } },
+      update: { mode: 'AUTONOMOUS', trigger: 'ALWAYS' },
+      create: { agentId: cfg.agentId, channelId, mode: 'AUTONOMOUS', trigger: 'ALWAYS' },
+    });
+    await this.prisma.channel.update({
+      where: { id: channelId },
+      data: { defaultOrchestratorId: cfg.agentId },
+    });
+    return { ok: true };
+  }
+
+  /** Remove um canal do assistente (não pode remover o principal). */
+  async detachChannel(
+    organizationId: string,
+    userId: string,
+    channelId: string,
+  ): Promise<{ ok: boolean }> {
+    const cfg = await this.prisma.personalAssistantConfig.findUnique({
+      where: { uq_assistant_org_user: { organizationId, userId } },
+      select: { agentId: true, channelId: true },
+    });
+    if (!cfg?.agentId) throw new BadRequestException('Assistente não provisionado.');
+    if (channelId === cfg.channelId) {
+      throw new BadRequestException('Não dá pra remover o canal principal.');
+    }
+    await this.prisma.aiAgentChannel.deleteMany({
+      where: { agentId: cfg.agentId, channelId },
+    });
+    // Só limpa o defaultOrchestrator se for o assistente (não pisa em outro).
+    await this.prisma.channel.updateMany({
+      where: { id: channelId, defaultOrchestratorId: cfg.agentId },
+      data: { defaultOrchestratorId: null },
+    });
+    return { ok: true };
   }
 
   private async ensureAssistantInboxView(

@@ -12,6 +12,8 @@ import {
   Trash2,
   Loader2,
   X,
+  Radio,
+  Star,
 } from 'lucide-react';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { assistantService } from '@/features/assistant/services/assistant.service';
@@ -71,9 +73,71 @@ export function AssistantPanel({ onClose }: { onClose?: () => void }) {
           <RemindersPanel reminders={overview.reminders} onChange={invalidate} />
           <EventsPanel events={overview.events} />
           <NotesPanel onChange={invalidate} />
+          <ChannelsPanel />
         </div>
       )}
     </aside>
+  );
+}
+
+function ChannelsPanel() {
+  const orgId = useOrgId();
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ['assistant-channels', orgId],
+    queryFn: () => assistantService.listChannels(),
+  });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['assistant-channels', orgId] });
+  const [pick, setPick] = useState('');
+  const add = useMutation({
+    mutationFn: (channelId: string) => assistantService.addChannel(channelId),
+    onSuccess: () => { setPick(''); invalidate(); },
+  });
+  const remove = useMutation({
+    mutationFn: (channelId: string) => assistantService.removeChannel(channelId),
+    onSuccess: invalidate,
+  });
+  return (
+    <Section title="Canais do assistente" icon={Radio}>
+      <p className="mb-2 text-[11px] text-zinc-500">
+        Fale com seu assistente por estes canais. Use só canais pessoais (todo
+        mundo que falar ali é tratado como você). Lembretes chegam no principal.
+      </p>
+      <ul className="mb-2 space-y-1">
+        {(data?.channels ?? []).map((c) => (
+          <li key={c.id} className="group flex items-center gap-2 text-sm">
+            <Radio className="h-3.5 w-3.5 text-zinc-400" />
+            <span className="flex-1 truncate text-zinc-700 dark:text-zinc-300">{c.name}</span>
+            {c.isPrimary ? (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600"><Star className="h-3 w-3" /> principal</span>
+            ) : (
+              <button onClick={() => remove.mutate(c.id)} className="text-zinc-300 opacity-0 hover:text-rose-600 group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {(data?.available?.length ?? 0) > 0 && (
+        <div className="flex gap-1.5">
+          <select
+            value={pick}
+            onChange={(e) => setPick(e.target.value)}
+            className="flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-black"
+          >
+            <option value="">Adicionar canal…</option>
+            {data!.available.map((c) => (
+              <option key={c.id} value={c.id}>{c.name} ({c.type})</option>
+            ))}
+          </select>
+          <button
+            onClick={() => pick && add.mutate(pick)}
+            disabled={!pick || add.isPending}
+            className="rounded-md bg-primary px-2 text-primary-foreground disabled:opacity-50"
+          >
+            {add.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          </button>
+        </div>
+      )}
+    </Section>
   );
 }
 

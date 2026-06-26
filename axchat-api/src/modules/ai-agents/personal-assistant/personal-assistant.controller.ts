@@ -76,6 +76,35 @@ export class PersonalAssistantController {
 
   // ─── Dados pessoais do usuário logado (escopo org+userId) ───
 
+  @Get('channels')
+  @ApiOperation({ summary: 'Canais do assistente (+ disponíveis pra adicionar)' })
+  async listChannels(@CurrentOrg('id') orgId: string, @CurrentUser('id') userId: string) {
+    await this.ensureEnabled(orgId);
+    return this.service.listChannels(orgId, userId);
+  }
+
+  @Post('channels')
+  @ApiOperation({ summary: 'Adiciona um canal dedicado ao assistente' })
+  async addChannel(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { channelId: string },
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.provisioning.attachChannel(orgId, userId, body.channelId);
+  }
+
+  @Delete('channels/:channelId')
+  @ApiOperation({ summary: 'Remove um canal do assistente (não o principal)' })
+  async removeChannel(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Param('channelId') channelId: string,
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.provisioning.detachChannel(orgId, userId, channelId);
+  }
+
   @Get('overview')
   @ApiOperation({ summary: 'Painel: config, chat, métricas isoladas e listas' })
   async overview(@CurrentOrg('id') orgId: string, @CurrentUser('id') userId: string) {
