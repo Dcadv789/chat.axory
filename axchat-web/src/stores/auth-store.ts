@@ -15,6 +15,8 @@ interface OrgInfo {
   role: string;
   // Add-on vendável: habilita o módulo de Marketing. Default false.
   marketingEnabled?: boolean;
+  // Add-on vendável: habilita a IA de Assistente Pessoal. Default false.
+  assistantEnabled?: boolean;
   // 'ALL' for OWNER/ADMIN. Array of channel IDs for AGENT (deny-by-default).
   accessibleChannelIds: 'ALL' | string[];
 }

@@ -62,6 +62,7 @@ export class ConversationsController {
   findInbox(
     @CurrentOrg('id') orgId: string,
     @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
     @Query('status') status?: string,
     @Query('channelId') channelId?: string,
@@ -104,6 +105,7 @@ export class ConversationsController {
       parseInt(limit || '20', 10),
       access,
       userId,
+      userRole,
     );
   }
 

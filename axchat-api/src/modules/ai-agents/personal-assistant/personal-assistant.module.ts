@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../../../database/prisma.module';
 import { RealtimeModule } from '../../realtime/realtime.module';
 import { PersonalAssistantProvisioningService } from './personal-assistant-provisioning.service';
+import { PersonalAssistantService } from './personal-assistant.service';
 import { PersonalAssistantController } from './personal-assistant.controller';
 import { ReminderSchedulerService } from './reminder-scheduler.service';
 import { ReminderProcessor } from './reminder.processor';
@@ -19,6 +20,7 @@ import { ReminderProcessor } from './reminder.processor';
   controllers: [PersonalAssistantController],
   providers: [
     PersonalAssistantProvisioningService,
+    PersonalAssistantService,
     ReminderSchedulerService,
     ReminderProcessor,
   ],

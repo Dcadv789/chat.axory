@@ -112,6 +112,7 @@ export class AuthService {
         slug: result.organization.slug,
         role: 'OWNER',
         marketingEnabled: result.organization.marketingEnabled,
+        assistantEnabled: result.organization.assistantEnabled,
         accessibleChannelIds: 'ALL' as const,
       }],
       accessToken: tokens.accessToken,
@@ -201,6 +202,7 @@ export class AuthService {
         slug: result.organization.slug,
         role: invitation.role,
         marketingEnabled: result.organization.marketingEnabled,
+        assistantEnabled: result.organization.assistantEnabled,
         // New invited members start with no channel grants (deny-by-default).
         // OWNER/ADMIN bypass; AGENT must be explicitly granted by an admin.
         accessibleChannelIds:
@@ -251,6 +253,7 @@ export class AuthService {
         slug: m.organization.slug,
         role: m.role,
         marketingEnabled: m.organization.marketingEnabled,
+        assistantEnabled: m.organization.assistantEnabled,
         accessibleChannelIds:
           m.role === 'OWNER' || m.role === 'ADMIN'
             ? ('ALL' as const)
@@ -304,6 +307,7 @@ export class AuthService {
         slug: m.organization.slug,
         role: m.role,
         marketingEnabled: m.organization.marketingEnabled,
+        assistantEnabled: m.organization.assistantEnabled,
         // 'ALL' for OWNER/ADMIN — they bypass the per-channel allowlist.
         accessibleChannelIds:
           m.role === 'OWNER' || m.role === 'ADMIN'

@@ -73,6 +73,7 @@ export class ConversationsService {
     limit: number,
     access: ChannelAccess = 'ALL',
     currentUserId?: string,
+    currentUserRole?: string,
   ) {
     const validStatuses = new Set(Object.values(ConversationStatus));
     const parsedStatuses = filters.status
@@ -94,6 +95,10 @@ export class ConversationsService {
       archived: filters.archived,
       unreadOnly: filters.unreadOnly,
       stuckOnly: filters.stuckOnly,
+      // Visibilidade por atribuição: AGENT só vê o que está atribuído a ele OU
+      // não atribuído (fila comum). OWNER/ADMIN (gerência) veem tudo.
+      restrictToAssigneeOrUnassigned:
+        currentUserRole === 'AGENT' ? true : false,
     };
 
     const skip = (page - 1) * limit;

@@ -40,6 +40,12 @@ export interface InboxFilters {
    * filtro/widget do dashboard.
    */
   stuckOnly?: boolean;
+  /**
+   * Visibilidade por atribuição (papel AGENT): quando true, o usuário só
+   * enxerga conversas atribuídas a ele OU sem dono (fila comum). OWNER/ADMIN
+   * passam false e veem tudo (gerência). Aplicado junto do teto de canais.
+   */
+  restrictToAssigneeOrUnassigned?: boolean;
 }
 
 @Injectable()
@@ -127,6 +133,16 @@ export class ConversationsRepository {
     }
     if (filters.assignedToId) where.assignedToId = filters.assignedToId;
     if (filters.stuckOnly) where.isStuck = true;
+
+    // Visibilidade por atribuição (AGENT): só vê o que é dele OU sem dono.
+    // Usa AND pra compor com OR de tags/busca sem se anular. OWNER/ADMIN não
+    // entram aqui (restrict=false) e veem tudo.
+    if (filters.restrictToAssigneeOrUnassigned && currentUserId) {
+      where.AND = [
+        ...((where.AND as any[]) ?? []),
+        { OR: [{ assignedToId: currentUserId }, { assignedToId: null }] },
+      ];
+    }
     if (filters.search) {
       // Preserve any existing OR conditions (e.g. from tag filters)
       const existingOr = (where.OR ?? []) as any[];

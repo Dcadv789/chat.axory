@@ -1,8 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
+  Param,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -10,7 +13,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { PersonalAssistantProvisioningService } from './personal-assistant-provisioning.service';
-import { CurrentOrg, Roles } from '../../../common/decorators';
+import { PersonalAssistantService } from './personal-assistant.service';
+import { CurrentOrg, CurrentUser, Roles } from '../../../common/decorators';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 
 @ApiTags('Personal Assistant')
@@ -21,6 +25,7 @@ export class PersonalAssistantController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly provisioning: PersonalAssistantProvisioningService,
+    private readonly service: PersonalAssistantService,
   ) {}
 
   private async ensureEnabled(orgId: string) {
@@ -67,5 +72,103 @@ export class PersonalAssistantController {
   ) {
     await this.ensureEnabled(orgId);
     return this.provisioning.provisionForOrg(orgId, body?.userId);
+  }
+
+  // ─── Dados pessoais do usuário logado (escopo org+userId) ───
+
+  @Get('overview')
+  @ApiOperation({ summary: 'Painel: config, chat, métricas isoladas e listas' })
+  async overview(@CurrentOrg('id') orgId: string, @CurrentUser('id') userId: string) {
+    await this.ensureEnabled(orgId);
+    return this.service.overview(orgId, userId);
+  }
+
+  @Get('tasks')
+  async listTasks(@CurrentOrg('id') orgId: string, @CurrentUser('id') userId: string) {
+    await this.ensureEnabled(orgId);
+    return this.service.listTasks(orgId, userId);
+  }
+
+  @Post('tasks')
+  async createTask(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { title: string; notes?: string; dueAt?: string; priority?: number },
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.service.createTask(orgId, userId, body);
+  }
+
+  @Patch('tasks/:id')
+  async updateTask(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() body: { title?: string; notes?: string; dueAt?: string | null; status?: string },
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.service.updateTask(orgId, userId, id, body);
+  }
+
+  @Delete('tasks/:id')
+  async deleteTask(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.service.deleteTask(orgId, userId, id);
+  }
+
+  @Get('notes')
+  async listNotes(@CurrentOrg('id') orgId: string, @CurrentUser('id') userId: string) {
+    await this.ensureEnabled(orgId);
+    return this.service.listNotes(orgId, userId);
+  }
+
+  @Post('notes')
+  async createNote(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { content: string; tags?: string[] },
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.service.createNote(orgId, userId, body);
+  }
+
+  @Delete('notes/:id')
+  async deleteNote(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.service.deleteNote(orgId, userId, id);
+  }
+
+  @Get('events')
+  async listEvents(@CurrentOrg('id') orgId: string, @CurrentUser('id') userId: string) {
+    await this.ensureEnabled(orgId);
+    return this.service.listEvents(orgId, userId);
+  }
+
+  @Post('events')
+  async createEvent(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { title: string; startAt: string; endAt?: string; location?: string; description?: string },
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.service.createEvent(orgId, userId, body);
+  }
+
+  @Delete('reminders/:id')
+  async cancelReminder(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.service.cancelReminder(orgId, userId, id);
   }
 }
