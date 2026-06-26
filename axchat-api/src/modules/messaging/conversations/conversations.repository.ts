@@ -113,6 +113,14 @@ export class ConversationsRepository {
       where.channelId =
         requested.length === 1 ? requested[0] : { in: requested };
     }
+
+    // Canais INTERNOS (assistente pessoal, crons do sistema) ficam OCULTOS na
+    // caixa por padrão — só aparecem quando o usuário seleciona o canal
+    // explicitamente (requested) OU pede uma conversa específica.
+    if (!requested && filters.conversationIds === undefined) {
+      where.channel = { type: { not: 'INTERNAL' } };
+    }
+
     if (filters.conversationIds !== undefined) {
       if (filters.conversationIds.length === 0) {
         return { conversations: [], total: 0 };

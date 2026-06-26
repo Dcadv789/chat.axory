@@ -178,28 +178,27 @@ export default function InboxPage() {
               agentLogsOpen={agentLogsOpen}
               onToggleContactSidebar={toggleContactSidebar}
               contactSidebarOpen={contactSidebarOpen}
+              assistantMode={isAssistantChat}
             />
-            {/* Conversa do Assistente Pessoal: painel de tarefas/agenda no
-                lugar das barras de contato/agente (não fazem sentido aqui). */}
-            {isAssistantChat ? (
+            {/* Conversa do Assistente: painel de tarefas/agenda à direita (só
+                nela). As barras de contato/logs continuam funcionando pelos
+                botões do topo — empilham como barras verticais adicionais. */}
+            {isAssistantChat && (
               <AssistantPanel key={`assistant-${activeConversation.id}`} />
-            ) : (
-              <>
-                {agentLogsOpen && (
-                  <AgentRunsSidebar
-                    key={`logs-${activeConversation.id}`}
-                    conversationId={activeConversation.id}
-                    onClose={toggleAgentLogs}
-                  />
-                )}
-                {contactSidebarOpen && (
-                  <ContactSidebar
-                    key={`contact-${activeConversation.id}`}
-                    contactId={activeConversation.contact?.id}
-                    onClose={toggleContactSidebar}
-                  />
-                )}
-              </>
+            )}
+            {agentLogsOpen && (
+              <AgentRunsSidebar
+                key={`logs-${activeConversation.id}`}
+                conversationId={activeConversation.id}
+                onClose={toggleAgentLogs}
+              />
+            )}
+            {contactSidebarOpen && (
+              <ContactSidebar
+                key={`contact-${activeConversation.id}`}
+                contactId={activeConversation.contact?.id}
+                onClose={toggleContactSidebar}
+              />
             )}
           </>
         ) : (

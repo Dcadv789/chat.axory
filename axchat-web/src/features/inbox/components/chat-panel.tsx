@@ -36,6 +36,9 @@ interface ChatPanelProps {
    *  shows up in the chat header. */
   onToggleContactSidebar?: () => void;
   contactSidebarOpen?: boolean;
+  /** Chat interno do Assistente Pessoal: inverte os lados (MINHAS mensagens à
+   *  direita/azul, a IA à esquerda) e mostra a IA como quem fala comigo. */
+  assistantMode?: boolean;
 }
 
 const statusIcons: Record<string, React.ElementType> = {
@@ -367,6 +370,7 @@ export function ChatPanel({
   agentLogsOpen,
   onToggleContactSidebar,
   contactSidebarOpen,
+  assistantMode = false,
 }: ChatPanelProps) {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -823,7 +827,12 @@ export function ChatPanel({
               const visibleMessages = messages.filter((m) => m.type !== 'REACTION');
               let lastDateKey = '';
               return visibleMessages.map((msg) => {
-                const isOutbound = msg.direction === 'OUTBOUND';
+                // No chat interno do assistente, "eu" sou o dono (INBOUND), então
+                // invertemos: minhas mensagens viram o lado destacado (direita/
+                // azul) e as da IA viram o outro lado, como se ela falasse comigo.
+                const isOutbound = assistantMode
+                  ? msg.direction === 'INBOUND'
+                  : msg.direction === 'OUTBOUND';
                 const isPrivateNote = msg.type === 'INTERNAL_NOTE';
                 const StatusIcon = statusIcons[msg.status] || Clock;
                 const reactions = reactionMap.get(msg.externalId || '') || [];
@@ -877,12 +886,16 @@ export function ChatPanel({
                       <ContactAvatar
                         size="sm"
                         name={
-                          conversation.isGroup && msg.senderName
-                            ? msg.senderName
-                            : conversation.contact.name
+                          assistantMode
+                            ? 'Assistente'
+                            : conversation.isGroup && msg.senderName
+                              ? msg.senderName
+                              : conversation.contact.name
                         }
                         avatarUrl={
-                          conversation.isGroup ? null : conversation.contact.avatarUrl
+                          assistantMode || conversation.isGroup
+                            ? null
+                            : conversation.contact.avatarUrl
                         }
                       />
                     )}
