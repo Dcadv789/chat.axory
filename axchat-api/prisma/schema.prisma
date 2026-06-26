@@ -1449,7 +1449,9 @@ model PersonalAssistantConfig {
   timezone               String  @default("America/Sao_Paulo")
   googleCalendarConnected Boolean @default(false) @map("google_calendar_connected")
   // Briefing diário: hora local pra mandar o "bom dia, hoje você tem...".
-  dailyBriefingHour      Int?    @map("daily_briefing_hour")
+  // null = desligado. lastBriefingSentAt evita reenviar no mesmo dia.
+  dailyBriefingHour      Int?      @map("daily_briefing_hour")
+  lastBriefingSentAt     DateTime? @map("last_briefing_sent_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

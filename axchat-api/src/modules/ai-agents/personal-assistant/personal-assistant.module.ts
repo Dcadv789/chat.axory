@@ -7,6 +7,8 @@ import { PersonalAssistantService } from './personal-assistant.service';
 import { PersonalAssistantController } from './personal-assistant.controller';
 import { ReminderSchedulerService } from './reminder-scheduler.service';
 import { ReminderProcessor } from './reminder.processor';
+import { AssistantDeliveryService } from './assistant-delivery.service';
+import { DailyBriefingService } from './daily-briefing.service';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { ReminderProcessor } from './reminder.processor';
   providers: [
     PersonalAssistantProvisioningService,
     PersonalAssistantService,
+    AssistantDeliveryService,
+    DailyBriefingService,
     ReminderSchedulerService,
     ReminderProcessor,
   ],

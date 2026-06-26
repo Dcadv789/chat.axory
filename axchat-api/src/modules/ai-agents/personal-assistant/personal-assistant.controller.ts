@@ -83,6 +83,17 @@ export class PersonalAssistantController {
     return this.service.overview(orgId, userId);
   }
 
+  @Patch('config')
+  @ApiOperation({ summary: 'Atualiza config do assistente (briefing diário, fuso)' })
+  async updateConfig(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Body() body: { dailyBriefingHour?: number | null; timezone?: string },
+  ) {
+    await this.ensureEnabled(orgId);
+    return this.service.updateConfig(orgId, userId, body);
+  }
+
   @Get('tasks')
   async listTasks(@CurrentOrg('id') orgId: string, @CurrentUser('id') userId: string) {
     await this.ensureEnabled(orgId);

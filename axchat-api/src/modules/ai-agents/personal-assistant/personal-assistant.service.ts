@@ -180,6 +180,25 @@ export class PersonalAssistantService {
     });
   }
 
+  async updateConfig(
+    organizationId: string,
+    userId: string,
+    data: { dailyBriefingHour?: number | null; timezone?: string },
+  ) {
+    const update: any = {};
+    if (data.dailyBriefingHour !== undefined) {
+      update.dailyBriefingHour =
+        data.dailyBriefingHour === null
+          ? null
+          : Math.max(0, Math.min(23, Number(data.dailyBriefingHour)));
+    }
+    if (data.timezone) update.timezone = data.timezone;
+    return this.prisma.personalAssistantConfig.update({
+      where: { uq_assistant_org_user: { organizationId, userId } },
+      data: update,
+    });
+  }
+
   async cancelReminder(organizationId: string, userId: string, id: string) {
     const r = await this.prisma.personalReminder.updateMany({
       where: { id, organizationId, userId, status: 'PENDING' },
