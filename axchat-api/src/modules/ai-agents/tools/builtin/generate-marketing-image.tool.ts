@@ -5,6 +5,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { PrismaService } from '../../../../database/prisma.service';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
+import { MarketingStorageService } from '../marketing-storage.service';
 
 const OPENAI_IMAGES_URL = 'https://api.openai.com/v1/images/generations';
 const ALLOWED_SIZES = new Set(['1024x1024', '1024x1536', '1536x1024']);
@@ -47,6 +48,7 @@ export class GenerateMarketingImageTool implements AiTool {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly storage: MarketingStorageService,
   ) {}
 
   async execute(
@@ -105,17 +107,18 @@ export class GenerateMarketingImageTool implements AiTool {
       }
 
       const buffer = Buffer.from(b64, 'base64');
-      const url = await this.hostPng(buffer);
+      const stored = await this.store(buffer, ctx.organizationId);
+      const url = stored.url;
 
-      // Persiste a mídia no banco (URL salva) + log de atividade. A troca do
-      // backend de storage (local -> MinIO) acontece em hostPng; o registro
-      // no banco já fica garantido aqui.
+      // Persiste a mídia no banco (URL + key/bucket salvos) + log de atividade.
       const asset = await this.prisma.marketingMediaAsset
         .create({
           data: {
             organizationId: ctx.organizationId,
             kind: 'IMAGE',
             url,
+            storageKey: stored.key,
+            bucket: stored.bucket,
             mimeType: 'image/png',
             bytes: buffer.length,
             source: 'openai-gpt-image-1',
@@ -160,6 +163,35 @@ export class GenerateMarketingImageTool implements AiTool {
     });
     if (secret?.value) return secret.value;
     return this.config.get<string>('OPENAI_API_KEY') ?? null;
+  }
+
+  /**
+   * Hospeda o PNG: MinIO (pasta do tenant) quando configurado, senão storage
+   * local. A pasta do tenant é o slug do nome da org — criada no 1º upload e
+   * reaproveitada nos próximos (o prefixo da key É a pasta no S3/MinIO).
+   */
+  private async store(
+    buffer: Buffer,
+    organizationId: string,
+  ): Promise<{ url: string; key: string | null; bucket: string | null }> {
+    if (this.storage.isConfigured()) {
+      const org = await this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { name: true },
+      });
+      const prefix = this.storage.tenantPrefix(org?.name ?? '', organizationId);
+      const filename = `${randomBytes(12).toString('hex')}.png`;
+      const key = `${prefix}/${filename}`;
+      const obj = await this.storage.upload({
+        buffer,
+        key,
+        contentType: 'image/png',
+      });
+      return { url: obj.url, key: obj.key, bucket: obj.bucket };
+    }
+    // Fallback local.
+    const url = await this.hostPng(buffer);
+    return { url, key: null, bucket: null };
   }
 
   /** Salva o PNG no mesmo uploads dir servido em /api/v1/uploads e devolve URL absoluta. */

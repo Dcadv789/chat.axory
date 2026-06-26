@@ -26,6 +26,7 @@ import { GoogleDriveService } from './client-ops/google-drive.service';
 import { ClickUpClientService } from './client-ops/clickup-client.service';
 import { N8nClientService } from './client-ops/n8n-client.service';
 import { GroupNotifyService } from './client-ops/group-notify.service';
+import { MarketingStorageService } from './marketing-storage.service';
 import { ToolRegistry } from './tool-registry.service';
 import { HttpToolExecutorService } from './http-tool-executor.service';
 import { SqlToolExecutorService } from './sql-tool-executor.service';
@@ -65,6 +66,7 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     GenerateMarketingImageTool,
     GetMarketingProfileTool,
     RecordMarketingAnalysisTool,
+    MarketingStorageService,
     ToolRegistry,
     HttpToolExecutorService,
     SqlToolExecutorService,
