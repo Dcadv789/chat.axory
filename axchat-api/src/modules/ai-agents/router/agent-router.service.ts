@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Conversation, Organization } from '@prisma/client';
+import { AiAgentSector, Conversation, Organization } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { IntentClassifierService } from '../classifier/intent-classifier.service';
 import { IntentRouterService } from '../classifier/intent-router.service';
@@ -84,10 +84,10 @@ export class AgentRouterService {
       conversation.channelId,
     );
 
-    // Canal de MARKETING pula o classificador — a taxonomia dele é de
-    // vendas/suporte (atendimento) e não faz sentido pra marketing. Vai
-    // direto pro orquestrador do canal.
-    if (channelSector === 'MARKETING') {
+    // Canais NÃO-atendimento (MARKETING, PESSOAL) pulam o classificador — a
+    // taxonomia dele é de vendas/suporte e não faz sentido fora do atendimento.
+    // Vão direto pro orquestrador padrão do canal.
+    if (channelSector !== 'ATENDIMENTO') {
       return this.fallbackToOrchestrator(conversation, channelSector);
     }
 
@@ -168,7 +168,7 @@ export class AgentRouterService {
 
   private async fallbackToOrchestrator(
     conversation: Conversation,
-    channelSector: 'ATENDIMENTO' | 'MARKETING' = 'ATENDIMENTO',
+    channelSector: AiAgentSector = 'ATENDIMENTO',
   ): Promise<AgentSelection | null> {
     // 1. Verifica se o canal tem um orquestrador padrão configurado
     const channel = await this.prisma.channel.findUnique({
@@ -255,7 +255,7 @@ export class AgentRouterService {
    */
   private async resolveChannelSector(
     channelId: string,
-  ): Promise<'ATENDIMENTO' | 'MARKETING'> {
+  ): Promise<AiAgentSector> {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
       select: { defaultOrchestratorId: true },

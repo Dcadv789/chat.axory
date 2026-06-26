@@ -143,6 +143,11 @@ model User {
   conversationParticipants ConversationParticipant[]
   assignedCards         Card[]             @relation("CardAssignee")
   superAdminAuditLogs   SuperAdminAuditLog[]
+  assistantConfigs      PersonalAssistantConfig[]
+  personalTasks         PersonalTask[]
+  personalNotes         PersonalNote[]
+  personalReminders     PersonalReminder[]
+  personalEvents        PersonalCalendarEvent[]
 
   @@map("users")
 }
@@ -180,6 +185,10 @@ model Organization {
   /// Add-on vendável: habilita o módulo de Marketing (agentes/menu próprios).
   /// Controlado pelo Super Admin. Quando false, o cliente nem vê o menu.
   marketingEnabled     Boolean @default(false) @map("marketing_enabled")
+  /// Add-on vendável: habilita a IA de Assistente Pessoal (do dono/gestor).
+  /// Fluxo 1:1 privado, com tarefas/notas/lembretes/agenda. Quando false,
+  /// o cliente nem vê o menu.
+  assistantEnabled     Boolean @default(false) @map("assistant_enabled")
   /// Chave de API do DeepSeek por organização (definida pela UI em
   /// Settings > IA). NULL = usa o fallback global DEEPSEEK_API_KEY da env.
   deepseekApiKey       String? @map("deepseek_api_key") @db.Text
@@ -244,6 +253,11 @@ model Organization {
   marketingMediaAssets MarketingMediaAsset[]
   marketingAnalyses    MarketingAnalysis[]
   marketingActivities  MarketingActivity[]
+  assistantConfigs     PersonalAssistantConfig[]
+  personalTasks        PersonalTask[]
+  personalNotes        PersonalNote[]
+  personalReminders    PersonalReminder[]
+  personalEvents       PersonalCalendarEvent[]
 
   @@map("organizations")
 }
@@ -975,6 +989,7 @@ enum AiAgentKind {
 enum AiAgentSector {
   ATENDIMENTO
   MARKETING
+  PESSOAL
 }
 
 enum AiAgentMode {
@@ -1396,6 +1411,150 @@ model MarketingActivity {
   @@index([organizationId, createdAt], name: "idx_mkt_activity_org_time")
   @@index([organizationId, action], name: "idx_mkt_activity_org_action")
   @@map("marketing_activities")
+}
+
+// ─── Assistente Pessoal (add-on do dono/gestor) ───────────────
+// Fluxo 1:1 privado entre UM usuário (o dono) e seu assistente de IA. Tudo é
+// escopado por (organizationId + userId) — a vida pessoal de um usuário nunca
+// se mistura com a de outro, nem com o atendimento da empresa.
+
+enum PersonalTaskStatus {
+  TODO
+  DOING
+  DONE
+  CANCELLED
+}
+
+enum PersonalReminderStatus {
+  PENDING
+  SENT
+  CANCELLED
+}
+
+enum PersonalEventSource {
+  NATIVE // criado no AxChat (pra quem não usa Google)
+  GOOGLE // espelhado do Google Calendar
+}
+
+// Configuração do assistente de um usuário: qual agente o atende, em qual
+// inbox/canal ele conversa, fuso, e se o Google Calendar está conectado.
+model PersonalAssistantConfig {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  userId         String  @map("user_id")
+
+  agentId   String? @map("agent_id") // AiAgent (sector=PESSOAL) que atende
+  channelId String? @map("channel_id") // inbox onde o usuário fala com ele
+
+  timezone               String  @default("America/Sao_Paulo")
+  googleCalendarConnected Boolean @default(false) @map("google_calendar_connected")
+  // Briefing diário: hora local pra mandar o "bom dia, hoje você tem...".
+  dailyBriefingHour      Int?    @map("daily_briefing_hour")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId], name: "uq_assistant_org_user")
+  @@map("personal_assistant_configs")
+}
+
+model PersonalTask {
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  userId         String             @map("user_id")
+  title          String
+  notes          String?            @db.Text
+  status         PersonalTaskStatus @default(TODO)
+  priority       Int?               // 1=alta .. 3=baixa (livre)
+  dueAt          DateTime?          @map("due_at")
+  completedAt    DateTime?          @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders    PersonalReminder[]
+
+  @@index([organizationId, userId, status], name: "idx_ptask_org_user_status")
+  @@index([userId, dueAt], name: "idx_ptask_user_due")
+  @@map("personal_tasks")
+}
+
+model PersonalNote {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  userId         String  @map("user_id")
+  content        String  @db.Text
+  tags           String[] @default([])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, createdAt], name: "idx_pnote_org_user_time")
+  @@map("personal_notes")
+}
+
+// Lembrete pontual com horário exato (ex: "30 min antes do compromisso").
+// Um scanner de 1min varre os PENDING vencidos (remindAt <= now) e faz o
+// assistente notificar o usuário no canal dele.
+model PersonalReminder {
+  id             String                 @id @default(cuid())
+  organizationId String                 @map("organization_id")
+  userId         String                 @map("user_id")
+  message        String                 @db.Text
+  remindAt       DateTime               @map("remind_at")
+  status         PersonalReminderStatus @default(PENDING)
+  sentAt         DateTime?              @map("sent_at")
+
+  // Vínculos opcionais (lembrete de uma tarefa ou de um evento da agenda).
+  taskId  String? @map("task_id")
+  eventId String? @map("event_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task         PersonalTask?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  event        PersonalCalendarEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([status, remindAt], name: "idx_preminder_due")
+  @@index([organizationId, userId], name: "idx_preminder_org_user")
+  @@map("personal_reminders")
+}
+
+// Agenda nativa (funciona sem Google). Eventos do Google são espelhados aqui
+// com source=GOOGLE + googleEventId, pra unificar a visão do assistente.
+model PersonalCalendarEvent {
+  id             String              @id @default(cuid())
+  organizationId String              @map("organization_id")
+  userId         String              @map("user_id")
+  title          String
+  description    String?             @db.Text
+  location       String?
+  startAt        DateTime            @map("start_at")
+  endAt          DateTime?           @map("end_at")
+  allDay         Boolean             @default(false) @map("all_day")
+  source         PersonalEventSource @default(NATIVE)
+  googleEventId  String?             @map("google_event_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminders    PersonalReminder[]
+
+  @@index([organizationId, userId, startAt], name: "idx_pevent_org_user_start")
+  @@unique([userId, googleEventId], name: "uq_pevent_user_google")
+  @@map("personal_calendar_events")
 }
 
 model AiAgentChannel {
