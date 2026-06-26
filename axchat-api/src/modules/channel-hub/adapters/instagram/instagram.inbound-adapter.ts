@@ -112,6 +112,22 @@ export class InstagramInboundAdapter implements InboundChannelPort {
             }
           }
         }
+
+        // Eventos de COMENTÁRIO (entry.changes field=comments). Viram gatilho
+        // pra crew de marketing reagir (responder + DM). Ignora o proprio
+        // comentario da conta (echo).
+        const changes = entry?.changes || [];
+        for (const change of changes) {
+          if (change?.field !== 'comments' || !change?.value) continue;
+          const v = change.value;
+          if (expectedId && v?.from?.id && String(v.from.id) === expectedId) {
+            continue;
+          }
+          const normalized = this.mapper.normalizeComment(v, entry?.time);
+          if (normalized) {
+            result.messages.push(normalized);
+          }
+        }
       }
     } catch (error: any) {
       this.logger.error(`Failed to parse Instagram webhook: ${error.message}`);

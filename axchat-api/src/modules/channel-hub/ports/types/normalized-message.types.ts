@@ -77,6 +77,18 @@ export interface NormalizedInboundMessage {
   isGroup?: boolean;
   isEcho?: boolean;
   senderName?: string;
+  /**
+   * Presente quando o evento é um COMENTÁRIO do Instagram (não DM). Carrega o
+   * que um agente de marketing precisa pra reagir: responder o comentário e/ou
+   * mandar DM pro autor.
+   */
+  comment?: {
+    commentId: string;
+    mediaId?: string;
+    authorIgsid: string;
+    username?: string;
+    parentId?: string;
+  };
   rawPayload: unknown;
 }
 

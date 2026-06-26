@@ -77,6 +77,51 @@ export class InstagramMessageMapper {
     return undefined;
   }
 
+  /**
+   * Normaliza um evento de COMENTÁRIO do Instagram (entry.changes field=comments)
+   * em uma mensagem de entrada. O autor do comentário vira o "contato", e o texto
+   * carrega uma linha de contexto com os ids acionáveis (commentId pra responder,
+   * IGSID pra DM, mediaId do post) — assim o agente de marketing consegue agir.
+   */
+  normalizeComment(
+    value: Record<string, any>,
+    entryTime?: number,
+  ): NormalizedInboundMessage | null {
+    const fromId = value?.from?.id;
+    const commentId = value?.id;
+    if (!fromId || !commentId) return null;
+
+    const username = value?.from?.username
+      ? String(value.from.username)
+      : undefined;
+    const mediaId = value?.media?.id ? String(value.media.id) : undefined;
+    const text = value?.text ? String(value.text).trim() : '';
+
+    const ctx =
+      `[Comentário do Instagram${username ? ' de @' + username : ''} — ` +
+      `responda com replyToInstagramComment(commentId="${commentId}"); ` +
+      `pra enviar material por DM use recipientId="${fromId}"; ` +
+      `post mediaId="${mediaId ?? '?'}"]`;
+
+    return {
+      externalMessageId: String(commentId),
+      externalContactId: String(fromId),
+      contactName: username,
+      channelType: ChannelType.INSTAGRAM,
+      timestamp: entryTime ? new Date(entryTime * 1000) : new Date(),
+      type: MessageContentType.TEXT,
+      content: { text: text ? `${text}\n\n${ctx}` : ctx },
+      comment: {
+        commentId: String(commentId),
+        mediaId,
+        authorIgsid: String(fromId),
+        username,
+        parentId: value?.parent_id ? String(value.parent_id) : undefined,
+      },
+      rawPayload: value,
+    };
+  }
+
   normalizeStatus(messaging: Record<string, any>): StatusUpdate | null {
     const delivery = messaging.delivery;
     if (!delivery?.mids?.length) return null;

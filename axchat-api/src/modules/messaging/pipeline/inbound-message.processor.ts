@@ -424,6 +424,7 @@ export class InboundMessageProcessor extends WorkerHost {
             rawPayload: safeJson(message.rawPayload),
             isEcho,
             replyTo: message.replyTo ? safeJson(message.replyTo) : null,
+            comment: message.comment ? safeJson(message.comment) : null,
           },
         },
       });
@@ -469,14 +470,6 @@ export class InboundMessageProcessor extends WorkerHost {
     });
     if (!conversation) return;
 
-    const decision = await this.agentRouter.shouldHandle(conversation);
-    if (!decision.handle) {
-      this.logger.debug(
-        `AI skipped for conv ${conversationId}: ${decision.reason}`,
-      );
-      return;
-    }
-
     const triggerMessage = await this.prisma.message.findUnique({
       where: { id: triggerMessageId },
     });
@@ -490,7 +483,75 @@ export class InboundMessageProcessor extends WorkerHost {
       return;
     }
 
+    // Comentário do Instagram → roteia direto pra crew de marketing, num fluxo
+    // ISOLADO do pipeline de DM/atendimento (sem router/debounce). Não toca no
+    // caminho normal de mensagem de cliente.
+    const comment = (triggerMessage.metadata as any)?.comment;
+    if (comment) {
+      await this.handleInstagramComment(conversation, triggerMessage);
+      return;
+    }
+
+    const decision = await this.agentRouter.shouldHandle(conversation);
+    if (!decision.handle) {
+      this.logger.debug(
+        `AI skipped for conv ${conversationId}: ${decision.reason}`,
+      );
+      return;
+    }
+
     this.scheduleAgentRun(conversationId, triggerMessageId);
+  }
+
+  /**
+   * Aciona a crew de marketing num comentário do Instagram: força o
+   * orquestrador de marketing (sector=MARKETING, ORCHESTRATOR) como agente ativo
+   * e roda direto (chainDepth=1, pulando o router). Ele delega pro Caspian, que
+   * responde o comentário e/ou manda DM (ações gated por aprovação por padrão).
+   */
+  private async handleInstagramComment(
+    conversation: { id: string; organizationId: string },
+    triggerMessage: { id: string },
+  ): Promise<void> {
+    const orchestrator = await this.prisma.aiAgent.findFirst({
+      where: {
+        organizationId: conversation.organizationId,
+        sector: 'MARKETING',
+        kind: 'ORCHESTRATOR',
+        isActive: true,
+        deletedAt: null,
+      },
+      select: { id: true, name: true },
+    });
+    if (!orchestrator) {
+      this.logger.warn(
+        `Comentário IG sem orquestrador de marketing na org ${conversation.organizationId} — ignorado`,
+      );
+      return;
+    }
+
+    await this.prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { activeAgentId: orchestrator.id, aiEnabled: true },
+    });
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: conversation.id },
+    });
+    const msg = await this.prisma.message.findUnique({
+      where: { id: triggerMessage.id },
+    });
+    if (!conv || !msg) return;
+
+    this.logger.log(
+      `Comentário IG → marketing (${orchestrator.name}) conv=${conversation.id}`,
+    );
+    await this.agentRunner
+      .run({ conversation: conv, triggerMessage: msg, chainDepth: 1 })
+      .catch((err) =>
+        this.logger.error(
+          `Falha no fluxo de comentário IG (conv=${conversation.id}): ${err?.message ?? err}`,
+        ),
+      );
   }
 
   /**
