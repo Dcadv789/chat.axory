@@ -37,6 +37,12 @@ export class OutboundMessageProcessor extends WorkerHost {
 
     const adapter = this.adapterRegistry.getOutbound(channel.type);
 
+    // Assinatura: se a org liga `signMessagesWithSenderName`, prefixa o nome
+    // de quem mandou (atendente ou agente de IA) no texto entregue ao cliente.
+    // Só mexe no objeto em memória que vai pro provider — o texto persistido
+    // no banco/inbox continua limpo (a bolha já mostra o nome pra equipe).
+    await this.applySenderSignature({ messageId, message });
+
     // Humanize: if this message was sent by an AI agent, simulate typing
     // delay proportional to text length before actually sending. Customers
     // perceive instant replies as bot-like; a 2-4s "typing..." gap with the
@@ -163,6 +169,62 @@ export class OutboundMessageProcessor extends WorkerHost {
         MessageStatus.FAILED,
       );
       throw error;
+    }
+  }
+
+  /**
+   * Prefixa o nome do remetente no texto entregue ao cliente quando a org
+   * habilita `signMessagesWithSenderName`. Formato: "*Nome:*\n<texto>".
+   *
+   * - Nome vem de `senderName` (agente de IA grava o nome do agente) ou, pra
+   *   atendente humano, da relação `sender.name`.
+   * - Só assina conteúdo textual: campo `text` (mensagem TEXT) e `caption`
+   *   (mídia com legenda). Template/interactive/reaction/location passam intactos.
+   * - Idempotente por execução: mexe só no objeto em memória do job (texto no
+   *   banco fica limpo), então retries re-aplicam a partir do texto original.
+   */
+  private async applySenderSignature(args: {
+    messageId: string;
+    message: NormalizedOutboundMessage;
+  }): Promise<void> {
+    try {
+      const content = args.message?.content as Record<string, any> | undefined;
+      if (!content) return;
+      const hasText = typeof content.text === 'string' && content.text.length > 0;
+      const hasCaption =
+        typeof content.caption === 'string' && content.caption.length > 0;
+      if (!hasText && !hasCaption) return; // nada textual pra assinar
+
+      const row = await this.prisma.message.findUnique({
+        where: { id: args.messageId },
+        select: {
+          senderName: true,
+          sender: { select: { name: true } },
+          conversation: {
+            select: {
+              organization: {
+                select: { signMessagesWithSenderName: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (!row?.conversation?.organization?.signMessagesWithSenderName) return;
+
+      const name = (row.senderName ?? row.sender?.name ?? '').trim();
+      if (!name) return; // sem nome conhecido, não assina
+
+      const prefix = `*${name}:*\n`;
+      if (hasText && !content.text.startsWith(prefix)) {
+        content.text = `${prefix}${content.text}`;
+      }
+      if (hasCaption && !content.caption.startsWith(prefix)) {
+        content.caption = `${prefix}${content.caption}`;
+      }
+    } catch (err: any) {
+      // Assinatura nunca pode quebrar o envio.
+      this.logger.warn(`applySenderSignature failed: ${err?.message ?? err}`);
     }
   }
 

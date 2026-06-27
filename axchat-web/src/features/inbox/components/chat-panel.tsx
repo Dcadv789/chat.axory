@@ -905,9 +905,9 @@ export function ChatPanel({
                           {msg.senderName}
                         </p>
                       )}
-                      {isOutbound && (msg.sender?.name || (msg.senderId && msg.senderId === user?.id && user?.name)) && (
+                      {isOutbound && !isPrivateNote && (msg.sender?.name || msg.senderName || (msg.senderId && msg.senderId === user?.id && user?.name)) && (
                         <p className="mb-0.5 mr-1 text-right text-xs font-semibold text-primary">
-                          {msg.sender?.name || user?.name}
+                          {msg.sender?.name || msg.senderName || user?.name}
                         </p>
                       )}
                       {msg.metadata?.replyTo?.story && (

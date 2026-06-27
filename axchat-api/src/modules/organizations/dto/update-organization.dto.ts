@@ -63,6 +63,14 @@ export class UpdateOrganizationDto {
   aiAutoDisableOnHuman?: boolean;
 
   @ApiPropertyOptional({
+    description:
+      'Quando true, prefixa o nome de quem enviou (atendente ou agente de IA) no texto entregue ao cliente, no formato "*Nome:*\\ntexto". Aplicado só no envio ao provider — o texto no banco/inbox continua limpo.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  signMessagesWithSenderName?: boolean;
+
+  @ApiPropertyOptional({
     description: 'Monthly LLM token cap across the org. null = unlimited.',
   })
   @IsOptional()

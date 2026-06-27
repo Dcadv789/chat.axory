@@ -38,6 +38,9 @@ export interface OrganizationAiSettings {
   aiOutOfHoursMessage: string | null;
   aiBusinessNotes: string | null;
   aiAutoDisableOnHuman: boolean;
+  /** Quando true, o nome de quem enviou (atendente ou agente de IA) é
+   *  prefixado no texto entregue ao cliente — "*Nome:*\ntexto". */
+  signMessagesWithSenderName: boolean;
   aiMonthlyTokenCap: number | null;
   watchdogEnabled: boolean;
   watchdogBusinessHours: BusinessHoursConfig | null;
@@ -58,6 +61,7 @@ export interface UpdateAiSettingsInput {
   aiOutOfHoursMessage?: string;
   aiBusinessNotes?: string | null;
   aiAutoDisableOnHuman?: boolean;
+  signMessagesWithSenderName?: boolean;
   aiMonthlyTokenCap?: number | null;
   watchdogEnabled?: boolean;
   watchdogBusinessHours?: BusinessHoursConfig | null;

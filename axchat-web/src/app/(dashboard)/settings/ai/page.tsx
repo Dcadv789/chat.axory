@@ -48,6 +48,7 @@ export default function SettingsAiPage() {
   const [outOfHoursMessage, setOutOfHoursMessage] = useState('');
   const [businessNotes, setBusinessNotes] = useState('');
   const [autoDisable, setAutoDisable] = useState(true);
+  const [signWithName, setSignWithName] = useState(false);
   const [tokenCap, setTokenCap] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
@@ -77,6 +78,7 @@ export default function SettingsAiPage() {
     setOutOfHoursMessage(data.aiOutOfHoursMessage ?? '');
     setBusinessNotes(data.aiBusinessNotes ?? '');
     setAutoDisable(data.aiAutoDisableOnHuman);
+    setSignWithName(data.signMessagesWithSenderName ?? false);
     setTokenCap(data.aiMonthlyTokenCap?.toString() ?? '');
     setDeepseekKey('');
     setDeepseekKeySet(!!data.deepseekApiKeySet);
@@ -109,6 +111,7 @@ export default function SettingsAiPage() {
         aiOutOfHoursMessage: outOfHoursMessage,
         aiBusinessNotes: businessNotes.trim() ? businessNotes : null,
         aiAutoDisableOnHuman: autoDisable,
+        signMessagesWithSenderName: signWithName,
         aiMonthlyTokenCap: tokenCap ? parseInt(tokenCap, 10) : null,
         // Só envia a chave quando o usuário digitou uma nova (não sobrescreve).
         ...(deepseekKey.trim() ? { deepseekApiKey: deepseekKey.trim() } : {}),
@@ -332,6 +335,26 @@ export default function SettingsAiPage() {
             </p>
           </div>
           <Toggle checked={autoDisable} onChange={setAutoDisable} />
+        </label>
+      </section>
+
+      {/* Assinatura do remetente pro cliente */}
+      <section className="mt-4 rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+        <label className="flex cursor-pointer items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              Mostrar nome do atendente pro cliente
+            </p>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              Inclui o nome de quem respondeu — atendente ou agente de IA — no
+              começo de cada mensagem enviada ao cliente, no formato{' '}
+              <span className="font-semibold">*Nome:*</span> seguido do texto.
+              Útil pra o cliente saber com quem está falando, principalmente em
+              transferências. Na plataforma o nome já aparece na bolha de toda
+              forma.
+            </p>
+          </div>
+          <Toggle checked={signWithName} onChange={setSignWithName} />
         </label>
       </section>
 
