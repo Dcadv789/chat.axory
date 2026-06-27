@@ -168,6 +168,12 @@ model Organization {
   billingCurrency String @default("BRL") @map("billing_currency")
   billingCycle String @default("monthly") @map("billing_cycle")
   billingDueDay Int? @map("billing_due_day")
+  /// Termos comerciais NEGOCIADOS por empresa (override do template do plano)
+  /// + descontos. Coluna própria pra que "aplicar template" nunca apague isto.
+  /// Shape: { seats, pricePerSeatCents, suiteFlatCents, aiConversations,
+  /// includesMarketing, includesAssistant, discountType: 'NONE'|'PERCENT'|'FIXED',
+  /// discountValue, discountReason, setupFeeCents, notes }.
+  billingProfile Json? @map("billing_profile")
   trialEndsAt DateTime? @map("trial_ends_at")
   currentPeriodEndsAt DateTime? @map("current_period_ends_at")
   createdAt DateTime  @default(now()) @map("created_at")

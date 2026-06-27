@@ -88,6 +88,21 @@ export class SuperAdminController {
     return this.service.updatePlanTemplate(actorId, plan, dto);
   }
 
+  @Get('pricing-meta')
+  @ApiOperation({ summary: 'Referência comercial: add-ons, pacotes de IA e notas.' })
+  getPricingMeta() {
+    return this.service.getPricingMeta();
+  }
+
+  @Patch('pricing-meta')
+  @ApiOperation({ summary: 'Atualiza a referência comercial (add-ons/pacotes/notas).' })
+  updatePricingMeta(
+    @CurrentUser('id') actorId: string,
+    @Body() dto: Record<string, any>,
+  ) {
+    return this.service.updatePricingMeta(actorId, dto);
+  }
+
   @Patch('organizations/:id/billing')
   updateBilling(
     @CurrentUser('id') actorId: string,

@@ -24,14 +24,113 @@ import { PersonalAssistantProvisioningService } from '../ai-agents/personal-assi
 
 const BCRYPT_ROUNDS = 12;
 const PLAN_TEMPLATES_KEY = 'plan_templates';
+const PRICING_META_KEY = 'pricing_meta';
 const META_COEXISTENCE_KEY = 'meta_coexistence';
-const KNOWN_PLANS = ['free', 'starter', 'pro', 'enterprise'] as const;
+// Catálogo comercial real do AxChat (sem plano grátis — trial de 7 dias).
+const KNOWN_PLANS = ['inbox', 'essencial', 'profissional', 'performance'] as const;
 
-const BUILTIN_PLAN_TEMPLATES: Record<string, Record<string, number>> = {
-  free: { maxAgents: 2, maxChannels: 1, maxDepartments: 1 },
-  starter: { maxAgents: 5, maxChannels: 2, maxDepartments: 3 },
-  pro: { maxAgents: 25, maxChannels: 10, maxDepartments: 10 },
-  enterprise: { maxAgents: 999, maxChannels: 999, maxDepartments: 999 },
+/**
+ * Template de plano = limites operacionais + dados COMERCIAIS (anotados pra
+ * referência da equipe; não é landing page). Preços em centavos (BRL).
+ */
+type PlanTemplate = {
+  label: string;
+  description: string;
+  // Comercial
+  pricePerSeatCents: number; // mensal por atendente
+  minSeats: number; // mínimo de atendentes
+  suiteFlatCents: number; // caixa fixa por org (Marketing+Assistente no Performance); 0 = não tem
+  aiConversations: number; // cota de conversas de IA/mês (0 = sem IA)
+  includesMarketing: boolean;
+  includesAssistant: boolean;
+  setupFeeCents: number; // taxa única de implantação
+  // Operacional
+  maxAgents: number;
+  maxChannels: number;
+  maxDepartments: number;
+};
+
+const BUILTIN_PLAN_TEMPLATES: Record<string, PlanTemplate> = {
+  inbox: {
+    label: 'Inbox',
+    description: 'Caixa de entrada omnichannel + ferramentas de atendimento humano. Sem IA.',
+    pricePerSeatCents: 7900,
+    minSeats: 2,
+    suiteFlatCents: 0,
+    aiConversations: 0,
+    includesMarketing: false,
+    includesAssistant: false,
+    setupFeeCents: 49700,
+    maxAgents: 0,
+    maxChannels: 5,
+    maxDepartments: 3,
+  },
+  essencial: {
+    label: 'Essencial',
+    description: 'Inbox + IA de atendimento (~1k conversas/mês).',
+    pricePerSeatCents: 9700,
+    minSeats: 2,
+    suiteFlatCents: 0,
+    aiConversations: 1000,
+    includesMarketing: false,
+    includesAssistant: false,
+    setupFeeCents: 79700,
+    maxAgents: 5,
+    maxChannels: 5,
+    maxDepartments: 5,
+  },
+  profissional: {
+    label: 'Profissional',
+    description: 'IA avançada, watchdog, automações (~3k conversas/mês). Add-ons disponíveis.',
+    pricePerSeatCents: 19700,
+    minSeats: 3,
+    suiteFlatCents: 0,
+    aiConversations: 3000,
+    includesMarketing: false,
+    includesAssistant: false,
+    setupFeeCents: 129700,
+    maxAgents: 25,
+    maxChannels: 15,
+    maxDepartments: 15,
+  },
+  performance: {
+    label: 'Performance',
+    description: 'Profissional + Suíte (Marketing + Assistente) inclusa (~8k conversas/mês).',
+    pricePerSeatCents: 19700,
+    minSeats: 3,
+    suiteFlatCents: 69700,
+    aiConversations: 8000,
+    includesMarketing: true,
+    includesAssistant: true,
+    setupFeeCents: 249700,
+    maxAgents: 999,
+    maxChannels: 999,
+    maxDepartments: 999,
+  },
+};
+
+/** Referência comercial global (add-ons avulsos, pacotes de IA, notas). */
+type PricingMeta = {
+  trialDays: number;
+  addons: { key: string; label: string; priceCents: number; note: string }[];
+  aiPackages: { label: string; conversations: number; priceCents: number }[];
+  notes: string;
+};
+
+const BUILTIN_PRICING_META: PricingMeta = {
+  trialDays: 7,
+  addons: [
+    { key: 'marketing', label: 'Marketing (crew completa)', priceCents: 69700, note: 'Caixa fixa por org. Substitui ~4 analistas. Implantação assistida recomendada.' },
+    { key: 'assistant', label: 'Assistente Pessoal', priceCents: 19700, note: 'Caixa fixa por org, para o dono/gestor.' },
+    { key: 'marketing_managed', label: 'Acompanhamento Marketing (opcional)', priceCents: 49700, note: 'Recorrente. Especialista supervisiona a crew. Faixa R$497–997/mês.' },
+  ],
+  aiPackages: [
+    { label: '+1.000 conversas', conversations: 1000, priceCents: 9700 },
+    { label: '+5.000 conversas', conversations: 5000, priceCents: 39700 },
+    { label: '+10.000 conversas', conversations: 10000, priceCents: 69700 },
+  ],
+  notes:
+    'Sem plano grátis — trial de 7 dias. Cobrança por atendente (seat) + cota de IA; Marketing e Assistente são caixas fixas por org. Implantação grátis (ou 50% off) no plano anual. Setup de Marketing/Performance é assistido (não self-service).',
 };
 
 @Injectable()
@@ -139,6 +238,7 @@ export class SuperAdminService {
         billingCurrency: true,
         billingCycle: true,
         billingDueDay: true,
+        billingProfile: true,
         trialEndsAt: true,
         currentPeriodEndsAt: true,
         aiEnabled: true,
@@ -257,12 +357,20 @@ export class SuperAdminService {
         },
       });
 
+      const planKey = dto.plan || 'inbox';
+      const planTemplate = await this.resolvePlanTemplate(planKey);
       const organization = await tx.organization.create({
         data: {
           name: dto.organizationName,
           slug,
-          plan: dto.plan || 'free',
-          settings: await this.resolvePlanSettings(dto.plan || 'free'),
+          plan: planKey,
+          settings: {
+            maxAgents: planTemplate.maxAgents,
+            maxChannels: planTemplate.maxChannels,
+            maxDepartments: planTemplate.maxDepartments,
+          },
+          // Cota de IA vem do plano (conversas/mês). Inbox = 0 → sem IA.
+          monthlyConversationLimit: planTemplate.aiConversations,
         },
       });
 
@@ -312,12 +420,22 @@ export class SuperAdminService {
           ? await this.resolvePlanSettings(dto.plan)
           : undefined;
 
+    // Trocar de plano redefine a cota de conversas de IA a partir do template,
+    // a menos que o admin tenha mandado um valor explícito no mesmo update.
+    const quotaFromPlan =
+      dto.plan !== undefined && dto.monthlyConversationLimit === undefined
+        ? (await this.resolvePlanTemplate(dto.plan)).aiConversations
+        : undefined;
+
     const updated = await this.prisma.organization.update({
       where: { id },
       data: {
         ...(dto.plan !== undefined ? { plan: dto.plan } : {}),
         ...(settingsToSet !== undefined
           ? { settings: settingsToSet as Prisma.InputJsonValue }
+          : {}),
+        ...(quotaFromPlan !== undefined
+          ? { monthlyConversationLimit: quotaFromPlan }
           : {}),
         ...(dto.aiEnabled !== undefined ? { aiEnabled: dto.aiEnabled } : {}),
         ...(dto.marketingEnabled !== undefined
@@ -407,6 +525,9 @@ export class SuperAdminService {
                 : null,
             }
           : {}),
+        ...(dto.billingProfile !== undefined
+          ? { billingProfile: dto.billingProfile as Prisma.InputJsonValue }
+          : {}),
       },
     });
 
@@ -414,6 +535,7 @@ export class SuperAdminService {
       billingStatus: updated.billingStatus,
       billingAmountCents: updated.billingAmountCents,
       billingCycle: updated.billingCycle,
+      billingProfile: (updated.billingProfile ?? null) as Prisma.InputJsonValue,
     });
 
     return updated;
@@ -1219,7 +1341,7 @@ export class SuperAdminService {
     return KNOWN_PLANS.map((plan) => ({
       plan,
       count: counts[plan] ?? 0,
-      settings: templates[plan] ?? templates.free,
+      settings: templates[plan] ?? templates.inbox,
     }));
   }
 
@@ -1229,10 +1351,21 @@ export class SuperAdminService {
     }
 
     const templates = await this.loadPlanTemplates();
-    const next = {
-      maxAgents: dto.maxAgents,
-      maxChannels: dto.maxChannels,
-      maxDepartments: dto.maxDepartments,
+    const current = templates[plan] ?? BUILTIN_PLAN_TEMPLATES[plan] ?? BUILTIN_PLAN_TEMPLATES.inbox;
+    // Mescla só os campos enviados (todos opcionais) sobre o template atual.
+    const next: PlanTemplate = {
+      label: dto.label ?? current.label,
+      description: dto.description ?? current.description,
+      pricePerSeatCents: dto.pricePerSeatCents ?? current.pricePerSeatCents,
+      minSeats: dto.minSeats ?? current.minSeats,
+      suiteFlatCents: dto.suiteFlatCents ?? current.suiteFlatCents,
+      aiConversations: dto.aiConversations ?? current.aiConversations,
+      includesMarketing: dto.includesMarketing ?? current.includesMarketing,
+      includesAssistant: dto.includesAssistant ?? current.includesAssistant,
+      setupFeeCents: dto.setupFeeCents ?? current.setupFeeCents,
+      maxAgents: dto.maxAgents ?? current.maxAgents,
+      maxChannels: dto.maxChannels ?? current.maxChannels,
+      maxDepartments: dto.maxDepartments ?? current.maxDepartments,
     };
     templates[plan] = next;
 
@@ -1250,9 +1383,16 @@ export class SuperAdminService {
 
     let updatedOrganizations = 0;
     if (dto.applyToExisting) {
+      // Aplica só os limites operacionais às orgs do plano (não mexe em
+      // billing/flags pra não auto-provisionar sem querer).
+      const opLimits = {
+        maxAgents: next.maxAgents,
+        maxChannels: next.maxChannels,
+        maxDepartments: next.maxDepartments,
+      };
       const result = await this.prisma.organization.updateMany({
         where: { plan, deletedAt: null },
-        data: { settings: next as Prisma.InputJsonValue },
+        data: { settings: opLimits as Prisma.InputJsonValue },
       });
       updatedOrganizations = result.count;
     }
@@ -1266,20 +1406,59 @@ export class SuperAdminService {
     return { plan, settings: next, updatedOrganizations };
   }
 
-  private async loadPlanTemplates(): Promise<Record<string, Record<string, number>>> {
+  // ─── Referência comercial (add-ons, pacotes de IA, notas) ───
+
+  async getPricingMeta() {
+    const row = await this.prisma.platformSetting
+      .findUnique({ where: { key: PRICING_META_KEY } })
+      .catch(() => null);
+    const stored =
+      row?.value && typeof row.value === 'object' && !Array.isArray(row.value)
+        ? (row.value as Partial<PricingMeta>)
+        : {};
+    return { ...BUILTIN_PRICING_META, ...stored };
+  }
+
+  async updatePricingMeta(actorId: string, dto: Partial<PricingMeta>) {
+    const current = await this.getPricingMeta();
+    const next: PricingMeta = {
+      trialDays: dto.trialDays ?? current.trialDays,
+      addons: dto.addons ?? current.addons,
+      aiPackages: dto.aiPackages ?? current.aiPackages,
+      notes: dto.notes ?? current.notes,
+    };
+    try {
+      await this.prisma.platformSetting.upsert({
+        where: { key: PRICING_META_KEY },
+        create: { key: PRICING_META_KEY, value: next as Prisma.InputJsonValue },
+        update: { value: next as Prisma.InputJsonValue },
+      });
+    } catch {
+      throw new BadRequestException(
+        'Nao foi possivel salvar a referência comercial. Execute a migration (platform_settings).',
+      );
+    }
+    await this.audit(actorId, 'UPDATE_PRICING_META', 'platform', null, null, { ...next });
+    return next;
+  }
+
+  private async loadPlanTemplates(): Promise<Record<string, PlanTemplate>> {
     try {
       const row = await this.prisma.platformSetting.findUnique({
         where: { key: PLAN_TEMPLATES_KEY },
       });
       const stored =
         row?.value && typeof row.value === 'object' && !Array.isArray(row.value)
-          ? (row.value as Record<string, Record<string, number>>)
+          ? (row.value as Record<string, Partial<PlanTemplate>>)
           : {};
 
-      return {
-        ...BUILTIN_PLAN_TEMPLATES,
-        ...stored,
-      };
+      // Mescla campo-a-campo sobre o builtin pra que planos antigos/parciais
+      // no banco não derrubem os defaults.
+      const merged: Record<string, PlanTemplate> = {};
+      for (const plan of KNOWN_PLANS) {
+        merged[plan] = { ...BUILTIN_PLAN_TEMPLATES[plan], ...(stored[plan] ?? {}) };
+      }
+      return merged;
     } catch {
       return { ...BUILTIN_PLAN_TEMPLATES };
     }
@@ -1343,9 +1522,20 @@ export class SuperAdminService {
     };
   }
 
+  /** Só os limites OPERACIONAIS vão pra Organization.settings (sem comercial). */
   private async resolvePlanSettings(plan: string) {
+    const t = await this.resolvePlanTemplate(plan);
+    return {
+      maxAgents: t.maxAgents,
+      maxChannels: t.maxChannels,
+      maxDepartments: t.maxDepartments,
+    };
+  }
+
+  /** Template completo (comercial + operacional) do plano. */
+  private async resolvePlanTemplate(plan: string): Promise<PlanTemplate> {
     const templates = await this.loadPlanTemplates();
-    return templates[plan] ?? templates.free;
+    return templates[plan] ?? templates.inbox;
   }
 
   private slugify(value: string) {

@@ -17,6 +17,22 @@ export interface SuperAdminOverview {
 
 export type OrganizationStatus = 'ACTIVE' | 'SUSPENDED' | 'CANCELLED';
 export type BillingStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'EXEMPT';
+export type DiscountType = 'NONE' | 'PERCENT' | 'FIXED';
+
+/** Termos comerciais negociados por empresa (override do template) + desconto. */
+export interface BillingProfile {
+  seats?: number;
+  pricePerSeatCents?: number;
+  suiteFlatCents?: number;
+  aiConversations?: number;
+  includesMarketing?: boolean;
+  includesAssistant?: boolean;
+  setupFeeCents?: number;
+  discountType?: DiscountType;
+  discountValue?: number; // PERCENT: 0-100; FIXED: centavos
+  discountReason?: string;
+  notes?: string;
+}
 
 export interface SuperAdminOrganization {
   id: string;
@@ -33,6 +49,7 @@ export interface SuperAdminOrganization {
   billingCurrency: string;
   billingCycle: string;
   billingDueDay: number | null;
+  billingProfile: BillingProfile | null;
   trialEndsAt: string | null;
   currentPeriodEndsAt: string | null;
   aiEnabled: boolean;
@@ -82,14 +99,32 @@ export interface SuperAdminAuditLog {
   organization: { id: string; name: string; slug: string } | null;
 }
 
+export interface PlanSettings {
+  label: string;
+  description: string;
+  pricePerSeatCents: number;
+  minSeats: number;
+  suiteFlatCents: number;
+  aiConversations: number;
+  includesMarketing: boolean;
+  includesAssistant: boolean;
+  setupFeeCents: number;
+  maxAgents: number;
+  maxChannels: number;
+  maxDepartments: number;
+}
+
 export interface SuperAdminPlanTemplate {
   plan: string;
   count: number;
-  settings: {
-    maxAgents: number;
-    maxChannels: number;
-    maxDepartments: number;
-  };
+  settings: PlanSettings;
+}
+
+export interface PricingMeta {
+  trialDays: number;
+  addons: { key: string; label: string; priceCents: number; note: string }[];
+  aiPackages: { label: string; conversations: number; priceCents: number }[];
+  notes: string;
 }
 
 export interface SuperAdminAgent {
@@ -121,19 +156,71 @@ export interface SuperAdminAgent {
   _count: { runs: number };
 }
 
+function plan(
+  p: string,
+  label: string,
+  description: string,
+  s: Partial<PlanSettings>,
+): SuperAdminPlanTemplate {
+  return {
+    plan: p,
+    count: 0,
+    settings: {
+      label,
+      description,
+      pricePerSeatCents: 0,
+      minSeats: 1,
+      suiteFlatCents: 0,
+      aiConversations: 0,
+      includesMarketing: false,
+      includesAssistant: false,
+      setupFeeCents: 0,
+      maxAgents: 0,
+      maxChannels: 0,
+      maxDepartments: 0,
+      ...s,
+    },
+  };
+}
+
 export const DEFAULT_PLAN_TEMPLATES: SuperAdminPlanTemplate[] = [
-  { plan: 'free', count: 0, settings: { maxAgents: 2, maxChannels: 1, maxDepartments: 1 } },
-  { plan: 'starter', count: 0, settings: { maxAgents: 5, maxChannels: 2, maxDepartments: 3 } },
-  { plan: 'pro', count: 0, settings: { maxAgents: 25, maxChannels: 10, maxDepartments: 10 } },
-  { plan: 'enterprise', count: 0, settings: { maxAgents: 999, maxChannels: 999, maxDepartments: 999 } },
+  plan('inbox', 'Inbox', 'Caixa de entrada omnichannel + ferramentas. Sem IA.', {
+    pricePerSeatCents: 7900, minSeats: 2, aiConversations: 0, setupFeeCents: 49700,
+    maxAgents: 0, maxChannels: 5, maxDepartments: 3,
+  }),
+  plan('essencial', 'Essencial', 'Inbox + IA de atendimento (~1k conversas/mês).', {
+    pricePerSeatCents: 9700, minSeats: 2, aiConversations: 1000, setupFeeCents: 79700,
+    maxAgents: 5, maxChannels: 5, maxDepartments: 5,
+  }),
+  plan('profissional', 'Profissional', 'IA avançada, watchdog, automações (~3k). Add-ons disponíveis.', {
+    pricePerSeatCents: 19700, minSeats: 3, aiConversations: 3000, setupFeeCents: 129700,
+    maxAgents: 25, maxChannels: 15, maxDepartments: 15,
+  }),
+  plan('performance', 'Performance', 'Profissional + Suíte (Marketing + Assistente) inclusa (~8k).', {
+    pricePerSeatCents: 19700, minSeats: 3, suiteFlatCents: 69700, aiConversations: 8000,
+    includesMarketing: true, includesAssistant: true, setupFeeCents: 249700,
+    maxAgents: 999, maxChannels: 999, maxDepartments: 999,
+  }),
 ];
 
-function normalizePlanSettings(raw: unknown): SuperAdminPlanTemplate['settings'] {
+const FALLBACK_SETTINGS = DEFAULT_PLAN_TEMPLATES[0].settings;
+
+function normalizePlanSettings(raw: unknown): PlanSettings {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const num = (v: unknown, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
   return {
-    maxAgents: Number(obj.maxAgents ?? 0),
-    maxChannels: Number(obj.maxChannels ?? 0),
-    maxDepartments: Number(obj.maxDepartments ?? 0),
+    label: typeof obj.label === 'string' ? obj.label : '',
+    description: typeof obj.description === 'string' ? obj.description : '',
+    pricePerSeatCents: num(obj.pricePerSeatCents),
+    minSeats: num(obj.minSeats, 1),
+    suiteFlatCents: num(obj.suiteFlatCents),
+    aiConversations: num(obj.aiConversations),
+    includesMarketing: !!obj.includesMarketing,
+    includesAssistant: !!obj.includesAssistant,
+    setupFeeCents: num(obj.setupFeeCents),
+    maxAgents: num(obj.maxAgents),
+    maxChannels: num(obj.maxChannels),
+    maxDepartments: num(obj.maxDepartments),
   };
 }
 
@@ -231,19 +318,24 @@ export const superAdminService = {
 
   async updatePlanTemplate(
     plan: string,
-    payload: {
-      maxAgents: number;
-      maxChannels: number;
-      maxDepartments: number;
-      applyToExisting?: boolean;
-    },
+    payload: Partial<PlanSettings> & { applyToExisting?: boolean },
   ) {
     const { data } = await api.patch(`/super-admin/plans/${plan}`, payload);
     return data.data as {
       plan: string;
-      settings: SuperAdminPlanTemplate['settings'];
+      settings: PlanSettings;
       updatedOrganizations: number;
     };
+  },
+
+  async pricingMeta(): Promise<PricingMeta> {
+    const { data } = await api.get<{ data: PricingMeta }>('/super-admin/pricing-meta');
+    return data.data;
+  },
+
+  async updatePricingMeta(payload: Partial<PricingMeta>): Promise<PricingMeta> {
+    const { data } = await api.patch<{ data: PricingMeta }>('/super-admin/pricing-meta', payload);
+    return data.data;
   },
 
   async updateBilling(
@@ -257,6 +349,7 @@ export const superAdminService = {
       billingDueDay?: number | null;
       trialEndsAt?: string | null;
       currentPeriodEndsAt?: string | null;
+      billingProfile?: BillingProfile;
     },
   ) {
     const { data } = await api.patch(`/super-admin/organizations/${id}/billing`, payload);

@@ -16,6 +16,7 @@
     "prisma:seed:agents": "node scripts/seed-ai-agents.mjs",
     "prisma:seed:marketing": "node scripts/seed-marketing-skills.mjs",
     "prisma:seed:marketing-agents": "node scripts/seed-marketing-agents.mjs",
+    "prisma:seed:plans": "node scripts/seed-plans.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",
