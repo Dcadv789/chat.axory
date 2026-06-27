@@ -19,6 +19,7 @@ import {
   timeRangeToParams,
 } from '../../services/ai-agents.service';
 import { PeriodSelector } from './period-selector';
+import { useCanSeeCost } from '../../hooks/use-can-see-cost';
 
 type RunStatus = FeedRun['status'];
 
@@ -178,8 +179,9 @@ export function JarvisRunsTab({
 }
 
 function RunRow({ run, onSelect }: { run: FeedRun; onSelect: () => void }) {
+  const canSeeCost = useCanSeeCost();
   const failed = run.hasFailedToolCalls || run.status === 'FAILED';
-  const cost = parseFloat(run.costUsd) || 0;
+  const cost = canSeeCost ? parseFloat(run.costUsd) || 0 : 0;
   return (
     <button
       onClick={onSelect}

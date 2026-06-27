@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ChannelType, ChannelSyncMode, ChannelSyncStatus, OrgRole } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { assertWithinPlanLimit } from '../../../common/plan-limits';
 import { ChannelsRepository } from './channels.repository';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
@@ -44,6 +45,19 @@ export class ChannelsService {
     dto: CreateChannelDto,
     creator?: { userOrganizationId: string; role: OrgRole },
   ) {
+    // Enforcement do limite do plano (settings.maxChannels). Canais INTERNAL
+    // (assistente pessoal) não contam e não são bloqueados — são internos.
+    if (dto.type !== ChannelType.INTERNAL) {
+      const channelCount = await this.prisma.channel.count({
+        where: {
+          organizationId,
+          deletedAt: null,
+          type: { not: ChannelType.INTERNAL },
+        },
+      });
+      await assertWithinPlanLimit(this.prisma, organizationId, 'maxChannels', channelCount, 'canais');
+    }
+
     let channel = await this.repository.create({
       organizationId,
       type: dto.type,

@@ -4,15 +4,26 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import { PrismaService } from '../../../database/prisma.service';
+import { assertWithinPlanLimit } from '../../../common/plan-limits';
 import { DepartmentsRepository } from './departments.repository';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 
 @Injectable()
 export class DepartmentsService {
-  constructor(private readonly repository: DepartmentsRepository) {}
+  constructor(
+    private readonly repository: DepartmentsRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async create(orgId: string, dto: CreateDepartmentDto) {
+    // Enforcement do limite do plano (settings.maxDepartments).
+    const deptCount = await this.prisma.department.count({
+      where: { organizationId: orgId, deletedAt: null },
+    });
+    await assertWithinPlanLimit(this.prisma, orgId, 'maxDepartments', deptCount, 'departamentos');
+
     if (dto.isDefault) {
       await this.repository.clearDefaultForOrg(orgId);
     }

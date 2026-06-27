@@ -15,12 +15,18 @@ import { AgentsService } from './agents.service';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
 import { AssignAgentChannelDto } from './dto/assign-channel.dto';
-import { CurrentOrg, Roles } from '../../../common/decorators';
+import { CurrentOrg, CurrentUser, Roles } from '../../../common/decorators';
 import {
   JwtAuthGuard,
   OrgGuard,
   RolesGuard,
 } from '../../../common/guards';
+
+interface AuthUser {
+  id: string;
+  isSuperAdmin?: boolean;
+  impersonatedBy?: string | null;
+}
 
 @ApiTags('AI Agents')
 @ApiBearerAuth()
@@ -140,6 +146,7 @@ export class AgentsController {
   @ApiOperation({ summary: 'List recent runs of this agent (with tool calls)' })
   runs(
     @CurrentOrg('id') orgId: string,
+    @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Query('limit') limit?: string,
   ) {
@@ -147,6 +154,7 @@ export class AgentsController {
       orgId,
       id,
       limit ? Math.min(parseInt(limit, 10) || 50, 200) : 50,
+      this.isPrivileged(user),
     );
   }
 
@@ -157,6 +165,7 @@ export class AgentsController {
   })
   feed(
     @CurrentOrg('id') orgId: string,
+    @CurrentUser() user: AuthUser,
     @Query('agentId') agentId?: string,
     @Query('conversationId') conversationId?: string,
     @Query('period') period?: string,
@@ -181,7 +190,7 @@ export class AgentsController {
       hasErrors: hasErrors === '1' || hasErrors === 'true',
       limit: limit ? Math.min(parseInt(limit, 10) || 50, 200) : 50,
       cursor: cursor || undefined,
-    });
+    }, this.isPrivileged(user));
   }
 
   @Get('stats/overview')
@@ -190,6 +199,7 @@ export class AgentsController {
   })
   orgStats(
     @CurrentOrg('id') orgId: string,
+    @CurrentUser() user: AuthUser,
     @Query('period') period?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -203,6 +213,7 @@ export class AgentsController {
         to,
       },
       this.parseSector(sector),
+      this.isPrivileged(user),
     );
   }
 
@@ -233,16 +244,30 @@ export class AgentsController {
   @ApiOperation({ summary: 'Aggregated stats for a single agent.' })
   agentStats(
     @CurrentOrg('id') orgId: string,
+    @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Query('period') period?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.service.getAgentStats(orgId, id, {
-      period: this.parsePeriodOptional(period),
-      from,
-      to,
-    });
+    return this.service.getAgentStats(
+      orgId,
+      id,
+      {
+        period: this.parsePeriodOptional(period),
+        from,
+        to,
+      },
+      this.isPrivileged(user),
+    );
+  }
+
+  /**
+   * "Privilegiado" = pode ver custo em USD. Vale pro super admin e também pro
+   * super admin navegando via impersonation (token carrega impersonatedBy).
+   */
+  private isPrivileged(user?: AuthUser): boolean {
+    return !!(user?.isSuperAdmin || user?.impersonatedBy);
   }
 
   private parsePeriodOptional(

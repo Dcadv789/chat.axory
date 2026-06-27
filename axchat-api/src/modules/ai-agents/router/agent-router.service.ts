@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AiAgentSector, Conversation, Organization } from '@prisma/client';
+import { AiAgentSector, AiFinalAction, Conversation, Organization } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { IntentClassifierService } from '../classifier/intent-classifier.service';
 import { IntentRouterService } from '../classifier/intent-router.service';
@@ -358,6 +358,32 @@ export class AgentRouterService {
         (used._sum.inputTokens ?? 0) + (used._sum.outputTokens ?? 0);
       if (total >= org.aiMonthlyTokenCap) {
         return { handle: false, reason: 'monthly-token-cap-reached' };
+      }
+    }
+
+    // Cota de CONVERSAS de IA do plano (monthlyConversationLimit). Conta
+    // conversas DISTINTAS atendidas pela IA no mês. Conversas que já estavam
+    // sendo atendidas continuam (não corta no meio); só novas além da cota
+    // ficam sem IA. limit=0 (ex.: plano Inbox, sem IA) bloqueia tudo.
+    if (org.monthlyConversationLimit != null) {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const handled = await this.prisma.aiAgentRun.findMany({
+        where: {
+          organizationId: org.id,
+          startedAt: { gte: startOfMonth },
+          finalAction: { not: AiFinalAction.NO_ACTION },
+          NOT: { finalAction: null },
+        },
+        select: { conversationId: true },
+        distinct: ['conversationId'],
+      });
+      const handledIds = new Set(handled.map((h) => h.conversationId));
+      const alreadyCounted = handledIds.has(conversation.id);
+      if (!alreadyCounted && handledIds.size >= org.monthlyConversationLimit) {
+        return { handle: false, reason: 'monthly-conversation-limit-reached' };
       }
     }
 

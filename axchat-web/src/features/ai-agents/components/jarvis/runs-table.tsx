@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { type FeedRun } from '../../services/ai-agents.service';
+import { useCanSeeCost } from '../../hooks/use-can-see-cost';
 import {
   FINAL_ACTION_META,
   STATUS_META,
@@ -19,6 +20,7 @@ interface RunsTableProps {
 
 export function RunsTable({ runs, emptyHint }: RunsTableProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const canSeeCost = useCanSeeCost();
 
   if (!runs.length) {
     return (
@@ -40,7 +42,9 @@ export function RunsTable({ runs, emptyHint }: RunsTableProps) {
             <th className="px-3 py-2 text-left font-semibold">Status</th>
             <th className="px-3 py-2 text-left font-semibold">Ação final</th>
             <th className="px-3 py-2 text-right font-semibold">Tokens</th>
-            <th className="px-3 py-2 text-right font-semibold">Custo</th>
+            {canSeeCost && (
+              <th className="px-3 py-2 text-right font-semibold">Custo</th>
+            )}
             <th className="px-3 py-2 text-right font-semibold">Latência</th>
           </tr>
         </thead>
@@ -61,6 +65,7 @@ export function RunsTable({ runs, emptyHint }: RunsTableProps) {
                 action={action}
                 status={status}
                 tokens={tokens}
+                canSeeCost={canSeeCost}
               />
             );
           })}
@@ -77,6 +82,7 @@ function RunRow({
   action,
   status,
   tokens,
+  canSeeCost,
 }: {
   run: FeedRun;
   isExpanded: boolean;
@@ -84,6 +90,7 @@ function RunRow({
   action: { label: string; color: string };
   status: { label: string; color: string };
   tokens: number;
+  canSeeCost: boolean;
 }) {
   return (
     <>
@@ -126,14 +133,18 @@ function RunRow({
         <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
           {fmtNum(tokens)}
         </td>
-        <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
-          {fmtUsd(Number(run.costUsd))}
-        </td>
+        {canSeeCost && (
+          <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+            {fmtUsd(Number(run.costUsd))}
+          </td>
+        )}
         <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-zinc-500">
           {fmtMs(run.durationMs)}
         </td>
       </tr>
-      {isExpanded && <RunDetail run={run} fallbackError={run.errorMessage} />}
+      {isExpanded && (
+        <RunDetail run={run} fallbackError={run.errorMessage} colSpan={canSeeCost ? 9 : 8} />
+      )}
     </>
   );
 }
@@ -141,14 +152,16 @@ function RunRow({
 function RunDetail({
   run,
   fallbackError,
+  colSpan,
 }: {
   run: FeedRun;
   fallbackError: string | null;
+  colSpan: number;
 }) {
   const tools = run.toolCalls ?? [];
   return (
     <tr className="border-b border-zinc-100 bg-zinc-50/40 dark:border-white/10 dark:bg-black">
-      <td colSpan={9} className="px-6 py-3">
+      <td colSpan={colSpan} className="px-6 py-3">
         {fallbackError && (
           <p className="mb-2 text-xs text-red-600 dark:text-red-400">
             <strong>Erro:</strong> {fallbackError}

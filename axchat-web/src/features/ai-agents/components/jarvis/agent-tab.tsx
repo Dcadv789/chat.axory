@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bot, Coins, Cpu, Activity, CheckCircle2, ArrowRightLeft } from 'lucide-react';
+import { Bot, Coins, Cpu, Clock, Activity, CheckCircle2, ArrowRightLeft } from 'lucide-react';
 import {
   aiAgentsService,
   type TimeRangeFilter,
 } from '../../services/ai-agents.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
+import { useCanSeeCost } from '../../hooks/use-can-see-cost';
 import { KpiCard } from './kpi-card';
 import { PeriodSelector } from './period-selector';
 import { BreakdownList } from './breakdown-list';
@@ -20,6 +21,7 @@ export function JarvisAgentTab({
   agentSector?: 'ATENDIMENTO' | 'MARKETING';
 }) {
   const orgId = useOrgId();
+  const canSeeCost = useCanSeeCost();
   const [timeRange, setTimeRange] = useState<TimeRangeFilter>({
     kind: 'preset',
     period: '7d',
@@ -100,17 +102,27 @@ export function JarvisAgentTab({
 
       {/* KPI cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          label="Custo (USD)"
-          value={statsLoading ? '…' : fmtUsdShort(stats?.cost.usd ?? 0)}
-          hint={
-            stats
-              ? `${fmtUsdShort(stats.cost.avgPerRun)} por execução`
-              : undefined
-          }
-          icon={Coins}
-          accent="#16a34a"
-        />
+        {canSeeCost ? (
+          <KpiCard
+            label="Custo (USD)"
+            value={statsLoading ? '…' : fmtUsdShort(stats?.cost?.usd ?? 0)}
+            hint={
+              stats?.cost
+                ? `${fmtUsdShort(stats.cost.avgPerRun)} por execução`
+                : undefined
+            }
+            icon={Coins}
+            accent="#16a34a"
+          />
+        ) : (
+          <KpiCard
+            label="Latência (p50)"
+            value={statsLoading ? '…' : fmtMs(stats?.latency.p50 ?? null)}
+            hint={stats ? `p95 ${fmtMs(stats.latency.p95)}` : undefined}
+            icon={Clock}
+            accent="#16a34a"
+          />
+        )}
         <KpiCard
           label="Tokens"
           value={statsLoading ? '…' : fmtNum(stats?.tokens.total ?? 0)}

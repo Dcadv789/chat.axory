@@ -362,24 +362,32 @@ export interface OrgStats {
     cacheWrite: number;
     total: number;
   };
-  cost: { usd: number; avgPerRun: number };
+  // Presente só pra super admin (ou impersonando). Usuário final não recebe.
+  cost?: { usd: number; avgPerRun: number };
   latency: { p50: number | null; p95: number | null };
-  monthlyCap: {
+  // Técnico (tokens) — só pra super admin.
+  monthlyCap?: {
     used: number;
     cap: number | null;
+    percentUsed: number | null;
+  };
+  // Cota do plano em CONVERSAS de IA — visível pra todos.
+  planUsage: {
+    used: number;
+    limit: number | null;
     percentUsed: number | null;
   };
   byModel: Array<{
     modelId: string;
     runs: number;
     tokens: number;
-    cost: number;
+    cost?: number;
   }>;
   byAgent: Array<{
     agentId: string;
     runs: number;
     tokens: number;
-    cost: number;
+    cost?: number;
   }>;
   byFinalAction: Record<string, number>;
   tools: Array<{ name: string; calls: number }>;

@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { AiAgentMode, AiAgentTrigger, AiFinalAction } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { assertWithinPlanLimit } from '../../../common/plan-limits';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
 import { AssignAgentChannelDto } from './dto/assign-channel.dto';
@@ -14,6 +15,14 @@ export class AgentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(organizationId: string, dto: CreateAgentDto) {
+    // Enforcement do limite do plano (settings.maxAgents). Só conta agentes
+    // criados pelo cliente; provisionamento interno (marketing/assistente) usa
+    // prisma.create direto e não passa por aqui.
+    const agentCount = await this.prisma.aiAgent.count({
+      where: { organizationId, deletedAt: null },
+    });
+    await assertWithinPlanLimit(this.prisma, organizationId, 'maxAgents', agentCount, 'agentes de IA');
+
     if (dto.parentAgentId) {
       await this.assertParentExists(organizationId, dto.parentAgentId);
     }
@@ -234,14 +243,21 @@ export class AgentsService {
     });
   }
 
-  async listRuns(organizationId: string, agentId: string, limit = 50) {
+  async listRuns(
+    organizationId: string,
+    agentId: string,
+    limit = 50,
+    privileged = false,
+  ) {
     await this.findOne(organizationId, agentId);
-    return this.prisma.aiAgentRun.findMany({
+    const runs = await this.prisma.aiAgentRun.findMany({
       where: { agentId, organizationId },
       orderBy: { startedAt: 'desc' },
       take: limit,
       include: { toolCalls: true },
     });
+    // Custo em USD some pra quem não é super admin.
+    return privileged ? runs : runs.map((r) => ({ ...r, costUsd: null }));
   }
 
   // ─── Jarvis stats ─────────────────────────────────────────────
@@ -259,10 +275,14 @@ export class AgentsService {
       to?: string;
     } = {},
     sector?: 'ATENDIMENTO' | 'MARKETING',
+    privileged = false,
   ) {
     const w = this.resolveTimeWindow(window);
     const since = w.since!;
     const sectorFilter = this.runSectorFilter(sector);
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
 
     const [
       runs,
@@ -270,6 +290,7 @@ export class AgentsService {
       org,
       toolStats,
       handoffStats,
+      monthlyHandled,
     ] = await Promise.all([
       this.prisma.aiAgentRun.findMany({
         where: { organizationId, ...sectorFilter, ...this.startedAtFilter(w) },
@@ -290,7 +311,7 @@ export class AgentsService {
       this.aggregateMonthlyTokens(organizationId, sector),
       this.prisma.organization.findUnique({
         where: { id: organizationId },
-        select: { aiMonthlyTokenCap: true },
+        select: { aiMonthlyTokenCap: true, monthlyConversationLimit: true },
       }),
       this.prisma.aiToolCall.groupBy({
         by: ['toolName'],
@@ -306,6 +327,18 @@ export class AgentsService {
           ...this.createdAtFilter(w),
         },
         select: { fromAgentId: true, toAgentId: true },
+      }),
+      // Conversas DISTINTAS atendidas pela IA no mês (denominador da cota).
+      this.prisma.aiAgentRun.findMany({
+        where: {
+          organizationId,
+          ...sectorFilter,
+          startedAt: { gte: monthStart },
+          finalAction: { not: AiFinalAction.NO_ACTION },
+          NOT: { finalAction: null },
+        },
+        select: { conversationId: true },
+        distinct: ['conversationId'],
       }),
     ]);
 
@@ -346,6 +379,18 @@ export class AgentsService {
       (h) => `${h.fromAgentId ?? 'system'}::${h.toAgentId}`,
     );
 
+    // Cota do plano em CONVERSAS de IA (visível pra qualquer usuário).
+    const convLimit = org?.monthlyConversationLimit ?? null;
+    const convUsed = monthlyHandled.length;
+    const planUsage = {
+      used: convUsed,
+      limit: convLimit,
+      percentUsed:
+        convLimit && convLimit > 0
+          ? +((convUsed / convLimit) * 100).toFixed(1)
+          : null,
+    };
+
     return {
       period: w.period,
       since: since.toISOString(),
@@ -365,29 +410,45 @@ export class AgentsService {
         cacheWrite: cacheWriteTokens,
         total: inputTokens + outputTokens,
       },
-      cost: {
-        usd: +costUsd.toFixed(4),
-        avgPerRun: total > 0 ? +(costUsd / total).toFixed(6) : 0,
-      },
+      // Custo em USD é SÓ pra super admin (ou super admin impersonando).
+      // Usuário final enxerga a cota em % (planUsage), nunca dólar.
+      ...(privileged
+        ? {
+            cost: {
+              usd: +costUsd.toFixed(4),
+              avgPerRun: total > 0 ? +(costUsd / total).toFixed(6) : 0,
+            },
+          }
+        : {}),
       latency: {
         p50: percentile(durations, 0.5),
         p95: percentile(durations, 0.95),
       },
-      monthlyCap: {
-        used: monthlyTokensUsed,
-        cap: org?.aiMonthlyTokenCap ?? null,
-        percentUsed:
-          org?.aiMonthlyTokenCap && org.aiMonthlyTokenCap > 0
-            ? +((monthlyTokensUsed / org.aiMonthlyTokenCap) * 100).toFixed(1)
-            : null,
-      },
+      // monthlyCap é técnico (tokens) → só privilegiado.
+      ...(privileged
+        ? {
+            monthlyCap: {
+              used: monthlyTokensUsed,
+              cap: org?.aiMonthlyTokenCap ?? null,
+              percentUsed:
+                org?.aiMonthlyTokenCap && org.aiMonthlyTokenCap > 0
+                  ? +((monthlyTokensUsed / org.aiMonthlyTokenCap) * 100).toFixed(1)
+                  : null,
+            },
+          }
+        : {}),
+      planUsage,
       byModel: Object.entries(byModel).map(([modelId, v]) => ({
         modelId,
-        ...v,
+        runs: v.runs,
+        tokens: v.tokens,
+        ...(privileged ? { cost: v.cost } : {}),
       })),
       byAgent: Object.entries(byAgent).map(([agentId, v]) => ({
         agentId,
-        ...v,
+        runs: v.runs,
+        tokens: v.tokens,
+        ...(privileged ? { cost: v.cost } : {}),
       })),
       byFinalAction,
       tools: toolStats.map((t) => ({
@@ -570,6 +631,7 @@ export class AgentsService {
       from?: string;
       to?: string;
     } = {},
+    privileged = false,
   ) {
     await this.findOne(organizationId, agentId);
     const w = this.resolveTimeWindow(window);
@@ -641,10 +703,14 @@ export class AgentsService {
         cacheWrite: sum(runs, (r) => r.cacheWriteTokens),
         total: inputTokens + outputTokens,
       },
-      cost: {
-        usd: +costUsd.toFixed(4),
-        avgPerRun: total > 0 ? +(costUsd / total).toFixed(6) : 0,
-      },
+      ...(privileged
+        ? {
+            cost: {
+              usd: +costUsd.toFixed(4),
+              avgPerRun: total > 0 ? +(costUsd / total).toFixed(6) : 0,
+            },
+          }
+        : {}),
       latency: {
         p50: percentile(durations, 0.5),
         p95: percentile(durations, 0.95),
@@ -656,7 +722,12 @@ export class AgentsService {
           tokens: r.inputTokens + r.outputTokens,
           cost: Number(r.costUsd || 0),
         })),
-      ).map(([modelId, v]) => ({ modelId, ...v })),
+      ).map(([modelId, v]) => ({
+        modelId,
+        runs: v.runs,
+        tokens: v.tokens,
+        ...(privileged ? { cost: v.cost } : {}),
+      })),
       tools: toolStats.map((t) => ({
         name: t.toolName,
         calls: t._count._all,
@@ -686,6 +757,7 @@ export class AgentsService {
       limit?: number;
       cursor?: string;
     },
+    privileged = false,
   ) {
     const w = this.resolveTimeWindow({
       period: options.period,
@@ -736,6 +808,8 @@ export class AgentsService {
     // without failures when the user filtered for "só com erros".
     const enriched = runs.map((r) => ({
       ...r,
+      // Custo em USD some pra quem não é super admin.
+      ...(privileged ? {} : { costUsd: null }),
       failedToolCalls: r.toolCalls.filter((tc) => isToolCallFailure(tc)).length,
       hasFailedToolCalls: r.toolCalls.some((tc) => isToolCallFailure(tc)),
     }));

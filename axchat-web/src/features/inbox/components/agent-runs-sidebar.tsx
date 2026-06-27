@@ -20,6 +20,7 @@ import {
   aiAgentsService,
   type FeedRun,
 } from '@/features/ai-agents/services/ai-agents.service';
+import { useCanSeeCost } from '@/features/ai-agents/hooks/use-can-see-cost';
 import { useSocket } from '../hooks/use-socket';
 import { AiTimeline } from './ai-timeline';
 
@@ -428,7 +429,8 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
 }
 
 function RunFooter({ run }: { run: FeedRun }) {
-  const cost = parseFloat(run.costUsd) || 0;
+  const canSeeCost = useCanSeeCost();
+  const cost = canSeeCost ? parseFloat(run.costUsd) || 0 : 0;
   const tokens =
     run.inputTokens + run.outputTokens + run.cacheReadTokens + run.cacheWriteTokens;
   if (cost === 0 && tokens === 0) return null;

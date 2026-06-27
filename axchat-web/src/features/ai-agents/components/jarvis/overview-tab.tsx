@@ -7,6 +7,7 @@ import {
   Clock,
   Coins,
   Cpu,
+  Gauge,
   AlertTriangle,
   CheckCircle2,
   ArrowRightLeft,
@@ -16,6 +17,7 @@ import {
   type TimeRangeFilter,
 } from '../../services/ai-agents.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
+import { useCanSeeCost } from '../../hooks/use-can-see-cost';
 import { KpiCard } from './kpi-card';
 import { PeriodSelector } from './period-selector';
 import { BreakdownList } from './breakdown-list';
@@ -28,6 +30,7 @@ export function JarvisOverviewTab({
   agentSector?: 'ATENDIMENTO' | 'MARKETING';
 }) {
   const orgId = useOrgId();
+  const canSeeCost = useCanSeeCost();
   const [timeRange, setTimeRange] = useState<TimeRangeFilter>({
     kind: 'preset',
     period: '7d',
@@ -64,19 +67,19 @@ export function JarvisOverviewTab({
         <PeriodSelector value={timeRange} onChange={setTimeRange} />
       </div>
 
-      {/* Alerts */}
-      {stats?.monthlyCap.percentUsed != null &&
-        stats.monthlyCap.percentUsed >= 80 && (
+      {/* Alerts — cota do plano (conversas), visível pra todos */}
+      {stats?.planUsage.percentUsed != null &&
+        stats.planUsage.percentUsed >= 80 && (
           <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-900/20">
             <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
             <div>
               <p className="font-medium text-amber-900 dark:text-amber-200">
-                Cap mensal: {stats.monthlyCap.percentUsed}% usado
+                Cota de IA: {stats.planUsage.percentUsed}% usada
               </p>
               <p className="text-xs text-amber-700 dark:text-amber-300">
-                {fmtNum(stats.monthlyCap.used)} de{' '}
-                {fmtNum(stats.monthlyCap.cap ?? 0)} tokens. A IA vai parar
-                automaticamente quando o limite for atingido.
+                {fmtNum(stats.planUsage.used)} de{' '}
+                {fmtNum(stats.planUsage.limit ?? 0)} conversas no mês. A IA pausa
+                automaticamente em novas conversas ao atingir o limite do plano.
               </p>
             </div>
           </div>
@@ -99,17 +102,41 @@ export function JarvisOverviewTab({
 
       {/* KPI cards */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          label="Custo (USD)"
-          value={statsLoading ? '…' : fmtUsdShort(stats?.cost.usd ?? 0)}
-          hint={
-            stats
-              ? `${fmtUsdShort(stats.cost.avgPerRun)} por execução em média`
-              : undefined
-          }
-          icon={Coins}
-          accent="#16a34a"
-        />
+        {canSeeCost ? (
+          <KpiCard
+            label="Custo (USD)"
+            value={statsLoading ? '…' : fmtUsdShort(stats?.cost?.usd ?? 0)}
+            hint={
+              stats?.cost
+                ? `${fmtUsdShort(stats.cost.avgPerRun)} por execução em média`
+                : undefined
+            }
+            icon={Coins}
+            accent="#16a34a"
+          />
+        ) : (
+          <KpiCard
+            label="Cota de IA (mês)"
+            value={
+              statsLoading
+                ? '…'
+                : stats?.planUsage.percentUsed != null
+                  ? `${stats.planUsage.percentUsed}%`
+                  : stats?.planUsage.limit === 0
+                    ? 'Sem IA'
+                    : '—'
+            }
+            hint={
+              stats?.planUsage.limit
+                ? `${fmtNum(stats.planUsage.used)} de ${fmtNum(stats.planUsage.limit)} conversas`
+                : stats?.planUsage.limit === 0
+                  ? 'plano sem IA de atendimento'
+                  : 'sem limite no plano'
+            }
+            icon={Gauge}
+            accent="#0047FF"
+          />
+        )}
         <KpiCard
           label="Tokens"
           value={statsLoading ? '…' : fmtNum(stats?.tokens.total ?? 0)}
@@ -159,12 +186,44 @@ export function JarvisOverviewTab({
         />
       </div>
 
-      {/* Cap progress (if cap defined) */}
-      {stats?.monthlyCap.cap && (
+      {/* Cota do plano em conversas (visível pra todos) */}
+      {stats?.planUsage.limit != null && stats.planUsage.limit > 0 && (
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
           <div className="flex items-baseline justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-              Limite mensal
+              Cota de IA do plano (mês)
+            </p>
+            <p className="text-xs tabular-nums text-zinc-500">
+              {fmtNum(stats.planUsage.used)} / {fmtNum(stats.planUsage.limit)} conversas
+              ·{' '}
+              <span className="font-medium">
+                {stats.planUsage.percentUsed?.toFixed(1)}%
+              </span>
+            </p>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-black">
+            <div
+              className={`h-full ${
+                (stats.planUsage.percentUsed ?? 0) < 80
+                  ? 'bg-emerald-500'
+                  : (stats.planUsage.percentUsed ?? 0) < 95
+                    ? 'bg-amber-500'
+                    : 'bg-red-500'
+              }`}
+              style={{
+                width: `${Math.min(stats.planUsage.percentUsed ?? 0, 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Cap técnico de tokens — só super admin */}
+      {canSeeCost && stats?.monthlyCap?.cap && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+          <div className="flex items-baseline justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              Cap mensal de tokens (admin)
             </p>
             <p className="text-xs tabular-nums text-zinc-500">
               {fmtNum(stats.monthlyCap.used)} / {fmtNum(stats.monthlyCap.cap)} tokens
@@ -193,21 +252,39 @@ export function JarvisOverviewTab({
 
       {/* Breakdowns */}
       <div className="grid gap-3 lg:grid-cols-3">
-        <BreakdownList
-          title="Custo por modelo"
-          items={(stats?.byModel ?? [])
-            .sort((a, b) => b.cost - a.cost)
-            .map((m) => ({
-              label: m.modelId
-                .replace('anthropic/', '')
-                .replace('openai/', '')
-                .replace('google/', ''),
-              value: Number(m.cost.toFixed(4)),
-              secondaryLabel: `${fmtNum(m.tokens)} tk`,
-            }))}
-          unit="USD"
-          empty="Sem execuções no período."
-        />
+        {canSeeCost ? (
+          <BreakdownList
+            title="Custo por modelo"
+            items={(stats?.byModel ?? [])
+              .sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))
+              .map((m) => ({
+                label: m.modelId
+                  .replace('anthropic/', '')
+                  .replace('openai/', '')
+                  .replace('google/', ''),
+                value: Number((m.cost ?? 0).toFixed(4)),
+                secondaryLabel: `${fmtNum(m.tokens)} tk`,
+              }))}
+            unit="USD"
+            empty="Sem execuções no período."
+          />
+        ) : (
+          <BreakdownList
+            title="Modelos usados"
+            items={(stats?.byModel ?? [])
+              .sort((a, b) => b.tokens - a.tokens)
+              .map((m) => ({
+                label: m.modelId
+                  .replace('anthropic/', '')
+                  .replace('openai/', '')
+                  .replace('google/', ''),
+                value: m.runs,
+                secondaryLabel: `${fmtNum(m.tokens)} tk`,
+              }))}
+            unit="runs"
+            empty="Sem execuções no período."
+          />
+        )}
         <BreakdownList
           title="Por agente"
           items={(stats?.byAgent ?? [])
@@ -215,7 +292,9 @@ export function JarvisOverviewTab({
             .map((a) => ({
               label: agentsById.get(a.agentId)?.name ?? a.agentId.slice(0, 12),
               value: a.runs,
-              secondaryLabel: fmtUsdShort(a.cost),
+              secondaryLabel: canSeeCost
+                ? fmtUsdShort(a.cost ?? 0)
+                : `${fmtNum(a.tokens)} tk`,
             }))}
           unit="runs"
           empty="Sem execuções no período."
