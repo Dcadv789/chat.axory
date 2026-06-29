@@ -308,20 +308,20 @@ export class DashboardService {
   }
 
   async getVolumeByDay(organizationId: string, range: DateRange) {
-    const conversations = await this.prisma.conversation.findMany({
-      where: { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } },
-      select: { createdAt: true },
-    });
-
-    const byDay = new Map<string, number>();
-    for (const c of conversations) {
-      const day = c.createdAt.toISOString().slice(0, 10);
-      byDay.set(day, (byDay.get(day) || 0) + 1);
-    }
-
-    return Array.from(byDay.entries())
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    // Agrega no banco (antes puxava todas as conversas do período). Bucketiza
+    // por dia-UTC — mesma semântica do toISOString().slice(0,10) anterior.
+    const rows = await this.prisma.$queryRaw<{ day: string; cnt: bigint }[]>`
+      SELECT to_char((created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS day,
+             COUNT(*)::bigint AS cnt
+      FROM conversations
+      WHERE organization_id = ${organizationId}
+        AND deleted_at IS NULL
+        AND created_at >= ${range.from}
+        AND created_at <= ${range.to}
+      GROUP BY 1
+      ORDER BY 1
+    `;
+    return rows.map((r) => ({ date: r.day, count: Number(r.cnt) }));
   }
 
   async getVolumeByChannel(organizationId: string, range: DateRange) {

@@ -1,6 +1,13 @@
 'use client';
 
-import { Fragment, useEffect, useRef, useState, useCallback } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, CheckCheck, Clock, AlertCircle, ExternalLink, Reply, Trash2, X, Ban, Lock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -391,6 +398,49 @@ export function ChatPanel({
 
   const messages = data?.messages || [];
 
+  // ── Carregar mensagens anteriores (histórico paginado) ──
+  // Mantemos o useQuery (shape {messages}) intacto — só buscamos páginas mais
+  // antigas e inserimos no INÍCIO do cache, preservando a posição do scroll.
+  // Evita o risco de migrar pra useInfiniteQuery (que quebraria os 5 handlers
+  // de setQueryData do realtime/envio).
+  const totalPages = data?.pagination?.totalPages ?? 1;
+  const [oldestPage, setOldestPage] = useState(1);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const hasOlder = oldestPage < totalPages;
+  const prependingRef = useRef(false);
+  const prevScrollHeightRef = useRef(0);
+  const prevScrollTopRef = useRef(0);
+
+  const loadOlder = useCallback(async () => {
+    if (loadingOlder) return;
+    const el = scrollRef.current;
+    prevScrollHeightRef.current = el?.scrollHeight ?? 0;
+    prevScrollTopRef.current = el?.scrollTop ?? 0;
+    setLoadingOlder(true);
+    try {
+      const next = oldestPage + 1;
+      const res = await inboxService.getMessages(conversation.id, next);
+      const older = res?.messages ?? [];
+      if (older.length > 0) {
+        prependingRef.current = true;
+        queryClient.setQueryData<{ messages: Message[]; pagination?: unknown }>(
+          ['messages', conversation.id],
+          (prev) => {
+            if (!prev) return prev;
+            const ids = new Set(prev.messages.map((m) => m.id));
+            const fresh = older.filter((m) => !ids.has(m.id));
+            return { ...prev, messages: [...fresh, ...prev.messages] };
+          },
+        );
+      }
+      setOldestPage(next);
+    } catch {
+      toast.error('Erro ao carregar mensagens anteriores');
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [loadingOlder, oldestPage, conversation.id, queryClient]);
+
   const { expired: engagementBlocked } = getEngagementWindowStatus(
     conversation.channel.type,
     messages,
@@ -609,8 +659,28 @@ export function ChatPanel({
   // mensagem nova (suave). O instantâneo é essencial pra não parar no
   // meio do histórico quando o conteúdo ainda está renderizando.
   const isFirstLoad = useRef(true);
+
+  // Preserva a posição ao PREPENDER histórico (conteúdo adicionado acima).
+  // useLayoutEffect roda ANTES da pintura e ANTES do efeito passivo abaixo —
+  // ajusta o scrollTop pelo delta de altura pra a view não "pular".
+  useLayoutEffect(() => {
+    if (!prependingRef.current) return;
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTop =
+        prevScrollTopRef.current +
+        (el.scrollHeight - prevScrollHeightRef.current);
+    }
+  }, [messages.length]);
+
   useEffect(() => {
     if (!bottomRef.current) return;
+    if (prependingRef.current) {
+      // Foi prepend de histórico — não rola pro fundo; o layout effect acima
+      // já reposicionou. Reseta a flag (este efeito roda depois do layout).
+      prependingRef.current = false;
+      return;
+    }
     if (isFirstLoad.current) {
       isFirstLoad.current = false;
       // Instantâneo na primeira carga — garante que vai até o final
@@ -822,6 +892,18 @@ export function ChatPanel({
           </div>
         ) : (
           <div className="w-full space-y-2">
+            {hasOlder && (
+              <div className="flex justify-center pb-1">
+                <button
+                  type="button"
+                  onClick={loadOlder}
+                  disabled={loadingOlder}
+                  className="rounded-full bg-white px-3 py-1 text-xs text-zinc-600 shadow-sm ring-1 ring-zinc-200 hover:bg-zinc-50 disabled:opacity-50 dark:bg-black dark:text-zinc-300 dark:ring-zinc-700"
+                >
+                  {loadingOlder ? 'Carregando…' : 'Carregar mensagens anteriores'}
+                </button>
+              </div>
+            )}
             {(() => {
               const reactionMap = new Map<string, string[]>();
               for (const msg of messages) {

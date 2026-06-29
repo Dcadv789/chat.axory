@@ -76,14 +76,16 @@ auditoria, e o que ainda falta. Serve de referência pra revisão e onboarding.
 ## Pendências (precisam de ambiente rodando ou decisão/ops)
 
 **Front (precisa QA visual — não blind-shippar)**
-- Chat: "carregar mensagens anteriores" (infinite scroll). Interligado com o
-  append em realtime (`setQueryData` no shape de `useQuery`) e o anchoring de
-  scroll — exige rodar a app pra validar.
-- Virtualização da lista do inbox (precisa `@tanstack/react-virtual` + QA).
+- ✅ Chat "carregar mensagens anteriores" — FEITO via prepend (mantém o
+  `useQuery`/realtime intactos, sem migrar pra useInfiniteQuery), com
+  preservação de scroll. Validado por `next build`; falta só o "feeling" visual.
+- Virtualização da lista do inbox (precisa `@tanstack/react-virtual` + QA visual
+  de seleção/menu/separadores) — única que NÃO blind-shippei.
 
 **Perf (risco de bug sutil sem rodar)**
-- Resto da agregação do dashboard (sparklines, agent-performance, peak-hours)
-  no banco com `date_trunc` — validar números com a app rodando.
+- ✅ `getMessagesFlow` e `getVolumeByDay` — agregados no banco.
+- Resto da agregação do dashboard (sparklines, agent-performance, peak-hours,
+  SLA) — lógica por-linha mais rica; validar números com a app rodando.
 
 **Ops / só você**
 - **Rotacionar `JWT_SECRET`/`JWT_REFRESH_SECRET` em produção** (antigos no
