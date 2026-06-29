@@ -34,6 +34,18 @@ export interface PromptContext {
    *  Quando presente pra uma mensagem IMAGE, vira image block no prompt
    *  (vision). Ausente = sinaliza só com texto descritivo. */
   mediaUrls?: Map<string, { url: string; mimeType?: string }>;
+  /** Setores humanos (Department) da org, pro agente de atendimento rotear via
+   *  `routeToDepartment`. Vazio = sem setores configurados. */
+  departments?: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    isDefault: boolean;
+  }>;
+  /** Trava de roteamento: quando true, routeToDepartment sempre usa o padrão. */
+  routeAllToDefaultSector?: boolean;
+  /** Nome do setor padrão (pra instrução de trava). */
+  defaultSectorName?: string | null;
 }
 
 /** Tipos de imagem que a Anthropic SDK aceita pra vision. */
@@ -286,6 +298,20 @@ Como agir:
   2. Se falhar de novo, **explique pro cliente de forma simples e honesta** via \`replyToConversation\` — "não consegui acessar essa informação agora, pode ser algo temporário. Vou verificar com o time e volto pra você."
   3. Em seguida, use \`transferToHuman\` com o motivo real no campo \`reason\` (ex: "tool X falhou com erro Y ao buscar dados do cliente Z").
   **NUNCA** silencie um erro — cliente prefere saber que algo deu errado a receber uma resposta genérica ou ficar sem resposta.
+<% } %>
+<% if (it.departments && it.departments.length > 0 && it.agent.sector === 'ATENDIMENTO') { %>
+
+═══ Setores humanos (pra onde rotear) ═══
+Quando o cliente precisar de um time HUMANO (e não de outro agente de IA), use a tool \`routeToDepartment\` com o \`departmentId\` do setor certo. A IA para na conversa e ela entra na FILA daquele setor até um atendente pegar. NÃO mencione "setor", "fila" ou roteamento pro cliente — avise de forma natural que alguém vai continuar o atendimento.
+<% if (it.routeAllToDefaultSector) { %>
+ATENÇÃO: o roteamento está TRAVADO no setor padrão "<%= it.defaultSectorName %>". Sempre que precisar de humano, chame \`routeToDepartment\` (vai cair no padrão automaticamente). NÃO tente escolher outro setor.
+<% } else { %>
+Escolha o setor pela necessidade do cliente. Setores disponíveis:
+<% for (const d of it.departments) { %>
+- \`<%= d.id %>\` · <%= d.name %><% if (d.description) { %> — <%= d.description %><% } %><% if (d.isDefault) { %> (padrão)<% } %>
+<% } %>
+Se nenhum setor encaixar, use o padrão.
+<% } %>
 <% } %>
 <% if (it.skillInstructions && it.skillInstructions.length > 0) { %>
 

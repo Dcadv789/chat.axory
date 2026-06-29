@@ -46,6 +46,13 @@ export interface InboxFilters {
    * passam false e veem tudo (gerência). Aplicado junto do teto de canais.
    */
   restrictToAssigneeOrUnassigned?: boolean;
+  /**
+   * Setores (Department) do atendente atual. Quando `restrict` está on, a fila
+   * sem dono é escopada: o atendente só vê conversas sem dono do(s) seu(s)
+   * setor(es) — além das atribuídas a ele e das que ainda não têm setor (rede
+   * de segurança). Vazio = só vê as próprias + as sem setor.
+   */
+  myDepartmentIds?: string[];
 }
 
 @Injectable()
@@ -142,13 +149,24 @@ export class ConversationsRepository {
     if (filters.assignedToId) where.assignedToId = filters.assignedToId;
     if (filters.stuckOnly) where.isStuck = true;
 
-    // Visibilidade por atribuição (AGENT): só vê o que é dele OU sem dono.
-    // Usa AND pra compor com OR de tags/busca sem se anular. OWNER/ADMIN não
-    // entram aqui (restrict=false) e veem tudo.
+    // Visibilidade por atribuição + setor (AGENT): vê o que é dele OU a fila
+    // sem dono do(s) seu(s) setor(es). Conversas sem dono e SEM setor aparecem
+    // pra todos (rede de segurança até serem roteadas). Usa AND pra compor com
+    // o OR de tags/busca sem se anular. OWNER/ADMIN não entram aqui
+    // (restrict=false) e veem tudo.
     if (filters.restrictToAssigneeOrUnassigned && currentUserId) {
+      const deptIds = filters.myDepartmentIds ?? [];
       where.AND = [
         ...((where.AND as any[]) ?? []),
-        { OR: [{ assignedToId: currentUserId }, { assignedToId: null }] },
+        {
+          OR: [
+            { assignedToId: currentUserId },
+            { assignedToId: null, departmentId: null },
+            ...(deptIds.length > 0
+              ? [{ assignedToId: null, departmentId: { in: deptIds } }]
+              : []),
+          ],
+        },
       ];
     }
     if (filters.search) {
@@ -255,6 +273,9 @@ export class ConversationsRepository {
           },
           assignedTo: {
             select: { id: true, name: true, avatarUrl: true },
+          },
+          department: {
+            select: { id: true, name: true },
           },
           messages: {
             orderBy: { createdAt: 'desc' },
@@ -425,10 +446,12 @@ export class ConversationsRepository {
     accessibleChannelIds?: string[],
     restrictToAssigneeOrUnassigned?: boolean,
     currentUserId?: string,
+    myDepartmentIds?: string[],
   ) {
     if (accessibleChannelIds !== undefined && accessibleChannelIds.length === 0) {
       return {} as Record<string, number>;
     }
+    const deptIds = myDepartmentIds ?? [];
     const counts = await this.prisma.conversation.groupBy({
       by: ['status'],
       where: {
@@ -437,9 +460,18 @@ export class ConversationsRepository {
         ...(accessibleChannelIds !== undefined
           ? { channelId: { in: accessibleChannelIds } }
           : {}),
-        // Mesma regra da lista: AGENT só conta o que é dele ou sem dono.
+        // Mesma regra da lista: AGENT só conta o que é dele OU a fila sem dono
+        // do(s) seu(s) setor(es) + as sem setor (rede de segurança).
         ...(restrictToAssigneeOrUnassigned && currentUserId
-          ? { OR: [{ assignedToId: currentUserId }, { assignedToId: null }] }
+          ? {
+              OR: [
+                { assignedToId: currentUserId },
+                { assignedToId: null, departmentId: null },
+                ...(deptIds.length > 0
+                  ? [{ assignedToId: null, departmentId: { in: deptIds } }]
+                  : []),
+              ],
+            }
           : {}),
       },
       _count: true,

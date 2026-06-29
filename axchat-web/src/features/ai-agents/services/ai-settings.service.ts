@@ -41,6 +41,9 @@ export interface OrganizationAiSettings {
   /** Quando true, o nome de quem enviou (atendente ou agente de IA) é
    *  prefixado no texto entregue ao cliente — "*Nome:*\ntexto". */
   signMessagesWithSenderName: boolean;
+  /** Trava de roteamento por setor: quando true, o orquestrador joga toda
+   *  conversa que precisa de humano no setor padrão. */
+  routeAllToDefaultSector: boolean;
   aiMonthlyTokenCap: number | null;
   watchdogEnabled: boolean;
   watchdogBusinessHours: BusinessHoursConfig | null;
@@ -62,6 +65,7 @@ export interface UpdateAiSettingsInput {
   aiBusinessNotes?: string | null;
   aiAutoDisableOnHuman?: boolean;
   signMessagesWithSenderName?: boolean;
+  routeAllToDefaultSector?: boolean;
   aiMonthlyTokenCap?: number | null;
   watchdogEnabled?: boolean;
   watchdogBusinessHours?: BusinessHoursConfig | null;

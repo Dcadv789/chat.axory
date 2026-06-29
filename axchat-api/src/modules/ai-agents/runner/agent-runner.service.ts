@@ -244,6 +244,24 @@ export class AiAgentRunnerService implements OnModuleInit {
         return new Map<string, { url: string; mimeType?: string }>();
       });
 
+    // Setores humanos (Department) — só no fluxo de ATENDIMENTO. Permite ao
+    // orquestrador/worker rotear pra fila humana certa via routeToDepartment.
+    const departments =
+      agent.sector === 'ATENDIMENTO'
+        ? await this.prisma.department.findMany({
+            where: { organizationId: organization.id, deletedAt: null },
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              isDefault: true,
+            },
+            orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+          })
+        : [];
+    const defaultSector =
+      departments.find((d) => d.isDefault) ?? departments[0] ?? null;
+
     const messages = this.promptBuilder.buildMessages({
       organization,
       agent,
@@ -257,6 +275,9 @@ export class AiAgentRunnerService implements OnModuleInit {
       triggerMessage,
       skillInstructions,
       catalog,
+      departments,
+      routeAllToDefaultSector: organization.routeAllToDefaultSector,
+      defaultSectorName: defaultSector?.name ?? null,
     });
 
     // Fase 2.5: augmenta o system message com Security Layer (prepend)

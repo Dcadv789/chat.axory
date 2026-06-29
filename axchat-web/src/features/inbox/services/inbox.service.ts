@@ -57,6 +57,9 @@ export interface Conversation {
   aiDisabledBy?: string | null;
   aiDisabledAt?: string | null;
   activeAgentId?: string | null;
+  /** Setor (Department) ao qual a conversa pertence. null = ainda sem setor. */
+  departmentId?: string | null;
+  department?: { id: string; name: string } | null;
   contact: Contact;
   channel: ChannelInfo;
   assignedTo: AgentInfo | null;
@@ -212,6 +215,22 @@ export const inboxService = {
   async closeConversation(conversationId: string): Promise<Conversation> {
     const { data } = await api.post(`/conversations/${conversationId}/close`);
     return data.data;
+  },
+
+  /**
+   * Transfere a conversa para outro setor (Department). Ela volta à fila do
+   * setor de destino (sem dono, status PENDING) — os atendentes daquele setor
+   * passam a vê-la até alguém pegar.
+   */
+  async transferDepartment(
+    conversationId: string,
+    departmentId: string,
+  ): Promise<Conversation> {
+    const { data } = await api.post(
+      `/conversations/${conversationId}/transfer-department`,
+      { departmentId },
+    );
+    return data.data ?? data;
   },
 
   async markAsRead(

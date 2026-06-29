@@ -4,6 +4,7 @@ import { PrismaModule } from '../../../database/prisma.module';
 import { RealtimeModule } from '../../realtime/realtime.module';
 import { ReplyToConversationTool } from './builtin/reply-to-conversation.tool';
 import { TransferToHumanTool } from './builtin/transfer-to-human.tool';
+import { RouteToDepartmentTool } from './builtin/route-to-department.tool';
 import { TagConversationTool } from './builtin/tag-conversation.tool';
 import { ListAvailableAgentsTool } from './builtin/list-available-agents.tool';
 import { DelegateToAgentTool } from './builtin/delegate-to-agent.tool';
@@ -65,6 +66,7 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
   providers: [
     ReplyToConversationTool,
     TransferToHumanTool,
+    RouteToDepartmentTool,
     TagConversationTool,
     ListAvailableAgentsTool,
     DelegateToAgentTool,

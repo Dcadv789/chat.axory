@@ -5,6 +5,7 @@ import { AiTool as BuiltInSkillImpl, toLlmDefinition } from './tool.types';
 import { LlmToolDefinition } from '../llm/llm.types';
 import { ReplyToConversationTool } from './builtin/reply-to-conversation.tool';
 import { TransferToHumanTool } from './builtin/transfer-to-human.tool';
+import { RouteToDepartmentTool } from './builtin/route-to-department.tool';
 import { TagConversationTool } from './builtin/tag-conversation.tool';
 import { ListAvailableAgentsTool } from './builtin/list-available-agents.tool';
 import { DelegateToAgentTool } from './builtin/delegate-to-agent.tool';
@@ -66,6 +67,7 @@ export class ToolRegistry {
     config: ConfigService,
     reply: ReplyToConversationTool,
     transfer: TransferToHumanTool,
+    routeToDepartment: RouteToDepartmentTool,
     tag: TagConversationTool,
     listAgents: ListAvailableAgentsTool,
     delegate: DelegateToAgentTool,
@@ -96,6 +98,11 @@ export class ToolRegistry {
   ) {
     this.register(reply, ['ORCHESTRATOR', 'WORKER']);
     this.register(transfer, ['ORCHESTRATOR', 'WORKER']);
+    // Roteia pra um SETOR humano (Department). Só faz sentido no fluxo de
+    // atendimento — escopado ao setor ATENDIMENTO (não aparece p/ marketing/pessoal).
+    this.register(routeToDepartment, ['ORCHESTRATOR', 'WORKER'], undefined, [
+      'ATENDIMENTO',
+    ]);
     this.register(tag, ['ORCHESTRATOR', 'WORKER']);
     this.register(listAgents, ['ORCHESTRATOR']);
     this.register(delegate, ['ORCHESTRATOR']);

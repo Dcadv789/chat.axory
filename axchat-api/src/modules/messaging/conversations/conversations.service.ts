@@ -40,6 +40,26 @@ export class ConversationsService {
     private readonly agentRunner: AiAgentRunnerService,
   ) {}
 
+  /**
+   * Setores (Department) ativos do atendente, usados pra escopar a fila do
+   * inbox por setor. Vazio = atendente sem setor (vê só as próprias + as sem
+   * setor). OWNER/ADMIN não chamam isto (veem tudo).
+   */
+  private async getAgentDepartmentIds(
+    userId: string,
+    organizationId: string,
+  ): Promise<string[]> {
+    const rows = await this.prisma.departmentAgent.findMany({
+      where: {
+        isActive: true,
+        department: { organizationId, deletedAt: null },
+        userOrganization: { userId, organizationId },
+      },
+      select: { departmentId: true },
+    });
+    return rows.map((r) => r.departmentId);
+  }
+
   private broadcastUpdate(conversation: Conversation | null): void {
     if (!conversation) return;
     this.realtimeGateway.emitToChannel(
@@ -95,10 +115,15 @@ export class ConversationsService {
       archived: filters.archived,
       unreadOnly: filters.unreadOnly,
       stuckOnly: filters.stuckOnly,
-      // Visibilidade por atribuição: AGENT só vê o que está atribuído a ele OU
-      // não atribuído (fila comum). OWNER/ADMIN (gerência) veem tudo.
+      // Visibilidade por atribuição + setor: AGENT só vê o que está atribuído a
+      // ele OU a fila sem dono do(s) seu(s) setor(es) (+ as sem setor).
+      // OWNER/ADMIN (gerência) veem tudo.
       restrictToAssigneeOrUnassigned:
         currentUserRole === 'AGENT' ? true : false,
+      myDepartmentIds:
+        currentUserRole === 'AGENT' && currentUserId
+          ? await this.getAgentDepartmentIds(currentUserId, organizationId)
+          : undefined,
     };
 
     const skip = (page - 1) * limit;
@@ -175,6 +200,58 @@ export class ConversationsService {
 
     const updated = await this.repository.findById(id);
     this.broadcastUpdate(updated as Conversation | null);
+    return updated;
+  }
+
+  /**
+   * Transfere a conversa para outro setor (Department), devolvendo-a à FILA do
+   * setor de destino: zera o dono (`assignedToId=null`) e marca `PENDING`, de
+   * modo que todos os atendentes daquele setor a vejam até alguém pegar (vira
+   * dono ao responder). Liberado a qualquer atendente (AGENT+).
+   */
+  async transferToDepartment(
+    id: string,
+    organizationId: string,
+    departmentId: string,
+    actorId: string,
+    access: ChannelAccess = 'ALL',
+    actorRole?: string,
+  ) {
+    const conversation = await this.findOne(
+      id,
+      organizationId,
+      access,
+      actorId,
+      actorRole,
+    );
+
+    const dept = await this.prisma.department.findFirst({
+      where: { id: departmentId, organizationId, deletedAt: null },
+      select: { id: true, name: true },
+    });
+    if (!dept) throw new NotFoundException('Setor não encontrado');
+
+    const updated = await this.prisma.conversation.update({
+      where: { id },
+      data: {
+        departmentId: dept.id,
+        assignedToId: null,
+        status: ConversationStatus.PENDING,
+      },
+    });
+
+    await this.prisma.conversationAuditLog.create({
+      data: {
+        conversationId: id,
+        actorId,
+        action: 'DEPARTMENT_TRANSFERRED',
+        fromValue: conversation.departmentId ?? null,
+        toValue: dept.id,
+        metadata: { departmentName: dept.name },
+      },
+    });
+
+    this.broadcastUpdate(updated as Conversation);
     return updated;
   }
 
@@ -507,11 +584,16 @@ export class ConversationsService {
     currentUserRole?: string,
   ) {
     const accessibleIds = access === 'ALL' ? undefined : [...access];
+    const myDepartmentIds =
+      currentUserRole === 'AGENT' && currentUserId
+        ? await this.getAgentDepartmentIds(currentUserId, organizationId)
+        : undefined;
     return this.repository.countByStatus(
       organizationId,
       accessibleIds,
       currentUserRole === 'AGENT',
       currentUserId,
+      myDepartmentIds,
     );
   }
 

@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Prisma } from '@prisma/client';
+import { ConversationStatus, Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 
 import { PrismaService } from '../../../database/prisma.service';
@@ -177,14 +177,37 @@ export class PendingActionExecutorProcessor extends WorkerHost {
     // Pausa a IA na conversa + sinaliza que aguarda atendente humano.
     // Notificações em tempo real (banner no inbox) já foram emitidas no
     // momento da criação do PendingAction — aqui só efetivamos a transição.
+    //
+    // "Preciso de humano" sem setor explícito cai na FILA do setor padrão
+    // (Department isDefault), pra os atendentes desse setor verem. Se a conversa
+    // já tem setor, mantém. Se a org não tem setores, segue sem departmentId.
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: action.conversationId },
+      select: { organizationId: true, departmentId: true },
+    });
+    let departmentId = conv?.departmentId ?? null;
+    if (!departmentId && conv) {
+      const dept = await this.prisma.department.findFirst({
+        where: { organizationId: conv.organizationId, deletedAt: null },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+        select: { id: true },
+      });
+      departmentId = dept?.id ?? null;
+    }
     await this.prisma.conversation.update({
       where: { id: action.conversationId },
-      data: { aiEnabled: false },
+      data: {
+        aiEnabled: false,
+        activeAgentId: null,
+        status: ConversationStatus.PENDING,
+        ...(departmentId ? { departmentId } : {}),
+      },
     });
     return {
       ok: true,
       transferredAt: new Date().toISOString(),
       reason: action.args?.reason ?? null,
+      departmentId,
     };
   }
 

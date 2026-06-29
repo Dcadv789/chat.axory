@@ -13,6 +13,7 @@ import { ApiBearerAuth, ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { OrgRole } from '@prisma/client';
 import { ConversationsService } from './conversations.service';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
+import { TransferDepartmentDto } from './dto/transfer-department.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 import {
   CurrentUser,
@@ -196,6 +197,29 @@ export class ConversationsController {
     @CurrentChannelAccess() access: ChannelAccess,
   ) {
     return this.service.update(id, orgId, dto, userId, access, userRole);
+  }
+
+  @Post(':id/transfer-department')
+  @ApiOperation({
+    summary:
+      'Transfer conversation to another department/sector. Returns it to the destination sector queue (clears assignee, status=PENDING) so that sector\'s agents see it until someone picks it up. Available to any agent.',
+  })
+  transferDepartment(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: TransferDepartmentDto,
+    @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
+    @CurrentChannelAccess() access: ChannelAccess,
+  ) {
+    return this.service.transferToDepartment(
+      id,
+      orgId,
+      dto.departmentId,
+      userId,
+      access,
+      userRole,
+    );
   }
 
   @Post(':id/assign-me')

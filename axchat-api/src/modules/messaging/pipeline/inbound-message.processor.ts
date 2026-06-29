@@ -497,10 +497,59 @@ export class InboundMessageProcessor extends WorkerHost {
       this.logger.debug(
         `AI skipped for conv ${conversationId}: ${decision.reason}`,
       );
+      // IA não vai atuar (desligada na org/canal/conversa, fora de horário,
+      // cota, sem agente...). Sem IA pra rotear, a conversa cai direto na fila
+      // do SETOR PADRÃO pra os humanos pegarem — em vez de ficar sem setor.
+      await this.ensureRoutedToDefaultSector(conversation);
       return;
     }
 
     this.scheduleAgentRun(conversationId, triggerMessageId);
+  }
+
+  /**
+   * Garante que uma conversa sem dono e sem setor caia na fila do setor
+   * (Department) marcado como padrão. Usado quando a IA não vai atuar, pra a
+   * mensagem não ficar "solta" — assim os atendentes do setor padrão a veem.
+   * No-op se a conversa já tem dono, já tem setor, ou a org não tem setores.
+   */
+  private async ensureRoutedToDefaultSector(conversation: {
+    id: string;
+    organizationId: string;
+    departmentId: string | null;
+    assignedToId: string | null;
+    channelId: string;
+  }): Promise<void> {
+    try {
+      if (conversation.departmentId || conversation.assignedToId) return;
+      const dept = await this.prisma.department.findFirst({
+        where: { organizationId: conversation.organizationId, deletedAt: null },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+        select: { id: true },
+      });
+      if (!dept) return;
+      const updated = await this.prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          departmentId: dept.id,
+          status: ConversationStatus.PENDING,
+        },
+      });
+      this.realtimeGateway.emitToChannel(
+        conversation.channelId,
+        'conversation:updated',
+        { conversation: updated },
+      );
+      this.realtimeGateway.emitToConversation(
+        conversation.id,
+        'conversation:updated',
+        { conversation: updated },
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `ensureRoutedToDefaultSector failed for conv ${conversation.id}: ${err?.message ?? err}`,
+      );
+    }
   }
 
   /**

@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap, Variable, Plug, Clock, Megaphone } from 'lucide-react';
+import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap, Variable, Plug, Clock, Megaphone, Network } from 'lucide-react';
 
 const tabs = [
   { href: '/settings/channels', label: 'Canais', icon: Radio, subtitle: 'Gerencie seus canais de atendimento' },
   { href: '/settings/general', label: 'Geral', icon: Building2, subtitle: 'Configurações gerais da organização' },
   { href: '/settings/ai', label: 'IA', icon: Sparkles, subtitle: 'Configure quando e como os agentes de IA atendem' },
   { href: '/settings/members', label: 'Membros', icon: Users, subtitle: 'Gerencie os membros da sua organização' },
+  { href: '/settings/sectors', label: 'Setores', icon: Network, subtitle: 'Departamentos humanos (Atendimento, Vendas, Financeiro) e quem atende cada fila' },
   { href: '/settings/contacts', label: 'Contatos', icon: BookUser, subtitle: 'Lista de contatos e canais vinculados' },
   { href: '/settings/tags', label: 'Tags', icon: Tags, subtitle: 'Organize conversas e contatos com tags coloridas' },
   { href: '/settings/notifications', label: 'Notificações', icon: Bell, subtitle: 'Configure como e quando você deseja ser notificado' },

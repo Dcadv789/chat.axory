@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ConversationAiToggle } from './conversation-ai-toggle';
 import { AssignmentPopover } from './assignment-popover';
+import { TransferDepartmentPopover } from './transfer-department-popover';
 import { AgentPinPopover } from './agent-pin-popover';
 import { PipelinePopover } from './pipeline-popover';
 import { ContactInfoPopover } from './contact-info-popover';
@@ -243,6 +244,12 @@ export function ConversationHeader({
         )}
         {conversation.status !== 'CLOSED' && (
           <AssignmentPopover
+            conversation={conversation}
+            onChanged={onUpdate}
+          />
+        )}
+        {conversation.status !== 'CLOSED' && (
+          <TransferDepartmentPopover
             conversation={conversation}
             onChanged={onUpdate}
           />

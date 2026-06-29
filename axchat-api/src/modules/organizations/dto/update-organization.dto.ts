@@ -71,6 +71,14 @@ export class UpdateOrganizationDto {
   signMessagesWithSenderName?: boolean;
 
   @ApiPropertyOptional({
+    description:
+      'Trava de roteamento por setor. Quando true, o orquestrador joga toda conversa que precisa de humano no setor (Department) marcado como padrão, sem distribuir. Quando false, distribui e usa o padrão como fallback.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  routeAllToDefaultSector?: boolean;
+
+  @ApiPropertyOptional({
     description: 'Monthly LLM token cap across the org. null = unlimited.',
   })
   @IsOptional()
