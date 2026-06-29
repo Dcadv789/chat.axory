@@ -55,7 +55,15 @@ export class LlmService {
   ) {
     const anthropicKey = config.get<string>('ANTHROPIC_API_KEY');
     this.hasAnthropicKey = !!anthropicKey;
-    this.client = new Anthropic({ apiKey: anthropicKey ?? 'missing' });
+    // timeout/maxRetries explícitos: sem eles o default do SDK é ~600s, e como
+    // a completion roda dentro de workers BullMQ, um provider lento/instável
+    // trava os slots de concorrência (e 429/5xx transitório vira fallback de
+    // desculpa pro cliente). 60s + 2 retries com backoff da própria SDK.
+    this.client = new Anthropic({
+      apiKey: anthropicKey ?? 'missing',
+      timeout: 60_000,
+      maxRetries: 2,
+    });
 
     this.deepseekBaseURL =
       config.get<string>('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com';

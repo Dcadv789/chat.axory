@@ -33,7 +33,24 @@ import redisConfig from './config/redis.config';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [redisConfig] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [redisConfig],
+      // Fail-fast: sem estas variáveis a app subiria e quebraria em runtime
+      // (auth assinando com `undefined`, Prisma sem URL). Melhor não subir.
+      validate: (env: Record<string, unknown>) => {
+        const required = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
+        const missing = required.filter(
+          (k) => !env[k] || String(env[k]).trim() === '',
+        );
+        if (missing.length > 0) {
+          throw new Error(
+            `Variáveis de ambiente obrigatórias ausentes: ${missing.join(', ')}`,
+          );
+        }
+        return env;
+      },
+    }),
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -41,6 +58,14 @@ import redisConfig from './config/redis.config';
           host: config.get<string>('redis.host', 'localhost'),
           port: config.get<number>('redis.port', 6379),
           password: config.get<string>('redis.password') || undefined,
+        },
+        // Caps de retenção pra não acumular jobs no Redis pra sempre. Só
+        // controla retenção — NÃO define `attempts`/`backoff` global (mudaria
+        // o retry de jobs não-idempotentes). Enqueues que precisam guardar
+        // falhas (replay) seguem sobrescrevendo com removeOnFail:false.
+        defaultJobOptions: {
+          removeOnComplete: { age: 3600, count: 1000 },
+          removeOnFail: { age: 86400, count: 5000 },
         },
       }),
     }),

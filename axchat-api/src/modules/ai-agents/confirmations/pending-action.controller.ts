@@ -6,18 +6,14 @@ import {
   Param,
   Post,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { JwtAuthGuard } from '../../../common/guards';
+import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
+import { CurrentOrg, CurrentUser } from '../../../common/decorators';
 import { PendingActionService } from './pending-action.service';
 import type { PendingAction } from './confirmation.types';
-
-interface AuthedRequest {
-  user?: { id?: string; sub?: string };
-}
 
 /**
  * REST endpoints for the destructive-action confirmation system.
@@ -26,10 +22,15 @@ interface AuthedRequest {
  *   GET    /pending-actions/:id           -> fetch one
  *   POST   /pending-actions/:id/approve   -> approve (only PENDING)
  *   POST   /pending-actions/:id/reject    -> reject  (only PENDING; reason required)
+ *
+ * Todas as rotas são escopadas pela organização do request (OrgGuard +
+ * x-organization-id). O service valida que a ação pertence à org atual antes
+ * de listar/ler/aprovar/rejeitar — sem isso, qualquer usuário autenticado
+ * poderia aprovar/ler ações de OUTRA empresa (IDOR cross-tenant).
  */
 @ApiTags('AI Pending Actions')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, OrgGuard, RolesGuard)
 @Controller('pending-actions')
 export class PendingActionController {
   constructor(private readonly service: PendingActionService) {}
@@ -37,18 +38,22 @@ export class PendingActionController {
   @Get()
   @ApiOperation({
     summary:
-      'List PENDING destructive actions. Optionally filter by conversationId.',
+      'List PENDING destructive actions for the current org. Optionally filter by conversationId.',
   })
   async list(
+    @CurrentOrg('id') orgId: string,
     @Query('conversationId') conversationId?: string,
   ): Promise<PendingAction[]> {
-    return this.service.listPending(conversationId);
+    return this.service.listPending(orgId, conversationId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single pending action by id.' })
-  async get(@Param('id') id: string): Promise<PendingAction> {
-    const action = await this.service.get(id);
+  async get(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+  ): Promise<PendingAction> {
+    const action = await this.service.get(id, orgId);
     if (!action) throw new NotFoundException('Pending action not found');
     return action;
   }
@@ -57,29 +62,20 @@ export class PendingActionController {
   @ApiOperation({ summary: 'Approve a pending action and unlock execution.' })
   async approve(
     @Param('id') id: string,
-    @Req() req: AuthedRequest,
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
   ): Promise<PendingAction> {
-    const userId = this.requireUserId(req);
-    return this.service.approve(id, userId);
+    return this.service.approve(id, userId, orgId);
   }
 
   @Post(':id/reject')
   @ApiOperation({ summary: 'Reject a pending action with a reason.' })
   async reject(
     @Param('id') id: string,
-    @Req() req: AuthedRequest,
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
     @Body() body: { reason: string },
   ): Promise<PendingAction> {
-    const userId = this.requireUserId(req);
-    return this.service.reject(id, userId, body?.reason ?? '');
-  }
-
-  private requireUserId(req: AuthedRequest): string {
-    const userId = req?.user?.id ?? req?.user?.sub;
-    if (!userId) {
-      // Should never happen behind JwtAuthGuard, but keeps types safe.
-      throw new NotFoundException('Authenticated user not found in request');
-    }
-    return userId;
+    return this.service.reject(id, userId, body?.reason ?? '', orgId);
   }
 }

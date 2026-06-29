@@ -345,6 +345,8 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
   const {
     data,
     isLoading,
+    isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -1325,6 +1327,21 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
               </div>
             </div>
           ))
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 dark:bg-red-500/10">
+              <MessageSquare className="h-6 w-6 text-red-400" />
+            </div>
+            <p className="mt-3 text-[13px] font-medium text-red-500">
+              Erro ao carregar conversas
+            </p>
+            <button
+              onClick={() => refetch()}
+              className="mt-2 rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 dark:bg-white dark:text-black"
+            >
+              Tentar novamente
+            </button>
+          </div>
         ) : conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 dark:bg-black">

@@ -66,11 +66,14 @@ export class PendingActionStorage {
   async listByStatus(
     status: PendingActionStatus,
     conversationId?: string,
+    organizationId?: string,
   ): Promise<PendingAction[]> {
     const rows = await this.prisma.aiPendingAction.findMany({
       where: {
         status,
         ...(conversationId ? { conversationId } : {}),
+        // Escopo por org via relação com o agente (AiAgent.organizationId).
+        ...(organizationId ? { agent: { organizationId } } : {}),
       },
       orderBy: { createdAt: 'desc' },
     });

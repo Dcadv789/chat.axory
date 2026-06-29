@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import {
   AiFinalAction,
   AiAgentSector,
@@ -68,8 +73,9 @@ interface RunInput {
 const MAX_CHAIN_DEPTH = 3;
 
 @Injectable()
-export class AiAgentRunnerService implements OnModuleInit {
+export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AiAgentRunnerService.name);
+  private stuckSweepTimer?: NodeJS.Timeout;
 
   /**
    * Na inicialização, qualquer AiAgentRun ainda RUNNING é órfão — o processo que
@@ -91,6 +97,38 @@ export class AiAgentRunnerService implements OnModuleInit {
       }
     } catch (err: any) {
       this.logger.error(`Falha ao limpar runs órfãos: ${err?.message ?? err}`);
+    }
+
+    // Varredura periódica: o cleanup no boot só pega crash/restart. Um run que
+    // trava com o processo VIVO (LLM pendurado, deadlock) ficaria RUNNING pra
+    // sempre. A cada 5min, marca como FAILED runs RUNNING há mais de 10min.
+    this.stuckSweepTimer = setInterval(() => {
+      void this.sweepStuckRuns();
+    }, 5 * 60_000);
+    // Não segura o event loop no shutdown.
+    this.stuckSweepTimer.unref?.();
+  }
+
+  onModuleDestroy(): void {
+    if (this.stuckSweepTimer) clearInterval(this.stuckSweepTimer);
+  }
+
+  private async sweepStuckRuns(): Promise<void> {
+    try {
+      const cutoff = new Date(Date.now() - 10 * 60_000);
+      const res = await this.prisma.aiAgentRun.updateMany({
+        where: { status: AiRunStatus.RUNNING, startedAt: { lt: cutoff } },
+        data: {
+          status: AiRunStatus.FAILED,
+          errorMessage: 'Run travado (timeout de 10min sem finalizar)',
+          finishedAt: new Date(),
+        },
+      });
+      if (res.count > 0) {
+        this.logger.warn(`Sweep: finalizados ${res.count} run(s) travado(s)`);
+      }
+    } catch (err: any) {
+      this.logger.warn(`sweepStuckRuns falhou: ${err?.message ?? err}`);
     }
   }
 
@@ -300,7 +338,10 @@ export class AiAgentRunnerService implements OnModuleInit {
       outputTokens: 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: 0,
+      // Seed com o custo do classificador (Haiku) — antes era calculado em
+      // selectAgent e descartado, deixando o custo do run subestimado. Roda
+      // uma vez por primeira mensagem; agora entra no costUsd do run.
+      costUsd: selection?.classifierCostUsd ?? 0,
     };
 
     let finalAction: AiFinalAction = AiFinalAction.NO_ACTION;

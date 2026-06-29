@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConversationStatus } from '@prisma/client';
+import { AutomationTrigger, ConversationStatus } from '@prisma/client';
 import { PrismaService } from '../../../../database/prisma.service';
+import { OutboxService } from '../../../automations/outbox/outbox.service';
 import { RealtimeGateway } from '../../../realtime/realtime.gateway';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
 
@@ -58,6 +59,7 @@ export class RouteToDepartmentTool implements AiTool {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeGateway,
+    private readonly outbox: OutboxService,
   ) {}
 
   async execute(
@@ -107,32 +109,41 @@ export class RouteToDepartmentTool implements AiTool {
       }
     }
 
-    const updated = await this.prisma.conversation.update({
+    // Status anterior (pro evento de automação) — durante um run de IA
+    // costuma ser BOT.
+    const convBefore = await this.prisma.conversation.findUnique({
       where: { id: ctx.conversationId },
-      data: {
-        departmentId: target.id,
-        assignedToId: null,
-        aiEnabled: false,
-        activeAgentId: null,
-        status: ConversationStatus.PENDING,
-      },
+      select: { status: true, contactId: true },
     });
 
-    await this.prisma.conversationAuditLog.create({
-      data: {
-        conversationId: ctx.conversationId,
-        actorId: null,
-        action: 'DEPARTMENT_ROUTED',
-        toValue: target.id,
-        metadata: {
-          departmentName: target.name,
-          reason,
-          summary,
-          byAgentId: ctx.agentId,
-          locked: !!org?.routeAllToDefaultSector,
+    // Update + audit numa transação só (atomicidade).
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.conversation.update({
+        where: { id: ctx.conversationId },
+        data: {
+          departmentId: target.id,
+          assignedToId: null,
+          aiEnabled: false,
+          activeAgentId: null,
+          status: ConversationStatus.PENDING,
         },
-      },
-    });
+      }),
+      this.prisma.conversationAuditLog.create({
+        data: {
+          conversationId: ctx.conversationId,
+          actorId: null,
+          action: 'DEPARTMENT_ROUTED',
+          toValue: target.id,
+          metadata: {
+            departmentName: target.name,
+            reason,
+            summary,
+            byAgentId: ctx.agentId,
+            locked: !!org?.routeAllToDefaultSector,
+          },
+        },
+      }),
+    ]);
 
     this.realtime.emitToChannel(ctx.channelId, 'conversation:updated', {
       conversation: updated,
@@ -140,6 +151,26 @@ export class RouteToDepartmentTool implements AiTool {
     this.realtime.emitToConversation(ctx.conversationId, 'conversation:updated', {
       conversation: updated,
     });
+
+    // Dispara automações de mudança de status (a rota seta PENDING direto, sem
+    // passar pelo FSM que normalmente emite este evento).
+    if (convBefore && convBefore.status !== ConversationStatus.PENDING) {
+      await this.outbox
+        .enqueuePostCommit(AutomationTrigger.CONVERSATION_STATUS_CHANGED, {
+          organizationId: ctx.organizationId,
+          contactId: convBefore.contactId,
+          conversationId: ctx.conversationId,
+          channelId: ctx.channelId,
+          actorId: undefined,
+          fromStatus: convBefore.status,
+          toStatus: ConversationStatus.PENDING,
+        })
+        .catch((e: any) =>
+          this.logger.warn(
+            `outbox status-change (route) falhou conv ${ctx.conversationId}: ${e?.message ?? e}`,
+          ),
+        );
+    }
 
     this.logger.log(
       `Agent ${ctx.agentId} routed conv ${ctx.conversationId} → sector "${target.name}" (${target.id})${org?.routeAllToDefaultSector ? ' [locked-to-default]' : ''}`,

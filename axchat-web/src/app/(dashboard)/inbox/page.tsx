@@ -10,6 +10,7 @@ import { AgentRunsSidebar } from '@/features/inbox/components/agent-runs-sidebar
 import { ContactSidebar } from '@/features/inbox/components/contact-sidebar';
 import { useShortcut, KeyboardShortcutProvider } from '@/features/keyboard-shortcuts/keyboard-shortcut-context';
 import { inboxService, type Conversation } from '@/features/inbox/services/inbox.service';
+import { useSocket } from '@/features/inbox/hooks/use-socket';
 import { AssistantPanel } from '@/features/assistant/components/assistant-panel';
 import { assistantService } from '@/features/assistant/services/assistant.service';
 import { useAuthStore } from '@/stores/auth-store';
@@ -129,11 +130,13 @@ export default function InboxPage() {
   }, [deepLinkConvId]);
 
   // Keep the active conversation object in sync with the backend (enrichment, last message, etc.)
+  // Realtime atualiza o cache na hora (abaixo); o poll fica só como rede de
+  // segurança pra mudanças que não emitem evento (10s em vez de 5s).
   const { data: freshActive } = useQuery({
     queryKey: ['conversation', activeConversation?.id],
     queryFn: () => inboxService.getConversation(activeConversation!.id),
     enabled: !!activeConversation?.id,
-    refetchInterval: 5000,
+    refetchInterval: 10000,
   });
 
   useEffect(() => {
@@ -141,6 +144,25 @@ export default function InboxPage() {
       setActiveConversation(freshActive);
     }
   }, [freshActive, activeConversation?.id]);
+
+  // Atualização em tempo real do detalhe da conversa: o backend emite
+  // `conversation:updated` (atribuição, setor, status, AI...). Em vez de
+  // esperar o poll, mesclamos o payload no cache ['conversation', id] na hora.
+  // Merge parcial: o payload pode vir sem relações (contact/channel) em alguns
+  // caminhos, então preservamos o que já está no cache.
+  const { on } = useSocket();
+  useEffect(() => {
+    const off = on('conversation:updated', (payload: { conversation?: Partial<Conversation> & { id?: string } }) => {
+      const conv = payload?.conversation;
+      if (!conv?.id) return;
+      queryClient.setQueryData(
+        ['conversation', conv.id],
+        (prev: Conversation | undefined) =>
+          prev ? { ...prev, ...conv } : (conv as Conversation),
+      );
+    });
+    return off;
+  }, [on, queryClient]);
 
   const handleConversationUpdate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['conversations'] });

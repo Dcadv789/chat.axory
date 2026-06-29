@@ -5,6 +5,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { JwtAuthGuard } from '../../common/guards';
+import { LoginThrottleGuard } from './login-throttle.guard';
 import { CurrentUser } from '../../common/decorators';
 
 @ApiTags('Auth')
@@ -13,12 +14,14 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @UseGuards(LoginThrottleGuard)
   @ApiOperation({ summary: 'Register new user + organization' })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Post('login')
+  @UseGuards(LoginThrottleGuard)
   @ApiOperation({ summary: 'Login with email/password' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);

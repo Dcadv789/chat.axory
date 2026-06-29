@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConversationStatus } from '@prisma/client';
+import { PrismaService } from '../../../../database/prisma.service';
 import { RealtimeGateway } from '../../../realtime/realtime.gateway';
 import { PendingActionService } from '../../confirmations/pending-action.service';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
@@ -45,6 +47,7 @@ export class TransferToHumanTool implements AiTool {
   constructor(
     private readonly realtime: RealtimeGateway,
     private readonly pendingActions: PendingActionService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async execute(
@@ -53,6 +56,47 @@ export class TransferToHumanTool implements AiTool {
   ): Promise<ToolResult> {
     const reason = String(input.reason ?? '').trim() || 'Handoff sem motivo informado';
     const summary = input.summary ? String(input.summary).trim() : null;
+
+    // Pausa a IA IMEDIATAMENTE (não espera aprovação). Sem isso, entre a chamada
+    // e o operador aprovar, cada nova mensagem do cliente reativaria a IA, que
+    // responderia "por cima" do "vou te passar pra um humano". A pausa é
+    // idempotente com o executor pós-aprovação.
+    await this.prisma.conversation.update({
+      where: { id: ctx.conversationId },
+      data: {
+        aiEnabled: false,
+        activeAgentId: null,
+        status: ConversationStatus.PENDING,
+      },
+    });
+
+    // Dedup: se já existe uma transferência PENDENTE nessa conversa, não cria
+    // outra (senão cada run empilha duplicatas na fila de pendências).
+    const existing = await this.prisma.aiPendingAction.findFirst({
+      where: {
+        conversationId: ctx.conversationId,
+        toolName: this.name,
+        status: 'PENDING',
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      this.logger.log(
+        `Handoff já pendente p/ conv ${ctx.conversationId} (pendingAction=${existing.id}) — dedup`,
+      );
+      return {
+        output: {
+          ok: true,
+          status: 'already_queued',
+          pendingActionId: existing.id,
+          message:
+            'Já existe uma transferência pendente nesta conversa — não dupliquei.',
+          agent_should_say:
+            'Não mande nova mensagem de transferência; um humano já vai assumir.',
+        },
+        finalAction: 'TRANSFERRED_TO_HUMAN',
+      };
+    }
 
     const preview = {
       action: `Transferir conversa pro atendimento humano: ${reason}`,

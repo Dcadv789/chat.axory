@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { redisResilienceOptions } from '../../common/redis.util';
 
 export interface PresenceInfo {
   userId: string;
@@ -20,6 +21,7 @@ export class PresenceService {
       host: this.config.get<string>('REDIS_HOST', 'localhost'),
       port: this.config.get<number>('REDIS_PORT', 6379),
       password: this.config.get<string>('REDIS_PASSWORD') || undefined,
+      ...redisResilienceOptions(),
     });
   }
 

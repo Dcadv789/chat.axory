@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { refreshAccessToken } from './auth-refresh';
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1',
@@ -27,20 +28,16 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('refresh_token');
       if (refreshToken && !error.config._retry) {
         error.config._retry = true;
-        try {
-          const { data } = await axios.post(
-            `${api.defaults.baseURL}/auth/refresh`,
-            { refreshToken },
-          );
-          localStorage.setItem('access_token', data.data.accessToken);
-          localStorage.setItem('refresh_token', data.data.refreshToken);
-          error.config.headers.Authorization = `Bearer ${data.data.accessToken}`;
+        // Single-flight compartilhado: 401s concorrentes reusam o mesmo refresh.
+        const ok = await refreshAccessToken();
+        if (ok) {
+          error.config.headers.Authorization = `Bearer ${localStorage.getItem('access_token')}`;
           return api(error.config);
-        } catch {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          window.location.href = '/login';
         }
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('active_org_id');
+        window.location.href = '/login';
       }
     }
     const message = error.response?.data?.message || error.message;

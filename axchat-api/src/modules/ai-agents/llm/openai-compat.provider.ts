@@ -29,9 +29,14 @@ export class OpenAiCompatProvider {
     private readonly opts: { apiKey: string; baseURL?: string; label: string },
     private readonly logger: Logger,
   ) {
+    // timeout/maxRetries explícitos: o default do SDK é ~600s. Rodando dentro
+    // de workers BullMQ, um provider lento (DeepSeek/OpenAI) seguraria o slot
+    // por minutos. 60s + 2 retries com backoff da SDK.
     this.client = new OpenAI({
       apiKey: opts.apiKey,
       ...(opts.baseURL ? { baseURL: opts.baseURL } : {}),
+      timeout: 60_000,
+      maxRetries: 2,
     });
   }
 

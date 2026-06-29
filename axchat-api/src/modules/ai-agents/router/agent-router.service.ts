@@ -289,6 +289,14 @@ export class AgentRouterService {
       return { handle: false, reason: 'conversation.aiEnabled=force-off' };
     }
 
+    // Takeover humano: se a conversa tem um atendente atribuído e a IA NÃO foi
+    // forçada ON nessa conversa (copiloto), a IA recua — não compete com o
+    // humano. Cobre o caso de orgs com `aiAutoDisableOnHuman` desligado, em que
+    // o humano assume sem que o aiEnabled vire false automaticamente.
+    if (conversation.assignedToId && convOverride !== true) {
+      return { handle: false, reason: 'human-assigned' };
+    }
+
     // Carrega channel + org pra cascade de checks.
     const [channel, org] = await Promise.all([
       this.prisma.channel.findUnique({

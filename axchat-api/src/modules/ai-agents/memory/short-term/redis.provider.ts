@@ -1,6 +1,7 @@
 import { FactoryProvider, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { redisResilienceOptions } from '../../../../common/redis.util';
 
 /**
  * Local Redis client provider for the short-term memory service.
@@ -25,6 +26,7 @@ export const redisProvider: FactoryProvider<Redis> = {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
       lazyConnect: false,
+      ...redisResilienceOptions(),
     });
 
     client.on('error', (err) => {

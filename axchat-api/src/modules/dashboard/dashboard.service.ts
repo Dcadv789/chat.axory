@@ -11,9 +11,9 @@ export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getOverview(organizationId: string, range: DateRange) {
-    const where = { organizationId, createdAt: { gte: range.from, lte: range.to } };
+    const where = { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } };
     const prevFrom = new Date(range.from.getTime() - (range.to.getTime() - range.from.getTime()));
-    const prevWhere = { organizationId, createdAt: { gte: prevFrom, lte: range.from } };
+    const prevWhere = { organizationId, deletedAt: null, createdAt: { gte: prevFrom, lte: range.from } };
 
     const [
       totalConversations,
@@ -30,20 +30,20 @@ export class DashboardService {
     ] = await this.prisma.$transaction([
       this.prisma.conversation.count({ where }),
       this.prisma.conversation.count({ where: prevWhere }),
-      this.prisma.conversation.count({ where: { organizationId, status: 'OPEN' } }),
-      this.prisma.conversation.count({ where: { organizationId, status: 'PENDING' } }),
-      this.prisma.conversation.count({ where: { organizationId, status: 'WAITING' } }),
-      this.prisma.conversation.count({ where: { organizationId, status: 'BOT' } }),
+      this.prisma.conversation.count({ where: { organizationId, status: 'OPEN', deletedAt: null } }),
+      this.prisma.conversation.count({ where: { organizationId, status: 'PENDING', deletedAt: null } }),
+      this.prisma.conversation.count({ where: { organizationId, status: 'WAITING', deletedAt: null } }),
+      this.prisma.conversation.count({ where: { organizationId, status: 'BOT', deletedAt: null } }),
       this.prisma.conversation.count({
         where: { organizationId, isStuck: true, deletedAt: null },
       }),
-      this.prisma.message.count({ where: { conversation: { organizationId }, createdAt: { gte: range.from, lte: range.to } } }),
-      this.prisma.message.count({ where: { conversation: { organizationId }, createdAt: { gte: prevFrom, lte: range.from } } }),
+      this.prisma.message.count({ where: { conversation: { organizationId, deletedAt: null }, createdAt: { gte: range.from, lte: range.to } } }),
+      this.prisma.message.count({ where: { conversation: { organizationId, deletedAt: null }, createdAt: { gte: prevFrom, lte: range.from } } }),
       this.prisma.conversation.count({
-        where: { organizationId, status: 'CLOSED', closedAt: { gte: range.from, lte: range.to } },
+        where: { organizationId, deletedAt: null, status: 'CLOSED', closedAt: { gte: range.from, lte: range.to } },
       }),
       this.prisma.conversation.count({
-        where: { organizationId, status: 'CLOSED', closedAt: { gte: prevFrom, lte: range.from } },
+        where: { organizationId, deletedAt: null, status: 'CLOSED', closedAt: { gte: prevFrom, lte: range.from } },
       }),
     ]);
 
@@ -60,7 +60,7 @@ export class DashboardService {
     const [closedNoReopen, csatAgg, prevCsatAgg] = await Promise.all([
       this.prisma.conversation.count({
         where: {
-          organizationId, status: 'CLOSED',
+          organizationId, deletedAt: null, status: 'CLOSED',
           closedAt: { gte: range.from, lte: range.to },
           reopenedCount: 0,
         },
@@ -142,7 +142,7 @@ export class DashboardService {
     const slaMinutes = dept?.slaFirstResponse ?? null;
 
     const conversations = await this.prisma.conversation.findMany({
-      where: { organizationId, createdAt: { gte: range.from, lte: range.to } },
+      where: { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } },
       select: { createdAt: true, firstResponseAt: true, closedAt: true, status: true },
     });
 
@@ -247,6 +247,7 @@ export class DashboardService {
     const reopened = await this.prisma.conversation.findMany({
       where: {
         organizationId,
+        deletedAt: null,
         reopenedCount: { gt: 0 },
         reopenedAt: { gte: range.from, lte: range.to },
       },
@@ -260,7 +261,7 @@ export class DashboardService {
     });
 
     const closedInPeriod = await this.prisma.conversation.count({
-      where: { organizationId, status: 'CLOSED', closedAt: { gte: range.from, lte: range.to } },
+      where: { organizationId, deletedAt: null, status: 'CLOSED', closedAt: { gte: range.from, lte: range.to } },
     });
 
     const dayKeys = this.eachDay(range.from, range.to);
@@ -308,7 +309,7 @@ export class DashboardService {
 
   async getVolumeByDay(organizationId: string, range: DateRange) {
     const conversations = await this.prisma.conversation.findMany({
-      where: { organizationId, createdAt: { gte: range.from, lte: range.to } },
+      where: { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } },
       select: { createdAt: true },
     });
 
@@ -326,7 +327,7 @@ export class DashboardService {
   async getVolumeByChannel(organizationId: string, range: DateRange) {
     const result = await this.prisma.conversation.groupBy({
       by: ['channelId'],
-      where: { organizationId, createdAt: { gte: range.from, lte: range.to } },
+      where: { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } },
       _count: true,
     });
 
@@ -344,7 +345,7 @@ export class DashboardService {
   async getVolumeByStatus(organizationId: string) {
     const result = await this.prisma.conversation.groupBy({
       by: ['status'],
-      where: { organizationId },
+      where: { organizationId, deletedAt: null },
       _count: true,
     });
     return result.map((r) => ({ status: r.status, count: r._count }));
@@ -355,6 +356,7 @@ export class DashboardService {
       this.prisma.conversation.findMany({
         where: {
           organizationId,
+          deletedAt: null,
           assignedToId: { not: null },
           createdAt: { gte: range.from, lte: range.to },
         },
@@ -371,6 +373,7 @@ export class DashboardService {
         by: ['assignedToId'],
         where: {
           organizationId,
+          deletedAt: null,
           assignedToId: { not: null },
           status: { in: ['OPEN', 'PENDING', 'WAITING'] },
         },
@@ -430,6 +433,7 @@ export class DashboardService {
     const conversations = await this.prisma.conversation.findMany({
       where: {
         organizationId,
+        deletedAt: null,
         OR: [
           { createdAt: { gte: range.from, lte: range.to } },
           { closedAt: { gte: range.from, lte: range.to } },
@@ -456,7 +460,7 @@ export class DashboardService {
 
   async getPeakHours(organizationId: string, range: DateRange) {
     const conversations = await this.prisma.conversation.findMany({
-      where: { organizationId, createdAt: { gte: range.from, lte: range.to } },
+      where: { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } },
       select: { createdAt: true },
     });
 
@@ -472,24 +476,33 @@ export class DashboardService {
   }
 
   async getMessagesFlow(organizationId: string, range: DateRange) {
-    const messages = await this.prisma.message.findMany({
-      where: {
-        conversation: { organizationId },
-        createdAt: { gte: range.from, lte: range.to },
-      },
-      select: { createdAt: true, direction: true },
-    });
+    // Agrega no banco (antes puxava TODAS as mensagens do período pra contar em
+    // JS). Bucketiza por dia-UTC — mesma semântica do `toISOString().slice(0,10)`
+    // usado em `eachDay`.
+    const rows = await this.prisma.$queryRaw<
+      { day: string; direction: string; cnt: bigint }[]
+    >`
+      SELECT to_char((m.created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS day,
+             m.direction::text AS direction,
+             COUNT(*)::bigint AS cnt
+      FROM messages m
+      JOIN conversations c ON c.id = m.conversation_id
+      WHERE c.organization_id = ${organizationId}
+        AND c.deleted_at IS NULL
+        AND m.created_at >= ${range.from}
+        AND m.created_at <= ${range.to}
+      GROUP BY 1, 2
+    `;
 
     const dayKeys = this.eachDay(range.from, range.to);
     const buckets = new Map<string, { inbound: number; outbound: number }>();
     for (const k of dayKeys) buckets.set(k, { inbound: 0, outbound: 0 });
 
-    for (const m of messages) {
-      const k = m.createdAt.toISOString().slice(0, 10);
-      const b = buckets.get(k);
+    for (const r of rows) {
+      const b = buckets.get(r.day);
       if (!b) continue;
-      if (m.direction === 'INBOUND') b.inbound++;
-      else b.outbound++;
+      if (r.direction === 'INBOUND') b.inbound += Number(r.cnt);
+      else b.outbound += Number(r.cnt);
     }
 
     return dayKeys.map((d) => ({ date: d, ...buckets.get(d)! }));
@@ -497,7 +510,7 @@ export class DashboardService {
 
   async getBotPerformance(organizationId: string, range: DateRange) {
     const conversations = await this.prisma.conversation.findMany({
-      where: { organizationId, createdAt: { gte: range.from, lte: range.to } },
+      where: { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } },
       select: { status: true, assignedToId: true, closedAt: true },
     });
 
@@ -533,6 +546,7 @@ export class DashboardService {
       where: {
         conversation: {
           organizationId,
+          deletedAt: null,
           createdAt: { gte: range.from, lte: range.to },
         },
       },
@@ -555,6 +569,7 @@ export class DashboardService {
     const convs = await this.prisma.conversation.findMany({
       where: {
         organizationId,
+        deletedAt: null,
         firstResponseAt: { not: null },
         createdAt: { gte: range.from, lte: range.to },
       },
@@ -569,6 +584,7 @@ export class DashboardService {
     const convs = await this.prisma.conversation.findMany({
       where: {
         organizationId,
+        deletedAt: null,
         closedAt: { not: null },
         createdAt: { gte: range.from, lte: range.to },
       },
@@ -590,6 +606,7 @@ export class DashboardService {
     const convs = await this.prisma.conversation.findMany({
       where: {
         organizationId,
+        deletedAt: null,
         firstResponseAt: { not: null },
         createdAt: { gte: range.from, lte: range.to },
       },

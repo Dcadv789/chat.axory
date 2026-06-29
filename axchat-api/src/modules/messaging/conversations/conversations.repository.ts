@@ -314,45 +314,40 @@ export class ConversationsRepository {
   >(conversations: T[], userId: string): Promise<Array<T & { unreadCount: number }>> {
     if (conversations.length === 0) return [];
     const ids = conversations.map((c) => c.id);
-    const [reads, lastOutbounds] = await Promise.all([
-      this.prisma.conversationRead.findMany({
-        where: { userId, conversationId: { in: ids } },
-        select: { conversationId: true, lastReadAt: true },
-      }),
-      this.prisma.message.groupBy({
-        by: ['conversationId'],
-        where: { conversationId: { in: ids }, direction: 'OUTBOUND' },
-        _max: { createdAt: true },
-      }),
-    ]);
-    const readByConv = new Map(
-      reads.map((r) => [r.conversationId, r.lastReadAt]),
-    );
-    const outByConv = new Map(
-      lastOutbounds.map((r) => [r.conversationId, r._max.createdAt]),
+
+    // UMA query só (antes era N+1: um count por conversa da página). Conta
+    // inbound não-lidas por conversa aplicando o MESMO cursor do filtro
+    // unreadOnly: inbound mais nova que o MAIOR entre o lastReadAt do usuário
+    // e a última outbound da conversa (qualquer remetente). Mantém badge e
+    // filtro consistentes. Conversas sem nenhuma não-lida não voltam (=> 0).
+    const rows = await this.prisma.$queryRaw<
+      { conversation_id: string; cnt: bigint }[]
+    >`
+      SELECT m.conversation_id, COUNT(*)::bigint AS cnt
+      FROM messages m
+      LEFT JOIN conversation_reads cr
+        ON cr.conversation_id = m.conversation_id AND cr.user_id = ${userId}
+      LEFT JOIN (
+        SELECT mo.conversation_id, MAX(mo.created_at) AS last_outbound_at
+        FROM messages mo
+        WHERE mo.direction = 'OUTBOUND'
+          AND mo.conversation_id IN (${Prisma.join(ids)})
+        GROUP BY mo.conversation_id
+      ) lo ON lo.conversation_id = m.conversation_id
+      WHERE m.conversation_id IN (${Prisma.join(ids)})
+        AND m.direction = 'INBOUND'
+        AND (cr.last_read_at IS NULL OR m.created_at > cr.last_read_at)
+        AND (lo.last_outbound_at IS NULL OR m.created_at > lo.last_outbound_at)
+      GROUP BY m.conversation_id
+    `;
+    const countByConv = new Map(
+      rows.map((r) => [r.conversation_id, Number(r.cnt)]),
     );
 
-    // Run the counts in parallel — bounded by `take` (≤ 30 typically).
-    const counts = await Promise.all(
-      conversations.map((c) => {
-        // Mesmo critério do filtro unreadOnly acima: o badge conta inbound
-        // mais novas que o MAIOR entre o cursor de leitura do usuário e a
-        // última resposta da equipe — senão badge e filtro divergem.
-        const read = readByConv.get(c.id);
-        const out = outByConv.get(c.id);
-        const cursor =
-          read && out ? (read > out ? read : out) : (read ?? out);
-        return this.prisma.message.count({
-          where: {
-            conversationId: c.id,
-            direction: 'INBOUND',
-            ...(cursor ? { createdAt: { gt: cursor } } : {}),
-          },
-        });
-      }),
-    );
-
-    return conversations.map((c, i) => ({ ...c, unreadCount: counts[i] }));
+    return conversations.map((c) => ({
+      ...c,
+      unreadCount: countByConv.get(c.id) ?? 0,
+    }));
   }
 
   /** Marks a conversation as read for a user up to the given message (or now). */

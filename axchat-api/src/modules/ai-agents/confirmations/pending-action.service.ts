@@ -122,9 +122,14 @@ export class PendingActionService {
    * Phase 2 TODO: enqueue the actual execution of `action.toolName`
    * with `action.args` and persist `executionResult` once it runs.
    */
-  async approve(id: string, userId: string): Promise<PendingAction> {
+  async approve(
+    id: string,
+    userId: string,
+    organizationId: string,
+  ): Promise<PendingAction> {
     const action = await this.storage.get(id);
     if (!action) throw new NotFoundException('Pending action not found');
+    await this.assertActionOrg(action, organizationId);
 
     if (action.status !== 'PENDING') {
       throw new BadRequestException(
@@ -179,6 +184,7 @@ export class PendingActionService {
     id: string,
     userId: string,
     reason: string,
+    organizationId: string,
   ): Promise<PendingAction> {
     if (!reason || !reason.trim()) {
       throw new BadRequestException('Rejection reason is required');
@@ -186,6 +192,7 @@ export class PendingActionService {
 
     const action = await this.storage.get(id);
     if (!action) throw new NotFoundException('Pending action not found');
+    await this.assertActionOrg(action, organizationId);
 
     if (action.status !== 'PENDING') {
       throw new BadRequestException(
@@ -208,6 +215,22 @@ export class PendingActionService {
     action.rejectedReason = reason.trim();
     await this.storage.save(action, previous);
 
+    // transferToHuman pausa a IA na hora (na chamada da tool). Rejeitar a
+    // transferência significa "a IA deve continuar" — limpa o override pra ela
+    // voltar a seguir as regras globais.
+    if (action.toolName === 'transferToHuman') {
+      await this.prisma.conversation
+        .update({
+          where: { id: action.conversationId },
+          data: { aiEnabled: null, aiDisabledBy: null, aiDisabledAt: null },
+        })
+        .catch((e: any) =>
+          this.logger.warn(
+            `reject: falha ao reativar IA na conv ${action.conversationId}: ${e?.message ?? e}`,
+          ),
+        );
+    }
+
     this.logger.log({
       msg: 'pending_action_rejected',
       id,
@@ -220,9 +243,29 @@ export class PendingActionService {
     return action;
   }
 
-  /** List PENDING actions, optionally filtered by conversation. */
-  async listPending(conversationId?: string): Promise<PendingAction[]> {
-    return this.storage.listByStatus('PENDING', conversationId);
+  /** List PENDING actions da org, opcionalmente filtradas por conversa. */
+  async listPending(
+    organizationId: string,
+    conversationId?: string,
+  ): Promise<PendingAction[]> {
+    return this.storage.listByStatus('PENDING', conversationId, organizationId);
+  }
+
+  /**
+   * Garante que a ação pertence à org do request. Usa NotFound (e não Forbidden)
+   * pra não revelar a existência de ações de outras orgs.
+   */
+  private async assertActionOrg(
+    action: PendingAction,
+    organizationId: string,
+  ): Promise<void> {
+    const agent = await this.prisma.aiAgent.findUnique({
+      where: { id: action.agentId },
+      select: { organizationId: true },
+    });
+    if (!agent || agent.organizationId !== organizationId) {
+      throw new NotFoundException('Pending action not found');
+    }
   }
 
   /** List actions for a given status. */
@@ -238,8 +281,18 @@ export class PendingActionService {
     return this.storage.listByConversation(conversationId);
   }
 
-  async get(id: string): Promise<PendingAction | null> {
-    return this.storage.get(id);
+  async get(
+    id: string,
+    organizationId: string,
+  ): Promise<PendingAction | null> {
+    const action = await this.storage.get(id);
+    if (!action) return null;
+    const agent = await this.prisma.aiAgent.findUnique({
+      where: { id: action.agentId },
+      select: { organizationId: true },
+    });
+    if (!agent || agent.organizationId !== organizationId) return null;
+    return action;
   }
 
   /**

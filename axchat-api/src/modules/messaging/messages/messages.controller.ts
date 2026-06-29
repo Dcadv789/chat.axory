@@ -24,6 +24,7 @@ import {
   CurrentOrg,
   CurrentChannelAccess,
 } from '../../../common/decorators';
+// userRole vem de @CurrentOrg('userRole') (papel do usuário na org atual).
 import type { ChannelAccess } from '../../iam/channel-access/channel-access.service';
 
 @ApiTags('Messages')
@@ -100,8 +101,11 @@ export class MessagesController {
   async getMedia(
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
   ) {
+    await this.service.assertAgentCanAccessMessage(id, orgId, userId, userRole);
     return this.mediaResolver.resolve(id, orgId, access);
   }
 
@@ -110,12 +114,15 @@ export class MessagesController {
     summary:
       'Transcribe an audio message via Whisper. Cached in metadata.transcription.',
   })
-  transcribe(
+  async transcribe(
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
     @Query('force') force?: string,
   ) {
+    await this.service.assertAgentCanAccessMessage(id, orgId, userId, userRole);
     return this.transcription.transcribe(id, orgId, {
       force: force === 'true' || force === '1',
       access,
@@ -127,12 +134,14 @@ export class MessagesController {
     summary:
       'Deletar mensagem pra todos. Tenta propagar pro provider — Zappfy suporta (some no app do cliente), Meta WA Cloud e Instagram não suportam (some só no AxChat).',
   })
-  revoke(
+  async revoke(
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
     @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
   ) {
+    await this.service.assertAgentCanAccessMessage(id, orgId, userId, userRole);
     return this.service.revokeForEveryone(id, orgId, userId, access);
   }
 
@@ -144,6 +153,8 @@ export class MessagesController {
   findByConversation(
     @Query('conversationId') conversationId: string,
     @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @CurrentOrg('userRole') userRole: string,
     @CurrentChannelAccess() access: ChannelAccess,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -154,6 +165,8 @@ export class MessagesController {
       parseInt(page || '1', 10),
       parseInt(limit || '50', 10),
       access,
+      userId,
+      userRole,
     );
   }
 }

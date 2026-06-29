@@ -47,7 +47,15 @@ export class InstagramInboundAdapter implements InboundChannelPort {
     channel?: Channel,
   ): boolean {
     const appSecret = (channel?.config as Record<string, any> | undefined)?.appSecret;
-    if (!appSecret) return true;
+    // Sem appSecret NÃO dá pra validar a origem — rejeita (paridade com o
+    // WhatsApp Official). Aceitar qualquer POST permitiria injetar mensagens
+    // inbound forjadas conhecendo só o IG business id (que não é segredo).
+    if (!appSecret) {
+      this.logger.error(
+        `Instagram webhook rejeitado: canal ${channel?.id ?? '?'} sem appSecret configurado. Configure o appSecret do app Meta no canal pra validar a assinatura.`,
+      );
+      return false;
+    }
 
     const signature = headers['x-hub-signature-256'];
     if (!signature) return false;

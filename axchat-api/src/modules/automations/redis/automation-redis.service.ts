@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { randomUUID } from 'crypto';
+import { redisResilienceOptions } from '../../../common/redis.util';
 import {
   CONTACT_LOCK_TTL_MS,
 } from '../automations.constants';
@@ -47,6 +48,7 @@ export class AutomationRedisService implements OnModuleInit, OnModuleDestroy {
       enableOfflineQueue: false,
       maxRetriesPerRequest: 1,
       lazyConnect: false,
+      ...redisResilienceOptions(),
     });
     this.redis.on('error', (err) => {
       this.logger.error(`Redis error: ${err.message}`);

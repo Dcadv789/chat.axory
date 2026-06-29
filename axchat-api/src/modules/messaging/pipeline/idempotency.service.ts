@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { redisResilienceOptions } from '../../../common/redis.util';
 
 /**
  * Atomic idempotency + distributed locks, backed by Redis.
@@ -26,6 +27,7 @@ export class IdempotencyService implements OnModuleDestroy {
       password: this.config.get<string>('REDIS_PASSWORD') || undefined,
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
+      ...redisResilienceOptions(),
     });
   }
 

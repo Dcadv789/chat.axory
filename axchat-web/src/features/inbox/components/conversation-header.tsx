@@ -22,6 +22,7 @@ import { AgentPinPopover } from './agent-pin-popover';
 import { PipelinePopover } from './pipeline-popover';
 import { ContactInfoPopover } from './contact-info-popover';
 import { inboxService, type Conversation } from '../services/inbox.service';
+import { useAuthStore } from '@/stores/auth-store';
 import {
   conversationSupportsSync,
   getApiErrorMessage,
@@ -115,6 +116,13 @@ export function ConversationHeader({
   contactSidebarOpen,
 }: ConversationHeaderProps) {
   const queryClient = useQueryClient();
+  const role = useAuthStore((s) =>
+    s.organizations.find((o) => o.id === s.activeOrgId)?.role,
+  );
+  // Fixar um agente de IA específico é ação de configuração → só gestão.
+  // Transferir/atribuir/pausar IA seguem disponíveis pro atendente (ele opera
+  // a própria fila); o backend já escopa tudo por setor.
+  const isManager = role === 'OWNER' || role === 'ADMIN';
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const supportsSync = conversationSupportsSync(conversation.channel.type);
@@ -178,7 +186,9 @@ export function ConversationHeader({
       </div>
 
       <div className="flex items-center gap-1.5">
-        <AgentPinPopover conversation={conversation} onChanged={onUpdate} />
+        {isManager && (
+          <AgentPinPopover conversation={conversation} onChanged={onUpdate} />
+        )}
         <ConversationAiToggle
           conversation={conversation}
           disabled={isLoading}

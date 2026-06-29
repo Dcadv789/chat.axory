@@ -14,6 +14,7 @@ import {
   MessageStatus,
 } from '@prisma/client';
 import { MessagesRepository } from './messages.repository';
+import { agentCanSeeConversation } from '../conversations/conversation-visibility.util';
 import { SendMessageDto } from './dto/send-message.dto';
 import { PrismaService } from '../../../database/prisma.service';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
@@ -538,6 +539,8 @@ export class MessagesService {
     page: number,
     limit: number,
     access: ChannelAccess = 'ALL',
+    currentUserId?: string,
+    currentUserRole?: string,
   ) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
@@ -547,6 +550,21 @@ export class MessagesService {
       throw new ForbiddenException();
     }
     this.channelAccess.assertChannelAccess(access, conversation.channelId);
+
+    // Visibilidade por atribuição + setor: AGENT só lê o histórico de conversa
+    // atribuída a ele OU na fila sem dono do(s) seu(s) setor(es). Mesma regra da
+    // lista/abertura — sem isso o thread de outro setor vazaria por id.
+    if (currentUserRole === 'AGENT' && currentUserId) {
+      const deptIds = await this.getAgentDepartmentIds(
+        currentUserId,
+        organizationId,
+      );
+      if (!agentCanSeeConversation(conversation, currentUserId, deptIds)) {
+        throw new ForbiddenException(
+          'Conversa fora do seu escopo de atendimento.',
+        );
+      }
+    }
 
     const skip = (page - 1) * limit;
     const { messages, total } = await this.repository.findByConversation(
@@ -564,5 +582,64 @@ export class MessagesService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Gate de acesso por setor para operações que recebem um MESSAGE id
+   * (resolver mídia, transcrever, revogar). Para AGENT, garante que a conversa
+   * dona da mensagem está no escopo dele (atribuída a ele OU fila sem dono do
+   * seu setor). OWNER/ADMIN (ou chamadas internas sem role) passam direto.
+   */
+  async assertAgentCanAccessMessage(
+    messageId: string,
+    organizationId: string,
+    currentUserId?: string,
+    currentUserRole?: string,
+  ): Promise<void> {
+    if (currentUserRole !== 'AGENT' || !currentUserId) return;
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      select: {
+        conversation: {
+          select: {
+            organizationId: true,
+            assignedToId: true,
+            departmentId: true,
+          },
+        },
+      },
+    });
+    const conv = message?.conversation;
+    if (!conv || conv.organizationId !== organizationId) {
+      throw new NotFoundException('Mensagem não encontrada');
+    }
+    const deptIds = await this.getAgentDepartmentIds(
+      currentUserId,
+      organizationId,
+    );
+    if (!agentCanSeeConversation(conv, currentUserId, deptIds)) {
+      throw new ForbiddenException(
+        'Conversa fora do seu escopo de atendimento.',
+      );
+    }
+  }
+
+  /**
+   * Setores (Department) ativos do atendente, pra escopar a leitura por setor.
+   * Mesma consulta usada no inbox. Vazio = atendente sem setor.
+   */
+  private async getAgentDepartmentIds(
+    userId: string,
+    organizationId: string,
+  ): Promise<string[]> {
+    const rows = await this.prisma.departmentAgent.findMany({
+      where: {
+        isActive: true,
+        department: { organizationId, deletedAt: null },
+        userOrganization: { userId, organizationId },
+      },
+      select: { departmentId: true },
+    });
+    return rows.map((r) => r.departmentId);
   }
 }

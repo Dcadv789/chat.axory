@@ -661,7 +661,14 @@ model Conversation {
   @@index([organizationId, status], name: "idx_conv_org_status")
   @@index([organizationId, assignedToId], name: "idx_conv_org_agent")
   @@index([organizationId, channelId], name: "idx_conv_org_channel")
-  @@index([organizationId, isArchived], name: "idx_conv_org_archived")
+  // Índice de cobertura do inbox: filtra org + arquivada e ordena por
+  // lastMessageAt DESC (substitui o antigo idx_conv_org_archived, que era
+  // prefixo deste).
+  @@index([organizationId, isArchived, lastMessageAt(sort: Desc)], name: "idx_conv_org_archived_lastmsg")
+  // Dashboard filtra org + createdAt no período.
+  @@index([organizationId, createdAt], name: "idx_conv_org_created")
+  // Fila por setor (inbox do AGENT filtra assignedToId:null + departmentId:in).
+  @@index([organizationId, departmentId], name: "idx_conv_org_department")
   @@index([contactId], name: "idx_conv_contact")
   @@index([lastMessageAt], name: "idx_conv_last_msg")
   @@map("conversations")
@@ -753,6 +760,9 @@ model Message {
 
   @@unique([conversationId, externalId], name: "uq_msg_conv_external")
   @@index([conversationId, createdAt], name: "idx_msg_conv_time")
+  // Cálculo de não-lidas / última outbound: filtra por conversa + direção e
+  // ordena/max por createdAt.
+  @@index([conversationId, direction, createdAt], name: "idx_msg_conv_dir_time")
   @@index([externalId], name: "idx_msg_external_id")
   @@map("messages")
 }

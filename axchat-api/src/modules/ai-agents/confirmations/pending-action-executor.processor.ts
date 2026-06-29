@@ -218,8 +218,25 @@ export class PendingActionExecutorProcessor extends WorkerHost {
     toolName: string;
     args: Record<string, unknown>;
   }): Promise<unknown> {
+    // Resolve o run PRIMEIRO pra ter a org — a skill é buscada escopada por
+    // organizationId. Sem isso, nomes de skill que colidem entre orgs fariam
+    // a ação aprovada da org A executar o tool HTTP (endpoint/credencial) da
+    // org B (confusão cross-tenant / SSRF pra endpoint indevido).
+    const run = await this.prisma.aiAgentRun.findUnique({
+      where: { id: action.agentRunId },
+      select: { organizationId: true, triggerMessageId: true },
+    });
+    if (!run) {
+      throw new Error('Run no longer exists');
+    }
+
     const skill = await this.prisma.aiSkill.findFirst({
-      where: { name: action.toolName, isActive: true, deletedAt: null },
+      where: {
+        name: action.toolName,
+        isActive: true,
+        deletedAt: null,
+        organizationId: run.organizationId,
+      },
     });
     if (!skill) {
       throw new Error(`Skill ${action.toolName} not found or inactive`);
@@ -234,16 +251,12 @@ export class PendingActionExecutorProcessor extends WorkerHost {
       throw new Error(`Tool ${skill.toolId} not found for skill ${skill.name}`);
     }
 
-    const run = await this.prisma.aiAgentRun.findUnique({
-      where: { id: action.agentRunId },
-      select: { organizationId: true, triggerMessageId: true },
-    });
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: action.conversationId },
       select: { contactId: true, channelId: true },
     });
-    if (!run || !conversation) {
-      throw new Error('Run or conversation no longer exists');
+    if (!conversation) {
+      throw new Error('Conversation no longer exists');
     }
 
     const ctx: ToolContext = {

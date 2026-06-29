@@ -528,13 +528,25 @@ export class InboundMessageProcessor extends WorkerHost {
         select: { id: true },
       });
       if (!dept) return;
-      const updated = await this.prisma.conversation.update({
-        where: { id: conversation.id },
+      // updateMany CONDICIONAL: só roteia se a conversa AINDA está sem dono e
+      // sem setor. Se um humano assumiu/roteou entre a leitura e aqui, o match
+      // é 0 e não sobrescrevemos a ação dele (race-safe, idempotente).
+      const result = await this.prisma.conversation.updateMany({
+        where: {
+          id: conversation.id,
+          assignedToId: null,
+          departmentId: null,
+        },
         data: {
           departmentId: dept.id,
           status: ConversationStatus.PENDING,
         },
       });
+      if (result.count === 0) return;
+      const updated = await this.prisma.conversation.findUnique({
+        where: { id: conversation.id },
+      });
+      if (!updated) return;
       this.realtimeGateway.emitToChannel(
         conversation.channelId,
         'conversation:updated',

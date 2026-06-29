@@ -29,7 +29,12 @@ export default function SettingsSectorsPage() {
   );
   const isManager = role === 'OWNER' || role === 'ADMIN';
 
-  const { data: departments = [], isLoading } = useQuery({
+  const {
+    data: departments = [],
+    isLoading,
+    isError,
+    refetch: refetchList,
+  } = useQuery({
     queryKey: ['departments'],
     queryFn: () => departmentsService.list(),
     enabled: isManager,
@@ -149,6 +154,16 @@ export default function SettingsSectorsPage() {
       {isLoading ? (
         <div className="flex justify-center py-10">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : isError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
+          <p>Não foi possível carregar os setores.</p>
+          <button
+            onClick={() => refetchList()}
+            className="mt-2 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+          >
+            Tentar novamente
+          </button>
         </div>
       ) : departments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-500 dark:border-white/10 dark:bg-black">

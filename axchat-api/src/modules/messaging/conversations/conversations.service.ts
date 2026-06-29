@@ -5,8 +5,10 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { Conversation, ConversationStatus } from '@prisma/client';
+import { AutomationTrigger, Conversation, ConversationStatus } from '@prisma/client';
+import { OutboxService } from '../../automations/outbox/outbox.service';
 import { ConversationsRepository, InboxFilters } from './conversations.repository';
+import { agentCanSeeConversation } from './conversation-visibility.util';
 import { ConversationFsmService } from './conversation-fsm.service';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
@@ -38,6 +40,7 @@ export class ConversationsService {
     private readonly channelAccess: ChannelAccessService,
     private readonly agentRouter: AgentRouterService,
     private readonly agentRunner: AiAgentRunnerService,
+    private readonly outbox: OutboxService,
   ) {}
 
   /**
@@ -154,17 +157,20 @@ export class ConversationsService {
     }
     this.channelAccess.assertChannelAccess(access, conversation.channelId);
 
-    // Visibilidade por atribuição: AGENT não abre conversa atribuída a OUTRA
-    // pessoa (mesmo sabendo o id). Sem dono ou atribuída a ele = ok. OWNER/ADMIN
-    // (sem role passada nas chamadas internas) não entram aqui.
-    if (
-      currentUserRole === 'AGENT' &&
-      conversation.assignedToId &&
-      conversation.assignedToId !== currentUserId
-    ) {
-      throw new ForbiddenException(
-        'Conversa atribuída a outro atendente.',
+    // Visibilidade por atribuição + setor: AGENT só abre conversa atribuída a
+    // ele OU na fila sem dono do(s) seu(s) setor(es) (+ sem setor). Mesma regra
+    // da lista do inbox — fecha o vazamento de conteúdo entre setores via id.
+    // OWNER/ADMIN (sem role nas chamadas internas) não entram aqui.
+    if (currentUserRole === 'AGENT' && currentUserId) {
+      const deptIds = await this.getAgentDepartmentIds(
+        currentUserId,
+        organizationId,
       );
+      if (!agentCanSeeConversation(conversation, currentUserId, deptIds)) {
+        throw new ForbiddenException(
+          'Conversa fora do seu escopo de atendimento.',
+        );
+      }
     }
     return conversation;
   }
@@ -180,6 +186,22 @@ export class ConversationsService {
     const conversation = await this.findOne(id, organizationId, access, actorId, actorRole);
 
     if (dto.assignedToId) {
+      // Valida que o alvo é membro DESTA org — connect/assign por id cru não
+      // valida tenant; sem isso dá pra atribuir a um usuário de outra org.
+      const member = await this.prisma.userOrganization.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: dto.assignedToId,
+            organizationId,
+          },
+        },
+        select: { userId: true },
+      });
+      if (!member) {
+        throw new BadRequestException(
+          'Usuário não pertence a esta organização',
+        );
+      }
       await this.fsm.assign(id, dto.assignedToId, actorId);
     }
 
@@ -188,6 +210,15 @@ export class ConversationsService {
     }
 
     if (dto.departmentId) {
+      // Valida que o setor é DESTA org — senão a conversa poderia ser apontada
+      // pra um Department de outra org e sumir de todas as filas locais.
+      const dept = await this.prisma.department.findFirst({
+        where: { id: dto.departmentId, organizationId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!dept) {
+        throw new NotFoundException('Setor não encontrado');
+      }
       await this.repository.update(id, { department: { connect: { id: dto.departmentId } } });
     }
 
@@ -231,27 +262,51 @@ export class ConversationsService {
     });
     if (!dept) throw new NotFoundException('Setor não encontrado');
 
-    const updated = await this.prisma.conversation.update({
-      where: { id },
-      data: {
-        departmentId: dept.id,
-        assignedToId: null,
-        status: ConversationStatus.PENDING,
-      },
-    });
-
-    await this.prisma.conversationAuditLog.create({
-      data: {
-        conversationId: id,
-        actorId,
-        action: 'DEPARTMENT_TRANSFERRED',
-        fromValue: conversation.departmentId ?? null,
-        toValue: dept.id,
-        metadata: { departmentName: dept.name },
-      },
-    });
+    // Update + audit numa transação só — se o audit falhar, a transferência
+    // não fica sem rastro (e vice-versa).
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.conversation.update({
+        where: { id },
+        data: {
+          departmentId: dept.id,
+          assignedToId: null,
+          status: ConversationStatus.PENDING,
+        },
+      }),
+      this.prisma.conversationAuditLog.create({
+        data: {
+          conversationId: id,
+          actorId,
+          action: 'DEPARTMENT_TRANSFERRED',
+          fromValue: conversation.departmentId ?? null,
+          toValue: dept.id,
+          metadata: { departmentName: dept.name },
+        },
+      }),
+    ]);
 
     this.broadcastUpdate(updated as Conversation);
+
+    // Dispara automações de mudança de status (a transferência seta PENDING
+    // direto, sem passar pelo FSM que normalmente emite este evento).
+    if (conversation.status !== ConversationStatus.PENDING) {
+      await this.outbox
+        .enqueuePostCommit(AutomationTrigger.CONVERSATION_STATUS_CHANGED, {
+          organizationId,
+          contactId: conversation.contactId,
+          conversationId: id,
+          channelId: conversation.channelId,
+          actorId,
+          fromStatus: conversation.status,
+          toStatus: ConversationStatus.PENDING,
+        })
+        .catch((e: any) =>
+          this.logger.warn(
+            `outbox status-change (transfer) falhou conv ${id}: ${e?.message ?? e}`,
+          ),
+        );
+    }
+
     return updated;
   }
 
@@ -261,8 +316,9 @@ export class ConversationsService {
     enabled: boolean | null,
     actorId: string,
     access: ChannelAccess = 'ALL',
+    actorRole?: string,
   ) {
-    await this.findOne(id, organizationId, access);
+    await this.findOne(id, organizationId, access, actorId, actorRole);
 
     // Tri-state:
     //   null  = limpa override, conversa volta a seguir regras globais
@@ -323,8 +379,15 @@ export class ConversationsService {
     organizationId: string,
     actorId: string,
     access: ChannelAccess = 'ALL',
+    actorRole?: string,
   ): Promise<{ engaged: boolean; reason?: string }> {
-    const conversation = await this.findOne(id, organizationId, access);
+    const conversation = await this.findOne(
+      id,
+      organizationId,
+      access,
+      actorId,
+      actorRole,
+    );
 
     const decision = await this.agentRouter.shouldHandle(
       conversation as Conversation,
@@ -389,8 +452,15 @@ export class ConversationsService {
     agentId: string,
     actorId: string,
     access: ChannelAccess = 'ALL',
+    actorRole?: string,
   ): Promise<{ engaged: boolean; reason?: string; agentName?: string }> {
-    const conversation = await this.findOne(id, organizationId, access);
+    const conversation = await this.findOne(
+      id,
+      organizationId,
+      access,
+      actorId,
+      actorRole,
+    );
 
     const agent = await this.prisma.aiAgent.findFirst({
       where: { id: agentId, organizationId, isActive: true, deletedAt: null },
@@ -468,8 +538,9 @@ export class ConversationsService {
     organizationId: string,
     actorId: string,
     access: ChannelAccess = 'ALL',
+    actorRole?: string,
   ) {
-    await this.findOne(id, organizationId, access);
+    await this.findOne(id, organizationId, access, actorId, actorRole);
     await this.fsm.transition(id, ConversationStatus.CLOSED, actorId);
     const updated = await this.repository.findById(id);
     this.broadcastUpdate(updated as Conversation | null);
@@ -481,8 +552,15 @@ export class ConversationsService {
     organizationId: string,
     actorId: string,
     access: ChannelAccess = 'ALL',
+    actorRole?: string,
   ) {
-    const conversation = await this.findOne(id, organizationId, access);
+    const conversation = await this.findOne(
+      id,
+      organizationId,
+      access,
+      actorId,
+      actorRole,
+    );
     const target = conversation.assignedToId
       ? ConversationStatus.OPEN
       : ConversationStatus.PENDING;
@@ -609,8 +687,9 @@ export class ConversationsService {
     userId: string,
     access: ChannelAccess = 'ALL',
     lastReadMessageId?: string,
+    userRole?: string,
   ) {
-    await this.findOne(conversationId, organizationId, access);
+    await this.findOne(conversationId, organizationId, access, userId, userRole);
     const read = await this.repository.markAsRead(
       userId,
       conversationId,
@@ -636,8 +715,9 @@ export class ConversationsService {
     organizationId: string,
     userId: string,
     access: ChannelAccess = 'ALL',
+    userRole?: string,
   ) {
-    await this.findOne(conversationId, organizationId, access);
+    await this.findOne(conversationId, organizationId, access, userId, userRole);
     const result = await this.repository.markAsUnread(userId, conversationId);
 
     this.realtimeGateway.emitToUser(userId, 'conversation:unread', {
@@ -656,7 +736,13 @@ export class ConversationsService {
    * path for when an event was missed (provider downtime, webhook hiccup,
    * channel reconnected, etc.).
    */
-  async syncMessages(id: string, organizationId: string, access: ChannelAccess = 'ALL') {
+  async syncMessages(
+    id: string,
+    organizationId: string,
+    access: ChannelAccess = 'ALL',
+    currentUserId?: string,
+    currentUserRole?: string,
+  ) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id },
       include: {
@@ -674,6 +760,19 @@ export class ConversationsService {
       throw new ForbiddenException();
     }
     this.channelAccess.assertChannelAccess(access, conversation.channelId);
+
+    // Sincronizar puxa mensagens do provider — escopar por setor pro AGENT.
+    if (currentUserRole === 'AGENT' && currentUserId) {
+      const deptIds = await this.getAgentDepartmentIds(
+        currentUserId,
+        organizationId,
+      );
+      if (!agentCanSeeConversation(conversation, currentUserId, deptIds)) {
+        throw new ForbiddenException(
+          'Conversa fora do seu escopo de atendimento.',
+        );
+      }
+    }
 
     const adapter = this.adapterRegistry.getHistorySync(conversation.channel.type);
     if (!adapter) {
