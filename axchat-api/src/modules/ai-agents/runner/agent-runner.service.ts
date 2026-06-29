@@ -1019,6 +1019,14 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
       this.summarizeFailureOutput(output) ??
       'Erro desconhecido na skill';
 
+    // Setor do agente — usado pelo front pra apontar a aba de execuções pro
+    // setor certo (ela filtra por setor; sem isso a run de marketing não
+    // aparecia ao clicar "ver execuções").
+    const agent = await this.prisma.aiAgent.findUnique({
+      where: { id: ctx.agentId },
+      select: { sector: true },
+    });
+
     await this.notifications.notifyOrgAgents({
       organizationId: ctx.organizationId,
       type: NotificationType.AI_TOOL_FAILURE,
@@ -1027,6 +1035,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
       data: {
         runId: ctx.runId,
         agentId: ctx.agentId,
+        sector: agent?.sector ?? null,
         conversationId: ctx.conversationId,
         toolName,
         input,
