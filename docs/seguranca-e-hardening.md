@@ -63,6 +63,16 @@ auditoria, e o que ainda falta. Serve de referência pra revisão e onboarding.
   fixar agente de IA restrito a OWNER/ADMIN.
 - Perf: `getMessagesFlow` agrega no banco (antes puxava todas as mensagens).
 
+### Reforços (pós-Bloco 4)
+- **Testes**: suíte criada (jest+ts-jest); 20 testes cobrindo visibilidade por
+  setor, guards de texto (meta-talk/URL) e o rate-limit de login.
+- **Login-throttle no Redis** (`login-throttle.guard.ts`): limite compartilhado
+  entre réplicas, com **fail-open** (Redis fora → não bloqueia login).
+- **Cap de IA no comentário do Instagram**: `agentRouter.isWithinAiBudget`
+  reusa o check de cota; o caminho que pula `shouldHandle` agora respeita o cap.
+- **Logs**: request-id (correlation) no access log + header `x-request-id`;
+  querystring removida do log (tirava PII tipo telefone da URL).
+
 ## Pendências (precisam de ambiente rodando ou decisão/ops)
 
 **Front (precisa QA visual — não blind-shippar)**
@@ -88,12 +98,11 @@ auditoria, e o que ainda falta. Serve de referência pra revisão e onboarding.
 
 **Outros (menores)**
 - Tokens em `localStorage` → refresh em cookie httpOnly (mudança de arquitetura).
-- Login throttle é por-instância (migrar contador pro Redis em multi-instância).
-- Cap/cota de IA em comentário de Instagram e auto-chain (bounded hoje por
-  `MAX_CHAIN_DEPTH` e gate de add-on).
-- Logging estruturado com correlation-id.
-- **Sem suíte de testes** — começar pelos caminhos críticos (FSM, visibilidade
-  por setor, idempotência inbound, guards de tool).
+- Correlation-id **completo** entre todos os logs de serviço (precisa
+  AsyncLocalStorage). Hoje o request-id está no access log + header de resposta.
+- Cota de IA no **auto-chain** de delegação (bounded por `MAX_CHAIN_DEPTH=3`).
+- Suíte de testes: expandir pra FSM de conversa e idempotência inbound
+  (precisam de mocks de Prisma/Redis — base de testes já existe).
 
 ## Mudanças de comportamento a observar
 - Canal **Instagram sem `appSecret`** para de aceitar webhook (configure o

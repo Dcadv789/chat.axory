@@ -586,6 +586,17 @@ export class InboundMessageProcessor extends WorkerHost {
       return;
     }
 
+    // Cap/cota de IA: este caminho chama o runner direto (pula o shouldHandle),
+    // então checa o orçamento aqui pra não furar a cota mensal.
+    const budget = await this.agentRouter.isWithinAiBudget(
+      conversation.organizationId,
+      conversation.id,
+    );
+    if (!budget.ok) {
+      this.logger.debug(`Comentário IG ignorado: ${budget.reason}`);
+      return;
+    }
+
     const orchestrator = await this.prisma.aiAgent.findFirst({
       where: {
         organizationId: conversation.organizationId,

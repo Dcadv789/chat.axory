@@ -5,53 +5,78 @@ import {
   HttpStatus,
   Injectable,
   Logger,
+  OnModuleDestroy,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
 import type { Request } from 'express';
+import { redisResilienceOptions } from '../../common/redis.util';
 
 /**
- * Rate limiter in-memory (sliding window) para rotas de autenticação públicas
- * (login/register). Sem isso, `/auth/login` aceita tentativas ilimitadas →
- * brute force de senha. Keyed por `${ip}:${email}` pra não punir usuários
- * distintos atrás do mesmo NAT. 429 quando estoura.
+ * Rate limiter para rotas de auth públicas (login/register). Sem isso,
+ * `/auth/login` aceita tentativas ilimitadas → brute force de senha.
  *
- * Limitação consciente: estado por-instância (reseta no restart, não coordena
- * entre réplicas). Para multi-instância, migrar o contador pro Redis.
+ * Janela fixa no Redis (`INCR` + `EXPIRE`), keyed por `${ip}:${email}` — assim
+ * o limite é COMPARTILHADO entre réplicas (não reseta por-instância).
+ *
+ * Fail-open: se o Redis estiver indisponível, LIBERA a request (não trava
+ * login por causa de infra). O custo é não-throttle temporário, não um outage.
  */
 @Injectable()
-export class LoginThrottleGuard implements CanActivate {
+export class LoginThrottleGuard implements CanActivate, OnModuleDestroy {
   private readonly logger = new Logger(LoginThrottleGuard.name);
+  private readonly redis: Redis;
 
-  private static readonly WINDOW_MS = 60_000; // 1 min
+  private static readonly WINDOW_SEC = 60; // 1 min
   private static readonly MAX_HITS = 10; // 10 tentativas/min por IP+email
 
-  private readonly hits = new Map<string, number[]>();
-  private lastGc = 0;
+  constructor(config: ConfigService) {
+    this.redis = new Redis({
+      host: config.get<string>('REDIS_HOST', 'localhost'),
+      port: config.get<number>('REDIS_PORT', 6379),
+      password: config.get<string>('REDIS_PASSWORD') || undefined,
+      // Falha rápido em vez de enfileirar — combina com o fail-open abaixo.
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+      ...redisResilienceOptions(),
+    });
+    this.redis.on('error', (err) =>
+      this.logger.warn(`Redis (login-throttle) erro: ${err.message}`),
+    );
+  }
 
-  canActivate(context: ExecutionContext): boolean {
+  async onModuleDestroy(): Promise<void> {
+    try {
+      await this.redis.quit();
+    } catch {
+      /* noop */
+    }
+  }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
     const ip = this.extractIp(req);
     const email = String((req.body as Record<string, unknown>)?.email ?? '')
       .toLowerCase()
       .trim();
-    const key = `${ip}:${email}`;
+    const key = `login-throttle:${ip}:${email}`;
 
-    const now = Date.now();
-    const windowStart = now - LoginThrottleGuard.WINDOW_MS;
-    const recent = (this.hits.get(key) ?? []).filter((t) => t >= windowStart);
-    recent.push(now);
-    this.hits.set(key, recent);
-
-    if (now - this.lastGc > 60_000) {
-      this.lastGc = now;
-      for (const [k, arr] of this.hits.entries()) {
-        const trimmed = arr.filter((t) => t >= windowStart);
-        if (trimmed.length === 0) this.hits.delete(k);
-        else this.hits.set(k, trimmed);
+    let count: number;
+    try {
+      count = await this.redis.incr(key);
+      if (count === 1) {
+        await this.redis.expire(key, LoginThrottleGuard.WINDOW_SEC);
       }
+    } catch (err: any) {
+      // Redis fora → fail-open (não bloqueia login por infra).
+      this.logger.warn(
+        `login-throttle indisponível (fail-open): ${err?.message ?? err}`,
+      );
+      return true;
     }
 
-    if (recent.length > LoginThrottleGuard.MAX_HITS) {
-      this.logger.warn(`Login throttled for ${key} (${recent.length}/min)`);
+    if (count > LoginThrottleGuard.MAX_HITS) {
+      this.logger.warn(`Login throttled for ${key} (${count}/min)`);
       throw new HttpException(
         'Muitas tentativas. Tente novamente em alguns instantes.',
         HttpStatus.TOO_MANY_REQUESTS,

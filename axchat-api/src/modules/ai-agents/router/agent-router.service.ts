@@ -349,39 +349,56 @@ export class AgentRouterService {
       }
     }
 
-    // Cap mensal vale sempre — proteção de orçamento, não dá pra furar.
-    if (org.aiMonthlyTokenCap) {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+    // Orçamento de IA (cap de tokens + cota de conversas do mês).
+    const budget = await this.checkAiBudget(org, conversation.id);
+    if (!budget.ok) {
+      return { handle: false, reason: budget.reason };
+    }
 
+    return { handle: true };
+  }
+
+  /**
+   * Checagem de orçamento de IA do mês (cap de tokens + cota de conversas).
+   * Extraído pra reuso: `shouldHandle` cobre o fluxo normal; caminhos que
+   * chamam o runner direto (ex.: comentário do Instagram) usam
+   * `isWithinAiBudget` pra não furar a cota.
+   */
+  private async checkAiBudget(
+    org: {
+      id: string;
+      aiMonthlyTokenCap: number | null;
+      monthlyConversationLimit: number | null;
+    },
+    conversationId: string,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const startOfMonth = () => {
+      const d = new Date();
+      d.setDate(1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    if (org.aiMonthlyTokenCap) {
       const used = await this.prisma.aiAgentRun.aggregate({
-        where: {
-          organizationId: org.id,
-          startedAt: { gte: startOfMonth },
-        },
+        where: { organizationId: org.id, startedAt: { gte: startOfMonth() } },
         _sum: { inputTokens: true, outputTokens: true },
       });
       const total =
         (used._sum.inputTokens ?? 0) + (used._sum.outputTokens ?? 0);
       if (total >= org.aiMonthlyTokenCap) {
-        return { handle: false, reason: 'monthly-token-cap-reached' };
+        return { ok: false, reason: 'monthly-token-cap-reached' };
       }
     }
 
-    // Cota de CONVERSAS de IA do plano (monthlyConversationLimit). Conta
-    // conversas DISTINTAS atendidas pela IA no mês. Conversas que já estavam
-    // sendo atendidas continuam (não corta no meio); só novas além da cota
-    // ficam sem IA. limit=0 (ex.: plano Inbox, sem IA) bloqueia tudo.
+    // Cota de CONVERSAS distintas atendidas pela IA no mês. Conversas já
+    // atendidas continuam; só novas além da cota ficam sem IA. limit=0
+    // (ex.: plano Inbox) bloqueia tudo.
     if (org.monthlyConversationLimit != null) {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
       const handled = await this.prisma.aiAgentRun.findMany({
         where: {
           organizationId: org.id,
-          startedAt: { gte: startOfMonth },
+          startedAt: { gte: startOfMonth() },
           finalAction: { not: AiFinalAction.NO_ACTION },
           NOT: { finalAction: null },
         },
@@ -389,13 +406,35 @@ export class AgentRouterService {
         distinct: ['conversationId'],
       });
       const handledIds = new Set(handled.map((h) => h.conversationId));
-      const alreadyCounted = handledIds.has(conversation.id);
-      if (!alreadyCounted && handledIds.size >= org.monthlyConversationLimit) {
-        return { handle: false, reason: 'monthly-conversation-limit-reached' };
+      if (
+        !handledIds.has(conversationId) &&
+        handledIds.size >= org.monthlyConversationLimit
+      ) {
+        return { ok: false, reason: 'monthly-conversation-limit-reached' };
       }
     }
 
-    return { handle: true };
+    return { ok: true };
+  }
+
+  /**
+   * Wrapper público: carrega a org e checa orçamento. Pra callers que pulam o
+   * `shouldHandle` (ex.: fluxo de comentário do Instagram).
+   */
+  async isWithinAiBudget(
+    organizationId: string,
+    conversationId: string,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: {
+        id: true,
+        aiMonthlyTokenCap: true,
+        monthlyConversationLimit: true,
+      },
+    });
+    if (!org) return { ok: false, reason: 'org-not-found' };
+    return this.checkAiBudget(org, conversationId);
   }
 
   private isWithinBusinessHours(org: Organization): boolean {
