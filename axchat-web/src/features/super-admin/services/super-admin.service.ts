@@ -293,8 +293,9 @@ export const superAdminService = {
     created: string[];
     skipped: string[];
     channelsLinked: number;
-    skillsCopied: number;
-    skillsMissing: string[];
+    toolsCreated: number;
+    skillsCreated: number;
+    skillsLinked: number;
   }> {
     const { data } = await api.post('/super-admin/clone-agents', payload);
     return data.data ?? data;

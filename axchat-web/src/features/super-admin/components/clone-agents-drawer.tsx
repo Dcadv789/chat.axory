@@ -18,8 +18,9 @@ type CloneResult = {
   created: string[];
   skipped: string[];
   channelsLinked: number;
-  skillsCopied: number;
-  skillsMissing: string[];
+  toolsCreated: number;
+  skillsCreated: number;
+  skillsLinked: number;
 };
 
 interface Props {
@@ -195,14 +196,16 @@ export function CloneAgentsDrawer({
                   </li>
                 )}
                 <li>🔗 Canais vinculados: {result.channelsLinked}</li>
-                <li>🧩 Skills vinculadas: {result.skillsCopied}</li>
-                {result.skillsMissing.length > 0 && (
-                  <li className="text-amber-600 dark:text-amber-400">
-                    ⚠ Skills ausentes no destino:{' '}
-                    {result.skillsMissing.join(', ')}. Pro Marketing, use o
-                    provisionamento do add-on (que cria as skills).
-                  </li>
-                )}
+                <li>
+                  🧩 Skills: {result.skillsCreated} criada(s),{' '}
+                  {result.skillsLinked} vinculada(s) · {result.toolsCreated}{' '}
+                  tool(s) criada(s)
+                </li>
+                <li className="text-zinc-500">
+                  Obs.: a definição das skills foi copiada, mas os{' '}
+                  <strong>segredos</strong> (token Meta, chaves) não — configure
+                  os do destino em Configurações → Variáveis/Integrações.
+                </li>
               </ul>
             </div>
           )}

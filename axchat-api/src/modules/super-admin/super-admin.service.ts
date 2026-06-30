@@ -160,8 +160,9 @@ export class SuperAdminService {
     created: string[];
     skipped: string[];
     channelsLinked: number;
-    skillsCopied: number;
-    skillsMissing: string[];
+    toolsCreated: number;
+    skillsCreated: number;
+    skillsLinked: number;
   }> {
     if (sourceOrgId === targetOrgId) {
       throw new BadRequestException(
@@ -259,45 +260,125 @@ export class SuperAdminService {
       }
     }
 
-    // Skills: copia os vínculos quando a skill existir no destino (por nome).
-    let skillsCopied = 0;
-    const skillsMissing: string[] = [];
-    const skillIds = [
+    // Skills: copia a SKILL e a TOOL (definição HTTP/SQL) pro destino quando
+    // não existirem (por nome) e vincula os agentes. Os SEGREDOS não são
+    // copiados — a tool usa templates {{env.X}} e cada empresa configura os
+    // seus (token Meta, chaves, etc.) nas suas variáveis/secrets.
+    let toolsCreated = 0;
+    let skillsCreated = 0;
+    let skillsLinked = 0;
+    const json = (v: Prisma.JsonValue | null): Prisma.InputJsonValue | typeof Prisma.JsonNull =>
+      v === null ? Prisma.JsonNull : (v as Prisma.InputJsonValue);
+
+    const usedSkillIds = [
       ...new Set(sourceAgents.flatMap((a) => a.skills.map((s) => s.skillId))),
     ];
-    if (skillIds.length > 0) {
-      const [srcSkills, tgtSkills] = await Promise.all([
-        this.prisma.aiSkill.findMany({
-          where: { id: { in: skillIds } },
-          select: { id: true, name: true },
-        }),
-        this.prisma.aiSkill.findMany({
-          where: { organizationId: targetOrgId, deletedAt: null },
-          select: { id: true, name: true },
-        }),
-      ]);
-      const srcNameById = new Map(srcSkills.map((s) => [s.id, s.name]));
-      const tgtIdByName = new Map(tgtSkills.map((s) => [s.name, s.id]));
+    if (usedSkillIds.length > 0) {
+      const srcSkills = await this.prisma.aiSkill.findMany({
+        where: { id: { in: usedSkillIds } },
+        include: { tool: true },
+      });
+
+      const tgtTools = await this.prisma.aiTool.findMany({
+        where: { organizationId: targetOrgId, deletedAt: null },
+        select: { id: true, name: true },
+      });
+      const tgtToolIdByName = new Map(tgtTools.map((t) => [t.name, t.id]));
+      const tgtSkills = await this.prisma.aiSkill.findMany({
+        where: { organizationId: targetOrgId, deletedAt: null },
+        select: { id: true, name: true },
+      });
+      const tgtSkillIdByName = new Map(tgtSkills.map((s) => [s.name, s.id]));
+
+      // Nome -> id de TODOS os agentes do destino (recém-criados + já
+      // existentes), pra vincular skills mesmo em agentes que já estavam lá
+      // (re-clone na empresa-modelo, por ex.).
+      const tgtAgents = await this.prisma.aiAgent.findMany({
+        where: { organizationId: targetOrgId, deletedAt: null },
+        select: { id: true, name: true },
+      });
+      const targetAgentIdByName = new Map(tgtAgents.map((a) => [a.name, a.id]));
+
+      const skillIdMap = new Map<string, string>(); // skill origem -> skill destino
+
+      for (const s of srcSkills) {
+        // 1) Garante a TOOL no destino (se a skill referencia uma).
+        let targetToolId: string | null = null;
+        if (s.tool) {
+          const existing = tgtToolIdByName.get(s.tool.name);
+          if (existing) {
+            targetToolId = existing;
+          } else {
+            const newTool = await this.prisma.aiTool.create({
+              data: {
+                organizationId: targetOrgId,
+                name: s.tool.name,
+                description: s.tool.description,
+                source: s.tool.source,
+                httpBaseUrl: s.tool.httpBaseUrl,
+                httpHeaders: json(s.tool.httpHeaders),
+                sqlConnectionRef: s.tool.sqlConnectionRef,
+                isActive: s.tool.isActive,
+              },
+            });
+            targetToolId = newTool.id;
+            tgtToolIdByName.set(s.tool.name, newTool.id);
+            toolsCreated++;
+          }
+        }
+
+        // 2) Garante a SKILL no destino.
+        const existingSkillId = tgtSkillIdByName.get(s.name);
+        if (existingSkillId) {
+          skillIdMap.set(s.id, existingSkillId);
+        } else {
+          const newSkill = await this.prisma.aiSkill.create({
+            data: {
+              organizationId: targetOrgId,
+              name: s.name,
+              description: s.description,
+              category: s.category,
+              promptInstructions: s.promptInstructions,
+              source: s.source,
+              parameters: json(s.parameters),
+              toolId: targetToolId,
+              httpMethod: s.httpMethod,
+              httpPath: s.httpPath,
+              httpHeadersExtra: json(s.httpHeadersExtra),
+              httpBodyTemplate: s.httpBodyTemplate,
+              responseMap: json(s.responseMap),
+              sqlQuery: s.sqlQuery,
+              sqlParamMap: json(s.sqlParamMap),
+              sqlTables: json(s.sqlTables),
+              sqlReadOnly: s.sqlReadOnly,
+              sqlMaxRows: s.sqlMaxRows,
+              timeoutMs: s.timeoutMs,
+              isActive: s.isActive,
+            },
+          });
+          skillIdMap.set(s.id, newSkill.id);
+          tgtSkillIdByName.set(s.name, newSkill.id);
+          skillsCreated++;
+        }
+      }
+
+      // 3) Vincula os agentes clonados às skills do destino.
       const bindings: {
         agentId: string;
         skillId: string;
         requiresApproval: boolean;
       }[] = [];
       for (const a of sourceAgents) {
-        const newAgentId = idMap.get(a.id);
-        if (!newAgentId) continue; // agente pulado (já existia)
+        const targetAgentId = targetAgentIdByName.get(a.name);
+        if (!targetAgentId) continue;
         for (const b of a.skills) {
-          const name = srcNameById.get(b.skillId);
-          if (!name) continue;
-          const tgtSkillId = tgtIdByName.get(name);
+          const tgtSkillId = skillIdMap.get(b.skillId);
           if (tgtSkillId) {
             bindings.push({
-              agentId: newAgentId,
+              agentId: targetAgentId,
               skillId: tgtSkillId,
               requiresApproval: b.requiresApproval,
             });
-          } else {
-            skillsMissing.push(name);
           }
         }
       }
@@ -306,7 +387,7 @@ export class SuperAdminService {
           data: bindings,
           skipDuplicates: true,
         });
-        skillsCopied = res.count;
+        skillsLinked = res.count;
       }
     }
 
@@ -338,8 +419,9 @@ export class SuperAdminService {
       created,
       skipped,
       channelsLinked,
-      skillsCopied,
-      skillsMissing: [...new Set(skillsMissing)],
+      toolsCreated,
+      skillsCreated,
+      skillsLinked,
     };
   }
 
