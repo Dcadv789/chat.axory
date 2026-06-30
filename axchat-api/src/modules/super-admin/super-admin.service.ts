@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { BillingStatus, OrgRole, Prisma } from '@prisma/client';
+import { AiAgentSector, BillingStatus, OrgRole, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import type { SignOptions } from 'jsonwebtoken';
 import { PrismaService } from '../../database/prisma.service';
@@ -144,6 +144,204 @@ export class SuperAdminService {
     private readonly marketingProvisioning: MarketingProvisioningService,
     private readonly assistantProvisioning: PersonalAssistantProvisioningService,
   ) {}
+
+  /**
+   * Clona os agentes de IA de uma empresa-modelo (origem) pra outra (destino),
+   * por SETOR INTEIRO. Copia definição + hierarquia (orquestrador/workers),
+   * liga aos canais ativos do destino e copia vínculos de skill quando a skill
+   * existir no destino (match por nome). NÃO toca na origem. Idempotente: pula
+   * agentes que já existem no destino (mesmo nome) — re-rodar não duplica.
+   */
+  async cloneAgents(
+    sourceOrgId: string,
+    targetOrgId: string,
+    sectors: AiAgentSector[],
+  ): Promise<{
+    created: string[];
+    skipped: string[];
+    channelsLinked: number;
+    skillsCopied: number;
+    skillsMissing: string[];
+  }> {
+    if (sourceOrgId === targetOrgId) {
+      throw new BadRequestException(
+        'Origem e destino não podem ser a mesma empresa.',
+      );
+    }
+    if (!sectors?.length) {
+      throw new BadRequestException('Selecione pelo menos um setor.');
+    }
+
+    const [source, target] = await Promise.all([
+      this.prisma.organization.findFirst({
+        where: { id: sourceOrgId, deletedAt: null },
+        select: { id: true },
+      }),
+      this.prisma.organization.findFirst({
+        where: { id: targetOrgId, deletedAt: null },
+        select: { id: true },
+      }),
+    ]);
+    if (!source) throw new NotFoundException('Empresa de origem não encontrada.');
+    if (!target) throw new NotFoundException('Empresa de destino não encontrada.');
+
+    const sourceAgents = await this.prisma.aiAgent.findMany({
+      where: {
+        organizationId: sourceOrgId,
+        deletedAt: null,
+        sector: { in: sectors },
+      },
+      include: { skills: true },
+    });
+    if (sourceAgents.length === 0) {
+      throw new BadRequestException(
+        'A empresa de origem não tem agentes nos setores escolhidos.',
+      );
+    }
+
+    const existing = await this.prisma.aiAgent.findMany({
+      where: { organizationId: targetOrgId, deletedAt: null },
+      select: { name: true },
+    });
+    const existingNames = new Set(existing.map((a) => a.name));
+
+    const idMap = new Map<string, string>(); // id de origem -> id novo
+    const created: string[] = [];
+    const skipped: string[] = [];
+
+    // Pass 1: cria os agentes (sem parentAgentId — definido no pass 2).
+    for (const a of sourceAgents) {
+      if (existingNames.has(a.name)) {
+        skipped.push(a.name);
+        continue;
+      }
+      const clone = await this.prisma.aiAgent.create({
+        data: {
+          organizationId: targetOrgId,
+          name: a.name,
+          description: a.description,
+          avatarUrl: a.avatarUrl,
+          kind: a.kind,
+          sector: a.sector,
+          category: a.category,
+          capabilities: a.capabilities,
+          department: a.department,
+          squad: a.squad,
+          modelId: a.modelId,
+          modelParams:
+            a.modelParams === null
+              ? Prisma.JsonNull
+              : (a.modelParams as Prisma.InputJsonValue),
+          systemPrompt: a.systemPrompt,
+          temperature: a.temperature,
+          maxTokens: a.maxTokens,
+          canRespondDirectly: a.canRespondDirectly,
+          isActive: a.isActive,
+          followUpEnabled: a.followUpEnabled,
+          followUpCadenceHours: a.followUpCadenceHours,
+          // operationalContext NÃO é copiado — é contexto do dia, por empresa.
+        },
+      });
+      idMap.set(a.id, clone.id);
+      created.push(a.name);
+    }
+
+    // Pass 2: remapeia a hierarquia (orquestrador ← workers) entre os clones.
+    for (const a of sourceAgents) {
+      const newId = idMap.get(a.id);
+      if (!newId || !a.parentAgentId) continue;
+      const newParent = idMap.get(a.parentAgentId);
+      if (newParent) {
+        await this.prisma.aiAgent.update({
+          where: { id: newId },
+          data: { parentAgentId: newParent },
+        });
+      }
+    }
+
+    // Skills: copia os vínculos quando a skill existir no destino (por nome).
+    let skillsCopied = 0;
+    const skillsMissing: string[] = [];
+    const skillIds = [
+      ...new Set(sourceAgents.flatMap((a) => a.skills.map((s) => s.skillId))),
+    ];
+    if (skillIds.length > 0) {
+      const [srcSkills, tgtSkills] = await Promise.all([
+        this.prisma.aiSkill.findMany({
+          where: { id: { in: skillIds } },
+          select: { id: true, name: true },
+        }),
+        this.prisma.aiSkill.findMany({
+          where: { organizationId: targetOrgId, deletedAt: null },
+          select: { id: true, name: true },
+        }),
+      ]);
+      const srcNameById = new Map(srcSkills.map((s) => [s.id, s.name]));
+      const tgtIdByName = new Map(tgtSkills.map((s) => [s.name, s.id]));
+      const bindings: {
+        agentId: string;
+        skillId: string;
+        requiresApproval: boolean;
+      }[] = [];
+      for (const a of sourceAgents) {
+        const newAgentId = idMap.get(a.id);
+        if (!newAgentId) continue; // agente pulado (já existia)
+        for (const b of a.skills) {
+          const name = srcNameById.get(b.skillId);
+          if (!name) continue;
+          const tgtSkillId = tgtIdByName.get(name);
+          if (tgtSkillId) {
+            bindings.push({
+              agentId: newAgentId,
+              skillId: tgtSkillId,
+              requiresApproval: b.requiresApproval,
+            });
+          } else {
+            skillsMissing.push(name);
+          }
+        }
+      }
+      if (bindings.length > 0) {
+        const res = await this.prisma.aiAgentSkill.createMany({
+          data: bindings,
+          skipDuplicates: true,
+        });
+        skillsCopied = res.count;
+      }
+    }
+
+    // Canais: liga os novos agentes aos canais ATIVOS do destino (AUTONOMOUS).
+    let channelsLinked = 0;
+    const newAgentIds = [...idMap.values()];
+    if (newAgentIds.length > 0) {
+      const channels = await this.prisma.channel.findMany({
+        where: { organizationId: targetOrgId, isActive: true, deletedAt: null },
+        select: { id: true },
+      });
+      if (channels.length > 0) {
+        const res = await this.prisma.aiAgentChannel.createMany({
+          data: newAgentIds.flatMap((agentId) =>
+            channels.map((c) => ({
+              agentId,
+              channelId: c.id,
+              mode: 'AUTONOMOUS' as const,
+              trigger: 'ALWAYS' as const,
+            })),
+          ),
+          skipDuplicates: true,
+        });
+        channelsLinked = res.count;
+      }
+    }
+
+    return {
+      created,
+      skipped,
+      channelsLinked,
+      skillsCopied,
+      skillsMissing: [...new Set(skillsMissing)],
+    };
+  }
 
   async overview(actorId: string) {
     const [

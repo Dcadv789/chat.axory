@@ -12,7 +12,9 @@ import { UpdateBillingDto } from './dto/update-billing.dto';
 import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
 import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
 import { UpdateMetaCoexistenceDto } from './dto/update-meta-coexistence.dto';
+import { CloneAgentsDto } from './dto/clone-agents.dto';
 import { SuperAdminService } from './super-admin.service';
+import type { AiAgentSector } from '@prisma/client';
 
 @ApiTags('Super Admin')
 @ApiBearerAuth()
@@ -63,6 +65,19 @@ export class SuperAdminController {
     @Body() dto: CreateOrganizationAdminDto,
   ) {
     return this.service.createOrganization(actorId, dto);
+  }
+
+  @Post('clone-agents')
+  @ApiOperation({
+    summary:
+      'Clona os agentes de IA de uma empresa-modelo (origem) pra outra (destino), por setor inteiro. Não toca na origem; idempotente.',
+  })
+  cloneAgents(@Body() dto: CloneAgentsDto) {
+    return this.service.cloneAgents(
+      dto.sourceOrgId,
+      dto.targetOrgId,
+      dto.sectors as AiAgentSector[],
+    );
   }
 
   @Patch('organizations/:id/plan')

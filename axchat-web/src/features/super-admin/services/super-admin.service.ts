@@ -285,6 +285,21 @@ export const superAdminService = {
     return data.data;
   },
 
+  async cloneAgents(payload: {
+    sourceOrgId: string;
+    targetOrgId: string;
+    sectors: string[];
+  }): Promise<{
+    created: string[];
+    skipped: string[];
+    channelsLinked: number;
+    skillsCopied: number;
+    skillsMissing: string[];
+  }> {
+    const { data } = await api.post('/super-admin/clone-agents', payload);
+    return data.data ?? data;
+  },
+
   async updateOrganizationPlan(
     id: string,
     payload: {
