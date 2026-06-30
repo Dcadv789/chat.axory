@@ -49,6 +49,7 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
   const [operationalContext, setOperationalContext] = useState('');
   const [operationalContextUpdatedAt, setOperationalContextUpdatedAt] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
+  const [isCore, setIsCore] = useState(false);
   const [sectorIds, setSectorIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showAddChannel, setShowAddChannel] = useState(false);
@@ -97,6 +98,7 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
     setOperationalContext(agent.operationalContext ?? '');
     setOperationalContextUpdatedAt(agent.operationalContextUpdatedAt ?? null);
     setIsActive(agent.isActive);
+    setIsCore(agent.isCore ?? false);
     setShowAddChannel(false);
     setNewChannelId('');
     setNewChannelMode('AUTONOMOUS');
@@ -132,6 +134,7 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
         category: category.trim() || null,
         operationalContext: operationalContext.trim() || null,
         isActive,
+        isCore,
       });
       // Sync sector associations
       const currentSectorIds = sectors
@@ -251,6 +254,15 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
                   className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary dark:border-white/20"
                 />
                 Agente ativo
+              </label>
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200">
+                <input
+                  type="checkbox"
+                  checked={isCore}
+                  onChange={(e) => setIsCore(e.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-300 text-primary focus:ring-primary dark:border-white/20"
+                />
+                Agente principal (vai sempre no clone)
               </label>
             </div>
           </div>

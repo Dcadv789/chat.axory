@@ -39,6 +39,7 @@ export function AgentsPanel({ organizations, loading: orgsLoading, onChanged }: 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [copyTargetOrgId, setCopyTargetOrgId] = useState('');
   const [cloneOpen, setCloneOpen] = useState(false);
+  const [filterCore, setFilterCore] = useState<'' | 'core' | 'extra'>('');
 
   const { data: agents = [], isLoading } = useQuery({
     queryKey: ['super-admin-agents', filterOrgId],
@@ -76,9 +77,11 @@ export function AgentsPanel({ organizations, loading: orgsLoading, onChanged }: 
       }
       if (filterDepartment && a.department !== filterDepartment) return false;
       if (filterModelId && a.modelId !== filterModelId) return false;
+      if (filterCore === 'core' && !a.isCore) return false;
+      if (filterCore === 'extra' && a.isCore) return false;
       return true;
     });
-  }, [agents, search, filterDepartment, filterModelId]);
+  }, [agents, search, filterDepartment, filterModelId, filterCore]);
 
   const copyMutation = useMutation({
     mutationFn: ({ agentId, targetOrgId }: { agentId: string; targetOrgId: string }) =>
@@ -249,6 +252,23 @@ export function AgentsPanel({ organizations, loading: orgsLoading, onChanged }: 
           </svg>
         </div>
 
+        <div className="relative">
+          <select
+            value={filterCore}
+            onChange={(e) => setFilterCore(e.target.value as '' | 'core' | 'extra')}
+            className="appearance-none rounded-md border border-zinc-300 bg-white px-4 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+          >
+            <option value="">Principais e acréscimos</option>
+            <option value="core">Só principais</option>
+            <option value="extra">Só acréscimos</option>
+          </select>
+          <svg
+            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
       </div>
 
       {/* Batch actions */}
@@ -332,7 +352,14 @@ export function AgentsPanel({ organizations, loading: orgsLoading, onChanged }: 
                         <Bot className="h-4 w-4" />
                       </div>
                       <div>
-                        <p className="font-medium text-zinc-900 dark:text-zinc-100">{agent.name}</p>
+                        <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                          {agent.name}
+                          {agent.isCore && (
+                            <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                              Principal
+                            </span>
+                          )}
+                        </p>
                         <p className="text-xs text-zinc-400">{agent.kind}</p>
                       </div>
                     </div>

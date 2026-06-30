@@ -143,6 +143,7 @@ export interface SuperAdminAgent {
   canRespondDirectly: boolean;
   parentAgentId: string | null;
   isActive: boolean;
+  isCore: boolean;
   department: string | null;
   squad: string | null;
   operationalContext: string | null;

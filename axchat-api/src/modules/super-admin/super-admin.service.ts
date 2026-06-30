@@ -1332,7 +1332,7 @@ export class SuperAdminService {
     const safe: Record<string, any> = {};
     const allowedFields = ['name', 'description', 'modelId', 'systemPrompt', 'temperature',
       'parentAgentId', 'department', 'squad', 'operationalContext', 'isActive',
-      'category', 'maxTokens', 'canRespondDirectly'];
+      'category', 'maxTokens', 'canRespondDirectly', 'isCore'];
     for (const field of allowedFields) {
       if (dto[field] !== undefined) safe[field] = dto[field];
     }
