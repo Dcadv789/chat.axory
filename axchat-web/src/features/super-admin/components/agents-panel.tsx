@@ -21,6 +21,7 @@ import {
   type GlobalDepartment,
 } from '../services/super-admin.service';
 import { EditAgentDrawer } from './edit-agent-drawer';
+import { CloneAgentsDrawer } from './clone-agents-drawer';
 
 interface AgentsPanelProps {
   organizations: SuperAdminOrganization[];
@@ -37,7 +38,7 @@ export function AgentsPanel({ organizations, loading: orgsLoading, onChanged }: 
   const [editingAgent, setEditingAgent] = useState<SuperAdminAgent | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [copyTargetOrgId, setCopyTargetOrgId] = useState('');
-  const [bulkSourceOrgId, setBulkSourceOrgId] = useState('');
+  const [cloneOpen, setCloneOpen] = useState(false);
 
   const { data: agents = [], isLoading } = useQuery({
     queryKey: ['super-admin-agents', filterOrgId],
@@ -87,20 +88,6 @@ export function AgentsPanel({ organizations, loading: orgsLoading, onChanged }: 
       queryClient.invalidateQueries({ queryKey: ['super-admin-agents'] });
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Erro ao copiar'),
-  });
-
-  const bulkCopyMutation = useMutation({
-    mutationFn: ({ sourceOrgId, targetOrgId }: { sourceOrgId: string; targetOrgId: string }) =>
-      superAdminService.copyAgentsBulk(sourceOrgId, targetOrgId),
-    onSuccess: (result) => {
-      toast.success(
-        `${result.copied} agente(s) e ${result.sectorsCopied ?? 0} setor(es) copiado(s) com sucesso`,
-      );
-      queryClient.invalidateQueries({ queryKey: ['super-admin-agents'] });
-      setBulkSourceOrgId('');
-      setCopyTargetOrgId('');
-    },
-    onError: (error) => toast.error(error instanceof Error ? error.message : 'Erro ao copiar em massa'),
   });
 
   const toggleSelect = (id: string) => {
@@ -169,11 +156,28 @@ export function AgentsPanel({ organizations, loading: orgsLoading, onChanged }: 
         onClose={() => setEditingAgent(null)}
         onSaved={onChanged}
       />
+      <CloneAgentsDrawer
+        open={cloneOpen}
+        organizations={organizations}
+        defaultSourceOrgId={filterOrgId || undefined}
+        onClose={() => setCloneOpen(false)}
+        onChanged={() => {
+          queryClient.invalidateQueries({ queryKey: ['super-admin-agents'] });
+          onChanged();
+        }}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           Agentes IA ({agents.length})
         </h2>
+        <button
+          onClick={() => setCloneOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Copy className="h-4 w-4" />
+          Clonar agentes
+        </button>
       </div>
 
       {/* Filters */}
@@ -245,64 +249,6 @@ export function AgentsPanel({ organizations, loading: orgsLoading, onChanged }: 
           </svg>
         </div>
 
-        {/* Bulk copy from org */}
-        <div className="relative">
-          <select
-            value={bulkSourceOrgId}
-            onChange={(e) => setBulkSourceOrgId(e.target.value)}
-            className="appearance-none rounded-md border border-zinc-300 bg-white px-4 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
-          >
-            <option value="">Copiar tudo de...</option>
-            {availableOrgs.map((org) => (
-              <option key={org.id} value={org.id}>{org.name}</option>
-            ))}
-          </select>
-          <svg
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
-            fill="none" viewBox="0 0 24 24" stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-        {bulkSourceOrgId && (
-          <>
-            <span className="text-xs text-zinc-500">→</span>
-            <div className="relative">
-              <select
-                value={copyTargetOrgId}
-                onChange={(e) => setCopyTargetOrgId(e.target.value)}
-                className="appearance-none rounded-md border border-zinc-300 bg-white px-4 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
-              >
-                <option value="">Para...</option>
-                {availableOrgs.filter((o) => o.id !== bulkSourceOrgId).map((org) => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </select>
-              <svg
-                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-            <button
-              onClick={() => {
-                if (!copyTargetOrgId) { toast.error('Selecione a empresa de destino'); return; }
-                if (!confirm(`Copiar todos os agentes da empresa selecionada para a empresa de destino?`)) return;
-                bulkCopyMutation.mutate({ sourceOrgId: bulkSourceOrgId, targetOrgId: copyTargetOrgId });
-              }}
-              disabled={!copyTargetOrgId || bulkCopyMutation.isPending}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {bulkCopyMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-              Copiar em massa
-            </button>
-          </>
-        )}
       </div>
 
       {/* Batch actions */}
