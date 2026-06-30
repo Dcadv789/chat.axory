@@ -71,7 +71,9 @@ auditoria, e o que ainda falta. Serve de referência pra revisão e onboarding.
 - **Cap de IA no comentário do Instagram**: `agentRouter.isWithinAiBudget`
   reusa o check de cota; o caminho que pula `shouldHandle` agora respeita o cap.
 - **Logs**: request-id (correlation) no access log + header `x-request-id`;
-  querystring removida do log (tirava PII tipo telefone da URL).
+  querystring removida do log (tirava PII tipo telefone da URL). Depois
+  estendido pra **todos os logs de serviço** via AsyncLocalStorage + AppLogger
+  (ver Pendências → Outros).
 
 ## Pendências (precisam de ambiente rodando ou decisão/ops)
 
@@ -84,8 +86,13 @@ auditoria, e o que ainda falta. Serve de referência pra revisão e onboarding.
 
 **Perf (risco de bug sutil sem rodar)**
 - ✅ `getMessagesFlow` e `getVolumeByDay` — agregados no banco.
-- Resto da agregação do dashboard (sparklines, agent-performance, peak-hours,
-  SLA) — lógica por-linha mais rica; validar números com a app rodando.
+- ✅ Resto da agregação do dashboard — TODOS migrados pra `$queryRaw` com
+  `GROUP BY`/`AVG`/`COUNT FILTER` no banco: `getPeakHours`, `getKpiSparklines`,
+  `getAgentPerformance` (join + médias), `getVolumeFlow`, `getBotPerformance`,
+  `getAvgFirstResponseTime`, `getAvgResolutionTime`, `getSlaCompliance`.
+  Semântica preservada (mesma bucketização UTC e arredondamentos). **Validar os
+  números na app rodando** — a lógica é equivalente mas não foi rodada contra o
+  banco.
 
 **Ops / só você**
 - **Rotacionar `JWT_SECRET`/`JWT_REFRESH_SECRET` em produção** (antigos no
@@ -100,11 +107,20 @@ auditoria, e o que ainda falta. Serve de referência pra revisão e onboarding.
 
 **Outros (menores)**
 - Tokens em `localStorage` → refresh em cookie httpOnly (mudança de arquitetura).
-- Correlation-id **completo** entre todos os logs de serviço (precisa
-  AsyncLocalStorage). Hoje o request-id está no access log + header de resposta.
+  **Segurado de propósito**: API e web ficam em domínios separados → cookie
+  cross-site (`SameSite=None; Secure`) + CORS com credenciais; se sair errado
+  tranca o login, e só há produção pra testar. Fazer com rollout testável.
+- ✅ Correlation-id **completo** entre TODOS os logs de serviço — via
+  `AsyncLocalStorage` (`common/context/request-context.ts`) + `AppLogger`
+  (`common/logger/app-logger.ts`), ligado no `main.ts` com um middleware que
+  abre o store por request. Agora todo `this.logger.log(...)` em qualquer
+  service sai com `[<requestId>]` (o mesmo do header `x-request-id`).
 - Cota de IA no **auto-chain** de delegação (bounded por `MAX_CHAIN_DEPTH=3`).
-- Suíte de testes: expandir pra FSM de conversa e idempotência inbound
-  (precisam de mocks de Prisma/Redis — base de testes já existe).
+- ✅ Suíte de testes expandida: **FSM de conversa**
+  (`conversation-fsm.service.spec.ts` — 25 casos: transições válidas/inválidas,
+  closedAt/reopen, assign com no-op idempotente) e **idempotência do outbox**
+  (`outbox.service.spec.ts` — 8 casos: dedupKey por trigger, P2002 silenciado,
+  hard-fails). Total: 53 testes em 5 suítes.
 
 ## Mudanças de comportamento a observar
 - Canal **Instagram sem `appSecret`** para de aceitar webhook (configure o

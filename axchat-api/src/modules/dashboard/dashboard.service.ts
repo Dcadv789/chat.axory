@@ -141,10 +141,38 @@ export class DashboardService {
     });
     const slaMinutes = dept?.slaFirstResponse ?? null;
 
-    const conversations = await this.prisma.conversation.findMany({
-      where: { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } },
-      select: { createdAt: true, firstResponseAt: true, closedAt: true, status: true },
-    });
+    // Agrega por dia-UTC no banco (antes puxava TODAS as conversas do período).
+    // Bucketiza por created_at — mesma semântica do `toISOString().slice(0,10)`.
+    const rows = await this.prisma.$queryRaw<
+      {
+        day: string;
+        created: bigint;
+        closed: bigint;
+        tmr_sum: number | null;
+        tmr_count: bigint;
+        sla_within: bigint;
+      }[]
+    >`
+      SELECT to_char((created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS day,
+             COUNT(*)::bigint AS created,
+             COUNT(*) FILTER (
+               WHERE status::text = 'CLOSED' AND closed_at IS NOT NULL
+                 AND closed_at >= ${range.from} AND closed_at <= ${range.to}
+             )::bigint AS closed,
+             SUM(EXTRACT(EPOCH FROM (first_response_at - created_at)) / 60)
+               FILTER (WHERE first_response_at IS NOT NULL) AS tmr_sum,
+             COUNT(*) FILTER (WHERE first_response_at IS NOT NULL)::bigint AS tmr_count,
+             COUNT(*) FILTER (
+               WHERE first_response_at IS NOT NULL
+                 AND EXTRACT(EPOCH FROM (first_response_at - created_at)) / 60 <= ${slaMinutes ?? -1}
+             )::bigint AS sla_within
+      FROM conversations
+      WHERE organization_id = ${organizationId}
+        AND deleted_at IS NULL
+        AND created_at >= ${range.from}
+        AND created_at <= ${range.to}
+      GROUP BY 1
+    `;
 
     const dayKeys = this.eachDay(range.from, range.to);
     const buckets = new Map<
@@ -155,23 +183,16 @@ export class DashboardService {
       buckets.set(k, { created: 0, closed: 0, tmrSum: 0, tmrCount: 0, slaWithin: 0, slaCount: 0 });
     }
 
-    for (const c of conversations) {
-      const k = c.createdAt.toISOString().slice(0, 10);
-      const b = buckets.get(k);
+    for (const r of rows) {
+      const b = buckets.get(r.day);
       if (!b) continue;
-      b.created++;
-      if (c.firstResponseAt) {
-        const minutes = (c.firstResponseAt.getTime() - c.createdAt.getTime()) / 60000;
-        b.tmrSum += minutes;
-        b.tmrCount++;
-        if (slaMinutes !== null) {
-          b.slaCount++;
-          if (minutes <= slaMinutes) b.slaWithin++;
-        }
-      }
-      if (c.status === 'CLOSED' && c.closedAt && c.closedAt >= range.from && c.closedAt <= range.to) {
-        b.closed++;
-      }
+      b.created = Number(r.created);
+      b.closed = Number(r.closed);
+      b.tmrSum = r.tmr_sum == null ? 0 : Number(r.tmr_sum);
+      b.tmrCount = Number(r.tmr_count);
+      // slaCount só conta quando há SLA configurado (preserva o comportamento antigo).
+      b.slaWithin = slaMinutes !== null ? Number(r.sla_within) : 0;
+      b.slaCount = slaMinutes !== null ? b.tmrCount : 0;
     }
 
     const active = dayKeys.map((d) => ({ date: d, value: buckets.get(d)!.created }));
@@ -352,23 +373,36 @@ export class DashboardService {
   }
 
   async getAgentPerformance(organizationId: string, range: DateRange) {
-    const [conversations, currentLoadGroups] = await Promise.all([
-      this.prisma.conversation.findMany({
-        where: {
-          organizationId,
-          deletedAt: null,
-          assignedToId: { not: null },
-          createdAt: { gte: range.from, lte: range.to },
-        },
-        select: {
-          assignedToId: true,
-          status: true,
-          firstResponseAt: true,
-          closedAt: true,
-          createdAt: true,
-          assignedTo: { select: { id: true, name: true, avatarUrl: true } },
-        },
-      }),
+    // Agrega por agente no banco (total/fechadas + médias de TMR e resolução),
+    // em vez de puxar todas as conversas e reduzir em JS.
+    const [rows, currentLoadGroups] = await Promise.all([
+      this.prisma.$queryRaw<
+        {
+          id: string;
+          name: string;
+          avatar_url: string | null;
+          total: bigint;
+          closed: bigint;
+          resp_avg: number | null;
+          res_avg: number | null;
+        }[]
+      >`
+        SELECT u.id AS id, u.name AS name, u.avatar_url AS avatar_url,
+               COUNT(*)::bigint AS total,
+               COUNT(*) FILTER (WHERE c.status::text = 'CLOSED')::bigint AS closed,
+               AVG(EXTRACT(EPOCH FROM (c.first_response_at - c.created_at)) / 60)
+                 FILTER (WHERE c.first_response_at IS NOT NULL) AS resp_avg,
+               AVG(EXTRACT(EPOCH FROM (c.closed_at - c.created_at)) / 60)
+                 FILTER (WHERE c.status::text = 'CLOSED' AND c.closed_at IS NOT NULL) AS res_avg
+        FROM conversations c
+        JOIN users u ON u.id = c.assigned_to_id
+        WHERE c.organization_id = ${organizationId}
+          AND c.deleted_at IS NULL
+          AND c.assigned_to_id IS NOT NULL
+          AND c.created_at >= ${range.from}
+          AND c.created_at <= ${range.to}
+        GROUP BY u.id, u.name, u.avatar_url
+      `,
       this.prisma.conversation.groupBy({
         by: ['assignedToId'],
         where: {
@@ -386,91 +420,85 @@ export class DashboardService {
       if (g.assignedToId) currentLoad.set(g.assignedToId, g._count);
     }
 
-    const agentMap = new Map<string, {
-      agent: { id: string; name: string; avatarUrl: string | null };
-      total: number;
-      closed: number;
-      responseTimes: number[];
-      resolutionTimes: number[];
-    }>();
-
-    for (const c of conversations) {
-      if (!c.assignedToId || !c.assignedTo) continue;
-      if (!agentMap.has(c.assignedToId)) {
-        agentMap.set(c.assignedToId, {
-          agent: c.assignedTo, total: 0, closed: 0, responseTimes: [], resolutionTimes: [],
-        });
-      }
-      const a = agentMap.get(c.assignedToId)!;
-      a.total++;
-      if (c.status === 'CLOSED') {
-        a.closed++;
-        if (c.closedAt) {
-          a.resolutionTimes.push((c.closedAt.getTime() - c.createdAt.getTime()) / 60000);
-        }
-      }
-      if (c.firstResponseAt) {
-        a.responseTimes.push((c.firstResponseAt.getTime() - c.createdAt.getTime()) / 60000);
-      }
-    }
-
-    return Array.from(agentMap.values()).map((a) => ({
-      agent: a.agent,
-      totalConversations: a.total,
-      closedConversations: a.closed,
-      activeConversations: currentLoad.get(a.agent.id) ?? 0,
-      resolutionRate: a.total > 0 ? Math.round((a.closed / a.total) * 100) : 0,
-      avgFirstResponseMinutes: a.responseTimes.length
-        ? Math.round(a.responseTimes.reduce((s, v) => s + v, 0) / a.responseTimes.length)
-        : null,
-      avgResolutionMinutes: a.resolutionTimes.length
-        ? Math.round(a.resolutionTimes.reduce((s, v) => s + v, 0) / a.resolutionTimes.length)
-        : null,
-    }));
+    return rows.map((r) => {
+      const total = Number(r.total);
+      const closed = Number(r.closed);
+      return {
+        agent: { id: r.id, name: r.name, avatarUrl: r.avatar_url },
+        totalConversations: total,
+        closedConversations: closed,
+        activeConversations: currentLoad.get(r.id) ?? 0,
+        resolutionRate: total > 0 ? Math.round((closed / total) * 100) : 0,
+        avgFirstResponseMinutes: r.resp_avg == null ? null : Math.round(Number(r.resp_avg)),
+        avgResolutionMinutes: r.res_avg == null ? null : Math.round(Number(r.res_avg)),
+      };
+    });
   }
 
   async getVolumeFlow(organizationId: string, range: DateRange) {
-    const conversations = await this.prisma.conversation.findMany({
-      where: {
-        organizationId,
-        deletedAt: null,
-        OR: [
-          { createdAt: { gte: range.from, lte: range.to } },
-          { closedAt: { gte: range.from, lte: range.to } },
-        ],
-      },
-      select: { createdAt: true, closedAt: true },
-    });
+    // Duas agregações por dia-UTC no banco: abertas (created_at) e fechadas
+    // (closed_at), cada uma na sua data — antes puxava todas as conversas.
+    const [createdRows, closedRows] = await Promise.all([
+      this.prisma.$queryRaw<{ day: string; cnt: bigint }[]>`
+        SELECT to_char((created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS day,
+               COUNT(*)::bigint AS cnt
+        FROM conversations
+        WHERE organization_id = ${organizationId}
+          AND deleted_at IS NULL
+          AND created_at >= ${range.from} AND created_at <= ${range.to}
+        GROUP BY 1
+      `,
+      this.prisma.$queryRaw<{ day: string; cnt: bigint }[]>`
+        SELECT to_char((closed_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS day,
+               COUNT(*)::bigint AS cnt
+        FROM conversations
+        WHERE organization_id = ${organizationId}
+          AND deleted_at IS NULL
+          AND closed_at >= ${range.from} AND closed_at <= ${range.to}
+        GROUP BY 1
+      `,
+    ]);
 
     const dayKeys = this.eachDay(range.from, range.to);
     const buckets = new Map<string, { created: number; closed: number }>();
     for (const k of dayKeys) buckets.set(k, { created: 0, closed: 0 });
 
-    for (const c of conversations) {
-      const ck = c.createdAt.toISOString().slice(0, 10);
-      if (buckets.has(ck)) buckets.get(ck)!.created++;
-      if (c.closedAt) {
-        const dk = c.closedAt.toISOString().slice(0, 10);
-        if (buckets.has(dk)) buckets.get(dk)!.closed++;
-      }
+    for (const r of createdRows) {
+      const b = buckets.get(r.day);
+      if (b) b.created = Number(r.cnt);
+    }
+    for (const r of closedRows) {
+      const b = buckets.get(r.day);
+      if (b) b.closed = Number(r.cnt);
     }
 
     return dayKeys.map((d) => ({ date: d, ...buckets.get(d)! }));
   }
 
   async getPeakHours(organizationId: string, range: DateRange) {
-    const conversations = await this.prisma.conversation.findMany({
-      where: { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } },
-      select: { createdAt: true },
-    });
+    // Agrega no banco: contagem por (dia-da-semana, hora) em UTC — mesma
+    // semântica de getUTCDay()/getUTCHours() que antes era feita em JS sobre
+    // TODAS as conversas do período.
+    const rows = await this.prisma.$queryRaw<
+      { dow: number; hour: number; cnt: bigint }[]
+    >`
+      SELECT EXTRACT(DOW FROM (created_at AT TIME ZONE 'UTC'))::int AS dow,
+             EXTRACT(HOUR FROM (created_at AT TIME ZONE 'UTC'))::int AS hour,
+             COUNT(*)::bigint AS cnt
+      FROM conversations
+      WHERE organization_id = ${organizationId}
+        AND deleted_at IS NULL
+        AND created_at >= ${range.from}
+        AND created_at <= ${range.to}
+      GROUP BY 1, 2
+    `;
 
     const matrix: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
     let max = 0;
-    for (const c of conversations) {
-      const dow = c.createdAt.getUTCDay();
-      const hour = c.createdAt.getUTCHours();
-      matrix[dow][hour]++;
-      if (matrix[dow][hour] > max) max = matrix[dow][hour];
+    for (const r of rows) {
+      const n = Number(r.cnt);
+      matrix[r.dow][r.hour] = n;
+      if (n > max) max = n;
     }
     return { matrix, max };
   }
@@ -509,26 +537,32 @@ export class DashboardService {
   }
 
   async getBotPerformance(organizationId: string, range: DateRange) {
-    const conversations = await this.prisma.conversation.findMany({
-      where: { organizationId, deletedAt: null, createdAt: { gte: range.from, lte: range.to } },
-      select: { status: true, assignedToId: true, closedAt: true },
-    });
+    // Conta no banco os 3 baldes (humano / resolvido-bot / em-andamento) —
+    // mesma classificação de antes, sem trazer as linhas.
+    const rows = await this.prisma.$queryRaw<
+      { human: bigint; bot: bigint; inflight: bigint; total: bigint }[]
+    >`
+      SELECT
+        COUNT(*) FILTER (WHERE assigned_to_id IS NOT NULL)::bigint AS human,
+        COUNT(*) FILTER (
+          WHERE assigned_to_id IS NULL AND status::text = 'CLOSED' AND closed_at IS NOT NULL
+        )::bigint AS bot,
+        COUNT(*) FILTER (
+          WHERE assigned_to_id IS NULL AND NOT (status::text = 'CLOSED' AND closed_at IS NOT NULL)
+        )::bigint AS inflight,
+        COUNT(*)::bigint AS total
+      FROM conversations
+      WHERE organization_id = ${organizationId}
+        AND deleted_at IS NULL
+        AND created_at >= ${range.from}
+        AND created_at <= ${range.to}
+    `;
 
-    let botResolved = 0;
-    let humanHandled = 0;
-    let inFlight = 0;
+    const botResolved = Number(rows[0]?.bot ?? 0);
+    const humanHandled = Number(rows[0]?.human ?? 0);
+    const inFlight = Number(rows[0]?.inflight ?? 0);
 
-    for (const c of conversations) {
-      if (c.assignedToId) {
-        humanHandled++;
-      } else if (c.status === 'CLOSED' && c.closedAt) {
-        botResolved++;
-      } else {
-        inFlight++;
-      }
-    }
-
-    const total = conversations.length;
+    const total = Number(rows[0]?.total ?? 0);
     const totalCompleted = botResolved + humanHandled;
 
     return {
@@ -566,33 +600,32 @@ export class DashboardService {
   }
 
   private async getAvgFirstResponseTime(organizationId: string, range: DateRange): Promise<number | null> {
-    const convs = await this.prisma.conversation.findMany({
-      where: {
-        organizationId,
-        deletedAt: null,
-        firstResponseAt: { not: null },
-        createdAt: { gte: range.from, lte: range.to },
-      },
-      select: { createdAt: true, firstResponseAt: true },
-    });
-    if (convs.length === 0) return null;
-    const total = convs.reduce((s, c) => s + (c.firstResponseAt!.getTime() - c.createdAt.getTime()), 0);
-    return Math.round(total / convs.length / 60000);
+    // AVG no banco (AVG sobre zero linhas retorna NULL => mesmo `null` de antes).
+    const rows = await this.prisma.$queryRaw<{ avg_min: number | null }[]>`
+      SELECT AVG(EXTRACT(EPOCH FROM (first_response_at - created_at)) / 60) AS avg_min
+      FROM conversations
+      WHERE organization_id = ${organizationId}
+        AND deleted_at IS NULL
+        AND first_response_at IS NOT NULL
+        AND created_at >= ${range.from}
+        AND created_at <= ${range.to}
+    `;
+    const avg = rows[0]?.avg_min;
+    return avg == null ? null : Math.round(Number(avg));
   }
 
   private async getAvgResolutionTime(organizationId: string, range: DateRange): Promise<number | null> {
-    const convs = await this.prisma.conversation.findMany({
-      where: {
-        organizationId,
-        deletedAt: null,
-        closedAt: { not: null },
-        createdAt: { gte: range.from, lte: range.to },
-      },
-      select: { createdAt: true, closedAt: true },
-    });
-    if (convs.length === 0) return null;
-    const total = convs.reduce((s, c) => s + (c.closedAt!.getTime() - c.createdAt.getTime()), 0);
-    return Math.round(total / convs.length / 60000);
+    const rows = await this.prisma.$queryRaw<{ avg_min: number | null }[]>`
+      SELECT AVG(EXTRACT(EPOCH FROM (closed_at - created_at)) / 60) AS avg_min
+      FROM conversations
+      WHERE organization_id = ${organizationId}
+        AND deleted_at IS NULL
+        AND closed_at IS NOT NULL
+        AND created_at >= ${range.from}
+        AND created_at <= ${range.to}
+    `;
+    const avg = rows[0]?.avg_min;
+    return avg == null ? null : Math.round(Number(avg));
   }
 
   private async getSlaCompliance(organizationId: string, range: DateRange): Promise<number | null> {
@@ -603,22 +636,22 @@ export class DashboardService {
     if (!dept?.slaFirstResponse) return null;
 
     const slaMinutes = dept.slaFirstResponse;
-    const convs = await this.prisma.conversation.findMany({
-      where: {
-        organizationId,
-        deletedAt: null,
-        firstResponseAt: { not: null },
-        createdAt: { gte: range.from, lte: range.to },
-      },
-      select: { createdAt: true, firstResponseAt: true },
-    });
-    if (convs.length === 0) return null;
-
-    const withinSla = convs.filter(
-      (c) => (c.firstResponseAt!.getTime() - c.createdAt.getTime()) / 60000 <= slaMinutes,
-    ).length;
-
-    return Math.round((withinSla / convs.length) * 100);
+    const rows = await this.prisma.$queryRaw<{ total: bigint; within: bigint }[]>`
+      SELECT COUNT(*)::bigint AS total,
+             COUNT(*) FILTER (
+               WHERE EXTRACT(EPOCH FROM (first_response_at - created_at)) / 60 <= ${slaMinutes}
+             )::bigint AS within
+      FROM conversations
+      WHERE organization_id = ${organizationId}
+        AND deleted_at IS NULL
+        AND first_response_at IS NOT NULL
+        AND created_at >= ${range.from}
+        AND created_at <= ${range.to}
+    `;
+    const total = Number(rows[0]?.total ?? 0);
+    if (total === 0) return null;
+    const within = Number(rows[0]?.within ?? 0);
+    return Math.round((within / total) * 100);
   }
 
   private calcTrend(current: number, previous: number): number {

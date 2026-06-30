@@ -23,21 +23,24 @@ export class LoggingInterceptor implements NestInterceptor {
     const rawUrl: string = request.originalUrl || request.url || '';
     const path = rawUrl.split('?')[0];
 
-    // Correlation id: reaproveita o x-request-id do proxy se vier, senão gera.
-    // Vai no log de acesso e volta no header de resposta — um cliente que
-    // reporta um erro pode passar o id pra rastrear a request.
+    // O requestId já foi definido pelo middleware de contexto no bootstrap
+    // (e está no AsyncLocalStorage). Reaproveita; só gera como rede de
+    // segurança caso este interceptor rode fora daquele fluxo.
     const requestId =
+      request.requestId ||
       (typeof request.headers?.['x-request-id'] === 'string' &&
         request.headers['x-request-id']) ||
       randomUUID();
     request.requestId = requestId;
     response.setHeader?.('x-request-id', requestId);
 
+    // Sem prefixo manual de id: o AppLogger carimba `[requestId]` em toda
+    // linha a partir do contexto (evita duplicar o id na linha de acesso).
     const now = Date.now();
     return next.handle().pipe(
       tap(() => {
         this.logger.log(
-          `[${requestId}] ${method} ${path} ${response.statusCode} ${Date.now() - now}ms`,
+          `${method} ${path} ${response.statusCode} ${Date.now() - now}ms`,
         );
       }),
     );

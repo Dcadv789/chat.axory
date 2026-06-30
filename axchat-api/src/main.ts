@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
 import helmet from 'helmet';
 import * as express from 'express';
 import * as path from 'path';
@@ -10,15 +11,35 @@ import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { AppLogger } from './common/logger/app-logger';
+import { requestContext } from './common/context/request-context';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+    bufferLogs: true,
+  });
+  // Logger com correlation-id automático (lê o requestId do AsyncLocalStorage).
+  app.useLogger(new AppLogger());
   const config = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
 
   // helmet blocks cross-origin media by default; relax that for <audio>/<img>
   // tags served by this API (same origin, but browsers enforce CORP).
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+  // Correlation-id: abre um AsyncLocalStorage por request, reaproveitando o
+  // x-request-id do proxy (ou gerando um). Tudo que rodar abaixo daqui — todas
+  // as linhas de log — sai carimbado com o mesmo id.
+  app.use((req: any, res: any, next: () => void) => {
+    const incoming = req.headers?.['x-request-id'];
+    const requestId =
+      (typeof incoming === 'string' && incoming) || randomUUID();
+    req.requestId = requestId;
+    res.setHeader?.('x-request-id', requestId);
+    requestContext.run({ requestId }, () => next());
+  });
+
   app.setGlobalPrefix('api/v1', { exclude: ['health'] });
 
   // Serve locally-stored user uploads (audio, etc.) before the global prefix
