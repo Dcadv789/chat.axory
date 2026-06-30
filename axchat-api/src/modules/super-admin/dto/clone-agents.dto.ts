@@ -1,5 +1,11 @@
-import { ArrayNotEmpty, IsArray, IsIn, IsString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 const SECTORS = ['ATENDIMENTO', 'MARKETING', 'PESSOAL'] as const;
 
@@ -21,4 +27,14 @@ export class CloneAgentsDto {
   @ArrayNotEmpty()
   @IsIn(SECTORS, { each: true })
   sectors!: (typeof SECTORS)[number][];
+
+  @ApiPropertyOptional({
+    description:
+      'Departamentos a clonar (ex.: CONTABIL, JURIDICO). Vazio/ausente = todos os departamentos dos setores escolhidos.',
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  departments?: string[];
 }

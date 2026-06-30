@@ -289,6 +289,7 @@ export const superAdminService = {
     sourceOrgId: string;
     targetOrgId: string;
     sectors: string[];
+    departments?: string[];
   }): Promise<{
     created: string[];
     skipped: string[];

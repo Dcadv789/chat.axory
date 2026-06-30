@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Copy, Loader2, X } from 'lucide-react';
 import {
@@ -45,8 +46,26 @@ export function CloneAgentsDrawer({
   const [sourceOrgId, setSourceOrgId] = useState(defaultSourceOrgId ?? '');
   const [targetOrgId, setTargetOrgId] = useState('');
   const [sectors, setSectors] = useState<string[]>(['ATENDIMENTO']);
+  const [departments, setDepartments] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<CloneResult | null>(null);
+
+  // Agentes da origem — pra listar os departamentos disponíveis.
+  const { data: sourceAgents = [] } = useQuery({
+    queryKey: ['clone-source-agents', sourceOrgId],
+    queryFn: () => superAdminService.listAllAgents(sourceOrgId),
+    enabled: open && !!sourceOrgId,
+  });
+
+  // Departamentos disponíveis na origem dentro dos setores escolhidos.
+  const availableDepartments = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of sourceAgents as Array<{ sector?: string; department?: string | null }>) {
+      if (sectors.length && a.sector && !sectors.includes(a.sector)) continue;
+      if (a.department) set.add(a.department);
+    }
+    return [...set].sort();
+  }, [sourceAgents, sectors]);
 
   if (!open) return null;
 
@@ -54,6 +73,8 @@ export function CloneAgentsDrawer({
 
   const toggleSector = (k: string) =>
     setSectors((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
+  const toggleDept = (k: string) =>
+    setDepartments((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
 
   const canClone =
     !!sourceOrgId &&
@@ -71,6 +92,7 @@ export function CloneAgentsDrawer({
         sourceOrgId,
         targetOrgId,
         sectors,
+        departments: departments.length ? departments : undefined,
       });
       setResult(r);
       toast.success(
@@ -178,6 +200,37 @@ export function CloneAgentsDrawer({
               })}
             </div>
           </div>
+
+          {availableDepartments.length > 0 && (
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Departamentos (opcional) — vazio = todos
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {availableDepartments.map((d) => {
+                  const on = departments.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => toggleDept(d)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+                        on
+                          ? 'bg-primary text-primary-foreground ring-primary'
+                          : 'bg-white text-zinc-600 ring-zinc-300 hover:bg-zinc-50 dark:bg-black dark:text-zinc-300 dark:ring-white/10'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-[11px] text-zinc-400">
+                Ex.: clonar só o Contábil ou só o Jurídico. Sem marcar nada,
+                copia o setor inteiro.
+              </p>
+            </div>
+          )}
 
           {result && (
             <div className="rounded-lg border border-zinc-200 p-3 text-xs dark:border-white/10">

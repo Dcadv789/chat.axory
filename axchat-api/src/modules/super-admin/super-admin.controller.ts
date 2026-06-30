@@ -77,6 +77,7 @@ export class SuperAdminController {
       dto.sourceOrgId,
       dto.targetOrgId,
       dto.sectors as AiAgentSector[],
+      dto.departments,
     );
   }
 

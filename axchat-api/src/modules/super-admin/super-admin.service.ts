@@ -156,6 +156,7 @@ export class SuperAdminService {
     sourceOrgId: string,
     targetOrgId: string,
     sectors: AiAgentSector[],
+    departments?: string[],
   ): Promise<{
     created: string[];
     skipped: string[];
@@ -191,12 +192,17 @@ export class SuperAdminService {
         organizationId: sourceOrgId,
         deletedAt: null,
         sector: { in: sectors },
+        // Filtro opcional por departamento (Contábil, Jurídico, etc.). Vazio
+        // = clona todos os departamentos do(s) setor(es).
+        ...(departments && departments.length > 0
+          ? { department: { in: departments } }
+          : {}),
       },
       include: { skills: true },
     });
     if (sourceAgents.length === 0) {
       throw new BadRequestException(
-        'A empresa de origem não tem agentes nos setores escolhidos.',
+        'A empresa de origem não tem agentes nos setores/departamentos escolhidos.',
       );
     }
 
