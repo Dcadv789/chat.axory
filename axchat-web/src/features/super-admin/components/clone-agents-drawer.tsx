@@ -204,7 +204,7 @@ export function CloneAgentsDrawer({
           {availableDepartments.length > 0 && (
             <div>
               <label className="mb-1.5 block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                Departamentos (opcional) — vazio = todos
+                Acréscimos por departamento (opcional)
               </label>
               <div className="flex flex-wrap gap-2">
                 {availableDepartments.map((d) => {
@@ -226,8 +226,9 @@ export function CloneAgentsDrawer({
                 })}
               </div>
               <p className="mt-1 text-[11px] text-zinc-400">
-                Ex.: clonar só o Contábil ou só o Jurídico. Sem marcar nada,
-                copia o setor inteiro.
+                Os agentes <strong>principais</strong> vão sempre. Marque
+                departamentos pra incluir os <strong>acréscimos</strong> daquele
+                time (Contábil, Jurídico...). Sem marcar = só os principais.
               </p>
             </div>
           )}

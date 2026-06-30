@@ -1084,6 +1084,11 @@ model AiAgent {
 
   canRespondDirectly Boolean @default(true) @map("can_respond_directly")
   isActive           Boolean @default(true) @map("is_active")
+  /// Agente PRINCIPAL (core) vs ACRÉSCIMO (complementar). Os principais são o
+  /// time essencial que todo cliente recebe; os acréscimos são personas extras
+  /// opcionais. Usado no clone: principais vão sempre, acréscimos por
+  /// departamento. Default false (acréscimo).
+  isCore             Boolean @default(false) @map("is_core")
 
   // ─── Follow-up automation ──────────────────────────────────
   // Quando este agent envia uma mensagem e o cliente não responde, o
