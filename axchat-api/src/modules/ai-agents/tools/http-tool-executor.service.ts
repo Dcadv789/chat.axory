@@ -4,6 +4,7 @@ import type { AiSkill, AiTool } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { ToolContext, ToolResult } from './tool.types';
 import { PendingActionService } from '../confirmations/pending-action.service';
+import { upsertDailyMediaMetric } from './marketing-metric.util';
 import type {
   ActionPreview,
   ImpactLevel,
@@ -246,21 +247,19 @@ export class HttpToolExecutorService {
     if (byName.size === 0) return;
 
     try {
-      await this.prisma.marketingMediaMetric.create({
-        data: {
-          organizationId: ctx.organizationId,
-          agentId: ctx.agentId,
-          runId: ctx.runId,
-          mediaId,
-          reach: byName.get('reach') ?? null,
-          likes: byName.get('likes') ?? null,
-          comments: byName.get('comments') ?? null,
-          saved: byName.get('saved') ?? null,
-          shares: byName.get('shares') ?? null,
-          totalInteractions: byName.get('total_interactions') ?? null,
-          views: byName.get('views') ?? byName.get('plays') ?? null,
-          raw: this.safeActivityPayload(insights),
-        },
+      await upsertDailyMediaMetric(this.prisma, {
+        organizationId: ctx.organizationId,
+        agentId: ctx.agentId,
+        runId: ctx.runId,
+        mediaId,
+        reach: byName.get('reach') ?? null,
+        likes: byName.get('likes') ?? null,
+        comments: byName.get('comments') ?? null,
+        saved: byName.get('saved') ?? null,
+        shares: byName.get('shares') ?? null,
+        totalInteractions: byName.get('total_interactions') ?? null,
+        views: byName.get('views') ?? byName.get('plays') ?? null,
+        raw: this.safeActivityPayload(insights),
       });
     } catch (e: any) {
       this.logger.warn(

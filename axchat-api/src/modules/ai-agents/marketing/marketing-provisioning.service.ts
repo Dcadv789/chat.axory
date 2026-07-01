@@ -237,10 +237,46 @@ export class MarketingProvisioningService {
       });
       updated += res.count;
     }
+
+    // Patch do prompt do Alaric: instrui a usar captureInstagramMetrics (mede
+    // todos os posts do período de uma vez) em vez de analisar post a post.
+    // String-replace no prompt atual do banco pra preservar o resto.
+    await this.patchAlaricPrompt(organizationId);
+
     this.logger.log(
       `resyncSkills(${organizationId}): ${updated} skill(s) atualizada(s) in-process.`,
     );
     return { updated };
+  }
+
+  private async patchAlaricPrompt(organizationId: string): Promise<void> {
+    const alaric = await this.prisma.aiAgent.findFirst({
+      where: {
+        organizationId,
+        sector: 'MARKETING',
+        name: 'Alaric',
+        deletedAt: null,
+      },
+      select: { id: true, systemPrompt: true },
+    });
+    if (!alaric?.systemPrompt) return;
+    if (alaric.systemPrompt.includes('captureInstagramMetrics')) return; // já ok
+
+    const oldLine =
+      '- listInstagramMedia (posts passados) + analyzeInstagramMedia (metricas de um post).';
+    const newLines =
+      '- captureInstagramMetrics — mede a performance de TODOS os posts do Instagram do periodo de uma vez e salva tudo (com legenda). SEMPRE use esta ferramenta quando pedirem pra "analisar os posts", medir performance do Instagram ou ver o desempenho geral. NAO analise post a post com analyzeInstagramMedia quando o pedido e sobre varios/todos os posts.\n' +
+      '- listInstagramMedia (lista posts) + analyzeInstagramMedia (metricas de UM post especifico) — use so pra um post pontual.';
+
+    const patched = alaric.systemPrompt.includes(oldLine)
+      ? alaric.systemPrompt.replace(oldLine, newLines)
+      : `${alaric.systemPrompt}\n\nIMPORTANTE: para analisar/medir a performance dos posts do Instagram, use a ferramenta captureInstagramMetrics (mede TODOS os posts do periodo de uma vez e salva com legenda). Nao meça post a post quando o pedido for sobre varios/todos os posts.`;
+
+    await this.prisma.aiAgent.update({
+      where: { id: alaric.id },
+      data: { systemPrompt: patched },
+    });
+    this.logger.log(`patchAlaricPrompt(${organizationId}): prompt do Alaric atualizado.`);
   }
 
   private getMagnus(organizationId: string) {

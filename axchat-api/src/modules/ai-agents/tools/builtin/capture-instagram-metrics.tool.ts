@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../database/prisma.service';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
+import { upsertDailyMediaMetric } from '../marketing-metric.util';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
@@ -111,24 +112,22 @@ export class CaptureInstagramMetricsTool implements AiTool {
       const metrics = await this.fetchInsights(String(m.id), token);
       const caption = typeof m.caption === 'string' ? m.caption : null;
       try {
-        await this.prisma.marketingMediaMetric.create({
-          data: {
-            organizationId: ctx.organizationId,
-            agentId: ctx.agentId,
-            runId: ctx.runId,
-            mediaId: String(m.id),
-            mediaType: m.media_type ?? null,
-            caption,
-            permalink: m.permalink ?? null,
-            reach: metrics.reach,
-            likes: metrics.likes ?? (typeof m.like_count === 'number' ? m.like_count : null),
-            comments: metrics.comments ?? (typeof m.comments_count === 'number' ? m.comments_count : null),
-            saved: metrics.saved,
-            shares: metrics.shares,
-            totalInteractions: metrics.total_interactions,
-            views: metrics.views,
-            raw: metrics.raw,
-          },
+        await upsertDailyMediaMetric(this.prisma, {
+          organizationId: ctx.organizationId,
+          agentId: ctx.agentId,
+          runId: ctx.runId,
+          mediaId: String(m.id),
+          mediaType: m.media_type ?? null,
+          caption,
+          permalink: m.permalink ?? null,
+          reach: metrics.reach,
+          likes: metrics.likes ?? (typeof m.like_count === 'number' ? m.like_count : null),
+          comments: metrics.comments ?? (typeof m.comments_count === 'number' ? m.comments_count : null),
+          saved: metrics.saved,
+          shares: metrics.shares,
+          totalInteractions: metrics.total_interactions,
+          views: metrics.views,
+          raw: metrics.raw,
         });
         captured++;
         results.push({ mediaId: String(m.id), caption, reach: metrics.reach });
