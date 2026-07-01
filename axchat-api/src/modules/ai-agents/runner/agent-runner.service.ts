@@ -617,6 +617,20 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
         });
         if (!refreshed) return;
 
+        // Auto-chains consomem LLM sem passar pelo `shouldHandle` (onde a cota
+        // é checada). Reforça a cota aqui: um org sem saldo de tokens/conversas
+        // não fura o limite via delegação/hand-back encadeados no mesmo turno.
+        const budget = await this.agentRouter.isWithinAiBudget(
+          conversation.organizationId,
+          conversation.id,
+        );
+        if (!budget.ok) {
+          this.logger.warn(
+            `Auto-chain pulado por cota de IA (org ${conversation.organizationId}, conv ${conversation.id}): ${budget.reason ?? 'sem saldo'}`,
+          );
+          return;
+        }
+
         if (
           finalAction === AiFinalAction.DELEGATED &&
           refreshed.activeAgentId &&
