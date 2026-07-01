@@ -98,15 +98,10 @@ auditoria, e o que ainda falta. Serve de referência pra revisão e onboarding.
   banco.
 
 **Ops / só você**
-- **Rotacionar `JWT_SECRET`/`JWT_REFRESH_SECRET` em produção** (antigos no
-  histórico do git).
-- Índice GIN trigram da busca textual (rodar `CONCURRENTLY` no console do banco
-  — não roda via Prisma):
-  ```sql
-  CREATE EXTENSION IF NOT EXISTS pg_trgm;
-  CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_msg_content_text_trgm
-    ON messages USING gin ((content->>'text') gin_trgm_ops);
-  ```
+- ✅ **`JWT_SECRET`/`JWT_REFRESH_SECRET` rotacionados** em produção.
+- ✅ **Índice GIN trigram da busca textual** — aplicado e válido em produção
+  (`pg_trgm` v1.6 + `idx_msg_content_text_trgm`, `indisvalid=true`). Verificado
+  por consulta de metadados (`pg_extension`/`pg_indexes`).
 
 **Outros (menores)**
 - ✅ **Refresh token em cookie httpOnly** — o token de longa duração saiu do
