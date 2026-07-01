@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Megaphone, Loader2, Save, MessagesSquare, Plus, Trash2, Link2, Activity } from 'lucide-react';
+import { Megaphone, Loader2, Save, MessagesSquare, Plus, Trash2, Link2, Activity, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   marketingService,
@@ -48,6 +48,19 @@ export default function MarketingRulesPage() {
   const [saving, setSaving] = useState(false);
   const [openingCrew, setOpeningCrew] = useState(false);
   const [tab, setTab] = useState<'config' | 'activity'>('config');
+  const [resyncing, setResyncing] = useState(false);
+
+  const handleResync = async () => {
+    setResyncing(true);
+    try {
+      await marketingService.resyncCrew();
+      toast.success('Skills da crew re-sincronizadas');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Erro ao re-sincronizar');
+    } finally {
+      setResyncing(false);
+    }
+  };
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -287,6 +300,21 @@ export default function MarketingRulesPage() {
             <Plus className="h-4 w-4 text-zinc-400" />
           </div>
         )}
+
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-zinc-100 pt-3 dark:border-white/10">
+          <p className="text-xs text-zinc-500">
+            Atualizou alguma skill da crew? Re-sincronize pra aplicar as
+            correções mais recentes nesta organização.
+          </p>
+          <button
+            onClick={handleResync}
+            disabled={resyncing}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+          >
+            {resyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Re-sincronizar skills
+          </button>
+        </div>
       </div>
 
       <div className="grid items-start gap-x-6 gap-y-5 lg:grid-cols-2">

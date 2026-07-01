@@ -46,9 +46,9 @@ const skills = [
     name: 'analyzeInstagramMedia',
     category: 'Marketing/Instagram',
     description:
-      'Lê uma mídia específica do Instagram com métricas de engajamento (impressões, alcance, salvos, comentários, etc).',
+      'Lê uma mídia específica do Instagram com métricas de engajamento (alcance, salvos, comentários, curtidas, etc).',
     promptInstructions:
-      'Use quando o usuário pedir análise de performance de um post específico do Instagram. Requer o mediaId (id da mídia retornado pela Graph API). Métricas pedidas via campo `metric`: padrão "impressions,reach,saved,comments,likes,shares". Tipo de mídia muda quais métricas existem (Reels tem plays, foto não), então peça o tipo se não souber.',
+      'Use quando o usuário pedir análise de performance de um post específico do Instagram. Requer o mediaId (id da mídia retornado pela Graph API). Métricas via campo `metrics` (CSV): padrão "reach,likes,comments,saved,shares,total_interactions". IMPORTANTE: NÃO use "impressions" — a Meta removeu essa métrica das insights de mídia e qualquer chamada que a inclua retorna erro 400. Para vídeos/Reels existe "views" (que substituiu impressions/plays). Tipo de mídia muda quais métricas existem, então em caso de erro 400 reduza para "reach,likes,comments,saved".',
     httpMethod: 'GET',
     httpPath:
       '/{{input.mediaId}}/insights?metric={{input.metrics}}&access_token={{env.IG_ACCESS_TOKEN}}',
@@ -68,8 +68,8 @@ const skills = [
         metrics: {
           type: 'string',
           description:
-            'Lista CSV de métricas (ex: "impressions,reach,saved,comments,likes,shares"). Padrão coerente com posts de feed.',
-          default: 'impressions,reach,saved,comments,likes,shares',
+            'Lista CSV de métricas de insights de mídia. Válidas atuais: reach, likes, comments, saved, shares, total_interactions (e views para vídeos/Reels). NÃO inclua "impressions" — foi removida pela Meta e causa erro 400.',
+          default: 'reach,likes,comments,saved,shares,total_interactions',
         },
       },
       required: ['mediaId', 'metrics'],

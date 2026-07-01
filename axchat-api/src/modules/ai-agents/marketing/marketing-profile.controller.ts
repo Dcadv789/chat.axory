@@ -49,6 +49,16 @@ export class MarketingProfileController {
     return this.service.ensureCrewChannel(orgId);
   }
 
+  @Post('resync')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Re-aplica (idempotente) skills/agents/crons da crew — pega atualizações nas definições das skills',
+  })
+  resync(@CurrentOrg('id') orgId: string) {
+    return this.service.resync(orgId);
+  }
+
   @Get('crew-channels')
   @Roles(OrgRole.OWNER, OrgRole.ADMIN)
   @ApiOperation({ summary: 'Canais atendidos pela crew + externos disponíveis' })

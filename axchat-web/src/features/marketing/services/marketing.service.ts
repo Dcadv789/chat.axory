@@ -87,6 +87,11 @@ export const marketingService = {
   async detachCrewChannel(channelId: string): Promise<void> {
     await api.delete(`/marketing/crew-channels/${channelId}`);
   },
+
+  /** Re-aplica as skills/agents da crew (idempotente) — pega correções nas skills. */
+  async resyncCrew(): Promise<void> {
+    await api.post('/marketing/resync');
+  },
 };
 
 export interface CrewChannel {

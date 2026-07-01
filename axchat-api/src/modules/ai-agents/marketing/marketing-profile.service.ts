@@ -20,6 +20,17 @@ export class MarketingProfileService {
     return this.provisioning.ensureCrewChannel(organizationId);
   }
 
+  /**
+   * Re-aplica (idempotente) tools/skills/agents/crons da crew na org. Usado pra
+   * pegar atualizações nas definições das skills (ex.: correção de métricas do
+   * Instagram) sem ter que desligar/ligar o add-on no Super Admin.
+   */
+  async resync(organizationId: string) {
+    await this.ensureEnabled(organizationId);
+    await this.provisioning.provisionForOrg(organizationId);
+    return { ok: true };
+  }
+
   /** Canais atendidos pela crew + externos disponíveis pra vincular. */
   async listCrewChannels(organizationId: string) {
     await this.ensureEnabled(organizationId);
