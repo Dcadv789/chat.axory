@@ -71,8 +71,8 @@ export default function CronsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="max-w-2xl">
           <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-950 dark:text-zinc-50">
             <Clock className="h-4 w-4 text-primary" />
             Crons de agente
@@ -100,7 +100,7 @@ export default function CronsPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
           {crons.map((c) => (
             <div
               key={c.id}

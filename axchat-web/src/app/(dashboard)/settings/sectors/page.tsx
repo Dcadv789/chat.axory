@@ -94,6 +94,7 @@ export default function SettingsSectorsPage() {
 
   return (
     <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-2">
       {/* Trava no setor padrão */}
       <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <label className="flex cursor-pointer items-start justify-between gap-4">
@@ -149,6 +150,7 @@ export default function SettingsSectorsPage() {
           </button>
         </div>
       </section>
+      </div>
 
       {/* Lista de setores */}
       {isLoading ? (
@@ -170,7 +172,7 @@ export default function SettingsSectorsPage() {
           Nenhum setor ainda. Crie o primeiro acima.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
           {departments.map((dept) => (
             <DepartmentCard key={dept.id} dept={dept} onChanged={refetch} />
           ))}

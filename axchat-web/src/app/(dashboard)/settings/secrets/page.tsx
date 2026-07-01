@@ -87,8 +87,8 @@ export default function SettingsSecretsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
+    <div className="space-y-6">
+      <div className="max-w-3xl">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
           Variáveis de Ambiente
         </h2>
@@ -112,7 +112,7 @@ export default function SettingsSecretsPage() {
       )}
 
       {adding && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-3 dark:border-white/10 dark:bg-white/5">
+        <div className="max-w-2xl rounded-lg border border-zinc-200 bg-zinc-50 p-4 space-y-3 dark:border-white/10 dark:bg-white/5">
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">
               Nome da variável (ex: MINHA_API_KEY)
@@ -171,7 +171,7 @@ export default function SettingsSecretsPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {secrets.map((secret) => {
             const isRevealed = revealingKeys.has(secret.key);
             return (

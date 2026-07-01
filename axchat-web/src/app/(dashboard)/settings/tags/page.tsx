@@ -67,7 +67,7 @@ export default function SettingsTagsPage() {
 
   return (
     <div>
-      <div className="flex items-end gap-3">
+      <div className="flex max-w-2xl flex-wrap items-end gap-3">
         <div className="flex-1">
           <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Nome da tag</label>
           <input
@@ -100,13 +100,13 @@ export default function SettingsTagsPage() {
         </button>
       </div>
 
-      <div className="mt-6 space-y-2">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-12 animate-pulse rounded-lg border bg-zinc-50 dark:border-white/10 dark:bg-black" />
           ))
         ) : !tags?.length ? (
-          <div className="flex flex-col items-center py-12 text-center">
+          <div className="col-span-full flex flex-col items-center py-12 text-center">
             <TagsIcon className="h-10 w-10 text-zinc-200 dark:text-zinc-700" />
             <p className="mt-3 text-sm text-zinc-500">Nenhuma tag criada</p>
           </div>
