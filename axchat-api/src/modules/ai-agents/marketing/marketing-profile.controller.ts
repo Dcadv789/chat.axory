@@ -53,7 +53,7 @@ export class MarketingProfileController {
   @Roles(OrgRole.OWNER, OrgRole.ADMIN)
   @ApiOperation({
     summary:
-      'Re-aplica (idempotente) skills/agents/crons da crew — pega atualizações nas definições das skills',
+      'Re-aplica (idempotente, in-process) correções nas definições das skills da crew',
   })
   resync(@CurrentOrg('id') orgId: string) {
     return this.service.resync(orgId);

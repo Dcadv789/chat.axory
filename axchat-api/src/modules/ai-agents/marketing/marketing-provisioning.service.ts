@@ -190,6 +190,59 @@ export class MarketingProvisioningService {
     return created.id;
   }
 
+  /**
+   * Re-aplica correções nas definições de skills da crew DIRETO no banco
+   * (in-process, sem spawnar o seed — spawn a partir de request HTTP é frágil
+   * em prod: cwd, presença dos scripts no container, etc). Idempotente.
+   *
+   * Só patcheia skills cuja definição mudou e precisa chegar a orgs já
+   * provisionadas. Hoje: analyzeInstagramMedia (métrica "impressions" removida
+   * pela Meta → 400).
+   */
+  async resyncSkills(organizationId: string): Promise<{ updated: number }> {
+    const patches: Array<{ name: string; data: Record<string, unknown> }> = [
+      {
+        name: 'analyzeInstagramMedia',
+        data: {
+          description:
+            'Lê uma mídia específica do Instagram com métricas de engajamento (alcance, salvos, comentários, curtidas, etc).',
+          promptInstructions:
+            'Use quando o usuário pedir análise de performance de um post específico do Instagram. Requer o mediaId. Métricas via campo `metrics` (CSV): padrão "reach,likes,comments,saved,shares,total_interactions". IMPORTANTE: NÃO use "impressions" — a Meta removeu essa métrica das insights de mídia e qualquer chamada que a inclua retorna erro 400. Para vídeos/Reels use "views". Em caso de erro 400, reduza para "reach,likes,comments,saved".',
+          parameters: {
+            type: 'object',
+            properties: {
+              mediaId: {
+                type: 'string',
+                description: 'ID da mídia no Instagram (obtido via /me/media).',
+              },
+              metrics: {
+                type: 'string',
+                description:
+                  'Lista CSV de métricas de insights de mídia. Válidas atuais: reach, likes, comments, saved, shares, total_interactions (e views para vídeos/Reels). NÃO inclua "impressions" — foi removida pela Meta e causa erro 400.',
+                default: 'reach,likes,comments,saved,shares,total_interactions',
+              },
+            },
+            required: ['mediaId', 'metrics'],
+            additionalProperties: false,
+          },
+        },
+      },
+    ];
+
+    let updated = 0;
+    for (const p of patches) {
+      const res = await this.prisma.aiSkill.updateMany({
+        where: { organizationId, name: p.name, deletedAt: null },
+        data: p.data,
+      });
+      updated += res.count;
+    }
+    this.logger.log(
+      `resyncSkills(${organizationId}): ${updated} skill(s) atualizada(s) in-process.`,
+    );
+    return { updated };
+  }
+
   private getMagnus(organizationId: string) {
     return this.prisma.aiAgent.findFirst({
       where: {
