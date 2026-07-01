@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { api } from '@/lib/api';
 
 interface AuthUser {
   id: string;
@@ -64,6 +65,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
+    // Invalida o cookie httpOnly do refresh no servidor (best-effort — a
+    // navegação a seguir pode cancelar; de todo modo o cookie é sobrescrito no
+    // próximo login).
+    api.post('/auth/logout').catch(() => {});
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('active_org_id');

@@ -59,7 +59,8 @@ export function RegisterForm() {
       });
 
       localStorage.setItem('access_token', result.accessToken);
-      localStorage.setItem('refresh_token', result.refreshToken);
+      // Refresh token só no cookie httpOnly (setado pela resposta). Fora do JS.
+      localStorage.removeItem('refresh_token');
 
       setAuth(result.user, result.organizations);
       setActiveOrg(result.organizations[0].id);

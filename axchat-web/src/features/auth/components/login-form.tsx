@@ -27,7 +27,9 @@ export function LoginForm() {
       const result = await authService.login(data);
 
       localStorage.setItem('access_token', result.accessToken);
-      localStorage.setItem('refresh_token', result.refreshToken);
+      // O refresh token fica só no cookie httpOnly (setado pela resposta do
+      // login). Não guardamos no localStorage — protege contra roubo via XSS.
+      localStorage.removeItem('refresh_token');
 
       localStorage.removeItem('active_org_id');
       setAuth(result.user, result.organizations);

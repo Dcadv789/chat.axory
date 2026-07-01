@@ -82,7 +82,10 @@ auditoria, e o que ainda falta. Serve de referência pra revisão e onboarding.
   `useQuery`/realtime intactos, sem migrar pra useInfiniteQuery), com
   preservação de scroll. Validado por `next build`; falta só o "feeling" visual.
 - Virtualização da lista do inbox (precisa `@tanstack/react-virtual` + QA visual
-  de seleção/menu/separadores) — única que NÃO blind-shippei.
+  de seleção/menu/separadores) — **decidido NÃO fazer** por ora: ganho marginal
+  na escala atual (30/página + scroll infinito já ajudam) vs. risco de regressão
+  no componente central do time, sem ambiente de teste. Retomar se a lista
+  crescer muito (centenas de itens carregados).
 
 **Perf (risco de bug sutil sem rodar)**
 - ✅ `getMessagesFlow` e `getVolumeByDay` — agregados no banco.
@@ -106,10 +109,22 @@ auditoria, e o que ainda falta. Serve de referência pra revisão e onboarding.
   ```
 
 **Outros (menores)**
-- Tokens em `localStorage` → refresh em cookie httpOnly (mudança de arquitetura).
-  **Segurado de propósito**: API e web ficam em domínios separados → cookie
-  cross-site (`SameSite=None; Secure`) + CORS com credenciais; se sair errado
-  tranca o login, e só há produção pra testar. Fazer com rollout testável.
+- ✅ **Refresh token em cookie httpOnly** — o token de longa duração saiu do
+  `localStorage` (protege contra roubo por XSS). O access token continua no
+  header `Authorization` (JwtStrategy inalterado — risco baixo). Design:
+  - `auth-cookie.util.ts`: cookie `refresh_token` httpOnly, `path=/api/v1/auth`,
+    prod `SameSite=None; Secure` / dev `Lax`. `res.cookie`/leitura manual do
+    header (sem cookie-parser).
+  - `/auth/login|register` setam o cookie; `/auth/refresh` lê **body OU cookie**
+    com **precedência do body**; `/auth/logout` limpa o cookie.
+  - **Impersonação preservada**: o super admin carrega o refresh impersonado no
+    body (localStorage) → precedência do body usa ele e o refresh **não regrava
+    o cookie** quando veio do body → o cookie do admin fica intacto pra quando
+    ele sair da impersonação. Web: `withCredentials`, login/register não guardam
+    mais o refresh, `restoreAdmin` cai no cookie do admin.
+  - ⚠️ **Verificar no deploy** (só há produção): login → navegar → deixar o
+    access expirar (~15min) e confirmar que renova sozinho; testar impersonar e
+    **voltar**; testar logout. Reverter é 1 commit se algo falhar.
 - ✅ Correlation-id **completo** entre TODOS os logs de serviço — via
   `AsyncLocalStorage` (`common/context/request-context.ts`) + `AppLogger`
   (`common/logger/app-logger.ts`), ligado no `main.ts` com um middleware que

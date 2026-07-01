@@ -5,6 +5,9 @@ export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
+  // Envia o cookie httpOnly do refresh token (scoped em /auth). Necessário pro
+  // login gravar o cookie e pro /auth/refresh recebê-lo.
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
@@ -25,8 +28,9 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (refreshToken && !error.config._retry) {
+      // Tenta renovar mesmo sem refresh_token no localStorage — sessões normais
+      // renovam pelo cookie httpOnly (o body só existe na impersonação/legado).
+      if (!error.config._retry) {
         error.config._retry = true;
         // Single-flight compartilhado: 401s concorrentes reusam o mesmo refresh.
         const ok = await refreshAccessToken();

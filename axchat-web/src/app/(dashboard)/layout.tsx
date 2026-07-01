@@ -91,20 +91,28 @@ function ImpersonationBanner() {
 
   const restoreAdmin = () => {
     const accessToken = localStorage.getItem('super_admin_access_token');
-    const refreshToken = localStorage.getItem('super_admin_refresh_token');
+    // Sessão de admin legada guardava o refresh; a nova mantém no cookie httpOnly.
+    const savedRefresh = localStorage.getItem('super_admin_refresh_token');
 
     localStorage.removeItem('impersonating_user');
     localStorage.removeItem('super_admin_access_token');
     localStorage.removeItem('super_admin_refresh_token');
 
-    if (!accessToken || !refreshToken) {
+    if (!accessToken) {
       logout();
       router.replace('/login');
       return;
     }
 
     localStorage.setItem('access_token', accessToken);
-    localStorage.setItem('refresh_token', refreshToken);
+    // Limpa o refresh da sessão IMPERSONADA. Se o admin era legado (tinha
+    // refresh salvo), restaura no body; senão remove pra renovar pelo cookie
+    // httpOnly do admin (que nunca foi tocado durante a impersonação).
+    if (savedRefresh) {
+      localStorage.setItem('refresh_token', savedRefresh);
+    } else {
+      localStorage.removeItem('refresh_token');
+    }
     setImpersonatingUser(null);
     window.location.href = '/super-admin';
   };
