@@ -15,6 +15,7 @@ import { OrgRole } from '@prisma/client';
 import { ToolsCatalogService } from './tools.service';
 import { SkillsCatalogService } from './skills.service';
 import { OrganizationSecretService } from './organization-secret.service';
+import { IntegrationTestService } from './integration-test.service';
 import { DatabaseIntrospectionService } from '../tools/database-introspection.service';
 import { UpsertToolDto } from './dto/upsert-tool.dto';
 import { UpsertSkillDto } from './dto/upsert-skill.dto';
@@ -35,6 +36,7 @@ export class AiCatalogController {
     private readonly tools: ToolsCatalogService,
     private readonly skills: SkillsCatalogService,
     private readonly secrets: OrganizationSecretService,
+    private readonly integrationTest: IntegrationTestService,
     private readonly dbIntrospection: DatabaseIntrospectionService,
   ) {}
 
@@ -225,6 +227,19 @@ export class AiCatalogController {
     if (!dto.key?.trim()) throw new BadRequestException('key is required');
     if (!dto.value?.trim()) throw new BadRequestException('value is required');
     return this.secrets.upsert(orgId, { key: dto.key.trim(), value: dto.value.trim() });
+  }
+
+  @Post('secrets/test/:provider')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Testa as credenciais salvas de uma integração contra a API real do provedor',
+  })
+  testIntegration(
+    @CurrentOrg('id') orgId: string,
+    @Param('provider') provider: string,
+  ) {
+    return this.integrationTest.testProvider(orgId, provider);
   }
 
   @Delete('secrets/:key')

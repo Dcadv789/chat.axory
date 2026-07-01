@@ -12,11 +12,14 @@ import {
   EyeOff,
   CircleCheck,
   CircleAlert,
+  ExternalLink,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   secretsService,
   type OrganizationSecret,
+  type IntegrationCheck,
 } from '@/features/ai-agents/services/secrets.service';
 
 // Base pública da API — em produção vira https://api-chat.axory.com.br/api/v1.
@@ -66,18 +69,41 @@ const INTEGRATIONS: Integration[] = [
       {
         key: 'IG_ACCESS_TOKEN',
         label: 'Token Instagram (Graph API)',
-        hint: 'Token de longa duração da conta business.',
+        hint: 'Token PERMANENTE via Usuário do Sistema (não expira, sem refresh). É o mesmo token usado para o IG User ID abaixo.',
         secret: true,
-        tutorial:
-          '1) Acesse developers.facebook.com → seu App. 2) Adicione o produto "Instagram" e conecte a conta Business. 3) Em Ferramentas → Graph API Explorer, gere um token com as permissões instagram_basic, instagram_content_publish, instagram_manage_comments e pages_show_list. 4) Converta para token de LONGA duração (60 dias) em /oauth/access_token?grant_type=fb_exchange_token.',
+        tutorial: [
+          'CAMINHO RECOMENDADO — Usuário do Sistema (token permanente, sem manutenção):',
+          '',
+          '1. Acesse business.facebook.com/settings (Configurações do Gerenciador de Negócios da empresa dona do app).',
+          '2. No menu lateral: Usuários → "Usuários do sistema". (Se não achar, veja em "Mais ferramentas".)',
+          '3. Clique em Adicionar. Dê um nome (ex.: "AxChat Integração") e defina a função como Admin.',
+          '4. Com o usuário criado, clique nele → "Adicionar ativos". Atribua com CONTROLE TOTAL: (a) o App do AxChat e (b) a Página do Facebook vinculada ao Instagram.',
+          '5. Ainda na tela do usuário do sistema, clique em "Gerar novo token".',
+          '6. Selecione o App do AxChat.',
+          '7. Marque as permissões: instagram_basic, instagram_content_publish, instagram_manage_comments, pages_show_list, pages_read_engagement, business_management.',
+          '8. Clique em "Gerar token".',
+          '',
+          '⚠️ O token aparece UMA ÚNICA VEZ na tela. Copie e cole aqui imediatamente — se fechar sem copiar, terá que gerar outro.',
+          '',
+          'Vantagem: esse token é permanente (não expira, não precisa de refresh) — ideal pra rodar no SaaS sem manutenção.',
+        ].join('\n'),
       },
       {
         key: 'IG_USER_ID',
         label: 'IG User ID (ig-user-id)',
-        hint: 'ID numérico da conta business do Instagram.',
+        hint: 'ID numérico da conta business do Instagram. Descubra usando o token do Usuário do Sistema + o ID da Página.',
         secret: false,
-        tutorial:
-          'No Graph API Explorer: GET /me/accounts → pegue o "id" da sua Página. Depois GET /{page-id}?fields=instagram_business_account → o "id" retornado é o seu IG User ID.',
+        tutorial: [
+          'Com o token do Usuário do Sistema (campo acima) e o ID da sua Página do Facebook (campo "Facebook Page ID"), faça esta chamada no navegador:',
+          '',
+          'GET https://graph.facebook.com/v22.0/{PAGE_ID}?fields=instagram_business_account&access_token=SEU_TOKEN_DO_SISTEMA',
+          '',
+          '(troque {PAGE_ID} pelo ID da Página e SEU_TOKEN_DO_SISTEMA pelo token gerado)',
+          '',
+          'Na resposta, o "id" dentro de "instagram_business_account" é o seu IG_USER_ID. Cole aqui.',
+          '',
+          'Se "instagram_business_account" vier vazio: a Página não está vinculada a um Instagram profissional — vincule no app do Instagram (Configurações → conta profissional → vincular à Página) e tente de novo.',
+        ].join('\n'),
       },
       {
         key: 'META_ADS_ACCESS_TOKEN',
@@ -210,8 +236,8 @@ export function IntegrationsView() {
   const configuredKeys = new Set(secrets.map((s) => s.key));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
+    <div className="space-y-6">
+      <div className="max-w-3xl">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
           Integrações de Marketing
         </h2>
@@ -228,14 +254,16 @@ export function IntegrationsView() {
           Carregando…
         </div>
       ) : (
-        INTEGRATIONS.map((it) => (
-          <IntegrationCard
-            key={it.id}
-            integration={it}
-            configuredKeys={configuredKeys}
-            onSaved={load}
-          />
-        ))
+        <div className="space-y-6">
+          {INTEGRATIONS.map((it) => (
+            <IntegrationCard
+              key={it.id}
+              integration={it}
+              configuredKeys={configuredKeys}
+              onSaved={load}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
@@ -255,9 +283,31 @@ function IntegrationCard({
   const done = integration.fields.filter((f) => configuredKeys.has(f.key)).length;
   const allDone = done === total;
 
+  const [testing, setTesting] = useState(false);
+  const [checks, setChecks] = useState<IntegrationCheck[] | null>(null);
+
+  const runTest = async () => {
+    setTesting(true);
+    setChecks(null);
+    try {
+      const res = await secretsService.test(integration.id);
+      setChecks(res.checks);
+      const failed = res.checks.filter((c) => !c.ok).length;
+      if (failed === 0) toast.success('Todas as credenciais responderam OK');
+      else toast.error(`${failed} verificação(ões) falharam — veja os detalhes`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Erro ao testar credenciais');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  // Só faz sentido testar se ao menos uma credencial já foi salva.
+  const canTest = done > 0;
+
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
-      <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4 dark:border-white/10">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4 dark:border-white/10">
         <div className="flex items-center gap-3">
           <span className={`flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 dark:bg-white/5 ${integration.accent}`}>
             <Icon className="h-5 w-5" />
@@ -266,79 +316,157 @@ function IntegrationCard({
             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {integration.name}
             </h3>
-            <p className="text-xs text-zinc-500">{integration.apiBase}</p>
+            <p className="font-mono text-xs text-zinc-500">{integration.apiBase}</p>
           </div>
         </div>
-        {allDone ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
-            <CircleCheck className="h-3.5 w-3.5" />
-            Tudo configurado
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-            <CircleAlert className="h-3.5 w-3.5" />
-            {done}/{total} configuradas
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {allDone ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+              <CircleCheck className="h-3.5 w-3.5" />
+              Tudo configurado
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+              <CircleAlert className="h-3.5 w-3.5" />
+              {done}/{total} configuradas
+            </span>
+          )}
+          <button
+            onClick={runTest}
+            disabled={testing || !canTest}
+            title={
+              canTest
+                ? 'Bate na API real do provedor com as credenciais salvas'
+                : 'Salve ao menos uma credencial para testar'
+            }
+            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+          >
+            {testing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Zap className="h-3.5 w-3.5" />
+            )}
+            Testar conexão
+          </button>
+          <a
+            href={integration.setupUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Abrir painel
+          </a>
+        </div>
       </div>
 
-      <div className="space-y-5 p-5">
+      {checks && (
+        <div className="border-b border-zinc-100 bg-zinc-50/60 px-5 py-3 dark:border-white/10 dark:bg-white/[0.02]">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Resultado do teste
+          </p>
+          <div className="space-y-1.5">
+            {checks.map((c, i) => (
+              <div
+                key={i}
+                className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
+                  c.ok
+                    ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-900/10'
+                    : 'border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/10'
+                }`}
+              >
+                {c.ok ? (
+                  <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600 dark:text-red-400" />
+                )}
+                <div className="min-w-0">
+                  <p className="font-medium text-zinc-800 dark:text-zinc-200">
+                    {c.name}
+                    {c.keys.length > 0 && (
+                      <span className="ml-1.5 font-mono text-[10px] font-normal text-zinc-400">
+                        {c.keys.join(', ')}
+                      </span>
+                    )}
+                  </p>
+                  <p
+                    className={
+                      c.ok
+                        ? 'text-emerald-700 dark:text-emerald-300'
+                        : 'text-red-700 dark:text-red-300'
+                    }
+                  >
+                    {c.message}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="border-b border-zinc-100 bg-zinc-50/60 px-5 py-3 dark:border-white/10 dark:bg-white/[0.02]">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           {integration.description}
         </p>
+      </div>
 
-        {integration.webhookUrl && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Webhook (callback URL)
-            </p>
-            <p className="mt-1 text-xs text-zinc-500">
-              Registre esta URL no painel do Meta como callback de webhook. O
-              verify token deve ser igual ao definido ao criar o canal Instagram.
-            </p>
-            <CopyableField value={integration.webhookUrl} />
-          </div>
-        )}
-
+      {/* Formulário (esquerda) + referência técnica (direita), lado a lado */}
+      <div className="grid gap-6 p-5 lg:grid-cols-3">
         {/* Credenciais + IDs */}
-        <div className="space-y-4">
+        <div className="lg:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Credenciais e IDs ({done}/{total})
           </p>
-          {integration.fields.map((field) => (
-            <SecretField
-              key={field.key}
-              field={field}
-              configured={configuredKeys.has(field.key)}
-              onSaved={onSaved}
-            />
-          ))}
+          <div className="mt-3 grid items-start gap-x-6 gap-y-5 lg:grid-cols-2">
+            {integration.fields.map((field) => (
+              <SecretField
+                key={field.key}
+                field={field}
+                configured={configuredKeys.has(field.key)}
+                onSaved={onSaved}
+              />
+            ))}
+          </div>
         </div>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Endpoints usados pelas skills ({integration.endpoints.length})
-          </p>
-          <div className="mt-2 overflow-hidden rounded-lg border border-zinc-200 dark:border-white/10">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {integration.endpoints.map((ep) => (
-                  <tr key={ep.path}>
-                    <td className="px-3 py-2 align-top">
-                      <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-bold ${methodColor(ep.method)}`}>
-                        {ep.method}
-                      </span>
-                    </td>
-                    <td className="px-2 py-2 font-mono text-xs text-zinc-700 dark:text-zinc-300">
+        {/* Referência técnica: webhook + endpoints */}
+        <div className="space-y-5 lg:col-span-1">
+          {integration.webhookUrl && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Webhook (callback URL)
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Registre esta URL no painel do Meta como callback de webhook. O
+                verify token deve ser igual ao definido ao criar o canal Instagram.
+              </p>
+              <CopyableField value={integration.webhookUrl} />
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Endpoints usados pelas skills ({integration.endpoints.length})
+            </p>
+            <div className="mt-2 space-y-1.5">
+              {integration.endpoints.map((ep) => (
+                <div
+                  key={ep.path}
+                  className="rounded-lg border border-zinc-200 px-3 py-2 dark:border-white/10"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${methodColor(ep.method)}`}>
+                      {ep.method}
+                    </span>
+                    <code className="min-w-0 flex-1 truncate font-mono text-xs text-zinc-700 dark:text-zinc-300">
                       {ep.path}
-                    </td>
-                    <td className="px-3 py-2 text-right text-xs text-zinc-500">
-                      {ep.label}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </code>
+                  </div>
+                  <p className="mt-1 text-[11px] text-zinc-500">{ep.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
