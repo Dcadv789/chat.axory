@@ -270,6 +270,7 @@ model Organization {
   marketingAnalyses    MarketingAnalysis[]
   marketingActivities  MarketingActivity[]
   marketingMediaMetrics MarketingMediaMetric[]
+  marketingAdMetrics   MarketingAdMetric[]
   assistantConfigs     PersonalAssistantConfig[]
   personalTasks        PersonalTask[]
   personalNotes        PersonalNote[]
@@ -1481,6 +1482,40 @@ model MarketingMediaMetric {
   @@index([organizationId, mediaId, capturedAt], name: "idx_mkt_metric_org_media_time")
   @@index([organizationId, capturedAt], name: "idx_mkt_metric_org_time")
   @@map("marketing_media_metrics")
+}
+
+// Snapshot temporal das métricas de uma campanha de anúncio (Meta Ads),
+// capturado quando a crew mede os anúncios. 1 ponto por campanha por dia.
+model MarketingAdMetric {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  agentId        String? @map("agent_id")
+  runId          String? @map("run_id")
+
+  campaignId   String  @map("campaign_id")
+  campaignName String? @map("campaign_name")
+  objective    String?
+  status       String? // effective_status (ACTIVE, PAUSED, ...)
+
+  spend       Float?
+  impressions Int?
+  reach       Int?
+  clicks      Int?
+  ctr         Float? // click-through rate (%)
+  cpc         Float? // custo por clique
+  cpm         Float? // custo por mil impressões
+  conversions Int? // total de ações de conversão (actions), quando houver
+  currency    String?
+
+  raw Json?
+
+  capturedAt DateTime @default(now()) @map("captured_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, campaignId, capturedAt], name: "idx_mkt_admetric_org_campaign_time")
+  @@index([organizationId, capturedAt], name: "idx_mkt_admetric_org_time")
+  @@map("marketing_ad_metrics")
 }
 
 // ─── Assistente Pessoal (add-on do dono/gestor) ───────────────

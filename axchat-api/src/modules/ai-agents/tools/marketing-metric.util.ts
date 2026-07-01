@@ -70,3 +70,69 @@ export async function upsertDailyMediaMetric(
     });
   }
 }
+
+export interface DailyAdMetricInput {
+  organizationId: string;
+  agentId?: string | null;
+  runId?: string | null;
+  campaignId: string;
+  campaignName?: string | null;
+  objective?: string | null;
+  status?: string | null;
+  spend?: number | null;
+  impressions?: number | null;
+  reach?: number | null;
+  clicks?: number | null;
+  ctr?: number | null;
+  cpc?: number | null;
+  cpm?: number | null;
+  conversions?: number | null;
+  currency?: string | null;
+  raw?: any;
+}
+
+/** Igual ao de mídia, mas por CAMPANHA de anúncio: 1 ponto por campanha por dia. */
+export async function upsertDailyAdMetric(
+  prisma: PrismaService,
+  input: DailyAdMetricInput,
+): Promise<void> {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const existing = await prisma.marketingAdMetric.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      campaignId: input.campaignId,
+      capturedAt: { gte: startOfDay },
+    },
+    orderBy: { capturedAt: 'desc' },
+    select: { id: true },
+  });
+
+  const data = {
+    agentId: input.agentId ?? null,
+    runId: input.runId ?? null,
+    campaignName: input.campaignName ?? null,
+    objective: input.objective ?? null,
+    status: input.status ?? null,
+    spend: input.spend ?? null,
+    impressions: input.impressions ?? null,
+    reach: input.reach ?? null,
+    clicks: input.clicks ?? null,
+    ctr: input.ctr ?? null,
+    cpc: input.cpc ?? null,
+    cpm: input.cpm ?? null,
+    conversions: input.conversions ?? null,
+    currency: input.currency ?? null,
+    raw: input.raw ?? undefined,
+    capturedAt: new Date(),
+  };
+
+  if (existing) {
+    await prisma.marketingAdMetric.update({ where: { id: existing.id }, data });
+  } else {
+    await prisma.marketingAdMetric.create({
+      data: { organizationId: input.organizationId, campaignId: input.campaignId, ...data },
+    });
+  }
+}

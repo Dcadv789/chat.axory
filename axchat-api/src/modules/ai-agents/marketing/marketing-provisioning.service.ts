@@ -238,10 +238,10 @@ export class MarketingProvisioningService {
       updated += res.count;
     }
 
-    // Patch do prompt do Alaric: instrui a usar captureInstagramMetrics (mede
-    // todos os posts do período de uma vez) em vez de analisar post a post.
-    // String-replace no prompt atual do banco pra preservar o resto.
-    await this.patchAlaricPrompt(organizationId);
+    // Patch dos prompts (in-place): instrui os workers a usar as ferramentas de
+    // captura em lote (captureInstagramMetrics / captureMetaAdsMetrics) em vez de
+    // medir item a item. String-append idempotente (só adiciona se faltar).
+    await this.patchAgentPrompts(organizationId);
 
     this.logger.log(
       `resyncSkills(${organizationId}): ${updated} skill(s) atualizada(s) in-process.`,
@@ -249,34 +249,32 @@ export class MarketingProvisioningService {
     return { updated };
   }
 
-  private async patchAlaricPrompt(organizationId: string): Promise<void> {
-    const alaric = await this.prisma.aiAgent.findFirst({
-      where: {
-        organizationId,
-        sector: 'MARKETING',
-        name: 'Alaric',
-        deletedAt: null,
-      },
-      select: { id: true, systemPrompt: true },
+  private async patchAgentPrompts(organizationId: string): Promise<void> {
+    const IG_NOTE =
+      'IMPORTANTE: para analisar/medir a performance dos posts do Instagram, use a ferramenta captureInstagramMetrics (mede TODOS os posts do periodo de uma vez e salva com legenda). Nao meça post a post quando o pedido for sobre varios/todos os posts.';
+    const ADS_NOTE =
+      'IMPORTANTE: para o PANORAMA dos anuncios (metricas de todas as campanhas), use a ferramenta captureMetaAdsMetrics (mede TODAS as campanhas do periodo de uma vez e salva). Nao meça campanha a campanha nesse caso.';
+
+    const agents = await this.prisma.aiAgent.findMany({
+      where: { organizationId, sector: 'MARKETING', deletedAt: null },
+      select: { id: true, name: true, systemPrompt: true },
     });
-    if (!alaric?.systemPrompt) return;
-    if (alaric.systemPrompt.includes('captureInstagramMetrics')) return; // já ok
-
-    const oldLine =
-      '- listInstagramMedia (posts passados) + analyzeInstagramMedia (metricas de um post).';
-    const newLines =
-      '- captureInstagramMetrics — mede a performance de TODOS os posts do Instagram do periodo de uma vez e salva tudo (com legenda). SEMPRE use esta ferramenta quando pedirem pra "analisar os posts", medir performance do Instagram ou ver o desempenho geral. NAO analise post a post com analyzeInstagramMedia quando o pedido e sobre varios/todos os posts.\n' +
-      '- listInstagramMedia (lista posts) + analyzeInstagramMedia (metricas de UM post especifico) — use so pra um post pontual.';
-
-    const patched = alaric.systemPrompt.includes(oldLine)
-      ? alaric.systemPrompt.replace(oldLine, newLines)
-      : `${alaric.systemPrompt}\n\nIMPORTANTE: para analisar/medir a performance dos posts do Instagram, use a ferramenta captureInstagramMetrics (mede TODOS os posts do periodo de uma vez e salva com legenda). Nao meça post a post quando o pedido for sobre varios/todos os posts.`;
-
-    await this.prisma.aiAgent.update({
-      where: { id: alaric.id },
-      data: { systemPrompt: patched },
-    });
-    this.logger.log(`patchAlaricPrompt(${organizationId}): prompt do Alaric atualizado.`);
+    for (const a of agents) {
+      if (!a.systemPrompt) continue;
+      let p = a.systemPrompt;
+      // Alaric e Edda medem IG; Wystan/Alaric/Edda medem ads.
+      const wantsIg = ['Alaric', 'Edda'].includes(a.name);
+      const wantsAds = ['Wystan', 'Alaric', 'Edda'].includes(a.name);
+      if (wantsIg && !p.includes('captureInstagramMetrics')) p += `\n\n${IG_NOTE}`;
+      if (wantsAds && !p.includes('captureMetaAdsMetrics')) p += `\n\n${ADS_NOTE}`;
+      if (p !== a.systemPrompt) {
+        await this.prisma.aiAgent.update({
+          where: { id: a.id },
+          data: { systemPrompt: p },
+        });
+        this.logger.log(`patchAgentPrompts: ${a.name} atualizado (org ${organizationId}).`);
+      }
+    }
   }
 
   private getMagnus(organizationId: string) {

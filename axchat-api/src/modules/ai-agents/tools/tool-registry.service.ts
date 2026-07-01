@@ -22,6 +22,7 @@ import { GenerateMarketingImageTool } from './builtin/generate-marketing-image.t
 import { GetMarketingProfileTool } from './builtin/get-marketing-profile.tool';
 import { RecordMarketingAnalysisTool } from './builtin/record-marketing-analysis.tool';
 import { CaptureInstagramMetricsTool } from './builtin/capture-instagram-metrics.tool';
+import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.tool';
 import {
   CreatePersonalTaskTool,
   ListPersonalTasksTool,
@@ -85,6 +86,7 @@ export class ToolRegistry {
     getMarketingProfile: GetMarketingProfileTool,
     recordMarketingAnalysis: RecordMarketingAnalysisTool,
     captureInstagramMetrics: CaptureInstagramMetricsTool,
+    captureMetaAdsMetrics: CaptureMetaAdsMetricsTool,
     createPersonalTask: CreatePersonalTaskTool,
     listPersonalTasks: ListPersonalTasksTool,
     updatePersonalTask: UpdatePersonalTaskTool,
@@ -130,6 +132,8 @@ export class ToolRegistry {
     // Captura em lote das métricas de TODOS os posts do IG no período — worker
     // de marketing (Alaric). Grava snapshots com legenda.
     this.register(captureInstagramMetrics, ['WORKER'], undefined, ['MARKETING']);
+    // Captura em lote das métricas de TODAS as campanhas de anúncio do período.
+    this.register(captureMetaAdsMetrics, ['WORKER'], undefined, ['MARKETING']);
 
     // ─── Assistente Pessoal — só agentes do setor PESSOAL ───
     // Sector-scoped: não aparecem pra agentes de atendimento/marketing.

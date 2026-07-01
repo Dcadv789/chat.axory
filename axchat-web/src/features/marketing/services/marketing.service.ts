@@ -119,7 +119,34 @@ export const marketingService = {
     const { data } = await api.get('/marketing/media-metrics');
     return data?.data ?? data;
   },
+
+  async adMetrics(): Promise<{
+    window: string;
+    since: string;
+    metrics: AdMetricRow[];
+  }> {
+    const { data } = await api.get('/marketing/ad-metrics');
+    return data?.data ?? data;
+  },
 };
+
+export interface AdMetricRow {
+  id: string;
+  campaignId: string;
+  campaignName: string | null;
+  objective: string | null;
+  status: string | null;
+  spend: number | null;
+  impressions: number | null;
+  reach: number | null;
+  clicks: number | null;
+  ctr: number | null;
+  cpc: number | null;
+  cpm: number | null;
+  conversions: number | null;
+  currency: string | null;
+  capturedAt: string;
+}
 
 export interface CrewChannel {
   id: string;

@@ -111,4 +111,18 @@ export class MarketingProfileController {
       limit ? Math.min(parseInt(limit, 10) || 500, 2000) : 500,
     );
   }
+
+  @Get('ad-metrics')
+  @ApiOperation({
+    summary: 'Métricas por campanha de anúncio (Meta Ads), série temporal',
+  })
+  adMetrics(
+    @CurrentOrg('id') orgId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.adMetrics(
+      orgId,
+      limit ? Math.min(parseInt(limit, 10) || 500, 2000) : 500,
+    );
+  }
 }

@@ -114,6 +114,31 @@ export class MarketingProfileService {
     return { window: win, since: since.toISOString(), metrics };
   }
 
+  /** Métricas por campanha de anúncio (série temporal), filtradas pela janela. */
+  async adMetrics(organizationId: string, limit = 500) {
+    await this.ensureEnabled(organizationId);
+    const profile = await this.prisma.marketingProfile.findUnique({
+      where: { organizationId },
+      select: { analysisWindow: true },
+    });
+    const win = profile?.analysisWindow ?? 'LAST_MONTH';
+    const days =
+      win === 'LAST_YEAR'
+        ? 365
+        : win === 'LAST_6_MONTHS'
+          ? 182
+          : win === 'LAST_3_MONTHS'
+            ? 91
+            : 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const metrics = await this.prisma.marketingAdMetric.findMany({
+      where: { organizationId, capturedAt: { gte: since } },
+      orderBy: { capturedAt: 'desc' },
+      take: limit,
+    });
+    return { window: win, since: since.toISOString(), metrics };
+  }
+
   /** Log + análises recentes pra um painel de auditoria do marketing. */
   async activity(organizationId: string, limit = 50) {
     await this.ensureEnabled(organizationId);

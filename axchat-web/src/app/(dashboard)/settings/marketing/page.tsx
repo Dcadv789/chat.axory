@@ -9,6 +9,7 @@ import {
   marketingService,
   type UpsertMarketingProfileInput,
   type MediaMetricRow,
+  type AdMetricRow,
 } from '@/features/marketing/services/marketing.service';
 
 const inputCls =
@@ -49,7 +50,7 @@ export default function MarketingRulesPage() {
   });
   const [saving, setSaving] = useState(false);
   const [openingCrew, setOpeningCrew] = useState(false);
-  const [tab, setTab] = useState<'config' | 'activity' | 'metrics'>('config');
+  const [tab, setTab] = useState<'config' | 'activity' | 'metrics' | 'admetrics'>('config');
   const [resyncing, setResyncing] = useState(false);
   // Grupos de colunas visíveis na tabela de métricas (chips liga/desliga).
   const [cols, setCols] = useState({
@@ -151,6 +152,13 @@ export default function MarketingRulesPage() {
     refetchInterval: 30000,
   });
 
+  const { data: adMetrics } = useQuery({
+    queryKey: ['marketing-ad-metrics'],
+    queryFn: () => marketingService.adMetrics(),
+    enabled: tab === 'admetrics',
+    refetchInterval: 30000,
+  });
+
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -220,6 +228,16 @@ export default function MarketingRulesPage() {
           }`}
         >
           <Activity className="h-4 w-4" /> Métricas dos posts
+        </button>
+        <button
+          onClick={() => setTab('admetrics')}
+          className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium ${
+            tab === 'admetrics'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+        >
+          <Activity className="h-4 w-4" /> Métricas dos anúncios
         </button>
         <button
           onClick={() => setTab('activity')}
@@ -501,6 +519,98 @@ export default function MarketingRulesPage() {
           cols={cols}
           setCols={setCols}
         />
+      )}
+
+      {tab === 'admetrics' && (
+        <AdMetricsTab
+          rows={adMetrics?.metrics ?? []}
+          window={adMetrics?.window ?? 'LAST_MONTH'}
+        />
+      )}
+    </div>
+  );
+}
+
+function AdMetricsTab({ rows, window }: { rows: AdMetricRow[]; window: string }) {
+  const th = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-500';
+  const td = 'px-3 py-2 text-sm tabular-nums text-zinc-700 dark:text-zinc-300';
+  const int = (n: number | null) => (n == null ? '—' : n.toLocaleString('pt-BR'));
+  const money = (n: number | null, cur: string | null) =>
+    n == null ? '—' : `${cur === 'USD' ? '$' : 'R$'} ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const dec = (n: number | null, suffix = '') =>
+    n == null ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
+
+  const statusChip = (s: string | null) => {
+    const on = s === 'ACTIVE';
+    return (
+      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+        on
+          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+          : 'bg-zinc-100 text-zinc-500 dark:bg-white/10'
+      }`}>
+        {s ?? '—'}
+      </span>
+    );
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-zinc-500">
+        Uma linha por campanha (captura diária). Mostrando o período:{' '}
+        <span className="font-medium">{WINDOW_LABELS[window] ?? window}</span>. Ajuste a janela na aba "Regras & Canais".
+      </p>
+
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-zinc-200 px-5 py-10 text-center dark:border-white/10">
+          <p className="text-sm text-zinc-400">
+            Nenhuma métrica de anúncio ainda. Peça pra crew o "panorama dos anúncios"
+            e os dados de cada campanha aparecem aqui automaticamente.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-white/10">
+          <table className="w-full border-collapse">
+            <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-white/5">
+              <tr>
+                <th className={th}>Campanha</th>
+                <th className={th}>Status</th>
+                <th className={th}>Investido</th>
+                <th className={th}>Impressões</th>
+                <th className={th}>Alcance</th>
+                <th className={th}>Cliques</th>
+                <th className={th}>CTR</th>
+                <th className={th}>CPC</th>
+                <th className={th}>CPM</th>
+                <th className={th}>Conversões</th>
+                <th className={th}>Capturado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-zinc-100 last:border-0 dark:border-white/5">
+                  <td className={td + ' max-w-[220px]'}>
+                    <span className="block truncate font-medium" title={r.campaignName ?? r.campaignId}>
+                      {r.campaignName ?? `Campanha ${r.campaignId.slice(-8)}`}
+                    </span>
+                    {r.objective && <span className="text-[10px] text-zinc-400">{r.objective}</span>}
+                  </td>
+                  <td className={td}>{statusChip(r.status)}</td>
+                  <td className={td + ' font-medium'}>{money(r.spend, r.currency)}</td>
+                  <td className={td}>{int(r.impressions)}</td>
+                  <td className={td}>{int(r.reach)}</td>
+                  <td className={td}>{int(r.clicks)}</td>
+                  <td className={td}>{dec(r.ctr, '%')}</td>
+                  <td className={td}>{money(r.cpc, r.currency)}</td>
+                  <td className={td}>{money(r.cpm, r.currency)}</td>
+                  <td className={td + ' font-medium'}>{int(r.conversions)}</td>
+                  <td className={td + ' whitespace-nowrap text-xs text-zinc-400'}>
+                    {new Date(r.capturedAt).toLocaleString('pt-BR')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
