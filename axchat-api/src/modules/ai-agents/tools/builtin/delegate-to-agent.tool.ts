@@ -37,7 +37,7 @@ export class DelegateToAgentTool implements AiTool {
       agentId: {
         type: 'string',
         description:
-          'O ID exato do agente especialista (vem da resposta de listAvailableAgents.agents[].agentId).',
+          'O ID do agente especialista (vem de listAvailableAgents.agents[].agentId). Também aceita o NOME do worker (ex.: "Alaric") caso você não tenha o id em mãos.',
       },
       reason: {
         type: 'string',
@@ -81,27 +81,45 @@ export class DelegateToAgentTool implements AiTool {
       return { output: { ok: false, error: 'agentId is required' } };
     }
 
-    const [target, self] = await Promise.all([
-      this.prisma.aiAgent.findFirst({
+    const self = await this.prisma.aiAgent.findUnique({
+      where: { id: ctx.agentId },
+      select: { sector: true },
+    });
+    // Não cruza marketing com atendimento: orquestrador só delega a workers
+    // do próprio setor.
+    const selfSector = self?.sector ?? 'ATENDIMENTO';
+
+    // Resolve por ID exato OU por NOME. O LLM às vezes manda o nome do worker
+    // ("alaric") em vez do id vindo de listAvailableAgents — aceitamos os dois
+    // pra não travar a delegação. O match por nome já escopa a WORKER do setor.
+    let target = await this.prisma.aiAgent.findFirst({
+      where: {
+        id: targetAgentId,
+        organizationId: ctx.organizationId,
+        isActive: true,
+        deletedAt: null,
+      },
+      select: { id: true, name: true, kind: true, sector: true },
+    });
+    if (!target) {
+      target = await this.prisma.aiAgent.findFirst({
         where: {
-          id: targetAgentId,
           organizationId: ctx.organizationId,
           isActive: true,
           deletedAt: null,
+          kind: 'WORKER',
+          sector: selfSector,
+          name: { equals: targetAgentId, mode: 'insensitive' },
         },
         select: { id: true, name: true, kind: true, sector: true },
-      }),
-      this.prisma.aiAgent.findUnique({
-        where: { id: ctx.agentId },
-        select: { sector: true },
-      }),
-    ]);
+      });
+    }
 
     if (!target) {
       return {
         output: {
           ok: false,
-          error: `Agent ${targetAgentId} not found in this organization or is inactive`,
+          error: `Agent "${targetAgentId}" not found in this organization or is inactive`,
         },
       };
     }
@@ -115,9 +133,6 @@ export class DelegateToAgentTool implements AiTool {
       };
     }
 
-    // Não cruza marketing com atendimento: orquestrador só delega a workers
-    // do próprio setor.
-    const selfSector = self?.sector ?? 'ATENDIMENTO';
     if (target.sector !== selfSector) {
       return {
         output: {
