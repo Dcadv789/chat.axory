@@ -371,7 +371,11 @@ export function ConversationList({ activeId, onSelect, viewId }: ConversationLis
         if (!showGroups) params.groups = 'exclude';
       }
       if (debouncedSearch) params.search = debouncedSearch;
-      if (selectedChannelId) params.channelId = selectedChannelId;
+      // Override de canal só vale FORA de uma view. Dentro de uma view o canal
+      // é fixado pelos filtros salvos dela (o seletor fica escondido), então um
+      // selectedChannelId persistido nas preferências NÃO pode vazar e
+      // substituir o channelIds da view (senão a inbox mostra o canal errado).
+      if (!viewId && selectedChannelId) params.channelId = selectedChannelId;
       if (selectedTagIds.length > 0) params.tagIds = selectedTagIds.join(',');
       if (selectedStatuses.length > 0) params.status = selectedStatuses.join(',');
       if (scope === 'MINE' && currentUserId) params.assignedToId = currentUserId;

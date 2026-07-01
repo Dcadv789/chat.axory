@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Megaphone, Loader2, Save } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Megaphone, Loader2, Save, MessagesSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   marketingService,
@@ -36,6 +37,25 @@ export default function MarketingRulesPage() {
     externalRulesSkill: '',
   });
   const [saving, setSaving] = useState(false);
+  const [openingCrew, setOpeningCrew] = useState(false);
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const handleOpenCrew = async () => {
+    setOpeningCrew(true);
+    try {
+      const res = await marketingService.ensureCrewChannel();
+      // Faz o atalho "Marketing (crew)" aparecer na lateral na hora.
+      queryClient.invalidateQueries({ queryKey: ['inbox-views'] });
+      if (res?.viewId) router.push(`/inbox?view=${res.viewId}`);
+      else if (res?.conversationId) router.push(`/inbox?conversationId=${res.conversationId}`);
+      else toast.error('Não foi possível abrir o canal da crew.');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Erro ao abrir o canal da crew');
+    } finally {
+      setOpeningCrew(false);
+    }
+  };
 
   useEffect(() => {
     if (profile) {
@@ -87,8 +107,8 @@ export default function MarketingRulesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
+    <div className="space-y-6">
+      <div className="max-w-3xl">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
           <Megaphone className="h-5 w-5 text-primary" />
           Regras de Marketing
@@ -100,49 +120,78 @@ export default function MarketingRulesPage() {
         </p>
       </div>
 
-      <Field label="O que a empresa faz">
-        <textarea rows={3} value={form.companyDescription} onChange={set('companyDescription')} className={inputCls}
-          placeholder="Ex: Escola de finanças e tecnologia para empreendedores…" />
-      </Field>
-
-      <Field label="Produtos / serviços oferecidos">
-        <textarea rows={4} value={form.products} onChange={set('products')} className={inputCls}
-          placeholder="Liste os produtos, com preço/posicionamento quando fizer sentido." />
-      </Field>
-
-      <Field label="Público-alvo padrão">
-        <textarea rows={3} value={form.targetAudience} onChange={set('targetAudience')} className={inputCls}
-          placeholder="Ex: empreendedores 25-45, Brasil, interesse em finanças e produtividade…" />
-      </Field>
-
-      <Field label="Tom de voz da marca">
-        <input type="text" value={form.toneOfVoice} onChange={set('toneOfVoice')} className={inputCls}
-          placeholder="Ex: direto, próximo, sem jargão, otimista." />
-      </Field>
-
-      <Field label="Diretrizes / limites (o que pode e o que não pode)">
-        <textarea rows={3} value={form.guidelines} onChange={set('guidelines')} className={inputCls}
-          placeholder="Ex: nunca prometer ROI; não citar concorrentes; sempre incluir CTA…" />
-      </Field>
-
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Verba mensal de mídia (R$)">
-          <input type="text" inputMode="decimal" value={form.monthlyAdBudget} onChange={set('monthlyAdBudget')}
-            className={inputCls} placeholder="Ex: 3000" />
-        </Field>
-        <Field label="Teto diário por campanha (R$)">
-          <input type="text" inputMode="decimal" value={form.maxDailyBudget} onChange={set('maxDailyBudget')}
-            className={inputCls} placeholder="Ex: 100" />
-        </Field>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <MessagesSquare className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              Falar com a crew de marketing
+            </p>
+            <p className="text-xs text-zinc-500">
+              Converse direto com o Magnus (orquestrador) e a crew dentro do app. O
+              atalho fica fixo na lateral, em "Marketing (crew)".
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleOpenCrew}
+          disabled={openingCrew}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+        >
+          {openingCrew ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessagesSquare className="h-4 w-4" />}
+          Abrir conversa
+        </button>
       </div>
 
-      <Field
-        label="Skill SQL de regras externas (opcional)"
-        hint="Para empresas com banco de dados próprio: nome de uma skill SQL que busca as regras lá. Deixe vazio para usar só o que está nesta página."
-      >
-        <input type="text" value={form.externalRulesSkill} onChange={set('externalRulesSkill')} className={inputCls}
-          placeholder="Ex: buscarRegrasMarketing" />
-      </Field>
+      <div className="grid items-start gap-x-6 gap-y-5 lg:grid-cols-2">
+        <Field label="O que a empresa faz">
+          <textarea rows={3} value={form.companyDescription} onChange={set('companyDescription')} className={inputCls}
+            placeholder="Ex: Escola de finanças e tecnologia para empreendedores…" />
+        </Field>
+
+        <Field label="Produtos / serviços oferecidos">
+          <textarea rows={4} value={form.products} onChange={set('products')} className={inputCls}
+            placeholder="Liste os produtos, com preço/posicionamento quando fizer sentido." />
+        </Field>
+
+        <Field label="Público-alvo padrão">
+          <textarea rows={3} value={form.targetAudience} onChange={set('targetAudience')} className={inputCls}
+            placeholder="Ex: empreendedores 25-45, Brasil, interesse em finanças e produtividade…" />
+        </Field>
+
+        <Field label="Tom de voz da marca">
+          <input type="text" value={form.toneOfVoice} onChange={set('toneOfVoice')} className={inputCls}
+            placeholder="Ex: direto, próximo, sem jargão, otimista." />
+        </Field>
+
+        <Field label="Diretrizes / limites (o que pode e o que não pode)">
+          <textarea rows={3} value={form.guidelines} onChange={set('guidelines')} className={inputCls}
+            placeholder="Ex: nunca prometer ROI; não citar concorrentes; sempre incluir CTA…" />
+        </Field>
+
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Verba mensal de mídia (R$)">
+              <input type="text" inputMode="decimal" value={form.monthlyAdBudget} onChange={set('monthlyAdBudget')}
+                className={inputCls} placeholder="Ex: 3000" />
+            </Field>
+            <Field label="Teto diário por campanha (R$)">
+              <input type="text" inputMode="decimal" value={form.maxDailyBudget} onChange={set('maxDailyBudget')}
+                className={inputCls} placeholder="Ex: 100" />
+            </Field>
+          </div>
+
+          <Field
+            label="Skill SQL de regras externas (opcional)"
+            hint="Para empresas com banco de dados próprio: nome de uma skill SQL que busca as regras lá. Deixe vazio para usar só o que está nesta página."
+          >
+            <input type="text" value={form.externalRulesSkill} onChange={set('externalRulesSkill')} className={inputCls}
+              placeholder="Ex: buscarRegrasMarketing" />
+          </Field>
+        </div>
+      </div>
 
       <div className="flex justify-end">
         <button onClick={handleSave} disabled={saving}

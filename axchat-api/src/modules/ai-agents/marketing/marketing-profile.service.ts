@@ -1,10 +1,24 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
+import { MarketingProvisioningService } from './marketing-provisioning.service';
 
 @Injectable()
 export class MarketingProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly provisioning: MarketingProvisioningService,
+  ) {}
+
+  /**
+   * Garante o canal interno de comando da crew (idempotente) e devolve os ids
+   * pro front abrir a conversa. Usado por orgs que ligaram o add-on antes desta
+   * feature existir.
+   */
+  async ensureCrewChannel(organizationId: string) {
+    await this.ensureEnabled(organizationId);
+    return this.provisioning.ensureCrewChannel(organizationId);
+  }
 
   /** Gate de plano: o módulo de Marketing é um add-on vendável (marketingEnabled). */
   private async ensureEnabled(organizationId: string) {

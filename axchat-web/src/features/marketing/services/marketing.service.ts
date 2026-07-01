@@ -61,4 +61,14 @@ export const marketingService = {
     const { data } = await api.get('/marketing/activity');
     return data?.data ?? data;
   },
+
+  /** Cria/garante o canal interno de comando da crew e retorna ids p/ abrir. */
+  async ensureCrewChannel(): Promise<{
+    channelId: string;
+    conversationId: string;
+    viewId: string | null;
+  } | null> {
+    const { data } = await api.post('/marketing/crew-channel');
+    return data?.data ?? data ?? null;
+  },
 };

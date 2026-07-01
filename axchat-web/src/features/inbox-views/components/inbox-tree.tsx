@@ -21,6 +21,8 @@ import {
   Trash2,
   Archive,
   MailOpen,
+  Megaphone,
+  Bot,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -42,6 +44,8 @@ const VIEW_ICON: Record<string, any> = {
   Star,
   Filter,
   Archive,
+  Megaphone,
+  Bot,
 };
 
 const COLOR_CLS: Record<string, string> = {

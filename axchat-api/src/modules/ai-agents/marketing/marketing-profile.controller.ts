@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { MarketingProfileService } from './marketing-profile.service';
@@ -27,6 +27,16 @@ export class MarketingProfileController {
     @Body() dto: UpsertMarketingProfileDto,
   ) {
     return this.service.upsert(orgId, dto);
+  }
+
+  @Post('crew-channel')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Garante (idempotente) o canal interno de comando da crew e retorna ids p/ abrir a conversa',
+  })
+  ensureCrewChannel(@CurrentOrg('id') orgId: string) {
+    return this.service.ensureCrewChannel(orgId);
   }
 
   @Get('activity')
