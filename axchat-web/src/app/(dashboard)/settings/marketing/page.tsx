@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import {
   marketingService,
   type UpsertMarketingProfileInput,
+  type MediaMetricRow,
 } from '@/features/marketing/services/marketing.service';
 
 const inputCls =
@@ -44,11 +45,19 @@ export default function MarketingRulesPage() {
     monthlyAdBudget: '',
     maxDailyBudget: '',
     externalRulesSkill: '',
+    analysisWindow: 'LAST_MONTH',
   });
   const [saving, setSaving] = useState(false);
   const [openingCrew, setOpeningCrew] = useState(false);
-  const [tab, setTab] = useState<'config' | 'activity'>('config');
+  const [tab, setTab] = useState<'config' | 'activity' | 'metrics'>('config');
   const [resyncing, setResyncing] = useState(false);
+  // Grupos de colunas visíveis na tabela de métricas (chips liga/desliga).
+  const [cols, setCols] = useState({
+    engagement: true,
+    identification: true,
+    rate: true,
+    delta: true,
+  });
 
   const handleResync = async () => {
     setResyncing(true);
@@ -130,11 +139,19 @@ export default function MarketingRulesPage() {
         monthlyAdBudget: toReais(profile.monthlyAdBudgetCents),
         maxDailyBudget: toReais(profile.maxDailyBudgetCents),
         externalRulesSkill: profile.externalRulesSkill ?? '',
+        analysisWindow: profile.analysisWindow ?? 'LAST_MONTH',
       });
     }
   }, [profile]);
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const { data: mediaMetrics } = useQuery({
+    queryKey: ['marketing-media-metrics'],
+    queryFn: () => marketingService.mediaMetrics(),
+    enabled: tab === 'metrics',
+    refetchInterval: 30000,
+  });
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const handleSave = async () => {
@@ -149,6 +166,7 @@ export default function MarketingRulesPage() {
         monthlyAdBudgetCents: toCents(form.monthlyAdBudget),
         maxDailyBudgetCents: toCents(form.maxDailyBudget),
         externalRulesSkill: form.externalRulesSkill.trim() || undefined,
+        analysisWindow: form.analysisWindow || undefined,
       };
       await marketingService.upsertProfile(payload);
       toast.success('Regras salvas!');
@@ -192,6 +210,16 @@ export default function MarketingRulesPage() {
           }`}
         >
           <Megaphone className="h-4 w-4" /> Regras & Canais
+        </button>
+        <button
+          onClick={() => setTab('metrics')}
+          className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium ${
+            tab === 'metrics'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+        >
+          <Activity className="h-4 w-4" /> Métricas dos posts
         </button>
         <button
           onClick={() => setTab('activity')}
@@ -356,6 +384,18 @@ export default function MarketingRulesPage() {
           </div>
 
           <Field
+            label="Janela de análise"
+            hint="Período que a crew considera ao analisar posts e métricas. Ela respeita a opção marcada."
+          >
+            <select value={form.analysisWindow} onChange={set('analysisWindow')} className={inputCls}>
+              <option value="LAST_MONTH">Último mês (30 dias)</option>
+              <option value="LAST_3_MONTHS">Últimos 3 meses</option>
+              <option value="LAST_6_MONTHS">Últimos 6 meses</option>
+              <option value="LAST_YEAR">Último ano (12 meses)</option>
+            </select>
+          </Field>
+
+          <Field
             label="Skill SQL de regras externas (opcional)"
             hint="Para empresas com banco de dados próprio: nome de uma skill SQL que busca as regras lá. Deixe vazio para usar só o que está nesta página."
           >
@@ -452,6 +492,167 @@ export default function MarketingRulesPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {tab === 'metrics' && (
+        <MetricsTab
+          rows={mediaMetrics?.metrics ?? []}
+          window={mediaMetrics?.window ?? 'LAST_MONTH'}
+          cols={cols}
+          setCols={setCols}
+        />
+      )}
+    </div>
+  );
+}
+
+const WINDOW_LABELS: Record<string, string> = {
+  LAST_MONTH: 'último mês',
+  LAST_3_MONTHS: 'últimos 3 meses',
+  LAST_6_MONTHS: 'últimos 6 meses',
+  LAST_YEAR: 'último ano',
+};
+
+const COL_GROUPS: { key: keyof MetricsCols; label: string }[] = [
+  { key: 'engagement', label: 'Engajamento' },
+  { key: 'identification', label: 'Identificação' },
+  { key: 'rate', label: 'Taxa de engajamento' },
+  { key: 'delta', label: 'Variação vs anterior' },
+];
+
+interface MetricsCols {
+  engagement: boolean;
+  identification: boolean;
+  rate: boolean;
+  delta: boolean;
+}
+
+function MetricsTab({
+  rows,
+  window,
+  cols,
+  setCols,
+}: {
+  rows: MediaMetricRow[];
+  window: string;
+  cols: MetricsCols;
+  setCols: React.Dispatch<React.SetStateAction<MetricsCols>>;
+}) {
+  // Delta = valor desta captura menos o da captura imediatamente anterior do
+  // MESMO post. rows vem ordenado por capturedAt desc — pra cada post, a
+  // "anterior" é a próxima linha (mais antiga) com o mesmo mediaId.
+  const prevByRow = new Map<string, MediaMetricRow | null>();
+  const seen = new Map<string, MediaMetricRow>();
+  // Percorre do mais antigo pro mais novo, guardando a última vista por mídia.
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i];
+    prevByRow.set(r.id, seen.get(r.mediaId) ?? null);
+    seen.set(r.mediaId, r);
+  }
+
+  const num = (n: number | null) => (n == null ? '—' : n.toLocaleString('pt-BR'));
+  const rate = (r: MediaMetricRow) => {
+    if (!r.reach || !r.totalInteractions) return '—';
+    return ((r.totalInteractions / r.reach) * 100).toFixed(1) + '%';
+  };
+  const delta = (r: MediaMetricRow) => {
+    const prev = prevByRow.get(r.id);
+    if (!prev || r.reach == null || prev.reach == null) return '—';
+    const d = r.reach - prev.reach;
+    if (d === 0) return '±0';
+    return (d > 0 ? '+' : '') + d.toLocaleString('pt-BR');
+  };
+
+  const th = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-500';
+  const td = 'px-3 py-2 text-sm tabular-nums text-zinc-700 dark:text-zinc-300';
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-zinc-500">
+          Cada linha é uma captura de métricas de um post (quando a crew o analisou).
+          Mostrando o período: <span className="font-medium">{WINDOW_LABELS[window] ?? window}</span>.
+          Ajuste a janela na aba "Regras & Canais".
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {COL_GROUPS.map((g) => (
+            <button
+              key={g.key}
+              onClick={() => setCols((c) => ({ ...c, [g.key]: !c[g.key] }))}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                cols[g.key]
+                  ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
+                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-white/5 dark:hover:bg-white/10'
+              }`}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-zinc-200 px-5 py-10 text-center dark:border-white/10">
+          <p className="text-sm text-zinc-400">
+            Nenhuma métrica capturada ainda. Peça pra crew analisar posts do
+            Instagram e os dados aparecem aqui automaticamente.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-white/10">
+          <table className="w-full border-collapse">
+            <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-white/5">
+              <tr>
+                {cols.identification && <th className={th}>Post</th>}
+                {cols.identification && <th className={th}>Capturado</th>}
+                {cols.engagement && <th className={th}>Alcance</th>}
+                {cols.engagement && <th className={th}>Curtidas</th>}
+                {cols.engagement && <th className={th}>Coment.</th>}
+                {cols.engagement && <th className={th}>Salvos</th>}
+                {cols.engagement && <th className={th}>Compart.</th>}
+                {cols.engagement && <th className={th}>Interações</th>}
+                {cols.rate && <th className={th}>Taxa eng.</th>}
+                {cols.delta && <th className={th}>Δ alcance</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-zinc-100 last:border-0 dark:border-white/5">
+                  {cols.identification && (
+                    <td className={td + ' font-mono text-xs'}>
+                      {r.permalink ? (
+                        <a href={r.permalink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                          {r.mediaId.slice(-8)}
+                        </a>
+                      ) : (
+                        r.mediaId.slice(-8)
+                      )}
+                    </td>
+                  )}
+                  {cols.identification && (
+                    <td className={td + ' whitespace-nowrap text-xs text-zinc-400'}>
+                      {new Date(r.capturedAt).toLocaleString('pt-BR')}
+                    </td>
+                  )}
+                  {cols.engagement && <td className={td}>{num(r.reach)}</td>}
+                  {cols.engagement && <td className={td}>{num(r.likes)}</td>}
+                  {cols.engagement && <td className={td}>{num(r.comments)}</td>}
+                  {cols.engagement && <td className={td}>{num(r.saved)}</td>}
+                  {cols.engagement && <td className={td}>{num(r.shares)}</td>}
+                  {cols.engagement && <td className={td}>{num(r.totalInteractions)}</td>}
+                  {cols.rate && <td className={td + ' font-medium'}>{rate(r)}</td>}
+                  {cols.delta && (
+                    <td className={td}>
+                      <span className={delta(r).startsWith('+') ? 'text-emerald-600 dark:text-emerald-400' : delta(r).startsWith('-') ? 'text-red-600 dark:text-red-400' : 'text-zinc-400'}>
+                        {delta(r)}
+                      </span>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

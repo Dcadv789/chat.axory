@@ -269,6 +269,7 @@ model Organization {
   marketingMediaAssets MarketingMediaAsset[]
   marketingAnalyses    MarketingAnalysis[]
   marketingActivities  MarketingActivity[]
+  marketingMediaMetrics MarketingMediaMetric[]
   assistantConfigs     PersonalAssistantConfig[]
   personalTasks        PersonalTask[]
   personalNotes        PersonalNote[]
@@ -1359,6 +1360,10 @@ model MarketingProfile {
   // Se a org puxa as regras de um banco EXTERNO, qual skill SQL usar.
   externalRulesSkill String? @map("external_rules_skill") // nome da AiSkill SQL, se houver
 
+  // Janela de tempo que a crew usa ao analisar posts/dados (a crew respeita a
+  // opção marcada). LAST_MONTH | LAST_3_MONTHS | LAST_6_MONTHS | LAST_YEAR.
+  analysisWindow String @default("LAST_MONTH") @map("analysis_window")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -1442,6 +1447,39 @@ model MarketingActivity {
   @@index([organizationId, createdAt], name: "idx_mkt_activity_org_time")
   @@index([organizationId, action], name: "idx_mkt_activity_org_action")
   @@map("marketing_activities")
+}
+
+// Snapshot das métricas de um post do Instagram, capturado toda vez que a crew
+// analisa a mídia (skill analyzeInstagramMedia). É série temporal: cada análise
+// grava uma linha datada, então dá pra acompanhar a evolução de cada post ao
+// longo do tempo.
+model MarketingMediaMetric {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  agentId        String? @map("agent_id")
+  runId          String? @map("run_id")
+
+  mediaId   String  @map("media_id") // id da mídia no Instagram
+  mediaType String? @map("media_type") // IMAGE | VIDEO | REEL | CAROUSEL_ALBUM (quando conhecido)
+  permalink String? @db.Text // link do post, quando disponível
+
+  reach             Int?
+  likes             Int?
+  comments          Int?
+  saved             Int?
+  shares            Int?
+  totalInteractions Int? @map("total_interactions")
+  views             Int?
+
+  raw Json? // retorno cru das insights (auditoria)
+
+  capturedAt DateTime @default(now()) @map("captured_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, mediaId, capturedAt], name: "idx_mkt_metric_org_media_time")
+  @@index([organizationId, capturedAt], name: "idx_mkt_metric_org_time")
+  @@map("marketing_media_metrics")
 }
 
 // ─── Assistente Pessoal (add-on do dono/gestor) ───────────────

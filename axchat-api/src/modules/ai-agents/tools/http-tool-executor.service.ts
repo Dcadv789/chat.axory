@@ -157,6 +157,9 @@ export class HttpToolExecutorService {
           : { ok, status: response.status, body: parsed };
 
       await this.recordMarketingActivity(skill, ctx, ok ? 'OK' : 'FAILED', output);
+      // Persiste snapshot de métricas por post (série temporal) quando a crew
+      // analisa uma mídia do Instagram com sucesso. Fire-and-forget.
+      if (ok) await this.recordMediaMetricSnapshot(skill, input, ctx, output);
       return { output };
     } catch (err: any) {
       const isTimeout = err?.name === 'AbortError';
@@ -207,6 +210,61 @@ export class HttpToolExecutorService {
     } catch (e: any) {
       this.logger.warn(
         `marketing_activity log falhou (${skill.name}): ${e?.message ?? e}`,
+      );
+    }
+  }
+
+  /**
+   * Quando a skill analyzeInstagramMedia roda com sucesso, grava um snapshot das
+   * métricas do post em marketing_media_metrics. O Graph API devolve insights
+   * como array `[{name, values:[{value}]}]` — mapeamos pra colunas tipadas e
+   * guardamos o array cru em `raw`. Cada análise = uma linha datada (histórico).
+   */
+  private async recordMediaMetricSnapshot(
+    skill: AiSkill,
+    input: Record<string, unknown>,
+    ctx: ToolContext,
+    output: unknown,
+  ): Promise<void> {
+    if (skill.name !== 'analyzeInstagramMedia') return;
+    const mediaId = typeof input.mediaId === 'string' ? input.mediaId : null;
+    if (!mediaId) return;
+    const o = (output ?? {}) as Record<string, unknown>;
+    const insights = o.insights ?? (o.body as any)?.data;
+    if (!Array.isArray(insights)) return;
+
+    // name → primeiro value. Ex.: reach, likes, comments, saved, shares,
+    // total_interactions, views (nomes da Graph API v22 de media insights).
+    const byName = new Map<string, number>();
+    for (const item of insights) {
+      const name = item?.name;
+      const value = item?.values?.[0]?.value ?? item?.total_value?.value;
+      if (typeof name === 'string' && typeof value === 'number') {
+        byName.set(name, value);
+      }
+    }
+    if (byName.size === 0) return;
+
+    try {
+      await this.prisma.marketingMediaMetric.create({
+        data: {
+          organizationId: ctx.organizationId,
+          agentId: ctx.agentId,
+          runId: ctx.runId,
+          mediaId,
+          reach: byName.get('reach') ?? null,
+          likes: byName.get('likes') ?? null,
+          comments: byName.get('comments') ?? null,
+          saved: byName.get('saved') ?? null,
+          shares: byName.get('shares') ?? null,
+          totalInteractions: byName.get('total_interactions') ?? null,
+          views: byName.get('views') ?? byName.get('plays') ?? null,
+          raw: this.safeActivityPayload(insights),
+        },
+      });
+    } catch (e: any) {
+      this.logger.warn(
+        `marketing_media_metric snapshot falhou (media ${mediaId}): ${e?.message ?? e}`,
       );
     }
   }

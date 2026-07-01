@@ -77,12 +77,41 @@ export class MarketingProfileService {
       maxDailyBudgetCents: dto.maxDailyBudgetCents ?? null,
       currency: dto.currency || 'BRL',
       externalRulesSkill: dto.externalRulesSkill ?? null,
+      ...(dto.analysisWindow ? { analysisWindow: dto.analysisWindow } : {}),
     };
     return this.prisma.marketingProfile.upsert({
       where: { organizationId },
       create: { organizationId, ...data },
       update: data,
     });
+  }
+
+  /**
+   * Métricas de posts (série temporal). Filtra pela janela salva no perfil
+   * (último mês/3/6/ano) — a mesma opção que a crew usa. Ordena da mais recente.
+   */
+  async mediaMetrics(organizationId: string, limit = 500) {
+    await this.ensureEnabled(organizationId);
+    const profile = await this.prisma.marketingProfile.findUnique({
+      where: { organizationId },
+      select: { analysisWindow: true },
+    });
+    const win = profile?.analysisWindow ?? 'LAST_MONTH';
+    const days =
+      win === 'LAST_YEAR'
+        ? 365
+        : win === 'LAST_6_MONTHS'
+          ? 182
+          : win === 'LAST_3_MONTHS'
+            ? 91
+            : 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const metrics = await this.prisma.marketingMediaMetric.findMany({
+      where: { organizationId, capturedAt: { gte: since } },
+      orderBy: { capturedAt: 'desc' },
+      take: limit,
+    });
+    return { window: win, since: since.toISOString(), metrics };
   }
 
   /** Log + análises recentes pra um painel de auditoria do marketing. */

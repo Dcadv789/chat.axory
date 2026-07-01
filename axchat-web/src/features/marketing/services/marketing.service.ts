@@ -12,6 +12,7 @@ export interface MarketingProfile {
   maxDailyBudgetCents: number | null;
   currency: string;
   externalRulesSkill: string | null;
+  analysisWindow: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,6 +27,22 @@ export interface UpsertMarketingProfileInput {
   maxDailyBudgetCents?: number;
   currency?: string;
   externalRulesSkill?: string;
+  analysisWindow?: string;
+}
+
+export interface MediaMetricRow {
+  id: string;
+  mediaId: string;
+  mediaType: string | null;
+  permalink: string | null;
+  reach: number | null;
+  likes: number | null;
+  comments: number | null;
+  saved: number | null;
+  shares: number | null;
+  totalInteractions: number | null;
+  views: number | null;
+  capturedAt: string;
 }
 
 export interface MarketingActivity {
@@ -91,6 +108,15 @@ export const marketingService = {
   /** Re-aplica as skills/agents da crew (idempotente) — pega correções nas skills. */
   async resyncCrew(): Promise<void> {
     await api.post('/marketing/resync');
+  },
+
+  async mediaMetrics(): Promise<{
+    window: string;
+    since: string;
+    metrics: MediaMetricRow[];
+  }> {
+    const { data } = await api.get('/marketing/media-metrics');
+    return data?.data ?? data;
   },
 };
 

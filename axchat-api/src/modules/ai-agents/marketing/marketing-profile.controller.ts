@@ -97,4 +97,18 @@ export class MarketingProfileController {
       limit ? Math.min(parseInt(limit, 10) || 50, 200) : 50,
     );
   }
+
+  @Get('media-metrics')
+  @ApiOperation({
+    summary: 'Métricas por post do Instagram (série temporal, pela janela do perfil)',
+  })
+  mediaMetrics(
+    @CurrentOrg('id') orgId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.service.mediaMetrics(
+      orgId,
+      limit ? Math.min(parseInt(limit, 10) || 500, 2000) : 500,
+    );
+  }
 }

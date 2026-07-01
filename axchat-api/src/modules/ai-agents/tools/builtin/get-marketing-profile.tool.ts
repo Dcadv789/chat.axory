@@ -39,6 +39,15 @@ export class GetMarketingProfileTool implements AiTool {
       };
     }
 
+    const windowLabels: Record<string, string> = {
+      LAST_MONTH: 'último mês (30 dias)',
+      LAST_3_MONTHS: 'últimos 3 meses',
+      LAST_6_MONTHS: 'últimos 6 meses',
+      LAST_YEAR: 'último ano (12 meses)',
+    };
+    const win = (p as any).analysisWindow ?? 'LAST_MONTH';
+    const windowLabel = windowLabels[win] ?? windowLabels.LAST_MONTH;
+
     return {
       output: {
         ok: true,
@@ -52,6 +61,8 @@ export class GetMarketingProfileTool implements AiTool {
         maxDailyBudgetCents: p.maxDailyBudgetCents,
         currency: p.currency,
         externalRulesSkill: p.externalRulesSkill,
+        analysisWindow: win,
+        analysisInstruction: `Ao analisar posts, mídias ou métricas, considere apenas o período: ${windowLabel}. NÃO analise conteúdo mais antigo que essa janela, a menos que o usuário peça explicitamente.`,
         note: p.externalRulesSkill
           ? `Há regras adicionais num banco externo — consulte também a skill "${p.externalRulesSkill}".`
           : undefined,

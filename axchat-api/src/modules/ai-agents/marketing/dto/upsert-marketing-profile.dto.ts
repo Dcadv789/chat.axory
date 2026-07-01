@@ -4,8 +4,16 @@ import {
   IsString,
   Min,
   MaxLength,
+  IsIn,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+export const ANALYSIS_WINDOWS = [
+  'LAST_MONTH',
+  'LAST_3_MONTHS',
+  'LAST_6_MONTHS',
+  'LAST_YEAR',
+] as const;
 
 export class UpsertMarketingProfileDto {
   @ApiPropertyOptional({ description: 'O que a empresa faz.' })
@@ -64,4 +72,13 @@ export class UpsertMarketingProfileDto {
   @IsString()
   @MaxLength(120)
   externalRulesSkill?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Janela de tempo que a crew usa ao analisar posts/dados.',
+    enum: ANALYSIS_WINDOWS,
+  })
+  @IsOptional()
+  @IsIn(ANALYSIS_WINDOWS as unknown as string[])
+  analysisWindow?: string;
 }
