@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Megaphone, Loader2, Save, MessagesSquare } from 'lucide-react';
+import { Megaphone, Loader2, Save, MessagesSquare, Plus, Trash2, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   marketingService,
@@ -40,6 +40,39 @@ export default function MarketingRulesPage() {
   const [openingCrew, setOpeningCrew] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const { data: crewChannels, refetch: refetchCrewChannels } = useQuery({
+    queryKey: ['marketing-crew-channels'],
+    queryFn: () => marketingService.listCrewChannels(),
+  });
+  const [attaching, setAttaching] = useState('');
+
+  const handleAttachChannel = async (channelId: string) => {
+    if (!channelId) return;
+    setAttaching(channelId);
+    try {
+      await marketingService.attachCrewChannel(channelId);
+      toast.success('Canal vinculado à crew');
+      refetchCrewChannels();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Erro ao vincular canal');
+    } finally {
+      setAttaching('');
+    }
+  };
+
+  const handleDetachChannel = async (channelId: string) => {
+    setAttaching(channelId);
+    try {
+      await marketingService.detachCrewChannel(channelId);
+      toast.success('Canal desvinculado');
+      refetchCrewChannels();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Erro ao desvincular canal');
+    } finally {
+      setAttaching('');
+    }
+  };
 
   const handleOpenCrew = async () => {
     setOpeningCrew(true);
@@ -143,6 +176,76 @@ export default function MarketingRulesPage() {
           {openingCrew ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessagesSquare className="h-4 w-4" />}
           Abrir conversa
         </button>
+      </div>
+
+      {/* Canais da crew — além do console interno, dá pra atender a crew por um
+          canal externo (ex.: Telegram) pra usar do celular. */}
+      <div className="rounded-xl border border-zinc-200 px-5 py-4 dark:border-white/10">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-zinc-500" />
+          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Canais da crew
+          </p>
+        </div>
+        <p className="mt-1 text-xs text-zinc-500">
+          Canais atendidos pela crew (Magnus). Vincule um canal externo — ex.:
+          Telegram — para conversar com a crew pelo celular. Atenção: o canal
+          escolhido passa a ser atendido pela crew, então use um canal dedicado.
+        </p>
+
+        <div className="mt-3 space-y-2">
+          {(crewChannels?.channels ?? []).map((ch) => (
+            <div
+              key={ch.id}
+              className="flex items-center justify-between rounded-lg border border-zinc-100 px-3 py-2 dark:border-white/10"
+            >
+              <div className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                <span className="font-medium">{ch.name}</span>
+                <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-white/10">
+                  {ch.type}
+                </span>
+                {ch.isPrimary && (
+                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                    console interno
+                  </span>
+                )}
+              </div>
+              {!ch.isPrimary && (
+                <button
+                  onClick={() => handleDetachChannel(ch.id)}
+                  disabled={attaching === ch.id}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-500/10"
+                >
+                  {attaching === ch.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Desvincular
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {(crewChannels?.available?.length ?? 0) > 0 && (
+          <div className="mt-3 flex items-center gap-2">
+            <select
+              className={inputCls + ' max-w-xs'}
+              defaultValue=""
+              onChange={(e) => {
+                handleAttachChannel(e.target.value);
+                e.target.value = '';
+              }}
+            >
+              <option value="" disabled>
+                Vincular um canal externo…
+              </option>
+              {crewChannels!.available.map((ch) => (
+                <option key={ch.id} value={ch.id}>
+                  {ch.name} ({ch.type})
+                </option>
+              ))}
+            </select>
+            <Plus className="h-4 w-4 text-zinc-400" />
+          </div>
+        )}
       </div>
 
       <div className="grid items-start gap-x-6 gap-y-5 lg:grid-cols-2">

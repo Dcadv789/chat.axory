@@ -71,4 +71,27 @@ export const marketingService = {
     const { data } = await api.post('/marketing/crew-channel');
     return data?.data ?? data ?? null;
   },
+
+  async listCrewChannels(): Promise<{
+    channels: CrewChannel[];
+    available: { id: string; name: string; type: string }[];
+  }> {
+    const { data } = await api.get('/marketing/crew-channels');
+    return data?.data ?? data;
+  },
+
+  async attachCrewChannel(channelId: string): Promise<void> {
+    await api.post('/marketing/crew-channels', { channelId });
+  },
+
+  async detachCrewChannel(channelId: string): Promise<void> {
+    await api.delete(`/marketing/crew-channels/${channelId}`);
+  },
 };
+
+export interface CrewChannel {
+  id: string;
+  name: string;
+  type: string;
+  isPrimary: boolean;
+}

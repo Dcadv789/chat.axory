@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import * as path from 'node:path';
 import {
@@ -60,16 +60,7 @@ export class MarketingProvisioningService {
     viewId: string | null;
   } | null> {
     // 1) Orquestrador de marketing (Magnus).
-    const magnus = await this.prisma.aiAgent.findFirst({
-      where: {
-        organizationId,
-        sector: 'MARKETING',
-        kind: 'ORCHESTRATOR',
-        deletedAt: null,
-      },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true },
-    });
+    const magnus = await this.getMagnus(organizationId);
     if (!magnus) {
       this.logger.warn(
         `ensureCrewChannel: nenhum orquestrador de marketing na org ${organizationId} (rode o provisionamento antes).`,
@@ -197,6 +188,116 @@ export class MarketingProvisioningService {
       data: { organizationId, userId: owner.userId, order: -1, ...data },
     });
     return created.id;
+  }
+
+  private getMagnus(organizationId: string) {
+    return this.prisma.aiAgent.findFirst({
+      where: {
+        organizationId,
+        sector: 'MARKETING',
+        kind: 'ORCHESTRATOR',
+        deletedAt: null,
+      },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+  }
+
+  /**
+   * Lista os canais atendidos pela crew (defaultOrchestrator = Magnus) +
+   * os canais externos disponíveis pra vincular. O canal interno principal
+   * vem marcado como `isPrimary` (não pode ser desvinculado).
+   */
+  async listCrewChannels(organizationId: string) {
+    const magnus = await this.getMagnus(organizationId);
+    if (!magnus) return { channels: [], available: [] };
+
+    const attached = await this.prisma.channel.findMany({
+      where: { organizationId, defaultOrchestratorId: magnus.id, deletedAt: null },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: 'asc' },
+    });
+    const channels = attached.map((c) => ({
+      ...c,
+      isPrimary: c.type === ChannelType.INTERNAL && c.name === CREW_CHANNEL_NAME,
+    }));
+    const inUse = new Set(channels.map((c) => c.id));
+
+    // Só oferecemos canais EXTERNOS pra vincular (Telegram, WhatsApp, IG…).
+    // O console interno já existe; não faz sentido plugar outro interno.
+    const all = await this.prisma.channel.findMany({
+      where: {
+        organizationId,
+        isActive: true,
+        deletedAt: null,
+        type: { not: ChannelType.INTERNAL },
+      },
+      select: { id: true, name: true, type: true },
+      orderBy: { name: 'asc' },
+    });
+    const available = all.filter((c) => !inUse.has(c.id));
+    return { channels, available };
+  }
+
+  /**
+   * Vincula um canal externo à crew: aponta o defaultOrchestrator dele pro
+   * Magnus e cria o link do agente (AUTONOMOUS/ALWAYS). A partir daí, mensagens
+   * que chegam nesse canal são atendidas pela crew — ex.: falar pelo Telegram.
+   */
+  async attachCrewChannel(
+    organizationId: string,
+    channelId: string,
+  ): Promise<{ ok: boolean }> {
+    const magnus = await this.getMagnus(organizationId);
+    if (!magnus) {
+      throw new BadRequestException('Crew de marketing não provisionada.');
+    }
+    const channel = await this.prisma.channel.findFirst({
+      where: { id: channelId, organizationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!channel) throw new BadRequestException('Canal não encontrado.');
+
+    await this.prisma.aiAgentChannel.upsert({
+      where: { agentId_channelId: { agentId: magnus.id, channelId } },
+      update: { mode: 'AUTONOMOUS', trigger: 'ALWAYS' },
+      create: { agentId: magnus.id, channelId, mode: 'AUTONOMOUS', trigger: 'ALWAYS' },
+    });
+    await this.prisma.channel.update({
+      where: { id: channelId },
+      data: { defaultOrchestratorId: magnus.id },
+    });
+    return { ok: true };
+  }
+
+  /** Desvincula um canal da crew (não permite remover o console interno). */
+  async detachCrewChannel(
+    organizationId: string,
+    channelId: string,
+  ): Promise<{ ok: boolean }> {
+    const magnus = await this.getMagnus(organizationId);
+    if (!magnus) {
+      throw new BadRequestException('Crew de marketing não provisionada.');
+    }
+    const channel = await this.prisma.channel.findFirst({
+      where: { id: channelId, organizationId, deletedAt: null },
+      select: { id: true, type: true, name: true },
+    });
+    if (!channel) throw new BadRequestException('Canal não encontrado.');
+    if (channel.type === ChannelType.INTERNAL && channel.name === CREW_CHANNEL_NAME) {
+      throw new BadRequestException(
+        'O console interno da crew não pode ser desvinculado.',
+      );
+    }
+    await this.prisma.aiAgentChannel.deleteMany({
+      where: { agentId: magnus.id, channelId },
+    });
+    // Só limpa o defaultOrchestrator se ainda for o Magnus (não pisa em outro).
+    await this.prisma.channel.updateMany({
+      where: { id: channelId, defaultOrchestratorId: magnus.id },
+      data: { defaultOrchestratorId: null },
+    });
+    return { ok: true };
   }
 
   /**

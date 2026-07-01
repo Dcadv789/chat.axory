@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { MarketingProfileService } from './marketing-profile.service';
@@ -37,6 +47,33 @@ export class MarketingProfileController {
   })
   ensureCrewChannel(@CurrentOrg('id') orgId: string) {
     return this.service.ensureCrewChannel(orgId);
+  }
+
+  @Get('crew-channels')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Canais atendidos pela crew + externos disponíveis' })
+  listCrewChannels(@CurrentOrg('id') orgId: string) {
+    return this.service.listCrewChannels(orgId);
+  }
+
+  @Post('crew-channels')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Vincula um canal externo (ex.: Telegram) à crew' })
+  attachCrewChannel(
+    @CurrentOrg('id') orgId: string,
+    @Body() body: { channelId: string },
+  ) {
+    return this.service.attachCrewChannel(orgId, body.channelId);
+  }
+
+  @Delete('crew-channels/:channelId')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Desvincula um canal da crew' })
+  detachCrewChannel(
+    @CurrentOrg('id') orgId: string,
+    @Param('channelId') channelId: string,
+  ) {
+    return this.service.detachCrewChannel(orgId, channelId);
   }
 
   @Get('activity')

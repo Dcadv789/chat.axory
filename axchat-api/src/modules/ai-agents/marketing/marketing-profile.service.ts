@@ -20,6 +20,22 @@ export class MarketingProfileService {
     return this.provisioning.ensureCrewChannel(organizationId);
   }
 
+  /** Canais atendidos pela crew + externos disponíveis pra vincular. */
+  async listCrewChannels(organizationId: string) {
+    await this.ensureEnabled(organizationId);
+    return this.provisioning.listCrewChannels(organizationId);
+  }
+
+  async attachCrewChannel(organizationId: string, channelId: string) {
+    await this.ensureEnabled(organizationId);
+    return this.provisioning.attachCrewChannel(organizationId, channelId);
+  }
+
+  async detachCrewChannel(organizationId: string, channelId: string) {
+    await this.ensureEnabled(organizationId);
+    return this.provisioning.detachCrewChannel(organizationId, channelId);
+  }
+
   /** Gate de plano: o módulo de Marketing é um add-on vendável (marketingEnabled). */
   private async ensureEnabled(organizationId: string) {
     const org = await this.prisma.organization.findUnique({
