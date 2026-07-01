@@ -71,6 +71,11 @@ interface RunInput {
 }
 
 const MAX_CHAIN_DEPTH = 3;
+// Canais INTERNOS (console da crew, crons): um ciclo completo da crew de
+// marketing é Magnus → worker → Magnus → worker… (delegação + hand-back
+// contam 1 hop cada). Com 5 workers isso dá ~11 hops; 3 truncava o ciclo
+// no segundo worker. Externo (cliente) continua curto por segurança/custo.
+const MAX_CHAIN_DEPTH_INTERNAL = 12;
 
 @Injectable()
 export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
@@ -610,13 +615,25 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
 
       // Auto-chain: delegation and hand-back should continue in the same turn
       // so the customer gets a response without sending another message.
-      // Bounded by MAX_CHAIN_DEPTH to avoid recursion.
-      if (chainDepth < MAX_CHAIN_DEPTH) {
+      // Bounded by MAX_CHAIN_DEPTH (externo) / MAX_CHAIN_DEPTH_INTERNAL to
+      // avoid recursion.
+      if (chainDepth < MAX_CHAIN_DEPTH_INTERNAL) {
         const refreshed = await this.prisma.conversation.findUnique({
           where: { id: conversation.id },
           include: { channel: { select: { type: true } } },
         });
         if (!refreshed) return;
+
+        const maxDepth =
+          refreshed.channel?.type === 'INTERNAL'
+            ? MAX_CHAIN_DEPTH_INTERNAL
+            : MAX_CHAIN_DEPTH;
+        if (chainDepth >= maxDepth) {
+          this.logger.warn(
+            `Auto-chain interrompido no limite de profundidade (${maxDepth}) na conv ${conversation.id}.`,
+          );
+          return;
+        }
 
         // Auto-chains consomem LLM sem passar pelo `shouldHandle` (onde a cota
         // é checada). Reforça a cota aqui: um org sem saldo de tokens/conversas
