@@ -46,6 +46,11 @@ interface ChatPanelProps {
   /** Chat interno do Assistente Pessoal: inverte os lados (MINHAS mensagens à
    *  direita/azul, a IA à esquerda) e mostra a IA como quem fala comigo. */
   assistantMode?: boolean;
+  /** Console interno genérico (ex.: canal da crew de marketing): inverte os
+   *  lados igual ao assistantMode — MINHAS mensagens à direita/azul, as da IA à
+   *  esquerda/cinza — mas mostrando o NOME do agente que respondeu (Magnus,
+   *  Alaric…) em vez do rótulo fixo "Assistente". */
+  internalConsole?: boolean;
 }
 
 const statusIcons: Record<string, React.ElementType> = {
@@ -378,7 +383,10 @@ export function ChatPanel({
   onToggleContactSidebar,
   contactSidebarOpen,
   assistantMode = false,
+  internalConsole = false,
 }: ChatPanelProps) {
+  // Ambos invertem o layout (minhas mensagens à direita/azul, IA à esquerda).
+  const invertLayout = assistantMode || internalConsole;
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -919,10 +927,11 @@ export function ChatPanel({
               const visibleMessages = messages.filter((m) => m.type !== 'REACTION');
               let lastDateKey = '';
               return visibleMessages.map((msg) => {
-                // No chat interno do assistente, "eu" sou o dono (INBOUND), então
-                // invertemos: minhas mensagens viram o lado destacado (direita/
-                // azul) e as da IA viram o outro lado, como se ela falasse comigo.
-                const isOutbound = assistantMode
+                // Num console interno (assistente ou crew), "eu" sou o dono
+                // (INBOUND), então invertemos: minhas mensagens viram o lado
+                // destacado (direita/azul) e as da IA viram o outro lado, como
+                // se ela falasse comigo.
+                const isOutbound = invertLayout
                   ? msg.direction === 'INBOUND'
                   : msg.direction === 'OUTBOUND';
                 const isPrivateNote = msg.type === 'INTERNAL_NOTE';
@@ -980,12 +989,14 @@ export function ChatPanel({
                         name={
                           assistantMode
                             ? 'Assistente'
-                            : conversation.isGroup && msg.senderName
-                              ? msg.senderName
-                              : conversation.contact.name
+                            : internalConsole
+                              ? msg.senderName || 'IA'
+                              : conversation.isGroup && msg.senderName
+                                ? msg.senderName
+                                : conversation.contact.name
                         }
                         avatarUrl={
-                          assistantMode || conversation.isGroup
+                          assistantMode || internalConsole || conversation.isGroup
                             ? null
                             : conversation.contact.avatarUrl
                         }

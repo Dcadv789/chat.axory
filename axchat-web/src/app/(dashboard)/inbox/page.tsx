@@ -100,6 +100,11 @@ export default function InboxPage() {
   const isAssistantChat =
     !!assistantCfg?.channelId &&
     activeConversation?.channelId === assistantCfg.channelId;
+  // Console interno genérico (ex.: canal da crew de marketing): mesmo layout
+  // invertido do assistente, mas sem o painel de tarefas e mostrando o nome do
+  // agente que respondeu. O assistente tem o modo próprio (assistantMode).
+  const isInternalConsole =
+    activeConversation?.channel?.type === 'INTERNAL' && !isAssistantChat;
 
   // Switching inbox view should clear the open conversation so the right
   // panel doesn't show a thread that may not even match the new filter.
@@ -201,6 +206,7 @@ export default function InboxPage() {
               onToggleContactSidebar={toggleContactSidebar}
               contactSidebarOpen={contactSidebarOpen}
               assistantMode={isAssistantChat}
+              internalConsole={isInternalConsole}
             />
             {/* Conversa do Assistente: painel de tarefas/agenda à direita (só
                 nela). As barras de contato/logs continuam funcionando pelos

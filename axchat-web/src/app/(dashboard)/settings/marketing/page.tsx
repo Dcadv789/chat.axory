@@ -45,6 +45,12 @@ export default function MarketingRulesPage() {
     queryKey: ['marketing-crew-channels'],
     queryFn: () => marketingService.listCrewChannels(),
   });
+
+  const { data: activity } = useQuery({
+    queryKey: ['marketing-activity'],
+    queryFn: () => marketingService.activity(),
+    refetchInterval: 15000,
+  });
   const [attaching, setAttaching] = useState('');
 
   const handleAttachChannel = async (channelId: string) => {
@@ -302,6 +308,87 @@ export default function MarketingRulesPage() {
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Salvar regras
         </button>
+      </div>
+
+      {/* Atividade da crew — análises gravadas (recordMarketingAnalysis) + log */}
+      <div className="rounded-xl border border-zinc-200 px-5 py-4 dark:border-white/10">
+        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          Atividade da crew
+        </p>
+        <p className="mt-1 text-xs text-zinc-500">
+          Análises que os agentes gravaram e o histórico de ações. Atualiza sozinho.
+        </p>
+
+        <div className="mt-4 grid gap-6 lg:grid-cols-2">
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Análises salvas ({activity?.analyses?.length ?? 0})
+            </p>
+            <div className="space-y-2">
+              {(activity?.analyses ?? []).length === 0 ? (
+                <p className="text-xs text-zinc-400">Nenhuma análise ainda.</p>
+              ) : (
+                activity!.analyses.map((a) => (
+                  <div key={a.id} className="rounded-lg border border-zinc-100 px-3 py-2 dark:border-white/10">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        {a.kind}
+                      </span>
+                      <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{a.title}</span>
+                    </div>
+                    <p className="mt-1 whitespace-pre-line text-xs text-zinc-600 dark:text-zinc-400">
+                      {a.summary}
+                    </p>
+                    {a.recommendations && (
+                      <p className="mt-1 text-xs text-zinc-500">
+                        <span className="font-medium">Próximos passos:</span> {a.recommendations}
+                      </p>
+                    )}
+                    <p className="mt-1 text-[10px] text-zinc-400">
+                      {new Date(a.createdAt).toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Log de ações ({activity?.activities?.length ?? 0})
+            </p>
+            <div className="space-y-1.5">
+              {(activity?.activities ?? []).length === 0 ? (
+                <p className="text-xs text-zinc-400">Nenhuma ação registrada ainda.</p>
+              ) : (
+                activity!.activities.map((ac) => (
+                  <div key={ac.id} className="flex items-center justify-between gap-2 rounded-lg border border-zinc-100 px-3 py-1.5 dark:border-white/10">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                        {ac.title || ac.action}
+                      </p>
+                      <p className="text-[10px] text-zinc-400">
+                        {ac.action}
+                        {ac.channel ? ` · ${ac.channel}` : ''} · {new Date(ac.createdAt).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                        ac.status === 'OK'
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                          : ac.status === 'FAILED'
+                            ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                      }`}
+                    >
+                      {ac.status}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

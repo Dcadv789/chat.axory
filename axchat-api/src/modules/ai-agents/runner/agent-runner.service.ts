@@ -614,21 +614,30 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
       if (chainDepth < MAX_CHAIN_DEPTH) {
         const refreshed = await this.prisma.conversation.findUnique({
           where: { id: conversation.id },
+          include: { channel: { select: { type: true } } },
         });
         if (!refreshed) return;
 
         // Auto-chains consomem LLM sem passar pelo `shouldHandle` (onde a cota
         // é checada). Reforça a cota aqui: um org sem saldo de tokens/conversas
         // não fura o limite via delegação/hand-back encadeados no mesmo turno.
-        const budget = await this.agentRouter.isWithinAiBudget(
-          conversation.organizationId,
-          conversation.id,
-        );
-        if (!budget.ok) {
-          this.logger.warn(
-            `Auto-chain pulado por cota de IA (org ${conversation.organizationId}, conv ${conversation.id}): ${budget.reason ?? 'sem saldo'}`,
+        //
+        // EXCEÇÃO: canais INTERNOS (console da crew de marketing, assistente
+        // pessoal) são ferramentas do próprio dono, liberadas por add-on flag —
+        // não consomem a cota de conversas de CLIENTE. Sem essa isenção, a
+        // delegação encadeada (Magnus → worker) morria quando a org batia a
+        // cota, e o worker delegado nunca respondia.
+        if (refreshed.channel?.type !== 'INTERNAL') {
+          const budget = await this.agentRouter.isWithinAiBudget(
+            conversation.organizationId,
+            conversation.id,
           );
-          return;
+          if (!budget.ok) {
+            this.logger.warn(
+              `Auto-chain pulado por cota de IA (org ${conversation.organizationId}, conv ${conversation.id}): ${budget.reason ?? 'sem saldo'}`,
+            );
+            return;
+          }
         }
 
         if (
