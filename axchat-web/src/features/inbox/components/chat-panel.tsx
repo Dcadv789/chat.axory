@@ -180,6 +180,22 @@ function matchSingleUrl(text: string): string | null {
   return m ? m[1] : null;
 }
 
+/**
+ * Formata ênfase inline (display-only): **negrito** ou *negrito* (estilo
+ * WhatsApp) e _itálico_. Não altera o texto salvo/enviado — só resolve o caso
+ * da IA responder com asteriscos e eles aparecerem crus no chat.
+ */
+function formatEmphasis(text: string, keyPrefix: string): React.ReactNode[] {
+  const tokens = text.split(/(\*\*[^*\n]+\*\*|\*[^*\n]+\*|_[^_\n]+_)/g);
+  return tokens.map((tok, i) => {
+    const key = `${keyPrefix}-e${i}`;
+    if (/^\*\*[^*\n]+\*\*$/.test(tok)) return <strong key={key}>{tok.slice(2, -2)}</strong>;
+    if (/^\*[^*\n]+\*$/.test(tok)) return <strong key={key}>{tok.slice(1, -1)}</strong>;
+    if (/^_[^_\n]+_$/.test(tok)) return <em key={key}>{tok.slice(1, -1)}</em>;
+    return tok;
+  });
+}
+
 function renderInlineTextWithLinks(text: string, isOutbound: boolean) {
   const parts = text.split(URL_REGEX);
   return parts.map((part, i) => {
@@ -199,7 +215,7 @@ function renderInlineTextWithLinks(text: string, isOutbound: boolean) {
         </a>
       );
     }
-    return <span key={i}>{part}</span>;
+    return <span key={i}>{formatEmphasis(part, String(i))}</span>;
   });
 }
 
@@ -1173,6 +1189,11 @@ export function ChatPanel({
                               isOutbound ? 'justify-end opacity-70' : 'text-zinc-400'
                             }`}
                           >
+                            {internalConsole && !isOutbound && msg.senderName && (
+                              <span className="font-semibold text-primary">
+                                {msg.senderName} ·
+                              </span>
+                            )}
                             <span>{formatTime(msg.createdAt)}</span>
                             {isOutbound && (
                               <span title={statusTooltip(msg.status, msg.failedReason)}>

@@ -216,26 +216,35 @@ export class ConversationsRepository {
     // Trade-off consciente: "marcar como não lida" deixa de surtir efeito
     // quando a última mensagem da conversa é uma resposta da equipe.
     if (filters.unreadOnly && currentUserId) {
+      // Canais INTERNOS invertem a direção que conta como "não lida" (a IA que
+      // responde é OUTBOUND) — mesma regra do badge em attachUnreadCounts.
       const rows = await this.prisma.$queryRaw<{ conversation_id: string }[]>`
         SELECT DISTINCT m.conversation_id
         FROM messages m
         JOIN conversations c ON c.id = m.conversation_id
+        JOIN channels ch ON ch.id = c.channel_id
         LEFT JOIN conversation_reads cr
           ON cr.conversation_id = m.conversation_id
           AND cr.user_id = ${currentUserId}
         LEFT JOIN (
-          SELECT mo.conversation_id, MAX(mo.created_at) AS last_outbound_at
+          SELECT mo.conversation_id,
+                 MAX(mo.created_at) FILTER (WHERE mo.direction = 'OUTBOUND') AS last_outbound_at,
+                 MAX(mo.created_at) FILTER (WHERE mo.direction = 'INBOUND')  AS last_inbound_at
           FROM messages mo
           JOIN conversations co ON co.id = mo.conversation_id
           WHERE co.organization_id = ${filters.organizationId}
-            AND mo.direction = 'OUTBOUND'
           GROUP BY mo.conversation_id
-        ) lo ON lo.conversation_id = m.conversation_id
+        ) lm ON lm.conversation_id = m.conversation_id
         WHERE c.organization_id = ${filters.organizationId}
           AND c.deleted_at IS NULL
-          AND m.direction = 'INBOUND'
           AND (cr.last_read_at IS NULL OR m.created_at > cr.last_read_at)
-          AND (lo.last_outbound_at IS NULL OR m.created_at > lo.last_outbound_at)
+          AND (
+            (ch.type <> 'INTERNAL' AND m.direction = 'INBOUND'
+              AND (lm.last_outbound_at IS NULL OR m.created_at > lm.last_outbound_at))
+            OR
+            (ch.type = 'INTERNAL' AND m.direction = 'OUTBOUND'
+              AND (lm.last_inbound_at IS NULL OR m.created_at > lm.last_inbound_at))
+          )
       `;
       const unreadIds = rows.map((r) => r.conversation_id);
       if (unreadIds.length === 0) return { conversations: [], total: 0 };
@@ -320,24 +329,37 @@ export class ConversationsRepository {
     // unreadOnly: inbound mais nova que o MAIOR entre o lastReadAt do usuário
     // e a última outbound da conversa (qualquer remetente). Mantém badge e
     // filtro consistentes. Conversas sem nenhuma não-lida não voltam (=> 0).
+    // Canais INTERNOS (console da crew, assistente) invertem a semântica: quem
+    // "chega" pro operador é a mensagem da IA (OUTBOUND), não a dele próprio
+    // (INBOUND). Então lá contamos OUTBOUND não-lidas, usando a última INBOUND
+    // do operador como marcador de "já visto". Nos canais normais, mantém o
+    // padrão (INBOUND do cliente, marcado pela última OUTBOUND do atendente).
     const rows = await this.prisma.$queryRaw<
       { conversation_id: string; cnt: bigint }[]
     >`
       SELECT m.conversation_id, COUNT(*)::bigint AS cnt
       FROM messages m
+      JOIN conversations c ON c.id = m.conversation_id
+      JOIN channels ch ON ch.id = c.channel_id
       LEFT JOIN conversation_reads cr
         ON cr.conversation_id = m.conversation_id AND cr.user_id = ${userId}
       LEFT JOIN (
-        SELECT mo.conversation_id, MAX(mo.created_at) AS last_outbound_at
-        FROM messages mo
-        WHERE mo.direction = 'OUTBOUND'
-          AND mo.conversation_id IN (${Prisma.join(ids)})
-        GROUP BY mo.conversation_id
-      ) lo ON lo.conversation_id = m.conversation_id
+        SELECT mm.conversation_id,
+               MAX(mm.created_at) FILTER (WHERE mm.direction = 'OUTBOUND') AS last_outbound_at,
+               MAX(mm.created_at) FILTER (WHERE mm.direction = 'INBOUND')  AS last_inbound_at
+        FROM messages mm
+        WHERE mm.conversation_id IN (${Prisma.join(ids)})
+        GROUP BY mm.conversation_id
+      ) lm ON lm.conversation_id = m.conversation_id
       WHERE m.conversation_id IN (${Prisma.join(ids)})
-        AND m.direction = 'INBOUND'
         AND (cr.last_read_at IS NULL OR m.created_at > cr.last_read_at)
-        AND (lo.last_outbound_at IS NULL OR m.created_at > lo.last_outbound_at)
+        AND (
+          (ch.type <> 'INTERNAL' AND m.direction = 'INBOUND'
+            AND (lm.last_outbound_at IS NULL OR m.created_at > lm.last_outbound_at))
+          OR
+          (ch.type = 'INTERNAL' AND m.direction = 'OUTBOUND'
+            AND (lm.last_inbound_at IS NULL OR m.created_at > lm.last_inbound_at))
+        )
       GROUP BY m.conversation_id
     `;
     const countByConv = new Map(

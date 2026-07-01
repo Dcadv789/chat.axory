@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Megaphone, Loader2, Save, MessagesSquare, Plus, Trash2, Link2 } from 'lucide-react';
+import { Megaphone, Loader2, Save, MessagesSquare, Plus, Trash2, Link2, Activity } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   marketingService,
@@ -12,6 +12,15 @@ import {
 
 const inputCls =
   'w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100';
+
+// Cor por tipo de análise — dá identidade visual aos cards (borda lateral + tint).
+const ANALYSIS_ACCENT: Record<string, string> = {
+  PERFORMANCE: 'border-l-blue-400 bg-blue-50/60 dark:bg-blue-900/10',
+  STRATEGY: 'border-l-violet-400 bg-violet-50/60 dark:bg-violet-900/10',
+  MEASUREMENT: 'border-l-emerald-400 bg-emerald-50/60 dark:bg-emerald-900/10',
+  AUDIENCE: 'border-l-amber-400 bg-amber-50/60 dark:bg-amber-900/10',
+  OUTRO: 'border-l-zinc-300 bg-zinc-50 dark:bg-white/5',
+};
 
 // centavos <-> reais para a UI
 const toReais = (c: number | null | undefined) => (c == null ? '' : (c / 100).toString());
@@ -38,6 +47,7 @@ export default function MarketingRulesPage() {
   });
   const [saving, setSaving] = useState(false);
   const [openingCrew, setOpeningCrew] = useState(false);
+  const [tab, setTab] = useState<'config' | 'activity'>('config');
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -159,6 +169,31 @@ export default function MarketingRulesPage() {
         </p>
       </div>
 
+      <div className="flex gap-2 border-b border-zinc-200 dark:border-white/10">
+        <button
+          onClick={() => setTab('config')}
+          className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium ${
+            tab === 'config'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+        >
+          <Megaphone className="h-4 w-4" /> Regras & Canais
+        </button>
+        <button
+          onClick={() => setTab('activity')}
+          className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium ${
+            tab === 'activity'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+          }`}
+        >
+          <Activity className="h-4 w-4" /> Atividade da crew
+        </button>
+      </div>
+
+      {tab === 'config' && (
+      <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -309,17 +344,16 @@ export default function MarketingRulesPage() {
           Salvar regras
         </button>
       </div>
+      </div>
+      )}
 
-      {/* Atividade da crew — análises gravadas (recordMarketingAnalysis) + log */}
-      <div className="rounded-xl border border-zinc-200 px-5 py-4 dark:border-white/10">
-        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-          Atividade da crew
-        </p>
-        <p className="mt-1 text-xs text-zinc-500">
+      {tab === 'activity' && (
+      <div className="space-y-3">
+        <p className="text-xs text-zinc-500">
           Análises que os agentes gravaram e o histórico de ações. Atualiza sozinho.
         </p>
 
-        <div className="mt-4 grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-2">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
               Análises salvas ({activity?.analyses?.length ?? 0})
@@ -329,9 +363,9 @@ export default function MarketingRulesPage() {
                 <p className="text-xs text-zinc-400">Nenhuma análise ainda.</p>
               ) : (
                 activity!.analyses.map((a) => (
-                  <div key={a.id} className="rounded-lg border border-zinc-100 px-3 py-2 dark:border-white/10">
+                  <div key={a.id} className={`rounded-lg border border-l-4 border-zinc-100 px-3 py-2 dark:border-white/10 ${ANALYSIS_ACCENT[a.kind] ?? ANALYSIS_ACCENT.OUTRO}`}>
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                      <span className="rounded bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 ring-1 ring-black/5 dark:bg-white/10 dark:text-zinc-300">
                         {a.kind}
                       </span>
                       <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{a.title}</span>
@@ -390,6 +424,7 @@ export default function MarketingRulesPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
