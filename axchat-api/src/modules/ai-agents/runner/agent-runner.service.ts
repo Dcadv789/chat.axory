@@ -1134,6 +1134,25 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
     for (const link of skillLinks) {
       const skill = link.skill;
       if (!skill.isActive || skill.deletedAt) continue;
+
+      // Skill SQL sem conexão configurada (nem org secret, nem env do servidor)
+      // fica FORA do catálogo: o LLM nem vê a tool. Antes o agente chamava,
+      // recebia o erro e desviava a resposta pra "configure X" (caso do Alaric
+      // chamando getRevenueByProduct sem SALES_DB_URL configurado na org).
+      if (skill.source === 'SQL' && skill.tool?.sqlConnectionRef) {
+        const ref = skill.tool.sqlConnectionRef;
+        const orgSecret = await this.prisma.organizationSecret.findUnique({
+          where: { uq_org_secret_key: { organizationId: orgId, key: ref } },
+          select: { id: true },
+        });
+        if (!orgSecret && !process.env[ref]) {
+          this.logger.debug(
+            `Skill ${skill.name} omitida do catálogo: env "${ref}" não configurada (org ${orgId}).`,
+          );
+          continue;
+        }
+      }
+
       if (skill.promptInstructions) {
         skillInstructions.push(skill.promptInstructions.trim());
       }
