@@ -127,12 +127,35 @@ export class HttpToolExecutorService {
       this.logger.log(
         `[skill:${skill.name}] ${method} ${url} (timeout=${skill.timeoutMs}ms)`,
       );
-      const response = await fetch(url, {
-        method,
-        headers,
-        body,
-        signal: controller.signal,
-      });
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method,
+          headers,
+          body,
+          signal: controller.signal,
+        });
+      } catch (netErr: any) {
+        // "fetch failed" = erro de REDE (DNS/conexão) — a requisição nem
+        // chegou no servidor. Blips transitórios (EAI_AGAIN etc.) derrubavam
+        // a skill e o agente concluía errado ("credencial inválida"). Um
+        // retry único resolve o transitório; só em métodos sem efeito
+        // colateral (GET/HEAD) pra não duplicar criação em POST.
+        const retryable =
+          netErr?.name !== 'AbortError' &&
+          (method === 'GET' || method === 'HEAD');
+        if (!retryable) throw netErr;
+        this.logger.warn(
+          `[skill:${skill.name}] ${this.describeFetchError(netErr)} — retry único em 500ms`,
+        );
+        await new Promise((r) => setTimeout(r, 500));
+        response = await fetch(url, {
+          method,
+          headers,
+          body,
+          signal: controller.signal,
+        });
+      }
 
       const text = await response.text();
       let parsed: unknown = text;
@@ -166,7 +189,7 @@ export class HttpToolExecutorService {
       const isTimeout = err?.name === 'AbortError';
       const message = isTimeout
         ? `Skill ${skill.name} timed out after ${skill.timeoutMs}ms`
-        : err?.message ?? String(err);
+        : this.describeFetchError(err);
       this.logger.error(`[skill:${skill.name}] failed: ${message}`);
       await this.recordMarketingActivity(skill, ctx, 'FAILED', {
         ok: false,
@@ -181,6 +204,26 @@ export class HttpToolExecutorService {
   }
 
   // ─── helpers ───────────────────────────────────────────────────
+
+  /**
+   * Node/undici esconde a causa real ("fetch failed" com ENOTFOUND/ECONNRESET
+   * em err.cause). Expõe a causa e deixa explícito pro LLM que é erro de
+   * REDE — sem isso o agente reportava "credencial inválida" pro usuário.
+   */
+  private describeFetchError(err: any): string {
+    const base = err?.message ?? String(err);
+    const cause = err?.cause;
+    const causeDetail = cause
+      ? ` [${[cause.code, cause.message].filter(Boolean).join(': ')}]`
+      : '';
+    if (base === 'fetch failed') {
+      return (
+        `Falha de REDE ao chamar a API${causeDetail} — a requisição não chegou ao servidor. ` +
+        'NÃO é erro de credencial/configuração; tente de novo em instantes.'
+      );
+    }
+    return `${base}${causeDetail}`;
+  }
 
   /**
    * Grava no log de negócio (marketing_activities) toda execução de skill de
