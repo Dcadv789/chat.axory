@@ -20,6 +20,7 @@ import { AgendarReuniaoTool } from './builtin/agendar-reuniao.tool';
 import { GenerateMarketingImageTool } from './builtin/generate-marketing-image.tool';
 import { GetMarketingProfileTool } from './builtin/get-marketing-profile.tool';
 import { RecordMarketingAnalysisTool } from './builtin/record-marketing-analysis.tool';
+import { CaptureInstagramMetricsTool } from './builtin/capture-instagram-metrics.tool';
 import { PersonalContextService } from './builtin/personal/personal-context.service';
 import {
   CreatePersonalTaskTool,
@@ -89,6 +90,7 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     GenerateMarketingImageTool,
     GetMarketingProfileTool,
     RecordMarketingAnalysisTool,
+    CaptureInstagramMetricsTool,
     MarketingStorageService,
     PersonalContextService,
     CreatePersonalTaskTool,

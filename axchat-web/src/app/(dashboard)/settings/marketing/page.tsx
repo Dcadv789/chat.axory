@@ -619,14 +619,19 @@ function MetricsTab({
               {rows.map((r) => (
                 <tr key={r.id} className="border-b border-zinc-100 last:border-0 dark:border-white/5">
                   {cols.identification && (
-                    <td className={td + ' font-mono text-xs'}>
-                      {r.permalink ? (
-                        <a href={r.permalink} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                          {r.mediaId.slice(-8)}
-                        </a>
-                      ) : (
-                        r.mediaId.slice(-8)
-                      )}
+                    <td className={td + ' max-w-[220px]'}>
+                      {(() => {
+                        const label = r.caption
+                          ? r.caption.replace(/\s+/g, ' ').trim().slice(0, 60) + (r.caption.length > 60 ? '…' : '')
+                          : `Post ${r.mediaId.slice(-8)}`;
+                        return r.permalink ? (
+                          <a href={r.permalink} target="_blank" rel="noreferrer" className="block truncate text-primary hover:underline" title={r.caption ?? r.mediaId}>
+                            {label}
+                          </a>
+                        ) : (
+                          <span className="block truncate" title={r.caption ?? r.mediaId}>{label}</span>
+                        );
+                      })()}
                     </td>
                   )}
                   {cols.identification && (

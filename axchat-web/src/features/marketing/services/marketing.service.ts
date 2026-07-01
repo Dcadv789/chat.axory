@@ -34,6 +34,7 @@ export interface MediaMetricRow {
   id: string;
   mediaId: string;
   mediaType: string | null;
+  caption: string | null;
   permalink: string | null;
   reach: number | null;
   likes: number | null;
