@@ -69,7 +69,7 @@ const instagramSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   accessToken: z.string().min(1, 'Access Token é obrigatório'),
   appSecret: z.string().min(1, 'App Secret é obrigatório'),
-  igBusinessId: z.string().optional(),
+  igBusinessId: z.string().min(1, 'Instagram Business ID é obrigatório (é o mesmo IG_USER_ID das Variáveis)'),
   igAppId: z.string().optional(),
   webhookSecret: z.string().optional(),
 });
@@ -373,7 +373,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
             <Field label="Nome do canal" placeholder="Ex: Instagram Loja" error={igForm.formState.errors.name?.message} {...igForm.register('name')} />
             <Field label="Access Token" type="text" placeholder="O mesmo token de System User dos agentes (IG_ACCESS_TOKEN nas Variáveis)" error={igForm.formState.errors.accessToken?.message} {...igForm.register('accessToken')} />
             <Field label="App Secret" type="text" placeholder="developers.facebook.com → seu app → Básico → Chave Secreta" error={igForm.formState.errors.appSecret?.message} {...igForm.register('appSecret')} />
-            <Field label="Instagram Business ID" placeholder="Opcional — o mesmo IG_USER_ID das Variáveis (detectado pelo token)" optional {...igForm.register('igBusinessId')} />
+            <Field label="Instagram Business ID" placeholder="Cole o mesmo IG_USER_ID das Variáveis (obrigatório)" error={igForm.formState.errors.igBusinessId?.message} {...igForm.register('igBusinessId')} />
             <Field label="Instagram App ID" placeholder="Opcional — número do app no topo do painel da Meta" optional {...igForm.register('igAppId')} />
             <Field label="Webhook Verify Token" placeholder="Uma senha que VOCÊ inventa — vai usar igual no painel da Meta" optional {...igForm.register('webhookSecret')} />
             <WebhookUrl url={`${apiBaseUrl}/webhooks/INSTAGRAM`} copied={copied} onCopy={() => handleCopyWebhook('INSTAGRAM')} />
@@ -555,10 +555,12 @@ function InstagramHelp({ open, onToggle }: { open: boolean; onToggle: () => void
             <li className="flex gap-2">
               <span className="font-semibold">3.</span>
               <span>
-                <strong>Instagram Business ID</strong> — o ID numérico da conta
-                profissional; é o mesmo{' '}
+                <strong>Instagram Business ID</strong> (obrigatório) — o ID
+                numérico da conta profissional; é exatamente o mesmo{' '}
                 <code className="rounded bg-pink-100 px-1 py-0.5 font-mono dark:bg-pink-900/50">IG_USER_ID</code>{' '}
-                das suas Variáveis. Pode deixar em branco: detectamos pelo token.
+                que você salvou nas Variáveis. Abra{' '}
+                <strong>Configurações → Variáveis</strong>, copie o valor e cole
+                aqui.
               </span>
             </li>
             <li className="flex gap-2">

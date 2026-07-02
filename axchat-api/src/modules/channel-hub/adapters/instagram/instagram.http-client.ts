@@ -7,6 +7,15 @@ interface InstagramConfig {
   igBusinessId?: string;
   appSecret?: string;
   apiVersion?: string;
+  /**
+   * Qual API da Meta usar:
+   *   - 'facebook'  → graph.facebook.com + ID da conta IG no lugar de `/me`.
+   *                   É o mesmo host e token (System User) que os agentes de
+   *                   marketing usam (skills IG). UM token pra tudo. DEFAULT.
+   *   - 'instagram' → graph.instagram.com + `/me`. Exige um Instagram Login
+   *                   token (IGAA...), diferente do System User. Legado.
+   */
+  graphApi: 'facebook' | 'instagram';
 }
 
 @Injectable()
@@ -15,28 +24,59 @@ export class InstagramHttpClient {
 
   private getConfig(channel: Channel): InstagramConfig {
     const config = channel.config as Record<string, any>;
+    // trim(): tokens colados costumam vir com espaço/quebra de linha no fim —
+    // a Meta rejeita com #190 "Cannot parse access token". Limpa por garantia.
+    const accessToken = String(
+      config.accessToken || config.pageAccessToken || '',
+    ).trim();
+    const igBusinessId = config.igBusinessId || config.igUserId;
     return {
-      accessToken: config.accessToken || config.pageAccessToken,
-      igBusinessId: config.igBusinessId || config.igUserId,
+      accessToken,
+      igBusinessId: igBusinessId ? String(igBusinessId).trim() : undefined,
       appSecret: config.appSecret,
       apiVersion: config.apiVersion || 'v21.0',
+      graphApi: config.graphApi === 'instagram' ? 'instagram' : 'facebook',
     };
+  }
+
+  /** Host da Graph API conforme o modo. */
+  private host(cfg: InstagramConfig): string {
+    return cfg.graphApi === 'instagram'
+      ? 'graph.instagram.com'
+      : 'graph.facebook.com';
+  }
+
+  /**
+   * Referência à própria conta nos endpoints. No modo instagram é `me`; no
+   * modo facebook é o ID da conta IG (não existe `/me` útil com token de
+   * System User em graph.facebook.com).
+   */
+  private selfRef(cfg: InstagramConfig): string {
+    if (cfg.graphApi === 'instagram') return 'me';
+    return cfg.igBusinessId ?? 'me';
   }
 
   private createClient(channel: Channel): AxiosInstance {
     const cfg = this.getConfig(channel);
     return axios.create({
-      baseURL: `https://graph.instagram.com/${cfg.apiVersion}`,
+      baseURL: `https://${this.host(cfg)}/${cfg.apiVersion}`,
       params: { access_token: cfg.accessToken },
       timeout: 30000,
     });
   }
 
   async getMe(channel: Channel): Promise<any> {
+    const cfg = this.getConfig(channel);
     const client = this.createClient(channel);
+    // Campos válidos diferem por API: graph.instagram.com expõe user_id/
+    // account_type; graph.facebook.com (conta IG) expõe id/username/name.
+    const fields =
+      cfg.graphApi === 'instagram'
+        ? 'id,user_id,username,account_type,name'
+        : 'id,username,name';
     try {
-      const { data } = await client.get('/me', {
-        params: { fields: 'id,user_id,username,account_type,name' },
+      const { data } = await client.get(`/${this.selfRef(cfg)}`, {
+        params: { fields },
       });
       return data;
     } catch (err: any) {
@@ -59,9 +99,12 @@ export class InstagramHttpClient {
     channel: Channel,
     payload: Record<string, any>,
   ): Promise<any> {
+    const cfg = this.getConfig(channel);
     const client = this.createClient(channel);
     try {
-      const { data } = await client.post('/me/messages', payload);
+      // facebook: POST /{ig-business-id}/messages — mesmo path que a skill
+      // sendInstagramDirectMessage dos agentes (comprovadamente funciona).
+      const { data } = await client.post(`/${this.selfRef(cfg)}/messages`, payload);
       return data;
     } catch (err: any) {
       throw this.wrapGraphError(err, 'sendMessage');
@@ -73,6 +116,7 @@ export class InstagramHttpClient {
     cursor?: string,
     limit = 50,
   ): Promise<{ data: any[]; nextCursor?: string }> {
+    const cfg = this.getConfig(channel);
     const client = this.createClient(channel);
     const params: Record<string, any> = {
       platform: 'instagram',
@@ -82,7 +126,9 @@ export class InstagramHttpClient {
     if (cursor) params.after = cursor;
 
     try {
-      const { data } = await client.get('/me/conversations', { params });
+      const { data } = await client.get(`/${this.selfRef(cfg)}/conversations`, {
+        params,
+      });
       return {
         data: data?.data ?? [],
         nextCursor: data?.paging?.cursors?.after && data?.paging?.next ? data.paging.cursors.after : undefined,
@@ -118,13 +164,14 @@ export class InstagramHttpClient {
 
   /**
    * Resolves a contact's profile (username + avatar). Combines:
-   *   - `/me/conversations?user_id=...&fields=participants` — reliable for
-   *     username/name on graph.instagram.com.
+   *   - `/{self}/conversations?user_id=...&fields=participants` — reliable for
+   *     username/name.
    *   - `GET /{igsid}?fields=name,username,profile_pic` — best-effort for the
    *     avatar. May return `IGApiException code=230 "User consent is required"`
    *     depending on the user — we swallow it and return what we got.
    */
   async getUserProfile(channel: Channel, igUserId: string): Promise<any> {
+    const cfg = this.getConfig(channel);
     const businessId = await this.resolveBusinessId(channel);
     const client = this.createClient(channel);
 
@@ -133,8 +180,9 @@ export class InstagramHttpClient {
     let profile_pic: string | undefined;
 
     try {
-      const { data } = await client.get('/me/conversations', {
+      const { data } = await client.get(`/${this.selfRef(cfg)}/conversations`, {
         params: {
+          platform: 'instagram',
           user_id: igUserId,
           fields: 'participants',
         },
