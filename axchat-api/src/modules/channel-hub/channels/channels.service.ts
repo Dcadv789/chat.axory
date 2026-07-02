@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ChannelType, ChannelSyncMode, ChannelSyncStatus, OrgRole } from '@prisma/client';
+import * as crypto from 'node:crypto';
 import { PrismaService } from '../../../database/prisma.service';
 import { assertWithinPlanLimit } from '../../../common/plan-limits';
 import { ChannelsRepository } from './channels.repository';
@@ -336,18 +337,52 @@ export class ChannelsService {
       );
     }
 
+    // 1) code → access token.
     const accessToken = await this.waOfficialHttpClient.exchangeCodeForToken(
       dto.code,
       appId,
       appSecret,
     );
 
-    // Puxa os dados do número direto do Facebook pra popular as credenciais.
+    // Dados do número (telefone + nome verificado) pra popular as credenciais.
     const info = await this.waOfficialHttpClient.fetchPhoneNumberInfo(
       accessToken,
       dto.phoneNumberId,
     );
 
+    // PIN de verificação em duas etapas: reusa o de um canal anterior deste
+    // mesmo número (reconexão) ou gera um novo de 6 dígitos. crypto.randomInt
+    // pra não ser previsível.
+    const existing = await this.prisma.channel.findFirst({
+      where: {
+        organizationId,
+        type: ChannelType.WHATSAPP_OFFICIAL,
+        deletedAt: null,
+        config: { path: ['phoneNumberId'], equals: dto.phoneNumberId },
+      },
+      select: { config: true },
+    });
+    const existingPin = (existing?.config as Record<string, any> | null)?.pin;
+    const pin =
+      typeof existingPin === 'string' && /^\d{6}$/.test(existingPin)
+        ? existingPin
+        : String(crypto.randomInt(100000, 1000000));
+
+    // 2) Registra o número na Cloud API (obrigatório pós Embedded Signup).
+    //    "Já registrado" não quebra o fluxo (reconexão).
+    const reg = await this.waOfficialHttpClient.registerPhoneNumber(
+      accessToken,
+      dto.phoneNumberId,
+      pin,
+    );
+    if (!reg.registered && !reg.alreadyRegistered) {
+      this.logger.warn(
+        `Embedded Signup: register do número ${dto.phoneNumberId} não confirmou (${reg.error ?? 'erro'}). Canal criado mesmo assim; pode ser necessário registrar manualmente.`,
+      );
+    }
+
+    // 3) Cria o canal (o create() dispara o subscribed_apps da WABA — passo 2
+    //    do webhook) e persiste token, waba_id, phone_number_id e pin.
     return this.create(
       organizationId,
       {
@@ -359,6 +394,7 @@ export class ChannelsService {
           businessAccountId: dto.businessAccountId,
           appSecret,
           apiVersion: 'v21.0',
+          pin,
           ...(info.displayPhoneNumber
             ? { displayPhoneNumber: info.displayPhoneNumber }
             : {}),

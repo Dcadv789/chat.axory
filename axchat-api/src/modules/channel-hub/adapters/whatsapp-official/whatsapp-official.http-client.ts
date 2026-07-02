@@ -215,6 +215,45 @@ export class WhatsAppOfficialHttpClient {
   }
 
   /**
+   * Registra o número na Cloud API (obrigatório após o Embedded Signup pra o
+   * número enviar/receber pela API). Usa o PIN de verificação em duas etapas.
+   * "Já registrado" é esperado em reconexões — devolvemos alreadyRegistered
+   * sem quebrar. Erro de PIN (2FA já ativa com outro PIN) volta em `error`.
+   */
+  async registerPhoneNumber(
+    token: string,
+    phoneNumberId: string,
+    pin: string,
+    apiVersion = 'v21.0',
+  ): Promise<{ registered: boolean; alreadyRegistered: boolean; error?: string }> {
+    try {
+      await axios.post(
+        `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/register`,
+        { messaging_product: 'whatsapp', pin },
+        { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 },
+      );
+      return { registered: true, alreadyRegistered: false };
+    } catch (err: any) {
+      const metaErr = err?.response?.data?.error;
+      const code = metaErr?.code;
+      const msg = metaErr?.message || err.message;
+      // 133005/133006/133010/133015 e variações de "already registered" =
+      // número já está na Cloud API. Reconexão — não é falha.
+      const alreadyRegistered =
+        [133005, 133006, 133010, 133015].includes(code) ||
+        /already.*regist|is already|has already been/i.test(String(msg));
+      if (alreadyRegistered) {
+        this.logger.warn(
+          `WA register: número ${phoneNumberId} já registrado (${msg}) — seguindo.`,
+        );
+        return { registered: false, alreadyRegistered: true, error: msg };
+      }
+      this.logger.error(`WA register falhou (${phoneNumberId}): ${msg}`);
+      return { registered: false, alreadyRegistered: false, error: msg };
+    }
+  }
+
+  /**
    * Subscribes our app to receive webhooks for this WABA. Idempotent on
    * Meta's side — re-calling is safe. Requires `whatsapp_business_management`
    * scope on the access token.
