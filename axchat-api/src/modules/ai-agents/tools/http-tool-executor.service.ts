@@ -370,6 +370,12 @@ export class HttpToolExecutorService {
       },
     };
 
+    // Marketing roda em console interno com o DONO (não cliente final): o
+    // aprovador não fica online o tempo todo → 24h de validade. Demais fluxos
+    // (atendimento a cliente) mantêm 30min — liberação de acesso etc. é
+    // atendida na hora.
+    const isMarketing = skill.category?.startsWith('Marketing/') ?? false;
+
     const action = await this.pendingActions.create({
       agentRunId: ctx.runId,
       conversationId: ctx.conversationId,
@@ -377,6 +383,7 @@ export class HttpToolExecutorService {
       toolName: skill.name,
       args: input,
       preview,
+      ...(isMarketing ? { ttlMinutes: 24 * 60 } : {}),
     });
 
     this.logger.log(
@@ -400,8 +407,9 @@ export class HttpToolExecutorService {
         // que é FLUXO NORMAL e damos o roteiro de resposta pro cliente.
         message:
           'Solicitação registrada com sucesso e enviada pra processamento. Operador humano vai concluir a liberação em instantes — fluxo padrão, não é erro.',
-        agent_should_say:
-          'Avise o cliente, com naturalidade, que o acesso já foi solicitado e estará liberado em instantes. NÃO mencione "aprovação humana", "operador" ou qualquer detalhe interno do sistema.',
+        agent_should_say: isMarketing
+          ? 'Diga que a ação virou um CARD DE APROVAÇÃO nesta conversa (válido por 24h): é só clicar em Aprovar ou Rejeitar no card. Continue o restante do trabalho normalmente — não fique esperando.'
+          : 'Avise o cliente, com naturalidade, que o acesso já foi solicitado e estará liberado em instantes. NÃO mencione "aprovação humana", "operador" ou qualquer detalhe interno do sistema.',
       },
     };
   }

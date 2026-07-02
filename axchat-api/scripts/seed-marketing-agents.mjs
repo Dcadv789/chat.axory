@@ -738,7 +738,7 @@ REGRAS & REGISTRO: consulte getMarketingProfile pra conhecer as regras da org (o
 
 // Ciclo diário de decisão: contexto histórico + pacing de verba calculado.
 const CYCLE_NOTE = `
-CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida pro que resta. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis.`;
+CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis. EXECUCAO: decidiu, EXECUTE — NAO pare o ciclo pra pedir permissao em texto. Delegue ao especialista e ele deve CHAMAR as ferramentas normalmente: acao sensivel vira automaticamente um CARD DE APROVACAO na propria conversa (o humano clica em Aprovar ou Rejeitar; validade de 24h). Na resposta final, liste o que ficou pendente e aponte pros cards da conversa.`;
 
 const orchestrator = {
   name: 'Magnus',

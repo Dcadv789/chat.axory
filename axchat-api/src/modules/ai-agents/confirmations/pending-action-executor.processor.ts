@@ -1,6 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { ConversationStatus, Prisma } from '@prisma/client';
+import {
+  ConversationStatus,
+  MessageContentType,
+  MessageDirection,
+  MessageStatus,
+  Prisma,
+} from '@prisma/client';
 import type { Job } from 'bullmq';
 
 import { PrismaService } from '../../../database/prisma.service';
@@ -96,6 +102,13 @@ export class PendingActionExecutorProcessor extends WorkerHost {
       success,
     });
 
+    // Feedback visível na conversa: quem aprovou precisa ver que a ação saiu
+    // do papel (ou que falhou) sem ir caçar em log. transferToHuman fica de
+    // fora — a transição da conversa já é o feedback.
+    if (action.toolName !== 'transferToHuman') {
+      await this.notifyConversation(action, success, result);
+    }
+
     return result;
   }
 
@@ -167,6 +180,43 @@ export class PendingActionExecutorProcessor extends WorkerHost {
       } catch (e: any) {
         this.logger.warn(`logExpiredMarketing(${a.toolName}) falhou: ${e?.message ?? e}`);
       }
+    }
+  }
+
+  /** Mensagem de sistema na conversa com o resultado da ação aprovada. */
+  private async notifyConversation(
+    action: { id: string; conversationId: string; toolName: string; preview?: { action?: string } },
+    success: boolean,
+    result: unknown,
+  ): Promise<void> {
+    try {
+      const label = action.preview?.action ?? action.toolName;
+      const errorDetail =
+        !success && result && typeof result === 'object'
+          ? String((result as Record<string, unknown>).error ?? '')
+          : '';
+      const text = success
+        ? `✅ Aprovado e executado: ${label}`
+        : `❌ Aprovado, mas a execução falhou: ${label}${errorDetail ? ` — ${errorDetail.slice(0, 300)}` : ''}. Você pode aprovar de novo pra re-tentar.`;
+      await this.prisma.message.create({
+        data: {
+          conversationId: action.conversationId,
+          direction: MessageDirection.OUTBOUND,
+          type: MessageContentType.TEXT,
+          content: { text },
+          status: MessageStatus.DELIVERED,
+          senderName: 'Sistema',
+          metadata: { system: true, pendingActionId: action.id },
+        },
+      });
+      await this.prisma.conversation.update({
+        where: { id: action.conversationId },
+        data: { lastMessageAt: new Date() },
+      });
+    } catch (e: any) {
+      this.logger.warn(
+        `notifyConversation(${action.id}) falhou: ${e?.message ?? e}`,
+      );
     }
   }
 
