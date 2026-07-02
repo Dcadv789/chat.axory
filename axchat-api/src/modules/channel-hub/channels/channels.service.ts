@@ -111,6 +111,23 @@ export class ChannelsService {
       );
     }
 
+    // Instagram: inscreve o app pra RECEBER webhooks (DMs + comentários) da
+    // conta. Sem isso a Meta só entrega o payload de "Teste" manual — mensagem
+    // real nunca chega. Fire-and-forget; o usuário pode rerodar pelo botão de
+    // diagnóstico se falhar (ex.: token sem escopo de mensagens).
+    if (dto.type === ChannelType.INSTAGRAM) {
+      this.instagramHttpClient
+        .subscribeApp(channel)
+        .then(() =>
+          this.logger.log(`Instagram app subscribed for channel ${channel.id}`),
+        )
+        .catch((err) =>
+          this.logger.warn(
+            `Instagram subscribe failed for channel ${channel.id}: ${err.message}`,
+          ),
+        );
+    }
+
     if (dto.type === ChannelType.TELEGRAM) {
       this.configureTelegramWebhook(channel.id).catch((err) =>
         this.logger.warn(
@@ -395,6 +412,23 @@ export class ChannelsService {
       throw new ForbiddenException('You do not have access to this channel');
     }
     return channel;
+  }
+
+  /**
+   * (Re)inscreve o app nos webhooks da conta IG do canal. Usado pelo botão
+   * "Ativar recebimento" quando a criação não conseguiu (ex.: token trocado).
+   */
+  async instagramSubscribe(channelId: string, organizationId: string) {
+    const channel = await this.findOne(channelId, organizationId);
+    if (channel.type !== ChannelType.INSTAGRAM) {
+      throw new BadRequestException('Canal não é do tipo Instagram.');
+    }
+    try {
+      const result = await this.instagramHttpClient.subscribeApp(channel);
+      return { ok: true, result };
+    } catch (err: any) {
+      return { ok: false, error: err?.message ?? String(err) };
+    }
   }
 
   /**

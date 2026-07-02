@@ -65,6 +65,32 @@ export class InstagramHttpClient {
     });
   }
 
+  /**
+   * Inscreve nosso app pra RECEBER webhooks (DMs + comentários) da conta IG.
+   * Sem isso a Meta só entrega o payload de "Teste" manual do painel — as
+   * mensagens reais nunca chegam. Idempotente (re-chamar é seguro). Exige que
+   * o token tenha instagram_manage_messages/instagram_manage_comments.
+   * Retorna { ok, fields } ou lança o erro da Meta pra UI mostrar.
+   */
+  async subscribeApp(channel: Channel): Promise<any> {
+    const cfg = this.getConfig(channel);
+    const target = cfg.igBusinessId;
+    if (!target) {
+      throw new Error(
+        'Instagram Business ID ausente — necessário pra inscrever o app nos webhooks.',
+      );
+    }
+    const client = this.createClient(channel);
+    try {
+      const { data } = await client.post(`/${target}/subscribed_apps`, null, {
+        params: { subscribed_fields: 'messages,comments' },
+      });
+      return { ok: true, ...data };
+    } catch (err: any) {
+      throw this.wrapGraphError(err, 'subscribeApp');
+    }
+  }
+
   async getMe(channel: Channel): Promise<any> {
     const cfg = this.getConfig(channel);
     const client = this.createClient(channel);

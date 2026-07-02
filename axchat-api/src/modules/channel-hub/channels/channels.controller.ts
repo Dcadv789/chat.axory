@@ -90,6 +90,17 @@ export class ChannelsController {
     return this.service.webhookDiagnostics(id, orgId);
   }
 
+  @Post(':id/instagram-subscribe')
+  @ApiOperation({
+    summary: 'Inscreve o app nos webhooks (DMs+comentários) da conta IG do canal',
+  })
+  instagramSubscribe(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+  ) {
+    return this.service.instagramSubscribe(id, orgId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get channel by ID' })
   findOne(

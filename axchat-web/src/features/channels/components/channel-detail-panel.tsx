@@ -772,6 +772,7 @@ function ConfigTab({
 
 function WebhookDiagnostics({ channelId }: { channelId: string }) {
   const [loading, setLoading] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
   const [data, setData] = useState<Awaited<
     ReturnType<typeof channelsService.webhookDiagnostics>
   > | null>(null);
@@ -787,6 +788,22 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
     }
   };
 
+  const subscribe = async () => {
+    setSubscribing(true);
+    try {
+      const r = await channelsService.instagramSubscribe(channelId);
+      if (r.ok) {
+        toast.success('App inscrito nos webhooks! Agora mande uma DM de teste.');
+      } else {
+        toast.error(`Falha ao inscrever: ${r.error ?? 'erro desconhecido'}`);
+      }
+    } catch {
+      toast.error('Falha ao inscrever o app nos webhooks.');
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-zinc-200 p-4 dark:border-white/10">
       <div className="flex items-center justify-between gap-3">
@@ -799,13 +816,23 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
             conta e clique em Verificar.
           </p>
         </div>
-        <button
-          onClick={run}
-          disabled={loading}
-          className="shrink-0 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
-        >
-          {loading ? 'Verificando…' : 'Verificar'}
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            onClick={subscribe}
+            disabled={subscribing}
+            title="Inscreve o app pra receber DMs e comentários reais (não só o Teste da Meta)"
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {subscribing ? 'Ativando…' : 'Ativar recebimento'}
+          </button>
+          <button
+            onClick={run}
+            disabled={loading}
+            className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+          >
+            {loading ? 'Verificando…' : 'Verificar'}
+          </button>
+        </div>
       </div>
 
       {data && (

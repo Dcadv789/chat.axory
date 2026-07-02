@@ -117,6 +117,13 @@ export const channelsService = {
     return data.data ?? (data as any);
   },
 
+  async instagramSubscribe(
+    id: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const { data } = await api.post(`/channels/${id}/instagram-subscribe`);
+    return (data as any).data ?? data;
+  },
+
   async create(payload: CreateChannelPayload): Promise<Channel> {
     const { data } = await api.post<{ data: Channel }>('/channels', payload);
     return data.data;
