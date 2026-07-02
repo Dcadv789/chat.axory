@@ -33,10 +33,13 @@ export const secretsService = {
   },
 
   async findValue(key: string): Promise<string> {
-    const { data } = await api.get<{ key: string; value: string }>(
+    const { data } = await api.get(
       `/ai-catalog/secrets/${encodeURIComponent(key)}`,
     );
-    return data.value;
+    // A API embrulha respostas em { data: ... } (igual list/upsert). Sem o
+    // unwrap, `data.value` vinha undefined — olhinho e copiar quebravam.
+    const payload = (data?.data ?? data) as { key: string; value: string };
+    return payload.value;
   },
 
   async upsert(input: UpsertSecretInput): Promise<OrganizationSecret> {
