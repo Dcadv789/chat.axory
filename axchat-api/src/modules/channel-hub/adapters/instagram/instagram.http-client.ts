@@ -107,10 +107,12 @@ export class InstagramHttpClient {
     try {
       const { data } = await client.post(`/${pageId}/subscribed_apps`, null, {
         params: {
-          // Campos válidos da Meta pra Página (messaging_seen NÃO existe — é
-          // message_reads). DMs = messages; comentários = comments.
+          // Só campos de MENSAGEM válidos pra Página. "comments" NÃO é campo de
+          // subscribed_apps da Página — os comentários do IG são assinados no
+          // nível do app (objeto Instagram, campo comments), o que o usuário
+          // já configurou no painel de Webhooks da Meta.
           subscribed_fields:
-            'messages,messaging_postbacks,message_reactions,message_reads,comments',
+            'messages,messaging_postbacks,message_reactions,message_reads',
         },
       });
       return { ok: true, node: 'page', ...data };
