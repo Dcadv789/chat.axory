@@ -1136,9 +1136,10 @@ function fieldsFor(type: Channel['type']): FieldDef[] {
   }
   if (type === 'INSTAGRAM') {
     return [
-      { key: 'accessToken', label: 'Access Token', placeholder: 'Instagram User Access Token (IGAAN...)' },
+      { key: 'accessToken', label: 'Access Token', placeholder: 'O mesmo IG_ACCESS_TOKEN dos agentes' },
       { key: 'appSecret', label: 'App Secret', placeholder: 'Chave secreta do app' },
-      { key: 'igBusinessId', label: 'Instagram Business ID', placeholder: 'Detectado automaticamente', optional: true },
+      { key: 'igBusinessId', label: 'Instagram Business ID', placeholder: 'O mesmo IG_USER_ID das Variáveis' },
+      { key: 'fbPageId', label: 'Facebook Page ID', placeholder: 'O FB_PAGE_ID das Variáveis — necessário pra receber DMs', hint: 'A Página do Facebook vinculada ao Instagram. Sem ela, a Meta não entrega as mensagens (é onde o app é inscrito).' },
       { key: 'igAppId', label: 'Instagram App ID', optional: true },
     ];
   }

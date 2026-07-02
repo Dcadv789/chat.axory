@@ -440,7 +440,7 @@ export class ChannelsService {
   async webhookDiagnostics(channelId: string, organizationId: string) {
     const channel = await this.findOne(channelId, organizationId);
     const cfg = (channel.config as Record<string, any>) || {};
-    const configuredIds = [cfg.igBusinessId, cfg.igUserId, cfg.pageId]
+    const configuredIds = [cfg.igBusinessId, cfg.igUserId, cfg.pageId, cfg.fbPageId]
       .filter(Boolean)
       .map(String);
 

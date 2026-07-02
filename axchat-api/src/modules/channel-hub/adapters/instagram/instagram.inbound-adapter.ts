@@ -35,6 +35,7 @@ export class InstagramInboundAdapter implements InboundChannelPort {
       config.igBusinessId,
       config.igUserId,
       config.pageId,
+      config.fbPageId,
     ].filter(Boolean) as string[];
     if (!locator.igBusinessId || candidates.length === 0) return false;
     return candidates.some((c) => String(c) === locator.igBusinessId);
@@ -84,18 +85,16 @@ export class InstagramInboundAdapter implements InboundChannelPort {
       const body = payload as Record<string, any>;
       const entries = body?.entry || [];
       const cfg = (channel?.config as any) || {};
-      const expectedId = cfg.igBusinessId
-        ? String(cfg.igBusinessId)
-        : cfg.igUserId
-          ? String(cfg.igUserId)
-          : undefined;
+      const expectedIds = [cfg.igBusinessId, cfg.igUserId, cfg.fbPageId, cfg.pageId]
+        .filter(Boolean)
+        .map(String);
 
       for (const entry of entries) {
         // Strict scoping: drop entries for a different IG business account
         if (
-          expectedId &&
+          expectedIds.length > 0 &&
           entry?.id &&
-          String(entry.id) !== expectedId
+          !expectedIds.includes(String(entry.id))
         ) {
           continue;
         }
@@ -128,7 +127,14 @@ export class InstagramInboundAdapter implements InboundChannelPort {
         for (const change of changes) {
           if (change?.field !== 'comments' || !change?.value) continue;
           const v = change.value;
-          if (expectedId && v?.from?.id && String(v.from.id) === expectedId) {
+          // Ignora o próprio comentário da conta (echo): from.id = a própria
+          // conta IG. Compara com o business id configurado.
+          const selfId = cfg.igBusinessId
+            ? String(cfg.igBusinessId)
+            : cfg.igUserId
+              ? String(cfg.igUserId)
+              : undefined;
+          if (selfId && v?.from?.id && String(v.from.id) === selfId) {
             continue;
           }
           const normalized = this.mapper.normalizeComment(v, entry?.time);

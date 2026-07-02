@@ -66,26 +66,52 @@ export class InstagramHttpClient {
   }
 
   /**
-   * Inscreve nosso app pra RECEBER webhooks (DMs + comentários) da conta IG.
-   * Sem isso a Meta só entrega o payload de "Teste" manual do painel — as
-   * mensagens reais nunca chegam. Idempotente (re-chamar é seguro). Exige que
-   * o token tenha instagram_manage_messages/instagram_manage_comments.
-   * Retorna { ok, fields } ou lança o erro da Meta pra UI mostrar.
+   * Inscreve nosso app pra RECEBER webhooks (DMs + comentários). Sem isso a
+   * Meta só entrega o payload de "Teste" manual do painel — mensagens reais
+   * nunca chegam. Idempotente.
+   *
+   * No fluxo graph.facebook.com (Instagram via Facebook Login), a inscrição é
+   * feita na PÁGINA do Facebook vinculada (config.fbPageId) — `subscribed_apps`
+   * na conta IG retorna #3 (não suportado nesse node). Exige token com escopo
+   * pages_manage_metadata + instagram_manage_messages. Lança o erro da Meta.
    */
   async subscribeApp(channel: Channel): Promise<any> {
     const cfg = this.getConfig(channel);
-    const target = cfg.igBusinessId;
-    if (!target) {
+    const config = channel.config as Record<string, any>;
+    const pageId = config?.fbPageId ? String(config.fbPageId).trim() : undefined;
+    const client = this.createClient(channel);
+
+    // Modo instagram (graph.instagram.com + token IGAA): inscreve a própria
+    // conta IG. Modo facebook (default): inscreve a PÁGINA.
+    if (cfg.graphApi === 'instagram') {
+      if (!cfg.igBusinessId) {
+        throw new Error('Instagram Business ID ausente pra inscrever o app.');
+      }
+      try {
+        const { data } = await client.post(
+          `/${cfg.igBusinessId}/subscribed_apps`,
+          null,
+          { params: { subscribed_fields: 'messages,comments' } },
+        );
+        return { ok: true, node: 'ig', ...data };
+      } catch (err: any) {
+        throw this.wrapGraphError(err, 'subscribeApp');
+      }
+    }
+
+    if (!pageId) {
       throw new Error(
-        'Instagram Business ID ausente — necessário pra inscrever o app nos webhooks.',
+        'Facebook Page ID ausente. Preencha o campo "Facebook Page ID" do canal (é o FB_PAGE_ID das Variáveis) — sem ele a Meta não entrega as DMs.',
       );
     }
-    const client = this.createClient(channel);
     try {
-      const { data } = await client.post(`/${target}/subscribed_apps`, null, {
-        params: { subscribed_fields: 'messages,comments' },
+      const { data } = await client.post(`/${pageId}/subscribed_apps`, null, {
+        params: {
+          subscribed_fields:
+            'messages,messaging_postbacks,messaging_seen,message_reactions,comments',
+        },
       });
-      return { ok: true, ...data };
+      return { ok: true, node: 'page', ...data };
     } catch (err: any) {
       throw this.wrapGraphError(err, 'subscribeApp');
     }
