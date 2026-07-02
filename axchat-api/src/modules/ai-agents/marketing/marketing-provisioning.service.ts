@@ -314,6 +314,18 @@ export class MarketingProvisioningService {
     const CYCLE_NOTE =
       'CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis. EXECUCAO: decidiu, EXECUTE — NAO pare o ciclo pra pedir permissao em texto. Delegue ao especialista e ele deve CHAMAR as ferramentas normalmente: acao sensivel vira automaticamente um CARD DE APROVACAO na propria conversa (o humano clica em Aprovar ou Rejeitar; validade de 24h). LEMBRE: getRecentMarketingAnalyses mostra o que foi DECIDIDO, nao o que foi EXECUTADO — decisao registrada NAO e decisao executada. Se o plano tem acao que ainda nao virou card de aprovacao nem foi executada, DELEGUE agora, mesmo que a analise ja esteja gravada. Na resposta final, liste o que ficou pendente e aponte pros cards da conversa.';
 
+    // Wystan lia "gateada por aprovação" como "não chame a ferramenta" e
+    // devolvia sem criar os cards — a decisão morria no papel. Deixa
+    // explícito: CHAMAR a ferramenta É a proposta (a chamada vira card).
+    const WYSTAN_GATE_OLD =
+      '- Acoes que GASTAM/ATIVAM/MONTAM mídia paga sao gateadas por aprovacao humana SEMPRE (montar funil, ajustar budget, ativar). Leitura (insights/listagens) e livre — rode a vontade.';
+    const WYSTAN_GATE_NEW =
+      '- Acoes que GASTAM/ATIVAM/MONTAM mídia paga sao gateadas por aprovacao humana SEMPRE (montar funil, ajustar budget, ativar) — e gateada significa: voce CHAMA a ferramenta normalmente e a chamada VIRA um card de aprovacao na conversa (nada executa sem o OK humano). PROPOR = CHAMAR A FERRAMENTA. Nunca descreva a acao so em texto sem chamar a ferramenta — texto nao vira card e a decisao morre no papel. Leitura (insights/listagens) e livre — rode a vontade.';
+    // Orla queimava 30s+ capturando métricas que não usa — o criativo vem
+    // do briefing.
+    const ORLA_FOCUS_NOTE =
+      'FOCO: voce NAO mede metricas nem captura dados (nao chame captureInstagramMetrics/captureMetaAdsMetrics) — o angulo e os numeros vem no briefing de quem delegou. Va direto pro criativo (arte + copy).';
+
     // Regra antiga do Magnus escrita quando o teto de encadeamento era 3 —
     // ensinava a NÃO seguir o ciclo ("nao tente encadear os 5"). Hoje o teto
     // interno é 12 e essa frase fazia ele parar no meio.
@@ -331,6 +343,12 @@ export class MarketingProvisioningService {
       let p = a.systemPrompt;
       if (a.name === 'Magnus' && p.includes(MAGNUS_RULE_OLD)) {
         p = p.replace(MAGNUS_RULE_OLD, MAGNUS_RULE_NEW);
+      }
+      if (a.name === 'Wystan' && p.includes(WYSTAN_GATE_OLD)) {
+        p = p.replace(WYSTAN_GATE_OLD, WYSTAN_GATE_NEW);
+      }
+      if (a.name === 'Orla' && !p.includes('nao chame captureInstagramMetrics')) {
+        p += `\n\n${ORLA_FOCUS_NOTE}`;
       }
       // Alaric e Edda medem IG; Wystan/Alaric/Edda medem ads.
       const wantsIg = ['Alaric', 'Edda'].includes(a.name);
