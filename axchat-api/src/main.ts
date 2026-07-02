@@ -56,13 +56,38 @@ async function bootstrap() {
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // Além da lista explícita (CORS_ORIGIN), libera qualquer subdomínio https do
+  // domínio do produto + localhost. Assim trocar web-chat.axory.com.br →
+  // chat.axory.com.br (ou qualquer subdomínio futuro) não quebra o login sem
+  // precisar reeditar env no Coolify. Suffixes configuráveis via
+  // CORS_ORIGIN_SUFFIXES (csv); default cobre o domínio da Axory.
+  const suffixRaw = config.get<string>('CORS_ORIGIN_SUFFIXES', '.axory.com.br');
+  const allowedSuffixes = suffixRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const isAllowedOrigin = (origin?: string): boolean => {
+    if (!origin) return true; // sem Origin (curl, server-to-server, health)
+    if (corsOrigins.includes(origin)) return true;
+    try {
+      const url = new URL(origin);
+      const host = url.hostname;
+      if (host === 'localhost' || host === '127.0.0.1') return true;
+      return allowedSuffixes.some(
+        (suf) => host === suf.replace(/^\./, '') || host.endsWith(suf),
+      );
+    } catch {
+      return false;
+    }
+  };
+
   const applyUploadCors = (
     req: express.Request,
     res: express.Response,
     next: express.NextFunction,
   ) => {
     const origin = req.headers.origin;
-    if (origin && corsOrigins.includes(origin)) {
+    if (origin && isAllowedOrigin(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -91,7 +116,13 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: corsOrigins,
+    // Função: reflete a origem quando permitida (lista + subdomínios do
+    // produto + localhost). Com credentials:true o header não pode ser '*',
+    // então refletir a origem exata é obrigatório.
+    origin: (
+      origin: string | undefined,
+      cb: (err: Error | null, allow?: boolean) => void,
+    ) => cb(null, isAllowedOrigin(origin ?? undefined)),
     credentials: true,
   });
   app.useGlobalPipes(
