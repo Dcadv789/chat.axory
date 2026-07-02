@@ -14,6 +14,7 @@ import {
   Send,
   Activity,
   UserCircle,
+  ShieldAlert,
 } from 'lucide-react';
 import { ConversationAiToggle } from './conversation-ai-toggle';
 import { AssignmentPopover } from './assignment-popover';
@@ -38,6 +39,14 @@ interface ConversationHeaderProps {
   /** When provided, renders a toggle button for the contact sidebar. */
   onToggleContactSidebar?: () => void;
   contactSidebarOpen?: boolean;
+  /**
+   * Aprovações pendentes da conversa: com count > 0 renderiza o botão com
+   * badge que abre o painel lateral dedicado (os cards não ficam mais na
+   * timeline).
+   */
+  pendingApprovalsCount?: number;
+  onToggleApprovals?: () => void;
+  approvalsOpen?: boolean;
 }
 
 function ChannelBadge({ type, name }: { type: string; name: string }) {
@@ -114,6 +123,9 @@ export function ConversationHeader({
   agentLogsOpen,
   onToggleContactSidebar,
   contactSidebarOpen,
+  pendingApprovalsCount = 0,
+  onToggleApprovals,
+  approvalsOpen,
 }: ConversationHeaderProps) {
   const queryClient = useQueryClient();
   const role = useAuthStore((s) =>
@@ -237,6 +249,22 @@ export function ConversationHeader({
             }`}
           >
             <UserCircle className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onToggleApprovals && pendingApprovalsCount > 0 && (
+          <button
+            onClick={onToggleApprovals}
+            title={`${pendingApprovalsCount} ação(ões) da IA aguardando sua aprovação`}
+            className={`relative inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+              approvalsOpen
+                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                : 'text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20'
+            }`}
+          >
+            <ShieldAlert className="h-4 w-4" />
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+              {pendingApprovalsCount > 9 ? '9+' : pendingApprovalsCount}
+            </span>
           </button>
         )}
         {onToggleAgentLogs && (

@@ -27,7 +27,8 @@ import {
 } from './media-bubbles';
 import { useSocket } from '../hooks/use-socket';
 import { useAuthStore } from '@/stores/auth-store';
-import { PendingActionsList } from '../pending-actions/pending-actions-list';
+import { PendingActionsDrawer } from '../pending-actions/pending-actions-drawer';
+import { usePendingActions } from '../pending-actions/use-pending-actions';
 import { WhatsappTemplateSelector } from './whatsapp-template-selector';
 import { MessageSearchBar } from './message-search-bar';
 import type { WhatsappTemplate } from '@/features/channels/services/channels.service';
@@ -720,6 +721,13 @@ export function ChatPanel({
   // trocar de conversa (via key prop do ChatPanel) ou ao mandar a msg.
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
+  // Aprovações pendentes moram num painel lateral dedicado (não na timeline).
+  // O hook compartilha o cache/polling com o drawer (mesma queryKey).
+  const [approvalsOpen, setApprovalsOpen] = useState(false);
+  const { data: pendingActionsData } = usePendingActions(conversation.id);
+  const pendingApprovalsCount = (pendingActionsData ?? []).filter(
+    (a) => a.status === 'PENDING',
+  ).length;
   const [privateMode, setPrivateMode] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const typingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -876,7 +884,7 @@ export function ChatPanel({
     // pelo conteúdo (default min-height de flex children) e empurra o
     // ChatInput pra fora do painel — quebra dramaticamente quando o pai
     // é um modal com altura fixa.
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <ConversationHeader
         conversation={conversation}
         onUpdate={onConversationUpdate}
@@ -884,9 +892,16 @@ export function ChatPanel({
         agentLogsOpen={agentLogsOpen}
         onToggleContactSidebar={onToggleContactSidebar}
         contactSidebarOpen={contactSidebarOpen}
+        pendingApprovalsCount={pendingApprovalsCount}
+        onToggleApprovals={() => setApprovalsOpen((v) => !v)}
+        approvalsOpen={approvalsOpen}
       />
 
-      <PendingActionsList conversationId={conversation.id} />
+      <PendingActionsDrawer
+        conversationId={conversation.id}
+        open={approvalsOpen}
+        onClose={() => setApprovalsOpen(false)}
+      />
 
       <EngagementWindowBanner
         channelType={conversation.channel.type}
