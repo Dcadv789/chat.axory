@@ -736,6 +736,11 @@ CREDENCIAIS: as contas (Meta Ads, Instagram, Pagina do Facebook, Google Business
 const DATA_NOTE = `
 REGRAS & REGISTRO: consulte getMarketingProfile pra conhecer as regras da org (o que a empresa faz, produtos, publico-alvo, tom de voz, diretrizes e teto de verba) ANTES de definir publico, criar campanha, escrever copy ou propor verba — nunca invente regra nem orcamento; respeite os tetos. Se voce produz analise, relatorio ou decisao (ex: definicao de publico), grave com recordMarketingAnalysis pra ficar salvo e auditavel no banco.`;
 
+// Worker devolve a bola quando termina tarefa delegada — sem isso o ciclo
+// orquestrado morre no primeiro worker (Magnus nunca volta a rodar).
+const HANDBACK_NOTE = `
+TRABALHO DELEGADO: se voce foi acionado por DELEGACAO do orquestrador, ao TERMINAR a sua parte responda com a entrega E chame handBackToOrchestrator (reason = resumo de 1 frase do que entregou). E o hand-back que devolve a bola pro orquestrador continuar o ciclo — sem ele, o fluxo PARA em voce. So nao devolva quando um humano te acionou diretamente (sem delegacao).`;
+
 // Ciclo diário de decisão: contexto histórico + pacing de verba calculado.
 const CYCLE_NOTE = `
 CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis. EXECUCAO: decidiu, EXECUTE — NAO pare o ciclo pra pedir permissao em texto. Delegue ao especialista e ele deve CHAMAR as ferramentas normalmente: acao sensivel vira automaticamente um CARD DE APROVACAO na propria conversa (o humano clica em Aprovar ou Rejeitar; validade de 24h). Na resposta final, liste o que ficou pendente e aponte pros cards da conversa.`;
@@ -1100,6 +1105,7 @@ async function main() {
     for (const worker of workers) {
       const saved = await upsertAgent(org.id, {
         ...worker,
+        systemPrompt: `${worker.systemPrompt}\n${HANDBACK_NOTE}`,
         parentAgentId: magnus.id,
       });
       agentByName.set(saved.name, saved.id);

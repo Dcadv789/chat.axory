@@ -15,7 +15,7 @@ export class HandBackToOrchestratorTool implements AiTool {
 
   readonly name = 'handBackToOrchestrator';
   readonly description =
-    'Devolve a conversa para o orquestrador. Use quando o cliente mudar de assunto para um domínio fora da sua especialidade. O orquestrador vai decidir pra qual outro especialista encaminhar.';
+    'Devolve a conversa para o orquestrador. Use em DOIS casos: (1) você TERMINOU a tarefa que ele delegou — devolva com um resumo curto do que entregou, é isso que permite o orquestrador continuar o ciclo (sem o hand-back o fluxo PARA em você); (2) o assunto mudou para um domínio fora da sua especialidade.';
   readonly parameters = {
     type: 'object',
     additionalProperties: false,
@@ -24,7 +24,7 @@ export class HandBackToOrchestratorTool implements AiTool {
       reason: {
         type: 'string',
         description:
-          'Por que está devolvendo. Ex: "Cliente passou a perguntar sobre questões jurídicas, fora do meu escopo de contabilidade".',
+          'Resumo de 1 frase: o que você entregou (tarefa concluída) ou por que está devolvendo (fora de escopo). Ex: "Análise concluída: campanha X é a melhor, recomendo R$10/dia".',
         minLength: 5,
         maxLength: 300,
       },
@@ -42,21 +42,36 @@ export class HandBackToOrchestratorTool implements AiTool {
   ): Promise<ToolResult> {
     const reason = String(input.reason ?? '').trim();
 
+    // Devolve pro PAI do worker (Magnus na crew de marketing) quando houver.
+    // Com activeAgentId=null a resolução dependia do defaultOrchestratorId do
+    // CANAL — que não existe no canal interno de crons, então o hand-back
+    // morria no vazio e o ciclo parava no worker. Apontar o pai funciona em
+    // qualquer canal. Sem pai ativo, cai no comportamento antigo (null →
+    // orquestrador default do canal / roteador).
+    const self = await this.prisma.aiAgent.findUnique({
+      where: { id: ctx.agentId },
+      select: { parentAgentId: true },
+    });
+    const parent = self?.parentAgentId
+      ? await this.prisma.aiAgent.findFirst({
+          where: { id: self.parentAgentId, isActive: true, deletedAt: null },
+          select: { id: true },
+        })
+      : null;
+    const nextAgentId = parent?.id ?? null;
+
     await this.prisma.$transaction([
       this.prisma.conversation.update({
         where: { id: ctx.conversationId },
-        data: { activeAgentId: null },
+        data: { activeAgentId: nextAgentId },
       }),
       this.prisma.aiAgentHandoff.create({
         data: {
           conversationId: ctx.conversationId,
           fromAgentId: ctx.agentId,
-          // Orchestrator slot — we don't know which orchestrator will pick up
-          // (channel might have multiple over time), so we point this at the
-          // current worker's organization-level "fall back" by leaving toAgentId
-          // pointing at the same agent and using metadata. Trick: point to self
-          // and let the audit log carry the real semantic.
-          toAgentId: ctx.agentId,
+          // Pai do worker quando conhecido; sem pai, aponta pra si mesmo
+          // (slot obrigatório) e o audit log carrega a semântica real.
+          toAgentId: nextAgentId ?? ctx.agentId,
           reason,
         },
       }),

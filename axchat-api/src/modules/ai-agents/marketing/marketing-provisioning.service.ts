@@ -254,6 +254,8 @@ export class MarketingProvisioningService {
       'IMPORTANTE: para analisar/medir a performance dos posts do Instagram, use a ferramenta captureInstagramMetrics (mede TODOS os posts do periodo de uma vez e salva com legenda). Nao meça post a post quando o pedido for sobre varios/todos os posts.';
     const ADS_NOTE =
       'IMPORTANTE: para o PANORAMA dos anuncios (metricas de todas as campanhas), use a ferramenta captureMetaAdsMetrics (mede TODAS as campanhas do periodo de uma vez e salva). Nao meça campanha a campanha nesse caso.';
+    const HANDBACK_NOTE =
+      'TRABALHO DELEGADO: se voce foi acionado por DELEGACAO do orquestrador, ao TERMINAR a sua parte responda com a entrega E chame handBackToOrchestrator (reason = resumo de 1 frase do que entregou). E o hand-back que devolve a bola pro orquestrador continuar o ciclo — sem ele, o fluxo PARA em voce. So nao devolva quando um humano te acionou diretamente (sem delegacao).';
     const CYCLE_NOTE_V1 =
       'CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis.';
     const CYCLE_NOTE =
@@ -261,7 +263,7 @@ export class MarketingProvisioningService {
 
     const agents = await this.prisma.aiAgent.findMany({
       where: { organizationId, sector: 'MARKETING', deletedAt: null },
-      select: { id: true, name: true, systemPrompt: true },
+      select: { id: true, name: true, kind: true, systemPrompt: true },
     });
     for (const a of agents) {
       if (!a.systemPrompt) continue;
@@ -277,6 +279,10 @@ export class MarketingProvisioningService {
         // Upgrade v1 → v2 (v2 acrescenta a instrução de EXECUÇÃO via cards).
         if (p.includes(CYCLE_NOTE_V1)) p = p.replace(CYCLE_NOTE_V1, CYCLE_NOTE);
         else if (!p.includes('CARD DE APROVACAO')) p += `\n\n${CYCLE_NOTE}`;
+      }
+      // Todo WORKER precisa devolver a bola ao terminar tarefa delegada.
+      if (a.kind === 'WORKER' && !p.includes('handBackToOrchestrator')) {
+        p += `\n\n${HANDBACK_NOTE}`;
       }
       if (p !== a.systemPrompt) {
         await this.prisma.aiAgent.update({

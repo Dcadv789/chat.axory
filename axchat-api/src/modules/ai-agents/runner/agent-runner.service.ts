@@ -498,8 +498,20 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
             name: result.toolName,
             content: JSON.stringify(result.output),
           });
-          if (result.finalAction && finalAction === AiFinalAction.NO_ACTION) {
-            finalAction = result.finalAction as AiFinalAction;
+          if (result.finalAction) {
+            const next = result.finalAction as AiFinalAction;
+            // Ações de CONTROLE DE FLUXO têm precedência: o worker responde a
+            // entrega (REPLIED) e SÓ DEPOIS chama handBackToOrchestrator — o
+            // "primeiro vence" deixava o run terminar REPLIED e o auto-chain
+            // nunca devolvia a bola pro orquestrador (ciclo parava no worker).
+            const isControlFlow =
+              next === AiFinalAction.DELEGATED ||
+              next === AiFinalAction.HANDED_BACK ||
+              next === AiFinalAction.TRANSFERRED_TO_HUMAN ||
+              next === AiFinalAction.CLOSED_CONVERSATION;
+            if (finalAction === AiFinalAction.NO_ACTION || isControlFlow) {
+              finalAction = next;
+            }
           }
           if (
             result.toolName === 'replyToConversation' &&
@@ -676,7 +688,11 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
           );
         } else if (
           finalAction === AiFinalAction.HANDED_BACK &&
-          !refreshed.activeAgentId
+          // Hand-back direcionado: a tool agora aponta o PAI do worker em
+          // activeAgentId (null quando não há pai — resolve pelo default do
+          // canal, comportamento antigo). Só não pode re-rodar o próprio
+          // agente que devolveu.
+          refreshed.activeAgentId !== agent.id
         ) {
           this.logger.log(
             `Auto-chaining orchestrator after hand-back on conv ${conversation.id} (depth ${chainDepth + 1})`,
