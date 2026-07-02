@@ -63,27 +63,131 @@ const TOOL_LABELS: Record<string, string> = {
   grantAccess: 'Liberar acesso',
   resetPassword: 'Resetar senha',
   transferToHuman: 'Transferir para humano',
+  // Marketing — nomes que um dono de empresa entende (nada de nome de API).
+  createMetaAdsCampaign: 'Criar campanha de anúncio',
+  createMetaAdsAdSet: 'Criar conjunto de anúncios',
+  createMetaAdsConversionAdSet: 'Criar conjunto de anúncios',
+  createMetaAdsAdCreative: 'Criar criativo do anúncio',
+  createMetaAdsAd: 'Criar anúncio',
+  updateMetaAdsCampaignBudget: 'Definir orçamento diário',
+  updateMetaAdsAdSetBudget: 'Definir orçamento diário',
+  updateMetaAdsAdSetTargeting: 'Ajustar público do anúncio',
+  setMetaAdsStatus: 'Ligar / pausar anúncio',
+  publishInstagramMedia: 'Publicar post no Instagram',
+  createGoogleBusinessPost: 'Publicar no Google',
+  replyToGoogleBusinessReview: 'Responder avaliação no Google',
 };
+
+// ─── Tradução dos parâmetros técnicos pra linguagem de negócio ───
+
+const ARG_LABELS: Record<string, string> = {
+  name: 'Nome',
+  objective: 'Objetivo',
+  campaignId: 'ID no Meta',
+  adSetId: 'ID no Meta',
+  entityId: 'ID no Meta',
+  objectId: 'ID no Meta',
+  creativeId: 'ID do criativo',
+  dailyBudgetCents: 'Orçamento por dia',
+  status: 'Ação',
+  message: 'Texto do anúncio',
+  caption: 'Legenda',
+  summary: 'Texto',
+  imageUrl: 'Imagem',
+  destinationUrl: 'Link de destino',
+  ctaType: 'Botão',
+  conversionEvent: 'Evento de conversão',
+  targeting: 'Público',
+  reason: 'Motivo',
+};
+
+const OBJECTIVE_LABELS: Record<string, string> = {
+  OUTCOME_LEADS: 'Captação de contatos (leads)',
+  OUTCOME_SALES: 'Vendas / conversões',
+  OUTCOME_TRAFFIC: 'Visitas ao site (tráfego)',
+  OUTCOME_AWARENESS: 'Alcance / reconhecimento da marca',
+  OUTCOME_ENGAGEMENT: 'Engajamento',
+  OUTCOME_APP_PROMOTION: 'Promoção de aplicativo',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: '▶ LIGAR — começa a veicular e a gastar verba',
+  PAUSED: '⏸ PAUSAR — para de veicular e de gastar',
+};
+
+const CTA_LABELS: Record<string, string> = {
+  LEARN_MORE: '"Saiba mais"',
+  SHOP_NOW: '"Comprar agora"',
+  SIGN_UP: '"Cadastre-se"',
+  CONTACT_US: '"Fale conosco"',
+  BOOK_TRAVEL: '"Reservar"',
+  GET_QUOTE: '"Pedir orçamento"',
+  SUBSCRIBE: '"Assinar"',
+  WHATSAPP_MESSAGE: '"Chamar no WhatsApp"',
+};
+
+function humanizeArgValue(key: string, raw: unknown): string {
+  if (/cents$/i.test(key) && Number.isFinite(Number(raw))) {
+    return `R$ ${(Number(raw) / 100).toFixed(2).replace('.', ',')} por dia`;
+  }
+  const v = typeof raw === 'string' ? raw : JSON.stringify(raw);
+  if (key === 'objective') return OBJECTIVE_LABELS[v] ?? v;
+  if (key === 'status') return STATUS_LABELS[v] ?? v;
+  if (key === 'ctaType') return CTA_LABELS[v] ?? v;
+  return v;
+}
+
+/**
+ * Título humano do card. Cards antigos guardaram "Executar <tool>" no
+ * preview — nesses casos (e só neles) montamos a descrição no cliente.
+ */
+function describeAction(action: PendingAction): string {
+  const p = action.preview?.action ?? '';
+  if (p && !p.startsWith('Executar ')) return p;
+  const a = action.args ?? {};
+  const s = (k: string) => (typeof a[k] === 'string' ? (a[k] as string) : undefined);
+  const money = (k: string) =>
+    Number.isFinite(Number(a[k])) && Number(a[k]) > 0
+      ? `R$ ${(Number(a[k]) / 100).toFixed(2).replace('.', ',')}`
+      : undefined;
+  switch (action.toolName) {
+    case 'createMetaAdsCampaign':
+      return `Criar a campanha "${s('name') ?? '?'}" — nasce pausada, não gasta nada até você ligar`;
+    case 'updateMetaAdsCampaignBudget':
+    case 'updateMetaAdsAdSetBudget':
+      return `Definir o orçamento em ${money('dailyBudgetCents') ?? '?'} por dia`;
+    case 'setMetaAdsStatus':
+      return s('status') === 'ACTIVE'
+        ? 'Ligar o anúncio — a partir daí ele veicula e gasta verba de verdade'
+        : 'Pausar o anúncio — para de veicular e de gastar';
+    case 'publishInstagramMedia':
+      return 'Publicar o post no Instagram (vai ao ar público)';
+    default:
+      return p || (TOOL_LABELS[action.toolName] ?? action.toolName);
+  }
+}
 
 /**
  * Parâmetros que a ação vai executar, legíveis pro aprovador conferir
  * ANTES de clicar. Campos *Cents viram R$; valores longos são truncados.
  */
-function formatArgs(args: Record<string, unknown>): Array<{ k: string; v: string }> {
-  const out: Array<{ k: string; v: string }> = [];
+function formatArgs(
+  args: Record<string, unknown>,
+): Array<{ k: string; v: string; technical: boolean }> {
+  const out: Array<{ k: string; v: string; technical: boolean }> = [];
   for (const [k, raw] of Object.entries(args ?? {})) {
     if (raw === undefined || raw === null || raw === '') continue;
-    let v: string;
-    if (/cents$/i.test(k) && Number.isFinite(Number(raw))) {
-      v = `R$ ${(Number(raw) / 100).toFixed(2).replace('.', ',')}`;
-    } else if (typeof raw === 'string') {
-      v = raw;
-    } else {
-      v = JSON.stringify(raw);
-    }
+    let v = humanizeArgValue(k, raw);
     if (v.length > 140) v = `${v.slice(0, 140)}…`;
-    out.push({ k, v });
+    out.push({
+      k: ARG_LABELS[k] ?? k,
+      v,
+      // IDs do Meta são conferência técnica — mostrados menores, no fim.
+      technical: (ARG_LABELS[k] ?? k) === 'ID no Meta',
+    });
   }
+  // Campos de negócio primeiro; IDs técnicos por último.
+  out.sort((a, b) => Number(a.technical) - Number(b.technical));
   return out;
 }
 
@@ -199,7 +303,10 @@ export function PendingActionBanner({ action, index = 0 }: Props) {
             <span
               className={`inline-flex items-center rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-600 ring-1 ring-inset ring-zinc-200 dark:bg-black dark:text-zinc-300 dark:ring-zinc-700`}
             >
-              Impacto: {action.preview.impact}
+              Impacto:{' '}
+              {{ low: 'baixo', medium: 'médio', high: 'alto', critical: 'crítico' }[
+                action.preview.impact
+              ] ?? action.preview.impact}
             </span>
             <span
               className={`ml-auto inline-flex items-center gap-1 text-xs font-medium ${
@@ -214,31 +321,53 @@ export function PendingActionBanner({ action, index = 0 }: Props) {
             </span>
           </div>
 
-          <p className="mt-2 text-sm text-zinc-800 dark:text-zinc-100">
-            {action.preview.action}
+          <p className="mt-2 text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            {describeAction(action)}
           </p>
 
-          {action.preview.affectedEntity && (
-            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-              Alvo:{' '}
-              <span className="font-medium">
-                {action.preview.affectedEntity.label ??
-                  `${action.preview.affectedEntity.type}#${action.preview.affectedEntity.id}`}
-              </span>
-            </p>
-          )}
+          {action.toolName === 'setMetaAdsStatus' &&
+            (action.args?.status as string) === 'ACTIVE' && (
+              <p className="mt-1.5 rounded-md bg-amber-100/80 px-2 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                ⚠️ Este é o passo que liga o anúncio: ao aprovar, ele começa a
+                veicular e a gastar o orçamento definido.
+              </p>
+            )}
+
+          {/* "Alvo: contact:<id>" era ruído em ação de marketing — esconde. */}
+          {action.preview.affectedEntity &&
+            !(action.preview.affectedEntity.label ?? '').startsWith('contact:') && (
+              <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                Alvo:{' '}
+                <span className="font-medium">
+                  {action.preview.affectedEntity.label ??
+                    `${action.preview.affectedEntity.type}#${action.preview.affectedEntity.id}`}
+                </span>
+              </p>
+            )}
 
           {(() => {
             const rows = formatArgs(action.args);
             if (rows.length === 0) return null;
             return (
-              <dl className="mt-2 space-y-0.5 rounded-md bg-white/70 px-2.5 py-2 text-xs ring-1 ring-inset ring-zinc-200/70 dark:bg-black dark:ring-zinc-700/60">
-                {rows.map(({ k, v }) => (
-                  <div key={k} className="flex gap-2">
-                    <dt className="shrink-0 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+              <dl className="mt-2 space-y-1 rounded-md bg-white/70 px-2.5 py-2 text-xs ring-1 ring-inset ring-zinc-200/70 dark:bg-black dark:ring-zinc-700/60">
+                {rows.map(({ k, v, technical }, i) => (
+                  <div key={`${k}-${i}`} className="flex gap-2">
+                    <dt
+                      className={`shrink-0 ${
+                        technical
+                          ? 'text-[10px] text-zinc-400 dark:text-zinc-500'
+                          : 'font-medium text-zinc-500 dark:text-zinc-400'
+                      }`}
+                    >
                       {k}:
                     </dt>
-                    <dd className="min-w-0 break-words text-zinc-700 dark:text-zinc-200">
+                    <dd
+                      className={`min-w-0 break-words ${
+                        technical
+                          ? 'font-mono text-[10px] text-zinc-400 dark:text-zinc-500'
+                          : 'text-zinc-700 dark:text-zinc-200'
+                      }`}
+                    >
                       {v}
                     </dd>
                   </div>
