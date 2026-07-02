@@ -243,10 +243,70 @@ export class MarketingProvisioningService {
     // medir item a item. String-append idempotente (só adiciona se faltar).
     await this.patchAgentPrompts(organizationId);
 
+    // Upgrade de modelo: orquestração multi-etapa em modelo fraco (deepseek)
+    // é a causa raiz de ciclo que para no meio / não delega / responde errado.
+    await this.upgradeCrewModels(organizationId);
+
     this.logger.log(
       `resyncSkills(${organizationId}): ${updated} skill(s) atualizada(s) in-process.`,
     );
     return { updated };
+  }
+
+  /**
+   * Sobe o modelo dos agentes da crew que ainda estão no default barato
+   * (deepseek*): decisão/orquestração (Magnus, Alaric, Wystan) vai pro modelo
+   * forte; execução (Orla, Caspian, Edda) pro leve. Respeita escolha manual —
+   * só mexe em quem está em deepseek. Sem ANTHROPIC_API_KEY no ambiente (e
+   * sem override via env), não faz nada.
+   */
+  private async upgradeCrewModels(organizationId: string): Promise<void> {
+    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY?.trim();
+    const strong =
+      process.env.AI_MARKETING_STRONG_MODEL_ID ||
+      (hasAnthropic ? 'claude-sonnet-4-6' : null);
+    const light =
+      process.env.AI_MARKETING_LIGHT_MODEL_ID ||
+      (hasAnthropic ? 'claude-haiku-4-5' : null);
+    if (!strong && !light) {
+      this.logger.warn(
+        `upgradeCrewModels(${organizationId}): sem ANTHROPIC_API_KEY nem override — crew segue no modelo default.`,
+      );
+      return;
+    }
+
+    let upgraded = 0;
+    if (strong) {
+      const res = await this.prisma.aiAgent.updateMany({
+        where: {
+          organizationId,
+          sector: 'MARKETING',
+          deletedAt: null,
+          name: { in: ['Magnus', 'Alaric', 'Wystan'] },
+          modelId: { startsWith: 'deepseek' },
+        },
+        data: { modelId: strong },
+      });
+      upgraded += res.count;
+    }
+    if (light) {
+      const res = await this.prisma.aiAgent.updateMany({
+        where: {
+          organizationId,
+          sector: 'MARKETING',
+          deletedAt: null,
+          name: { in: ['Orla', 'Caspian', 'Edda'] },
+          modelId: { startsWith: 'deepseek' },
+        },
+        data: { modelId: light },
+      });
+      upgraded += res.count;
+    }
+    if (upgraded > 0) {
+      this.logger.log(
+        `upgradeCrewModels(${organizationId}): ${upgraded} agente(s) migrado(s) (forte=${strong ?? '-'}, leve=${light ?? '-'}).`,
+      );
+    }
   }
 
   private async patchAgentPrompts(organizationId: string): Promise<void> {
@@ -263,6 +323,14 @@ export class MarketingProvisioningService {
     const CYCLE_NOTE =
       'CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis. EXECUCAO: decidiu, EXECUTE — NAO pare o ciclo pra pedir permissao em texto. Delegue ao especialista e ele deve CHAMAR as ferramentas normalmente: acao sensivel vira automaticamente um CARD DE APROVACAO na propria conversa (o humano clica em Aprovar ou Rejeitar; validade de 24h). LEMBRE: getRecentMarketingAnalyses mostra o que foi DECIDIDO, nao o que foi EXECUTADO — decisao registrada NAO e decisao executada. Se o plano tem acao que ainda nao virou card de aprovacao nem foi executada, DELEGUE agora, mesmo que a analise ja esteja gravada. Na resposta final, liste o que ficou pendente e aponte pros cards da conversa.';
 
+    // Regra antiga do Magnus escrita quando o teto de encadeamento era 3 —
+    // ensinava a NÃO seguir o ciclo ("nao tente encadear os 5"). Hoje o teto
+    // interno é 12 e essa frase fazia ele parar no meio.
+    const MAGNUS_RULE_OLD =
+      '- Delegue UMA etapa por vez e consolide o retorno antes da proxima. A profundidade de delegacao e limitada — nao tente encadear os 5 numa tacada so; avance por etapas, uma delegacao de cada vez.';
+    const MAGNUS_RULE_NEW =
+      '- Delegue UMA etapa por vez e consolide o retorno antes da proxima — e SIGA o ciclo ATE O FIM (analise > decisao > execucao > fechamento). NAO pare no meio nem encerre so com a analise: quando um especialista entrega, delegue a PROXIMA etapa a quem EXECUTA. Cada especialista roda no maximo 1x por ciclo (re-delegacao a quem ja entregou e bloqueada pelo sistema).';
+
     const agents = await this.prisma.aiAgent.findMany({
       where: { organizationId, sector: 'MARKETING', deletedAt: null },
       select: { id: true, name: true, kind: true, systemPrompt: true },
@@ -270,6 +338,9 @@ export class MarketingProvisioningService {
     for (const a of agents) {
       if (!a.systemPrompt) continue;
       let p = a.systemPrompt;
+      if (a.name === 'Magnus' && p.includes(MAGNUS_RULE_OLD)) {
+        p = p.replace(MAGNUS_RULE_OLD, MAGNUS_RULE_NEW);
+      }
       // Alaric e Edda medem IG; Wystan/Alaric/Edda medem ads.
       const wantsIg = ['Alaric', 'Edda'].includes(a.name);
       const wantsAds = ['Wystan', 'Alaric', 'Edda'].includes(a.name);

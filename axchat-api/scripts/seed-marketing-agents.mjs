@@ -12,6 +12,26 @@ const prisma = new PrismaClient();
 
 const DEFAULT_MODEL = process.env.AI_DEFAULT_MODEL_ID || 'deepseek-chat';
 
+// Orquestração/decisão multi-etapa precisa de modelo forte — deepseek-chat
+// não sustenta o ciclo (não delega, para no meio, ping-pong). Com
+// ANTHROPIC_API_KEY no ambiente: decisão (Magnus/Alaric/Wystan) vai pro
+// Sonnet e execução (Orla/Caspian/Edda) pro Haiku. Overrides via env.
+const HAS_ANTHROPIC = !!(process.env.ANTHROPIC_API_KEY || '').trim();
+const STRONG_MODEL =
+  process.env.AI_MARKETING_STRONG_MODEL_ID ||
+  (HAS_ANTHROPIC ? 'claude-sonnet-4-6' : DEFAULT_MODEL);
+const LIGHT_MODEL =
+  process.env.AI_MARKETING_LIGHT_MODEL_ID ||
+  (HAS_ANTHROPIC ? 'claude-haiku-4-5' : DEFAULT_MODEL);
+const MODEL_BY_AGENT = {
+  Magnus: STRONG_MODEL,
+  Alaric: STRONG_MODEL,
+  Wystan: STRONG_MODEL,
+  Orla: LIGHT_MODEL,
+  Caspian: LIGHT_MODEL,
+  Edda: LIGHT_MODEL,
+};
+
 // ─── Tools NOVAS ───────────────────────────────────────────────
 // As tools Instagram e Google Business já são criadas por
 // scripts/seed-marketing-skills.mjs — aqui só adicionamos as duas
@@ -773,7 +793,7 @@ A) ANUNCIO PAGO no Instagram: Alaric (historico/angulo) > Orla (arte+copy) > Wys
 B) PUBLICACAO ORGANICA (post comum): Alaric (angulo, opcional) > Orla (arte+copy) > Caspian (publica IG/Google) > Edda (mede). Caspian tambem responde comentarios do IG e reviews do Google.
 
 Regras:
-- Delegue UMA etapa por vez e consolide o retorno antes da proxima. A profundidade de delegacao e limitada — nao tente encadear os 5 numa tacada so; avance por etapas, uma delegacao de cada vez.
+- Delegue UMA etapa por vez e consolide o retorno antes da proxima — e SIGA o ciclo ATE O FIM (analise > decisao > execucao > fechamento). NAO pare no meio nem encerre so com a analise: quando um especialista entrega, delegue a PROXIMA etapa a quem EXECUTA. Cada especialista roda no maximo 1x por ciclo (re-delegacao a quem ja entregou e bloqueada pelo sistema).
 - Acoes que gastam verba, publicam ou ativam sao gateadas por aprovacao humana — trate como PROPOSTAS ate o OK.
 - Em toda resposta, deixe um resumo curto do estado e qual o proximo passo.
 ${CYCLE_NOTE}
@@ -1315,7 +1335,7 @@ async function upsertSkill(organizationId, toolId, data) {
 async function upsertAgent(organizationId, data) {
   const existing = await prisma.aiAgent.findFirst({
     where: { organizationId, name: data.name, deletedAt: null },
-    select: { id: true },
+    select: { id: true, modelId: true },
   });
 
   const payload = {
@@ -1329,7 +1349,7 @@ async function upsertAgent(organizationId, data) {
     department: data.department,
     squad: data.squad ?? 'Marketing IA',
     parentAgentId: data.parentAgentId ?? null,
-    modelId: DEFAULT_MODEL,
+    modelId: MODEL_BY_AGENT[data.name] ?? DEFAULT_MODEL,
     modelParams: {},
     systemPrompt: data.systemPrompt,
     temperature: data.temperature,
@@ -1342,6 +1362,11 @@ async function upsertAgent(organizationId, data) {
   };
 
   if (existing) {
+    // Não pisa em escolha MANUAL de modelo: só troca se o atual ainda é o
+    // default barato (deepseek*).
+    if (existing.modelId && !existing.modelId.startsWith('deepseek')) {
+      delete payload.modelId;
+    }
     return prisma.aiAgent.update({ where: { id: existing.id }, data: payload });
   }
   return prisma.aiAgent.create({ data: payload });
