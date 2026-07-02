@@ -104,17 +104,41 @@ export class InstagramHttpClient {
         'Facebook Page ID ausente. Preencha o campo "Facebook Page ID" do canal (é o FB_PAGE_ID das Variáveis) — sem ele a Meta não entrega as DMs.',
       );
     }
+
+    // A inscrição da Página exige um PAGE access token (#210 com o token de
+    // System User). Busca o token da Página primeiro — o System User precisa
+    // ter a Página atribuída no Business Manager + escopo pages_show_list /
+    // pages_read_engagement pra esse GET funcionar.
+    let pageToken: string | undefined;
     try {
-      const { data } = await client.post(`/${pageId}/subscribed_apps`, null, {
-        params: {
-          // Só campos de MENSAGEM válidos pra Página. "comments" NÃO é campo de
-          // subscribed_apps da Página — os comentários do IG são assinados no
-          // nível do app (objeto Instagram, campo comments), o que o usuário
-          // já configurou no painel de Webhooks da Meta.
-          subscribed_fields:
-            'messages,messaging_postbacks,message_reactions,message_reads',
-        },
+      const { data } = await client.get(`/${pageId}`, {
+        params: { fields: 'access_token' },
       });
+      pageToken = data?.access_token;
+    } catch (err: any) {
+      throw this.wrapGraphError(err, 'subscribeApp:getPageToken');
+    }
+    if (!pageToken) {
+      throw new Error(
+        'Não consegui obter o token da Página. Confirme que a Página está atribuída ao System User no Business Manager e que o token tem os escopos pages_show_list e pages_read_engagement.',
+      );
+    }
+
+    try {
+      const { data } = await axios.post(
+        `https://${this.host(cfg)}/${cfg.apiVersion}/${pageId}/subscribed_apps`,
+        null,
+        {
+          params: {
+            // Só campos de MENSAGEM válidos pra Página. Comentários do IG são
+            // assinados no nível do app (objeto Instagram) no painel de Webhooks.
+            subscribed_fields:
+              'messages,messaging_postbacks,message_reactions,message_reads',
+            access_token: pageToken,
+          },
+          timeout: 30000,
+        },
+      );
       return { ok: true, node: 'page', ...data };
     } catch (err: any) {
       throw this.wrapGraphError(err, 'subscribeApp');
