@@ -40,11 +40,29 @@ export class InstagramSyncAdapter implements HistorySyncPort {
       throw new Error('Cannot sync Instagram: missing business id (call /me)');
     }
 
-    const { data, nextCursor } = await this.httpClient.listConversations(
-      channel,
-      cursor,
-      limit,
-    );
+    let data: any[];
+    let nextCursor: string | undefined;
+    try {
+      ({ data, nextCursor } = await this.httpClient.listConversations(
+        channel,
+        cursor,
+        limit,
+      ));
+    } catch (err: any) {
+      // Import de histórico é OPCIONAL. Se a Meta recusa o endpoint de
+      // conversas por capability/permissão (#3, #10, #200, #230), NÃO
+      // derruba a criação do canal — as DMs AO VIVO (webhook + resposta)
+      // funcionam sem importar histórico. Só re-lança erro inesperado.
+      if (this.isHistoryUnavailable(err)) {
+        this.logger.warn(
+          `Instagram: import de histórico indisponível (${err.message}). ` +
+            `Pulando — DMs ao vivo seguem funcionando via webhook. Pra importar ` +
+            `conversas antigas, o app precisa da permissão instagram_manage_messages (Acesso Avançado).`,
+        );
+        return { conversations: [], nextCursor: undefined };
+      }
+      throw err;
+    }
 
     const conversations: NormalizedHistoricalConversation[] = [];
     for (const conv of data) {
@@ -97,6 +115,17 @@ export class InstagramSyncAdapter implements HistorySyncPort {
       messages,
       nextCursor: reachedLookbackLimit ? undefined : nextCursor,
     };
+  }
+
+  /**
+   * Erro da Meta que significa "não dá pra importar histórico" (falta de
+   * capability/permissão ou consentimento), não uma falha real — nesses casos
+   * o sync deve pular em vez de quebrar. Códigos: #3 (capability), #10/#200
+   * (permission), #230 (user consent).
+   */
+  private isHistoryUnavailable(err: any): boolean {
+    const msg = String(err?.message ?? '');
+    return /\[#(3|10|100|200|230)\]/.test(msg);
   }
 
   private normalizeConversation(
