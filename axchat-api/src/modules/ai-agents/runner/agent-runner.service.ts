@@ -492,7 +492,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
               messages.push({
                 role: 'user',
                 content:
-                  'ATENÇÃO: você está encerrando o ciclo sem delegar execução e NÃO existe nenhuma proposta aguardando aprovação. Decisão registrada NÃO é decisão executada. Se a sua decisão tem itens acionáveis (ativar/pausar campanha, ajustar verba, criar criativo), chame delegateToAgent AGORA pro especialista executar — as ações sensíveis viram cards de aprovação automaticamente, você não precisa de permissão prévia pra delegar. Se a decisão de hoje é genuinamente NÃO mexer em nada, responda de novo dizendo isso de forma explícita em uma frase.',
+                  'ATENÇÃO: você está encerrando o ciclo sem delegar execução e NÃO existe nenhuma proposta aguardando aprovação. Decisão registrada NÃO é decisão executada. Se a sua decisão tem itens acionáveis (ativar/pausar campanha, ajustar verba, criar criativo), chame delegateToAgent AGORA pro especialista que EXECUTA essa etapa — quem já entregou a parte dele NESTE ciclo não aceita nova delegação (releia a entrega no histórico em vez de pedir de novo). As ações sensíveis viram cards de aprovação automaticamente; você não precisa de permissão prévia pra delegar. Se a decisão de hoje é genuinamente NÃO mexer em nada, responda de novo dizendo isso de forma explícita em uma frase.',
               });
               continue;
             }

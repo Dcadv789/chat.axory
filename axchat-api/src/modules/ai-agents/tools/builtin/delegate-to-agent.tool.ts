@@ -142,6 +142,31 @@ export class DelegateToAgentTool implements AiTool {
       };
     }
 
+    // Anti-ping-pong: o worker que JÁ rodou neste turno (mesma mensagem
+    // gatilho) não recebe delegação de novo — sem isso o ciclo virava
+    // Magnus → Alaric → Magnus → Alaric… até o teto de profundidade,
+    // queimando tokens sem executar nada. O erro orienta o orquestrador
+    // pra próxima etapa em vez de travar o run.
+    if (ctx.triggerMessageId) {
+      const alreadyRan = await this.prisma.aiAgentRun.findFirst({
+        where: {
+          conversationId: ctx.conversationId,
+          agentId: target.id,
+          triggerMessageId: ctx.triggerMessageId,
+        },
+        select: { id: true },
+      });
+      if (alreadyRan) {
+        return {
+          output: {
+            ok: false,
+            error: 'already_ran_this_cycle',
+            message: `${target.name} JÁ executou a parte dele NESTE ciclo — a entrega está no histórico da conversa, releia. NÃO delegue de novo pra ele. Escolha: (a) delegue pra OUTRO especialista executar a PRÓXIMA etapa do plano (quem executa, não quem analisa), ou (b) encerre o ciclo com a decisão explícita em uma frase.`,
+          },
+        };
+      }
+    }
+
     const [fromAgent, contactChannel] = await Promise.all([
       this.prisma.aiAgent.findUnique({
         where: { id: ctx.agentId },
