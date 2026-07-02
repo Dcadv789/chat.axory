@@ -42,7 +42,11 @@ import { RealtimeGateway } from '../../realtime/realtime.gateway';
 import { sanitizeAssistantText } from './text-guards';
 import { MediaUrlResolverService } from './media-url-resolver.service';
 
-const MAX_TOOL_ITERATIONS = 8;
+// Modelos que chamam UMA tool por iteração (DeepSeek) gastam 7-8 iterações
+// só no ciclo de análise (pacing + histórico + perfil + insights + registro
+// + reply) — com teto 8, o nudge de execução era injetado mas o loop
+// estourava antes de o modelo VER a mensagem. 12 dá folga pro ciclo inteiro.
+const MAX_TOOL_ITERATIONS = 12;
 const MAX_RECENT_MESSAGES = 30;
 
 /**
@@ -363,6 +367,12 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
     // tags / hands off / ends. Other tools (tag, handBack, transfer)
     // still run normally.
     let replyAlreadySuccessful = false;
+    // Orçamento dinâmico de iterações: um nudge injetado no fim do loop
+    // estende o teto em +2 (o modelo precisa de 1 iteração pra VER a
+    // mensagem e reagir + 1 pra concluir). Sem isso, nudge no limite era
+    // adicionado e descartado sem o modelo nunca ler. Cada nudge dispara
+    // no máximo 1x, então a extensão é bounded.
+    let iterationBudget = MAX_TOOL_ITERATIONS;
 
     try {
       // Mark this agent as the active one on the conversation.
@@ -371,7 +381,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
         data: { activeAgentId: agent.id },
       });
 
-      while (iterationCount < MAX_TOOL_ITERATIONS) {
+      while (iterationCount < iterationBudget) {
         iterationCount++;
 
         const response = await this.llm.complete({
@@ -457,6 +467,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
             !salesNudgeUsed
           ) {
             salesNudgeUsed = true;
+            iterationBudget = Math.max(iterationBudget, iterationCount + 2);
             this.logger.warn(
               `Run ${run.id}: sales-prep tools ran but no replyToConversation — nudging model for one more turn`,
             );
@@ -486,6 +497,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
             });
             if (pendingCount === 0) {
               cycleNudgeUsed = true;
+              iterationBudget = Math.max(iterationBudget, iterationCount + 3);
               // Menu EXPLÍCITO de quem ainda pode receber delegação neste
               // ciclo (nome + função). Modelo menor não infere "o especialista
               // que executa" — precisa do cardápio pronto com nomes.
