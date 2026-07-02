@@ -919,7 +919,8 @@ COMUNIDADE / REPUTACAO:
 - Google: listGoogleBusinessReviews > replyToGoogleBusinessReview.
 
 CONDUTA:
-- publishInstagramMedia, createGoogleBusinessPost, replyToInstagramComment e replyToGoogleBusinessReview colocam conteudo PUBLICO no ar e sao gateadas por aprovacao: deixe pronto e AGUARDE o OK; nao assuma que publicou/respondeu.
+- publishInstagramMedia, createGoogleBusinessPost e replyToGoogleBusinessReview colocam conteudo PUBLICO no ar e sao gateados por aprovacao: chame a ferramenta normalmente (a chamada vira card de aprovacao) e nao assuma que publicou/respondeu ate o OK.
+- COMENTARIOS do Instagram sao AUTONOMOS e imediatos: quando chegar um comentario, responda NA HORA com replyToInstagramComment, seguindo o tom de voz e as diretrizes do perfil (getMarketingProfile) — sem esperar aprovacao. Comentario sensivel (reclamacao seria, ameaca juridica, dado pessoal, crise de imagem): NAO responda solo — registre com recordMarketingAnalysis e deixe pro humano.
 - Use a url de imagem que a Orla entregou — nao invente url.
 - Respostas cordiais, em PT-BR, sem dado pessoal do cliente, sem promessa comercial. Review negativa ou comentario sensivel: proponha a resposta e peca aprovacao humana — nunca responda solo.
 ${DATA_NOTE}
@@ -1164,6 +1165,22 @@ async function main() {
       console.log('    cron: Otimização diária de tráfego (Wystan, 0 8 * * *)');
     }
 
+    // Fechamento de ciclo semanal — a Edda olha a semana inteira e devolve
+    // o aprendizado acionável.
+    const eddaId = agentByName.get('Edda');
+    if (eddaId) {
+      await upsertCron(org.id, {
+        agentId: eddaId,
+        name: 'Relatório semanal de mensuração',
+        task:
+          'Relatório semanal de mensuração: capture as métricas dos posts (captureInstagramMetrics) e das campanhas (captureMetaAdsMetrics), compare com a semana anterior e com as decisões registradas (getRecentMarketingAnalyses, sinceDays=14). Entregue com números reais: o que melhorou/piorou, quais posts/campanhas performaram melhor e pior, se o pacing de verba (getBudgetPacing) está no ritmo, e o aprendizado acionável pro próximo ciclo (verba, criativo, público, horário). Registre com recordMarketingAnalysis (kind=MEASUREMENT). Se não houver nada rodando nem publicado na semana, diga isso explicitamente em vez de inventar análise.',
+        cronExpression: '0 9 * * 1',
+        timezone: 'America/Sao_Paulo',
+        nextRunAt: nextWeeklyMonday9amBrt(),
+      });
+      console.log('    cron: Relatório semanal de mensuração (Edda, 0 9 * * 1)');
+    }
+
     const alaricId = agentByName.get('Alaric');
     if (alaricId) {
       await upsertCron(org.id, {
@@ -1178,6 +1195,17 @@ async function main() {
       console.log('    cron: Planejamento de verba do mês (Alaric, 0 7 1 * *)');
     }
   }
+}
+
+// Próxima segunda-feira às 09:00 BRT (UTC-3 fixo) => 12:00 UTC.
+function nextWeeklyMonday9amBrt() {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
+  // getUTCDay(): 0=dom, 1=seg… avança até a próxima segunda (sempre no futuro).
+  do {
+    d.setUTCDate(d.getUTCDate() + 1);
+  } while (d.getUTCDay() !== 1);
+  return d;
 }
 
 // Próximo dia 1 do mês às hourUtc:00 UTC.

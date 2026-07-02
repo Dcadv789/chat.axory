@@ -597,26 +597,41 @@ export class InboundMessageProcessor extends WorkerHost {
       return;
     }
 
-    const orchestrator = await this.prisma.aiAgent.findFirst({
-      where: {
-        organizationId: conversation.organizationId,
-        sector: 'MARKETING',
-        kind: 'ORCHESTRATOR',
-        isActive: true,
-        deletedAt: null,
-      },
-      select: { id: true, name: true },
-    });
-    if (!orchestrator) {
+    // Resposta NA HORA: vai direto pro worker de comunidade (capability
+    // "comentarios" — Caspian na crew padrão), sem o salto pelo orquestrador.
+    // Fallback pro orquestrador se a org não tiver esse worker.
+    const responder =
+      (await this.prisma.aiAgent.findFirst({
+        where: {
+          organizationId: conversation.organizationId,
+          sector: 'MARKETING',
+          kind: 'WORKER',
+          isActive: true,
+          deletedAt: null,
+          capabilities: { has: 'comentarios' },
+        },
+        select: { id: true, name: true },
+      })) ??
+      (await this.prisma.aiAgent.findFirst({
+        where: {
+          organizationId: conversation.organizationId,
+          sector: 'MARKETING',
+          kind: 'ORCHESTRATOR',
+          isActive: true,
+          deletedAt: null,
+        },
+        select: { id: true, name: true },
+      }));
+    if (!responder) {
       this.logger.warn(
-        `Comentário IG sem orquestrador de marketing na org ${conversation.organizationId} — ignorado`,
+        `Comentário IG sem agente de marketing na org ${conversation.organizationId} — ignorado`,
       );
       return;
     }
 
     await this.prisma.conversation.update({
       where: { id: conversation.id },
-      data: { activeAgentId: orchestrator.id, aiEnabled: true },
+      data: { activeAgentId: responder.id, aiEnabled: true },
     });
     const conv = await this.prisma.conversation.findUnique({
       where: { id: conversation.id },
@@ -627,7 +642,7 @@ export class InboundMessageProcessor extends WorkerHost {
     if (!conv || !msg) return;
 
     this.logger.log(
-      `Comentário IG → marketing (${orchestrator.name}) conv=${conversation.id}`,
+      `Comentário IG → marketing (${responder.name}) conv=${conversation.id}`,
     );
     await this.agentRunner
       .run({ conversation: conv, triggerMessage: msg, chainDepth: 1 })

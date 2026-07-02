@@ -7,6 +7,7 @@ import {
   ConversationStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { computeNextRun } from '../crons/cron-expression.util';
 
 /** Nome do canal interno de comando da crew (idempotência é por nome+tipo). */
 const CREW_CHANNEL_NAME = 'Marketing — Falar com a crew';
@@ -243,10 +244,57 @@ export class MarketingProvisioningService {
     // medir item a item. String-append idempotente (só adiciona se faltar).
     await this.patchAgentPrompts(organizationId);
 
+    // Crons default novos que orgs já provisionadas ainda não têm.
+    await this.ensureEddaWeeklyCron(organizationId);
+
     this.logger.log(
       `resyncSkills(${organizationId}): ${updated} skill(s) atualizada(s) in-process.`,
     );
     return { updated };
+  }
+
+  /**
+   * Cron semanal da Edda (segunda 9h BRT): fechamento de ciclo — mede a
+   * semana e devolve o aprendizado. Idempotente por org+nome; se o usuário
+   * apagou de propósito (deletedAt), NÃO recria.
+   */
+  private async ensureEddaWeeklyCron(organizationId: string): Promise<void> {
+    const edda = await this.prisma.aiAgent.findFirst({
+      where: {
+        organizationId,
+        name: 'Edda',
+        sector: 'MARKETING',
+        deletedAt: null,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!edda) return;
+
+    const name = 'Relatório semanal de mensuração';
+    // Busca INCLUINDO soft-deletadas: cron apagada pelo usuário não volta.
+    const existing = await this.prisma.agentCron.findFirst({
+      where: { organizationId, name },
+      select: { id: true },
+    });
+    if (existing) return;
+
+    await this.prisma.agentCron.create({
+      data: {
+        organizationId,
+        agentId: edda.id,
+        name,
+        task:
+          'Relatório semanal de mensuração: capture as métricas dos posts (captureInstagramMetrics) e das campanhas (captureMetaAdsMetrics), compare com a semana anterior e com as decisões registradas (getRecentMarketingAnalyses, sinceDays=14). Entregue com números reais: o que melhorou/piorou, quais posts/campanhas performaram melhor e pior, se o pacing de verba (getBudgetPacing) está no ritmo, e o aprendizado acionável pro próximo ciclo (verba, criativo, público, horário). Registre com recordMarketingAnalysis (kind=MEASUREMENT). Se não houver nada rodando nem publicado na semana, diga isso explicitamente em vez de inventar análise.',
+        cronExpression: '0 9 * * 1',
+        timezone: 'America/Sao_Paulo',
+        isActive: true,
+        nextRunAt: computeNextRun('0 9 * * 1', new Date(), 'America/Sao_Paulo'),
+      },
+    });
+    this.logger.log(
+      `ensureEddaWeeklyCron(${organizationId}): cron semanal da Edda criada.`,
+    );
   }
 
   /**
@@ -325,6 +373,13 @@ export class MarketingProvisioningService {
     // do briefing.
     const ORLA_FOCUS_NOTE =
       'FOCO: voce NAO mede metricas nem captura dados (nao chame captureInstagramMetrics/captureMetaAdsMetrics) — o angulo e os numeros vem no briefing de quem delegou. Va direto pro criativo (arte + copy).';
+    // Caspian: o prompt antigo dizia que replyToInstagramComment era gateado
+    // ("aguarde o OK"), mas a skill é AUTÔNOMA — a contradição o travava.
+    // Comentário = resposta imediata seguindo o perfil; sensível fica pro humano.
+    const CASPIAN_GATE_OLD =
+      '- publishInstagramMedia, createGoogleBusinessPost, replyToInstagramComment e replyToGoogleBusinessReview colocam conteudo PUBLICO no ar e sao gateadas por aprovacao: deixe pronto e AGUARDE o OK; nao assuma que publicou/respondeu.';
+    const CASPIAN_GATE_NEW =
+      '- publishInstagramMedia, createGoogleBusinessPost e replyToGoogleBusinessReview colocam conteudo PUBLICO no ar e sao gateados por aprovacao: chame a ferramenta normalmente (a chamada vira card de aprovacao) e nao assuma que publicou/respondeu ate o OK.\n- COMENTARIOS do Instagram sao AUTONOMOS e imediatos: quando chegar um comentario, responda NA HORA com replyToInstagramComment, seguindo o tom de voz e as diretrizes do perfil (getMarketingProfile) — sem esperar aprovacao. Comentario sensivel (reclamacao seria, ameaca juridica, dado pessoal, crise de imagem): NAO responda solo — registre com recordMarketingAnalysis e deixe pro humano.';
 
     // Regra antiga do Magnus escrita quando o teto de encadeamento era 3 —
     // ensinava a NÃO seguir o ciclo ("nao tente encadear os 5"). Hoje o teto
@@ -349,6 +404,13 @@ export class MarketingProvisioningService {
       }
       if (a.name === 'Orla' && !p.includes('nao chame captureInstagramMetrics')) {
         p += `\n\n${ORLA_FOCUS_NOTE}`;
+      }
+      if (a.name === 'Caspian') {
+        if (p.includes(CASPIAN_GATE_OLD)) {
+          p = p.replace(CASPIAN_GATE_OLD, CASPIAN_GATE_NEW);
+        } else if (!p.includes('COMENTARIOS do Instagram sao AUTONOMOS')) {
+          p += `\n\n${CASPIAN_GATE_NEW}`;
+        }
       }
       // Alaric e Edda medem IG; Wystan/Alaric/Edda medem ads.
       const wantsIg = ['Alaric', 'Edda'].includes(a.name);
