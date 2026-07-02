@@ -22,6 +22,8 @@ import { GetMarketingProfileTool } from './builtin/get-marketing-profile.tool';
 import { RecordMarketingAnalysisTool } from './builtin/record-marketing-analysis.tool';
 import { CaptureInstagramMetricsTool } from './builtin/capture-instagram-metrics.tool';
 import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.tool';
+import { GetBudgetPacingTool } from './builtin/get-budget-pacing.tool';
+import { GetRecentMarketingAnalysesTool } from './builtin/get-recent-marketing-analyses.tool';
 import { PersonalContextService } from './builtin/personal/personal-context.service';
 import {
   CreatePersonalTaskTool,
@@ -93,6 +95,8 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     RecordMarketingAnalysisTool,
     CaptureInstagramMetricsTool,
     CaptureMetaAdsMetricsTool,
+    GetBudgetPacingTool,
+    GetRecentMarketingAnalysesTool,
     MarketingStorageService,
     PersonalContextService,
     CreatePersonalTaskTool,

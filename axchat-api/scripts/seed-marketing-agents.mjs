@@ -736,6 +736,10 @@ CREDENCIAIS: as contas (Meta Ads, Instagram, Pagina do Facebook, Google Business
 const DATA_NOTE = `
 REGRAS & REGISTRO: consulte getMarketingProfile pra conhecer as regras da org (o que a empresa faz, produtos, publico-alvo, tom de voz, diretrizes e teto de verba) ANTES de definir publico, criar campanha, escrever copy ou propor verba — nunca invente regra nem orcamento; respeite os tetos. Se voce produz analise, relatorio ou decisao (ex: definicao de publico), grave com recordMarketingAnalysis pra ficar salvo e auditavel no banco.`;
 
+// Ciclo diário de decisão: contexto histórico + pacing de verba calculado.
+const CYCLE_NOTE = `
+CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida pro que resta. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis.`;
+
 const orchestrator = {
   name: 'Magnus',
   kind: 'ORCHESTRATOR',
@@ -767,6 +771,7 @@ Regras:
 - Delegue UMA etapa por vez e consolide o retorno antes da proxima. A profundidade de delegacao e limitada — nao tente encadear os 5 numa tacada so; avance por etapas, uma delegacao de cada vez.
 - Acoes que gastam verba, publicam ou ativam sao gateadas por aprovacao humana — trate como PROPOSTAS ate o OK.
 - Em toda resposta, deixe um resumo curto do estado e qual o proximo passo.
+${CYCLE_NOTE}
 ${DATA_NOTE}
 ${ID_NOTE}
 ${TRIGGER_NOTE}`,
@@ -815,6 +820,7 @@ CONDUTA:
 - So ative (setMetaAdsStatus ACTIVE) ativando os 3 niveis (campanha, ad set, ad).
 - A arte e a copy vem da Orla (via Magnus). Voce nao gera criativo; usa a url que ela entregou.
 - Escale gradual (nao dobre budget de uma vez — o algoritmo do Meta re-aprende). Nunca prometa ROI/CPA garantido; projete com base no dado real, marcando que e estimativa.
+${CYCLE_NOTE}
 ${DATA_NOTE}
 ${ID_NOTE}
 ${TRIGGER_NOTE}`,
@@ -849,6 +855,7 @@ ENTREGUE SEMPRE (e grave com recordMarketingAnalysis, kind=STRATEGY ou PERFORMAN
 - O que funcionou e o que nao, com numeros reais. Nao invente metrica; separe dado de hipotese.
 - O plano de alocacao de verba do mes por produto/campanha (respeitando o teto total).
 - Recomendacao acionavel pro Wystan (objetivo, faixa de budget por produto) e direcao criativa pra Orla (angulo, formato).
+${CYCLE_NOTE}
 ${DATA_NOTE}
 ${ID_NOTE}
 ${TRIGGER_NOTE}`,
@@ -932,6 +939,7 @@ Depois que algo foi publicado ou um anuncio rodou, meca:
 - Anuncio: getMetaAdsCampaignInsights / getMetaAdsAccountInsights.
 
 ENTREGUE um relatorio curto com numeros reais (nao estime sem dado), comparando com a expectativa inicial quando houver, e devolva pro Magnus e Alaric o aprendizado: o que ajustar no proximo ciclo (verba, criativo, publico, horario).
+${CYCLE_NOTE}
 ${DATA_NOTE}
 ${ID_NOTE}
 ${TRIGGER_NOTE}`,

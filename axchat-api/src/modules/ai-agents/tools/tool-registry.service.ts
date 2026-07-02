@@ -23,6 +23,8 @@ import { GetMarketingProfileTool } from './builtin/get-marketing-profile.tool';
 import { RecordMarketingAnalysisTool } from './builtin/record-marketing-analysis.tool';
 import { CaptureInstagramMetricsTool } from './builtin/capture-instagram-metrics.tool';
 import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.tool';
+import { GetBudgetPacingTool } from './builtin/get-budget-pacing.tool';
+import { GetRecentMarketingAnalysesTool } from './builtin/get-recent-marketing-analyses.tool';
 import {
   CreatePersonalTaskTool,
   ListPersonalTasksTool,
@@ -87,6 +89,8 @@ export class ToolRegistry {
     recordMarketingAnalysis: RecordMarketingAnalysisTool,
     captureInstagramMetrics: CaptureInstagramMetricsTool,
     captureMetaAdsMetrics: CaptureMetaAdsMetricsTool,
+    getBudgetPacing: GetBudgetPacingTool,
+    getRecentMarketingAnalyses: GetRecentMarketingAnalysesTool,
     createPersonalTask: CreatePersonalTaskTool,
     listPersonalTasks: ListPersonalTasksTool,
     updatePersonalTask: UpdatePersonalTaskTool,
@@ -127,13 +131,23 @@ export class ToolRegistry {
     this.register(generateMarketingImage, ['WORKER']);
     // Regras da org (leitura) — todos; permite definir público/verba sozinho.
     this.register(getMarketingProfile, ['ORCHESTRATOR', 'WORKER']);
-    // Gravar análise no banco — workers persistem o que descobriram.
-    this.register(recordMarketingAnalysis, ['WORKER']);
+    // Gravar análise no banco — workers persistem o que descobriram e o
+    // Magnus registra a DECISÃO consolidada do ciclo diário.
+    this.register(recordMarketingAnalysis, ['ORCHESTRATOR', 'WORKER']);
     // Captura em lote das métricas de TODOS os posts do IG no período — worker
     // de marketing (Alaric). Grava snapshots com legenda.
     this.register(captureInstagramMetrics, ['WORKER'], undefined, ['MARKETING']);
     // Captura em lote das métricas de TODAS as campanhas de anúncio do período.
     this.register(captureMetaAdsMetrics, ['WORKER'], undefined, ['MARKETING']);
+    // Pacing de verba do mês (teto × gasto real × dias restantes) — a régua da
+    // decisão diária de orçamento. Magnus (orquestra o ciclo) e workers usam.
+    this.register(getBudgetPacing, ['ORCHESTRATOR', 'WORKER'], undefined, [
+      'MARKETING',
+    ]);
+    // Contexto das análises/decisões anteriores — continuidade do ciclo diário.
+    this.register(getRecentMarketingAnalyses, ['ORCHESTRATOR', 'WORKER'], undefined, [
+      'MARKETING',
+    ]);
 
     // ─── Assistente Pessoal — só agentes do setor PESSOAL ───
     // Sector-scoped: não aparecem pra agentes de atendimento/marketing.

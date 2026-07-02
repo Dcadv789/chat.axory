@@ -254,6 +254,8 @@ export class MarketingProvisioningService {
       'IMPORTANTE: para analisar/medir a performance dos posts do Instagram, use a ferramenta captureInstagramMetrics (mede TODOS os posts do periodo de uma vez e salva com legenda). Nao meça post a post quando o pedido for sobre varios/todos os posts.';
     const ADS_NOTE =
       'IMPORTANTE: para o PANORAMA dos anuncios (metricas de todas as campanhas), use a ferramenta captureMetaAdsMetrics (mede TODAS as campanhas do periodo de uma vez e salva). Nao meça campanha a campanha nesse caso.';
+    const CYCLE_NOTE =
+      'CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis.';
 
     const agents = await this.prisma.aiAgent.findMany({
       where: { organizationId, sector: 'MARKETING', deletedAt: null },
@@ -265,8 +267,11 @@ export class MarketingProvisioningService {
       // Alaric e Edda medem IG; Wystan/Alaric/Edda medem ads.
       const wantsIg = ['Alaric', 'Edda'].includes(a.name);
       const wantsAds = ['Wystan', 'Alaric', 'Edda'].includes(a.name);
+      // Quem decide/executa verba e quem orquestra o ciclo diário.
+      const wantsCycle = ['Magnus', 'Alaric', 'Wystan', 'Edda'].includes(a.name);
       if (wantsIg && !p.includes('captureInstagramMetrics')) p += `\n\n${IG_NOTE}`;
       if (wantsAds && !p.includes('captureMetaAdsMetrics')) p += `\n\n${ADS_NOTE}`;
+      if (wantsCycle && !p.includes('getBudgetPacing')) p += `\n\n${CYCLE_NOTE}`;
       if (p !== a.systemPrompt) {
         await this.prisma.aiAgent.update({
           where: { id: a.id },
