@@ -706,6 +706,43 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
               `Auto-chain orchestrator after hand-back failed for conv ${conversation.id}: ${err?.message ?? err}`,
             ),
           );
+        } else if (
+          // AUTO-DEVOLUÇÃO (determinística): worker que recebeu delegação
+          // NESTE turno (chainDepth > 0) num canal INTERNO (crew/cron) e
+          // terminou só respondendo — esqueceu o handBackToOrchestrator —
+          // devolve automaticamente pro pai. O ciclo orquestrado não pode
+          // depender de o LLM lembrar do hand-back. Canais EXTERNOS ficam
+          // de fora: lá o worker DEVE continuar ativo pra multi-turno com
+          // o cliente (vendas, suporte).
+          finalAction === AiFinalAction.REPLIED &&
+          chainDepth > 0 &&
+          agent.kind === 'WORKER' &&
+          agent.parentAgentId &&
+          refreshed.channel?.type === 'INTERNAL' &&
+          refreshed.activeAgentId === agent.id
+        ) {
+          const parent = await this.prisma.aiAgent.findFirst({
+            where: { id: agent.parentAgentId, isActive: true, deletedAt: null },
+            select: { id: true },
+          });
+          if (parent) {
+            await this.prisma.conversation.update({
+              where: { id: conversation.id },
+              data: { activeAgentId: parent.id },
+            });
+            this.logger.log(
+              `Auto-devolução: worker ${agent.name} terminou sem hand-back em canal interno — devolvendo pro pai ${parent.id} (conv ${conversation.id}, depth ${chainDepth + 1})`,
+            );
+            this.run({
+              conversation: { ...refreshed, activeAgentId: parent.id },
+              triggerMessage,
+              chainDepth: chainDepth + 1,
+            }).catch((err) =>
+              this.logger.error(
+                `Auto-devolução falhou na conv ${conversation.id}: ${err?.message ?? err}`,
+              ),
+            );
+          }
         }
       }
     } catch (err: any) {
