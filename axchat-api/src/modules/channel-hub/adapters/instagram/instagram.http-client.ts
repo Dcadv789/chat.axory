@@ -107,8 +107,10 @@ export class InstagramHttpClient {
     try {
       const { data } = await client.post(`/${pageId}/subscribed_apps`, null, {
         params: {
+          // Campos válidos da Meta pra Página (messaging_seen NÃO existe — é
+          // message_reads). DMs = messages; comentários = comments.
           subscribed_fields:
-            'messages,messaging_postbacks,messaging_seen,message_reactions,comments',
+            'messages,messaging_postbacks,message_reactions,message_reads,comments',
         },
       });
       return { ok: true, node: 'page', ...data };
