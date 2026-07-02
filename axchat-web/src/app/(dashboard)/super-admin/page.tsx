@@ -1353,12 +1353,14 @@ function IntegrationsPanel() {
 
   const [appId, setAppId] = useState('');
   const [configId, setConfigId] = useState('');
+  const [embeddedConfigId, setEmbeddedConfigId] = useState('');
   const [appSecret, setAppSecret] = useState('');
 
   useEffect(() => {
     if (config) {
       setAppId(config.appId);
       setConfigId(config.configId);
+      setEmbeddedConfigId(config.embeddedConfigId ?? '');
       setAppSecret('');
     }
   }, [config]);
@@ -1368,6 +1370,7 @@ function IntegrationsPanel() {
       superAdminService.updateMetaCoexistence({
         appId: appId.trim(),
         configId: configId.trim(),
+        embeddedConfigId: embeddedConfigId.trim(),
         // Só envia o secret se o usuário digitou algo novo.
         ...(appSecret.trim() ? { appSecret: appSecret.trim() } : {}),
       }),
@@ -1385,12 +1388,13 @@ function IntegrationsPanel() {
     <section className="mt-6 max-w-2xl">
       <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-          WhatsApp Coexistência (Embedded Signup)
+          WhatsApp — App Meta (Embedded Signup)
         </h2>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Credenciais do app Meta da plataforma (Tech Provider). Válidas para
-          todos os clientes — usadas no fluxo de QR Code de coexistência ao criar
-          um canal WhatsApp.
+          todos os clientes. Dois Config IDs: um para o fluxo de{' '}
+          <strong>Coexistência (QR)</strong> e outro para o{' '}
+          <strong>Login Facebook padrão</strong> (criar/selecionar número).
         </p>
 
         <div className="mt-4 flex items-center gap-2">
@@ -1410,7 +1414,18 @@ function IntegrationsPanel() {
         ) : (
           <div className="mt-4 space-y-4">
             <Input label="Meta App ID" value={appId} onChange={setAppId} placeholder="ex: 123456789012345" />
-            <Input label="Embedded Signup Config ID" value={configId} onChange={setConfigId} placeholder="config_id da configuração de coexistência" />
+            <div>
+              <Input label="Config ID — Coexistência (QR)" value={configId} onChange={setConfigId} placeholder="config_id da configuração de coexistência" />
+              <p className="mt-1 text-[11px] text-zinc-400">
+                Configuração de Embedded Signup com o fluxo de QR Code (número segue no celular).
+              </p>
+            </div>
+            <div>
+              <Input label="Config ID — Login Facebook padrão" value={embeddedConfigId} onChange={setEmbeddedConfigId} placeholder="config_id do Embedded Signup padrão (se vazio, usa o de coexistência)" />
+              <p className="mt-1 text-[11px] text-zinc-400">
+                Configuração de Embedded Signup padrão (criar/selecionar WABA + número). Deixe vazio para reutilizar o Config ID de coexistência.
+              </p>
+            </div>
             <div>
               <Input
                 label="Meta App Secret"

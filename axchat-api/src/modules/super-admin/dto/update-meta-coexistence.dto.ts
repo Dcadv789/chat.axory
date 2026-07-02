@@ -12,8 +12,15 @@ export class UpdateMetaCoexistenceDto {
   @IsString()
   appSecret?: string;
 
-  @ApiPropertyOptional({ description: 'Embedded Signup config_id for coexistence' })
+  @ApiPropertyOptional({ description: 'Embedded Signup config_id for coexistence (QR)' })
   @IsOptional()
   @IsString()
   configId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Embedded Signup config_id for standard WhatsApp Official (create/select WABA)',
+  })
+  @IsOptional()
+  @IsString()
+  embeddedConfigId?: string;
 }

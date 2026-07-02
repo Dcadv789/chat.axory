@@ -459,6 +459,7 @@ export const superAdminService = {
     appId?: string;
     appSecret?: string;
     configId?: string;
+    embeddedConfigId?: string;
   }): Promise<MetaCoexistenceConfig> {
     const { data } = await api.patch<{ data: MetaCoexistenceConfig }>(
       '/super-admin/integrations/meta-coexistence',
@@ -570,6 +571,7 @@ export interface GlobalDepartment {
 export interface MetaCoexistenceConfig {
   appId: string;
   configId: string;
+  embeddedConfigId: string;
   hasSecret: boolean;
 }
 

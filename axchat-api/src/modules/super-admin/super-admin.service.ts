@@ -1768,6 +1768,10 @@ export class SuperAdminService {
     return {
       appId: typeof value.appId === 'string' ? value.appId : '',
       configId: typeof value.configId === 'string' ? value.configId : '',
+      // Config ID do Embedded Signup PADRÃO (criar/selecionar WABA + número),
+      // separado do de coexistência (QR).
+      embeddedConfigId:
+        typeof value.embeddedConfigId === 'string' ? value.embeddedConfigId : '',
       // Nunca devolve o secret em texto — só informa se já está salvo.
       hasSecret: typeof value.appSecret === 'string' && value.appSecret.length > 0,
     };
@@ -1777,6 +1781,7 @@ export class SuperAdminService {
     appId?: string;
     appSecret?: string;
     configId?: string;
+    embeddedConfigId?: string;
   }) {
     const existing = await this.prisma.platformSetting.findUnique({
       where: { key: META_COEXISTENCE_KEY },
@@ -1791,6 +1796,7 @@ export class SuperAdminService {
     const next: Record<string, unknown> = {
       appId: dto.appId ?? current.appId ?? '',
       configId: dto.configId ?? current.configId ?? '',
+      embeddedConfigId: dto.embeddedConfigId ?? current.embeddedConfigId ?? '',
       // Só sobrescreve o secret quando um novo valor não-vazio é enviado.
       appSecret:
         dto.appSecret && dto.appSecret.length > 0
@@ -1807,6 +1813,7 @@ export class SuperAdminService {
     return {
       appId: next.appId as string,
       configId: next.configId as string,
+      embeddedConfigId: next.embeddedConfigId as string,
       hasSecret: (next.appSecret as string).length > 0,
     };
   }
