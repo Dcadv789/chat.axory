@@ -29,6 +29,17 @@ export class MarketingProfileService {
     return this.provisioning.resyncSkills(organizationId);
   }
 
+  /**
+   * Reset de dados de TESTE da crew: apaga análises + atividades e arquiva as
+   * conversas das crons de marketing. Análises/histórico de testes falhos
+   * viram few-shot ruim (o modelo lê "já decidi hoje, manter" e não executa).
+   * Métricas (posts/anúncios) são PRESERVADAS — série temporal é valiosa.
+   */
+  async resetTestData(organizationId: string) {
+    await this.ensureEnabled(organizationId);
+    return this.provisioning.resetTestData(organizationId);
+  }
+
   /** Canais atendidos pela crew + externos disponíveis pra vincular. */
   async listCrewChannels(organizationId: string) {
     await this.ensureEnabled(organizationId);

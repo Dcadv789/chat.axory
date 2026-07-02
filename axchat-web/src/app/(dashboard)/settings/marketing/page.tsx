@@ -71,6 +71,28 @@ export default function MarketingRulesPage() {
       setResyncing(false);
     }
   };
+
+  const [resetting, setResetting] = useState(false);
+  const handleResetTestData = async () => {
+    if (
+      !confirm(
+        'Resetar os dados de teste da crew?\n\nApaga: análises registradas, log de atividades e as conversas das crons (recriadas limpas no próximo disparo).\nPreserva: métricas de posts/anúncios, perfil, agentes, skills e a conversa do console da crew.',
+      )
+    )
+      return;
+    setResetting(true);
+    try {
+      const r = await marketingService.resetTestData();
+      toast.success(
+        `Reset feito: ${r.analyses} análise(s), ${r.activities} atividade(s) e ${r.conversations} conversa(s) de cron limpas.`,
+      );
+      queryClient.invalidateQueries({ queryKey: ['marketing-activity'] });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Erro ao resetar');
+    } finally {
+      setResetting(false);
+    }
+  };
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -352,14 +374,25 @@ export default function MarketingRulesPage() {
             Atualizou alguma skill da crew? Re-sincronize pra aplicar as
             correções mais recentes nesta organização.
           </p>
-          <button
-            onClick={handleResync}
-            disabled={resyncing}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
-          >
-            {resyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            Re-sincronizar skills
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={handleResetTestData}
+              disabled={resetting}
+              title="Apaga análises/atividades e limpa as conversas de cron — teste do zero. Métricas ficam."
+              className="inline-flex items-center gap-1.5 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-500/10"
+            >
+              {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Resetar dados de teste
+            </button>
+            <button
+              onClick={handleResync}
+              disabled={resyncing}
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+            >
+              {resyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Re-sincronizar skills
+            </button>
+          </div>
         </div>
       </div>
 

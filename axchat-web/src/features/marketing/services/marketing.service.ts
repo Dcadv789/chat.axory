@@ -111,6 +111,19 @@ export const marketingService = {
     await api.post('/marketing/resync');
   },
 
+  /**
+   * Reset dos dados de TESTE: apaga análises + atividades e arquiva as
+   * conversas de cron (histórico poluído). Métricas são preservadas.
+   */
+  async resetTestData(): Promise<{
+    analyses: number;
+    activities: number;
+    conversations: number;
+  }> {
+    const { data } = await api.post('/marketing/reset-test-data');
+    return data?.data ?? data;
+  },
+
   async mediaMetrics(): Promise<{
     window: string;
     since: string;

@@ -59,6 +59,16 @@ export class MarketingProfileController {
     return this.service.resync(orgId);
   }
 
+  @Post('reset-test-data')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Reset dos dados de teste da crew: apaga análises/atividades e arquiva conversas de cron (métricas preservadas)',
+  })
+  resetTestData(@CurrentOrg('id') orgId: string) {
+    return this.service.resetTestData(orgId);
+  }
+
   @Get('crew-channels')
   @Roles(OrgRole.OWNER, OrgRole.ADMIN)
   @ApiOperation({ summary: 'Canais atendidos pela crew + externos disponíveis' })

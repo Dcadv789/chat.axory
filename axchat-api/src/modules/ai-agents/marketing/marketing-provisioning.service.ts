@@ -249,6 +249,57 @@ export class MarketingProvisioningService {
     return { updated };
   }
 
+  /**
+   * Reset dos dados de TESTE da crew: análises, atividades e as conversas das
+   * crons de marketing (histórico poluído de teste falho vira few-shot ruim —
+   * o modelo lê os fechamentos sem execução e repete o padrão). NÃO apaga
+   * métricas de posts/anúncios (série temporal) nem a conversa do console da
+   * crew. As conversas de cron são arquivadas (soft-delete) e recriadas
+   * limpas no próximo disparo.
+   */
+  async resetTestData(organizationId: string): Promise<{
+    analyses: number;
+    activities: number;
+    conversations: number;
+  }> {
+    const [analyses, activities] = await this.prisma.$transaction([
+      this.prisma.marketingAnalysis.deleteMany({ where: { organizationId } }),
+      this.prisma.marketingActivity.deleteMany({ where: { organizationId } }),
+    ]);
+
+    const crons = await this.prisma.agentCron.findMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+        agent: { sector: 'MARKETING' },
+      },
+      select: { id: true, conversationId: true },
+    });
+    const withConv = crons.filter((c) => c.conversationId);
+    const convIds = withConv.map((c) => c.conversationId as string);
+    if (convIds.length > 0) {
+      await this.prisma.$transaction([
+        this.prisma.conversation.updateMany({
+          where: { id: { in: convIds }, organizationId },
+          data: { deletedAt: new Date() },
+        }),
+        this.prisma.agentCron.updateMany({
+          where: { id: { in: withConv.map((c) => c.id) } },
+          data: { conversationId: null },
+        }),
+      ]);
+    }
+
+    this.logger.log(
+      `resetTestData(${organizationId}): ${analyses.count} análise(s), ${activities.count} atividade(s), ${convIds.length} conversa(s) de cron arquivada(s).`,
+    );
+    return {
+      analyses: analyses.count,
+      activities: activities.count,
+      conversations: convIds.length,
+    };
+  }
+
   private async patchAgentPrompts(organizationId: string): Promise<void> {
     const IG_NOTE =
       'IMPORTANTE: para analisar/medir a performance dos posts do Instagram, use a ferramenta captureInstagramMetrics (mede TODOS os posts do periodo de uma vez e salva com legenda). Nao meça post a post quando o pedido for sobre varios/todos os posts.';
