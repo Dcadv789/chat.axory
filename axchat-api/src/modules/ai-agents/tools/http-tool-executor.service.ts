@@ -359,22 +359,28 @@ export class HttpToolExecutorService {
     ctx: ToolContext,
     impact: ImpactLevel,
   ): Promise<ToolResult> {
-    const preview: ActionPreview = {
-      action: this.buildPreviewAction(skill.name, input),
-      impact,
-      rollback: this.buildRollback(skill.name),
-      affectedEntity: {
-        type: 'contact',
-        id: ctx.contactId,
-        label: this.guessContactLabel(input) ?? `contact:${ctx.contactId}`,
-      },
-    };
-
     // Marketing roda em console interno com o DONO (não cliente final): o
     // aprovador não fica online o tempo todo → 24h de validade. Demais fluxos
     // (atendimento a cliente) mantêm 30min — liberação de acesso etc. é
     // atendida na hora.
     const isMarketing = skill.category?.startsWith('Marketing/') ?? false;
+
+    const preview: ActionPreview = {
+      action: this.buildPreviewAction(skill.name, input),
+      impact,
+      rollback: this.buildRollback(skill.name),
+      // "Alvo: contact:<id do contato sintético>" não diz nada em ação de
+      // marketing (o alvo é a conta de anúncios/perfil da org, não um contato).
+      ...(isMarketing
+        ? {}
+        : {
+            affectedEntity: {
+              type: 'contact' as const,
+              id: ctx.contactId,
+              label: this.guessContactLabel(input) ?? `contact:${ctx.contactId}`,
+            },
+          }),
+    };
 
     const action = await this.pendingActions.create({
       agentRunId: ctx.runId,
@@ -426,6 +432,19 @@ export class HttpToolExecutorService {
           ? input.offer
           : undefined;
 
+    // Helpers pros previews de marketing: o aprovador precisa ler O QUE vai
+    // executar (nome da campanha, valor, status) — não o nome técnico da skill.
+    const s = (k: string) =>
+      typeof input[k] === 'string' && (input[k] as string).trim()
+        ? (input[k] as string).trim()
+        : undefined;
+    const cents = (k: string) => {
+      const v = Number(input[k]);
+      return Number.isFinite(v) && v > 0
+        ? `R$ ${(v / 100).toFixed(2).replace('.', ',')}`
+        : undefined;
+    };
+
     switch (skillName) {
       case 'grantAccess':
         return offer
@@ -435,6 +454,36 @@ export class HttpToolExecutorService {
         return `Resetar senha de ${email ?? 'cliente'} na área de membros`;
       case 'sendLoginLink':
         return `Enviar link mágico de login pra ${email ?? 'cliente'}`;
+
+      // ─── Meta Ads ───
+      case 'createMetaAdsCampaign':
+        return `Criar campanha "${s('name') ?? '?'}"${s('objective') ? ` (objetivo ${s('objective')})` : ''} — nasce PAUSADA, não gasta até ativar`;
+      case 'createMetaAdsAdSet':
+      case 'createMetaAdsConversionAdSet':
+        return `Criar ad set "${s('name') ?? '?'}"${cents('dailyBudgetCents') ? ` com orçamento diário de ${cents('dailyBudgetCents')}` : ''}`;
+      case 'createMetaAdsAdCreative':
+        return `Criar criativo "${s('name') ?? '?'}"${s('destinationUrl') ? ` → ${s('destinationUrl')}` : ''}`;
+      case 'createMetaAdsAd':
+        return `Criar anúncio "${s('name') ?? '?'}" (nasce PAUSADO)`;
+      case 'updateMetaAdsCampaignBudget':
+      case 'updateMetaAdsAdSetBudget':
+        return `Alterar orçamento diário de ${s('campaignId') ?? s('adSetId') ?? '?'} para ${cents('dailyBudgetCents') ?? '?'}`;
+      case 'setMetaAdsStatus': {
+        const st = s('status');
+        const verb = st === 'ACTIVE' ? 'ATIVAR (começa a gastar!)' : st === 'PAUSED' ? 'PAUSAR' : `mudar para ${st ?? '?'}`;
+        return `${verb}: ${s('objectId') ?? s('campaignId') ?? '?'}`;
+      }
+      case 'updateMetaAdsAdSetTargeting':
+        return `Alterar público/targeting do ad set ${s('adSetId') ?? '?'}`;
+
+      // ─── Publicação ───
+      case 'publishInstagramMedia':
+        return 'Publicar o post no Instagram (vai ao ar público)';
+      case 'createGoogleBusinessPost':
+        return `Publicar post no Google Business${s('summary') ? `: "${(s('summary') as string).slice(0, 80)}…"` : ''}`;
+      case 'replyToGoogleBusinessReview':
+        return 'Responder avaliação no Google (resposta pública)';
+
       default:
         return `Executar ${skillName}`;
     }
@@ -448,6 +497,18 @@ export class HttpToolExecutorService {
         return 'Não há rollback automático — orientar o cliente a definir nova senha.';
       case 'sendLoginLink':
         return 'Link expira sozinho; sem rollback necessário.';
+      case 'setMetaAdsStatus':
+        return 'Reversível: peça pra pausar/ativar de volta (setMetaAdsStatus).';
+      case 'updateMetaAdsCampaignBudget':
+      case 'updateMetaAdsAdSetBudget':
+        return 'Reversível: peça pra voltar o orçamento ao valor anterior.';
+      case 'createMetaAdsCampaign':
+      case 'createMetaAdsAdSet':
+      case 'createMetaAdsConversionAdSet':
+      case 'createMetaAdsAd':
+        return 'Nasce PAUSADO (não gasta). Pode ser excluído no Gerenciador de Anúncios.';
+      case 'publishInstagramMedia':
+        return 'Sem rollback automático — apagar o post manualmente no Instagram.';
       default:
         return undefined;
     }

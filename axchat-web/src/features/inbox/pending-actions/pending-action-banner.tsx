@@ -65,6 +65,28 @@ const TOOL_LABELS: Record<string, string> = {
   transferToHuman: 'Transferir para humano',
 };
 
+/**
+ * Parâmetros que a ação vai executar, legíveis pro aprovador conferir
+ * ANTES de clicar. Campos *Cents viram R$; valores longos são truncados.
+ */
+function formatArgs(args: Record<string, unknown>): Array<{ k: string; v: string }> {
+  const out: Array<{ k: string; v: string }> = [];
+  for (const [k, raw] of Object.entries(args ?? {})) {
+    if (raw === undefined || raw === null || raw === '') continue;
+    let v: string;
+    if (/cents$/i.test(k) && Number.isFinite(Number(raw))) {
+      v = `R$ ${(Number(raw) / 100).toFixed(2).replace('.', ',')}`;
+    } else if (typeof raw === 'string') {
+      v = raw;
+    } else {
+      v = JSON.stringify(raw);
+    }
+    if (v.length > 140) v = `${v.slice(0, 140)}…`;
+    out.push({ k, v });
+  }
+  return out;
+}
+
 function formatCountdown(ms: number): string {
   if (ms <= 0) return 'Expirado';
   const totalSeconds = Math.floor(ms / 1000);
@@ -205,6 +227,25 @@ export function PendingActionBanner({ action, index = 0 }: Props) {
               </span>
             </p>
           )}
+
+          {(() => {
+            const rows = formatArgs(action.args);
+            if (rows.length === 0) return null;
+            return (
+              <dl className="mt-2 space-y-0.5 rounded-md bg-white/70 px-2.5 py-2 text-xs ring-1 ring-inset ring-zinc-200/70 dark:bg-black dark:ring-zinc-700/60">
+                {rows.map(({ k, v }) => (
+                  <div key={k} className="flex gap-2">
+                    <dt className="shrink-0 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {k}:
+                    </dt>
+                    <dd className="min-w-0 break-words text-zinc-700 dark:text-zinc-200">
+                      {v}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            );
+          })()}
 
           {action.preview.rollback && (
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
