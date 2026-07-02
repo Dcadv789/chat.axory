@@ -157,6 +157,9 @@ export class DelegateToAgentTool implements AiTool {
         select: { id: true },
       });
       if (alreadyRan) {
+        this.logger.warn(
+          `[ciclo] conv=${ctx.conversationId} re-delegação BLOQUEADA: ${target.name} já rodou neste turno (delegante=${ctx.agentId})`,
+        );
         return {
           output: {
             ok: false,

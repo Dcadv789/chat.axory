@@ -243,70 +243,10 @@ export class MarketingProvisioningService {
     // medir item a item. String-append idempotente (só adiciona se faltar).
     await this.patchAgentPrompts(organizationId);
 
-    // Upgrade de modelo: orquestração multi-etapa em modelo fraco (deepseek)
-    // é a causa raiz de ciclo que para no meio / não delega / responde errado.
-    await this.upgradeCrewModels(organizationId);
-
     this.logger.log(
       `resyncSkills(${organizationId}): ${updated} skill(s) atualizada(s) in-process.`,
     );
     return { updated };
-  }
-
-  /**
-   * Sobe o modelo dos agentes da crew que ainda estão no default barato
-   * (deepseek*): decisão/orquestração (Magnus, Alaric, Wystan) vai pro modelo
-   * forte; execução (Orla, Caspian, Edda) pro leve. Respeita escolha manual —
-   * só mexe em quem está em deepseek. Sem ANTHROPIC_API_KEY no ambiente (e
-   * sem override via env), não faz nada.
-   */
-  private async upgradeCrewModels(organizationId: string): Promise<void> {
-    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY?.trim();
-    const strong =
-      process.env.AI_MARKETING_STRONG_MODEL_ID ||
-      (hasAnthropic ? 'claude-sonnet-4-6' : null);
-    const light =
-      process.env.AI_MARKETING_LIGHT_MODEL_ID ||
-      (hasAnthropic ? 'claude-haiku-4-5' : null);
-    if (!strong && !light) {
-      this.logger.warn(
-        `upgradeCrewModels(${organizationId}): sem ANTHROPIC_API_KEY nem override — crew segue no modelo default.`,
-      );
-      return;
-    }
-
-    let upgraded = 0;
-    if (strong) {
-      const res = await this.prisma.aiAgent.updateMany({
-        where: {
-          organizationId,
-          sector: 'MARKETING',
-          deletedAt: null,
-          name: { in: ['Magnus', 'Alaric', 'Wystan'] },
-          modelId: { startsWith: 'deepseek' },
-        },
-        data: { modelId: strong },
-      });
-      upgraded += res.count;
-    }
-    if (light) {
-      const res = await this.prisma.aiAgent.updateMany({
-        where: {
-          organizationId,
-          sector: 'MARKETING',
-          deletedAt: null,
-          name: { in: ['Orla', 'Caspian', 'Edda'] },
-          modelId: { startsWith: 'deepseek' },
-        },
-        data: { modelId: light },
-      });
-      upgraded += res.count;
-    }
-    if (upgraded > 0) {
-      this.logger.log(
-        `upgradeCrewModels(${organizationId}): ${upgraded} agente(s) migrado(s) (forte=${strong ?? '-'}, leve=${light ?? '-'}).`,
-      );
-    }
   }
 
   private async patchAgentPrompts(organizationId: string): Promise<void> {

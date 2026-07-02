@@ -486,13 +486,44 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
             });
             if (pendingCount === 0) {
               cycleNudgeUsed = true;
+              // Menu EXPLÍCITO de quem ainda pode receber delegação neste
+              // ciclo (nome + função). Modelo menor não infere "o especialista
+              // que executa" — precisa do cardápio pronto com nomes.
+              const [workers, ranRows] = await Promise.all([
+                this.prisma.aiAgent.findMany({
+                  where: {
+                    organizationId: conversation.organizationId,
+                    sector: agent.sector,
+                    kind: 'WORKER',
+                    isActive: true,
+                    deletedAt: null,
+                  },
+                  select: { id: true, name: true, category: true },
+                }),
+                this.prisma.aiAgentRun.findMany({
+                  where: {
+                    conversationId: conversation.id,
+                    triggerMessageId: triggerMessage.id,
+                  },
+                  select: { agentId: true },
+                }),
+              ]);
+              const ranIds = new Set(ranRows.map((r) => r.agentId));
+              const available = workers.filter((w) => !ranIds.has(w.id));
+              const menu = available
+                .map((w) => `${w.name} (${w.category ?? 'especialista'})`)
+                .join(', ');
               this.logger.warn(
-                `Run ${run.id}: orquestrador encerrando ciclo interno sem delegar e sem pendências — nudge de execução`,
+                `[ciclo] conv=${conversation.id} depth=${chainDepth} nudge de execução: ${agent.name} ia encerrar sem delegar e sem pendências; disponíveis=[${menu || 'nenhum'}]`,
               );
               messages.push({
                 role: 'user',
                 content:
-                  'ATENÇÃO: você está encerrando o ciclo sem delegar execução e NÃO existe nenhuma proposta aguardando aprovação. Decisão registrada NÃO é decisão executada. Se a sua decisão tem itens acionáveis (ativar/pausar campanha, ajustar verba, criar criativo), chame delegateToAgent AGORA pro especialista que EXECUTA essa etapa — quem já entregou a parte dele NESTE ciclo não aceita nova delegação (releia a entrega no histórico em vez de pedir de novo). As ações sensíveis viram cards de aprovação automaticamente; você não precisa de permissão prévia pra delegar. Se a decisão de hoje é genuinamente NÃO mexer em nada, responda de novo dizendo isso de forma explícita em uma frase.',
+                  'ATENÇÃO: você está encerrando o ciclo sem delegar execução e NÃO existe nenhuma proposta aguardando aprovação. Decisão registrada NÃO é decisão executada. ' +
+                  (available.length > 0
+                    ? `Especialistas que ainda PODEM receber delegação neste ciclo: ${menu}. Se a sua decisão tem itens acionáveis (ativar/pausar campanha, ajustar verba, criar criativo), chame delegateToAgent AGORA com o nome de UM deles — as ações sensíveis viram cards de aprovação automaticamente, você não precisa de permissão prévia. `
+                    : 'Todos os especialistas já rodaram neste ciclo. ') +
+                  'Se a decisão de hoje é genuinamente NÃO mexer em nada, responda de novo dizendo isso de forma explícita em uma frase, com o motivo.',
               });
               continue;
             }
@@ -642,6 +673,13 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
         costUsd: aggregateUsage.costUsd,
       });
 
+      // Trace do ciclo orquestrado — 1 linha por run, greppável por [ciclo].
+      // É o log que conta a história: quem rodou, em que profundidade, que
+      // tools chamou e como terminou (delegou? devolveu? só respondeu?).
+      this.logger.log(
+        `[ciclo] conv=${conversation.id} depth=${chainDepth} agente=${agent.name}(${agent.kind}) final=${finalAction} tools=[${[...toolsCalled].join(',')}] dur=${durationMs}ms`,
+      );
+
       // Fase 2: enfileirar jobs assíncronos de memória + RAG
       // (fire-and-forget — falha não pode quebrar o run)
       this.scheduleAfterRunJobs(
@@ -706,7 +744,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
           refreshed.activeAgentId !== agent.id
         ) {
           this.logger.log(
-            `Auto-chaining run for new active agent ${refreshed.activeAgentId} on conv ${conversation.id} (depth ${chainDepth + 1})`,
+            `[ciclo] conv=${conversation.id} depth=${chainDepth + 1} DELEGAÇÃO: ${agent.name} → agente ${refreshed.activeAgentId}`,
           );
           this.run({
             conversation: refreshed,
@@ -726,7 +764,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
           refreshed.activeAgentId !== agent.id
         ) {
           this.logger.log(
-            `Auto-chaining orchestrator after hand-back on conv ${conversation.id} (depth ${chainDepth + 1})`,
+            `[ciclo] conv=${conversation.id} depth=${chainDepth + 1} HAND-BACK: ${agent.name} devolveu → ${refreshed.activeAgentId ?? 'orquestrador default do canal'}`,
           );
           this.run({
             conversation: refreshed,
@@ -762,7 +800,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
               data: { activeAgentId: parent.id },
             });
             this.logger.log(
-              `Auto-devolução: worker ${agent.name} terminou sem hand-back em canal interno — devolvendo pro pai ${parent.id} (conv ${conversation.id}, depth ${chainDepth + 1})`,
+              `[ciclo] conv=${conversation.id} depth=${chainDepth + 1} AUTO-DEVOLUÇÃO: ${agent.name} terminou sem hand-back — devolvendo pro pai ${parent.id}`,
             );
             this.run({
               conversation: { ...refreshed, activeAgentId: parent.id },

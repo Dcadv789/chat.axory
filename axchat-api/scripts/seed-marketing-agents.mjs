@@ -12,26 +12,6 @@ const prisma = new PrismaClient();
 
 const DEFAULT_MODEL = process.env.AI_DEFAULT_MODEL_ID || 'deepseek-chat';
 
-// Orquestração/decisão multi-etapa precisa de modelo forte — deepseek-chat
-// não sustenta o ciclo (não delega, para no meio, ping-pong). Com
-// ANTHROPIC_API_KEY no ambiente: decisão (Magnus/Alaric/Wystan) vai pro
-// Sonnet e execução (Orla/Caspian/Edda) pro Haiku. Overrides via env.
-const HAS_ANTHROPIC = !!(process.env.ANTHROPIC_API_KEY || '').trim();
-const STRONG_MODEL =
-  process.env.AI_MARKETING_STRONG_MODEL_ID ||
-  (HAS_ANTHROPIC ? 'claude-sonnet-4-6' : DEFAULT_MODEL);
-const LIGHT_MODEL =
-  process.env.AI_MARKETING_LIGHT_MODEL_ID ||
-  (HAS_ANTHROPIC ? 'claude-haiku-4-5' : DEFAULT_MODEL);
-const MODEL_BY_AGENT = {
-  Magnus: STRONG_MODEL,
-  Alaric: STRONG_MODEL,
-  Wystan: STRONG_MODEL,
-  Orla: LIGHT_MODEL,
-  Caspian: LIGHT_MODEL,
-  Edda: LIGHT_MODEL,
-};
-
 // ─── Tools NOVAS ───────────────────────────────────────────────
 // As tools Instagram e Google Business já são criadas por
 // scripts/seed-marketing-skills.mjs — aqui só adicionamos as duas
@@ -1349,7 +1329,7 @@ async function upsertAgent(organizationId, data) {
     department: data.department,
     squad: data.squad ?? 'Marketing IA',
     parentAgentId: data.parentAgentId ?? null,
-    modelId: MODEL_BY_AGENT[data.name] ?? DEFAULT_MODEL,
+    modelId: DEFAULT_MODEL,
     modelParams: {},
     systemPrompt: data.systemPrompt,
     temperature: data.temperature,
@@ -1362,9 +1342,9 @@ async function upsertAgent(organizationId, data) {
   };
 
   if (existing) {
-    // Não pisa em escolha MANUAL de modelo: só troca se o atual ainda é o
-    // default barato (deepseek*).
-    if (existing.modelId && !existing.modelId.startsWith('deepseek')) {
+    // Não pisa em escolha MANUAL de modelo feita na UI: se o modelo atual
+    // difere do default do seed, mantém o que o usuário escolheu.
+    if (existing.modelId && existing.modelId !== DEFAULT_MODEL) {
       delete payload.modelId;
     }
     return prisma.aiAgent.update({ where: { id: existing.id }, data: payload });
