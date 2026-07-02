@@ -78,6 +78,18 @@ export class ChannelsController {
     return this.service.findAll(orgId, access);
   }
 
+  @Get(':id/webhook-diagnostics')
+  @ApiOperation({
+    summary:
+      'Diagnóstico: últimos webhooks recebidos, entry.id que veio e se casou com o canal',
+  })
+  webhookDiagnostics(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+  ) {
+    return this.service.webhookDiagnostics(id, orgId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get channel by ID' })
   findOne(

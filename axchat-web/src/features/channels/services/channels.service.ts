@@ -4,6 +4,22 @@ export type ChannelType = 'WHATSAPP_OFFICIAL' | 'WHATSAPP_ZAPPFY' | 'INSTAGRAM' 
 
 export type ChannelVisibility = 'ORG' | 'PRIVATE';
 
+export interface WebhookDiagnosticsEvent {
+  receivedAt: string;
+  status: 'RECEIVED' | 'PROCESSED' | 'FAILED' | 'UNROUTED';
+  routed: boolean;
+  entryIds: string[];
+  kinds: string[];
+  idMatches: boolean;
+  errorMessage?: string;
+}
+
+export interface WebhookDiagnostics {
+  configuredIds: string[];
+  totalReceived: number;
+  events: WebhookDiagnosticsEvent[];
+}
+
 export interface Channel {
   id: string;
   organizationId: string;
@@ -92,6 +108,13 @@ export const channelsService = {
   async getById(id: string): Promise<Channel> {
     const { data } = await api.get<{ data: Channel }>(`/channels/${id}`);
     return data.data;
+  },
+
+  async webhookDiagnostics(id: string): Promise<WebhookDiagnostics> {
+    const { data } = await api.get<{ data: WebhookDiagnostics }>(
+      `/channels/${id}/webhook-diagnostics`,
+    );
+    return data.data ?? (data as any);
   },
 
   async create(payload: CreateChannelPayload): Promise<Channel> {

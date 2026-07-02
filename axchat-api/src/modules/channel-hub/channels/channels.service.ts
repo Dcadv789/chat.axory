@@ -397,6 +397,74 @@ export class ChannelsService {
     return channel;
   }
 
+  /**
+   * Diagnóstico de webhook: mostra os últimos eventos que CHEGARAM (roteados
+   * pro canal + os não-roteados do mesmo tipo), com o `entry.id` que veio no
+   * payload e se ele bate com o ID configurado no canal. Responde as duas
+   * perguntas que travam todo mundo: "chegou algum webhook?" e "o ID casou?".
+   */
+  async webhookDiagnostics(channelId: string, organizationId: string) {
+    const channel = await this.findOne(channelId, organizationId);
+    const cfg = (channel.config as Record<string, any>) || {};
+    const configuredIds = [cfg.igBusinessId, cfg.igUserId, cfg.pageId]
+      .filter(Boolean)
+      .map(String);
+
+    const events = await this.prisma.webhookEvent.findMany({
+      where: {
+        OR: [
+          { channelId: channel.id },
+          { channelType: channel.type, channelId: null }, // unrouted do tipo
+        ],
+      },
+      orderBy: { receivedAt: 'desc' },
+      take: 20,
+      select: {
+        id: true,
+        status: true,
+        receivedAt: true,
+        errorMessage: true,
+        channelId: true,
+        rawPayload: true,
+      },
+    });
+
+    const extractEntryIds = (payload: any): string[] => {
+      const entries: any[] = payload?.entry || [];
+      return [...new Set(entries.map((e) => e?.id).filter(Boolean).map(String))];
+    };
+    const describeKinds = (payload: any): string[] => {
+      const entries: any[] = payload?.entry || [];
+      const kinds = new Set<string>();
+      for (const e of entries) {
+        if ((e?.messaging || []).length) kinds.add('mensagem (DM)');
+        for (const c of e?.changes || []) {
+          if (c?.field) kinds.add(c.field === 'comments' ? 'comentário' : c.field);
+        }
+      }
+      return [...kinds];
+    };
+
+    return {
+      configuredIds,
+      totalReceived: events.length,
+      events: events.map((e) => {
+        const entryIds = extractEntryIds(e.rawPayload);
+        return {
+          receivedAt: e.receivedAt,
+          status: e.status, // RECEIVED | PROCESSED | FAILED | UNROUTED
+          routed: !!e.channelId,
+          entryIds,
+          kinds: describeKinds(e.rawPayload),
+          idMatches:
+            entryIds.length > 0 &&
+            entryIds.some((id) => configuredIds.includes(id)),
+          errorMessage: e.errorMessage ?? undefined,
+        };
+      }),
+    };
+  }
+
   async update(
     id: string,
     organizationId: string,

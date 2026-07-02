@@ -764,6 +764,112 @@ function ConfigTab({
           </button>
         </div>
       </div>
+
+      {channel.type === 'INSTAGRAM' && <WebhookDiagnostics channelId={channel.id} />}
+    </div>
+  );
+}
+
+function WebhookDiagnostics({ channelId }: { channelId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<Awaited<
+    ReturnType<typeof channelsService.webhookDiagnostics>
+  > | null>(null);
+
+  const run = async () => {
+    setLoading(true);
+    try {
+      setData(await channelsService.webhookDiagnostics(channelId));
+    } catch {
+      // silencioso — o botão pode ser tentado de novo
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-zinc-200 p-4 dark:border-white/10">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            Diagnóstico de webhook
+          </p>
+          <p className="text-[11px] text-zinc-500">
+            Mostra os últimos webhooks que a Meta enviou. Mande uma DM de outra
+            conta e clique em Verificar.
+          </p>
+        </div>
+        <button
+          onClick={run}
+          disabled={loading}
+          className="shrink-0 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+        >
+          {loading ? 'Verificando…' : 'Verificar'}
+        </button>
+      </div>
+
+      {data && (
+        <div className="mt-3 space-y-2 text-xs">
+          <p className="text-zinc-500">
+            ID configurado no canal:{' '}
+            <code className="rounded bg-zinc-100 px-1 py-0.5 dark:bg-black">
+              {data.configuredIds.join(', ') || '—'}
+            </code>
+          </p>
+          {data.totalReceived === 0 ? (
+            <div className="rounded-md bg-amber-50 p-3 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+              <strong>Nenhum webhook chegou ainda.</strong> Provavelmente o app
+              está em <strong>modo Desenvolvimento</strong> (só entrega mensagens
+              de contas com papel no app) ou o campo <code>messages</code> não
+              foi assinado. Coloque o app em Produção ou adicione a conta de
+              teste como papel no app na Meta.
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {data.events.map((e, i) => (
+                <li
+                  key={i}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-zinc-50 px-2.5 py-1.5 dark:bg-black"
+                >
+                  <span className="text-zinc-400">
+                    {new Date(e.receivedAt).toLocaleString('pt-BR')}
+                  </span>
+                  <span className="text-zinc-600 dark:text-zinc-300">
+                    {e.kinds.join(', ') || 'evento'}
+                  </span>
+                  <span
+                    className={`rounded px-1.5 py-0.5 font-medium ${
+                      e.status === 'PROCESSED'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                        : e.status === 'UNROUTED'
+                          ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+                          : e.status === 'FAILED'
+                            ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                            : 'bg-zinc-200 text-zinc-600 dark:bg-white/10 dark:text-zinc-300'
+                    }`}
+                  >
+                    {e.status === 'UNROUTED'
+                      ? 'não casou com o canal'
+                      : e.status === 'PROCESSED'
+                        ? 'processado ✓'
+                        : e.status}
+                  </span>
+                  {!e.idMatches && e.entryIds.length > 0 && (
+                    <span className="text-rose-600 dark:text-rose-400">
+                      veio id {e.entryIds.join(', ')} — diferente do configurado
+                    </span>
+                  )}
+                  {e.errorMessage && (
+                    <span className="w-full text-orange-600 dark:text-orange-400">
+                      {e.errorMessage}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
