@@ -112,8 +112,9 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   const [visibility, setVisibility] = useState<'ORG' | 'PRIVATE'>('ORG');
   const [showTelegramHelp, setShowTelegramHelp] = useState(false);
   const [showInstagramHelp, setShowInstagramHelp] = useState(false);
-  // WhatsApp Official: 'api' = formulário manual; 'coexistence' = QR Embedded Signup.
-  const [waMode, setWaMode] = useState<'api' | 'coexistence'>('api');
+  // WhatsApp Official: 'api' = formulário manual; 'coexistence' = QR Embedded
+  // Signup; 'embedded' = Embedded Signup padrão (login Facebook, puxa credenciais).
+  const [waMode, setWaMode] = useState<'api' | 'coexistence' | 'embedded'>('api');
 
   const zappfyForm = useForm<ZappfyFormData>({
     resolver: zodResolver(zappfySchema),
@@ -206,6 +207,29 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
         visibility,
       });
       toast.success('Canal conectado por coexistência!');
+      handleClose();
+      onCreated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao conectar canal');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onConnectEmbedded = async (payload: {
+    code: string;
+    phoneNumberId: string;
+    businessAccountId: string;
+  }) => {
+    setIsLoading(true);
+    try {
+      await channelsService.createEmbeddedSignup({
+        name: waForm.getValues('name') || 'WhatsApp Business',
+        ...payload,
+        visibility,
+      });
+      toast.success('Canal conectado! Credenciais puxadas do Facebook.');
       handleClose();
       onCreated();
     } catch (err) {
@@ -314,14 +338,14 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
             <div className="flex gap-2 rounded-lg border border-zinc-200 p-1 dark:border-white/10">
               <button
                 type="button"
-                onClick={() => setWaMode('api')}
+                onClick={() => setWaMode('embedded')}
                 className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                  waMode === 'api'
+                  waMode === 'embedded'
                     ? 'bg-primary text-primary-foreground'
                     : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
                 }`}
               >
-                API Padrão
+                Login Facebook
               </button>
               <button
                 type="button"
@@ -333,6 +357,17 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
                 }`}
               >
                 Coexistência
+              </button>
+              <button
+                type="button"
+                onClick={() => setWaMode('api')}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  waMode === 'api'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
+                }`}
+              >
+                Manual
               </button>
             </div>
 
@@ -352,7 +387,8 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
                 <Field label="Nome do canal" placeholder="Ex: WhatsApp Business" error={waForm.formState.errors.name?.message} {...waForm.register('name')} />
                 <CoexistenceConnect
                   name={waForm.watch('name') || ''}
-                  onConnect={onConnectCoexistence}
+                  variant={waMode === 'embedded' ? 'embedded' : 'coexistence'}
+                  onConnect={waMode === 'embedded' ? onConnectEmbedded : onConnectCoexistence}
                   isSubmitting={isLoading}
                 />
                 <div className="flex items-center justify-start pt-2">

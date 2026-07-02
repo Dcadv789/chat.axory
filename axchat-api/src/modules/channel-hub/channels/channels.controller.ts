@@ -70,6 +70,21 @@ export class ChannelsController {
     });
   }
 
+  @Post('whatsapp/embedded-signup')
+  @ApiOperation({
+    summary:
+      'Cria um WhatsApp Official via Embedded Signup (Facebook Login): troca o code por token e puxa os dados do número.',
+  })
+  createEmbeddedSignup(
+    @CurrentOrg() org: { id: string; userOrganizationId: string; userRole: OrgRole },
+    @Body() dto: CoexistenceChannelDto,
+  ) {
+    return this.service.createFromEmbeddedSignup(org.id, dto, {
+      userOrganizationId: org.userOrganizationId,
+      role: org.userRole,
+    });
+  }
+
   @Get()
   findAll(
     @CurrentOrg('id') orgId: string,

@@ -231,6 +231,7 @@ export class ChannelsService {
     appId: string;
     appSecret: string;
     configId: string;
+    embeddedConfigId: string;
   }> {
     const row = await this.prisma.platformSetting.findUnique({
       where: { key: 'meta_coexistence' },
@@ -239,22 +240,31 @@ export class ChannelsService {
       row?.value && typeof row.value === 'object' && !Array.isArray(row.value)
         ? (row.value as Record<string, unknown>)
         : {};
+    const configId = typeof value.configId === 'string' ? value.configId : '';
     return {
       appId: typeof value.appId === 'string' ? value.appId : '',
       appSecret: typeof value.appSecret === 'string' ? value.appSecret : '',
-      configId: typeof value.configId === 'string' ? value.configId : '',
+      configId,
+      // Config do Embedded Signup PADRÃO (criar/selecionar WABA + número). Se o
+      // Super Admin não configurou um separado, reusa o de coexistência.
+      embeddedConfigId:
+        typeof value.embeddedConfigId === 'string' && value.embeddedConfigId
+          ? value.embeddedConfigId
+          : configId,
     };
   }
 
   /**
-   * Config pública de coexistência para a org montar o popup Embedded Signup.
-   * NÃO inclui o appSecret — só appId + configId, e se está habilitado.
+   * Config pública para a org montar os popups Embedded Signup (coexistência
+   * e signup padrão). NÃO inclui o appSecret.
    */
   async getCoexistenceConfig() {
-    const { appId, appSecret, configId } = await this.loadMetaCoexistenceConfig();
+    const { appId, appSecret, configId, embeddedConfigId } =
+      await this.loadMetaCoexistenceConfig();
     return {
       appId,
       configId,
+      embeddedConfigId,
       enabled: !!(appId && appSecret && configId),
     };
   }
@@ -300,6 +310,59 @@ export class ChannelsService {
           appSecret,
           apiVersion: 'v21.0',
           coexistence: true,
+        },
+        ...(dto.visibility ? { visibility: dto.visibility } : {}),
+      },
+      creator,
+    );
+  }
+
+  /**
+   * Embedded Signup PADRÃO do WhatsApp Official (mesmo popup da coexistência,
+   * mas o dono cria/seleciona a WABA + número na janela da Meta em vez de ler
+   * QR). O popup devolve `code` + phone_number_id + waba_id; aqui trocamos o
+   * code por token, PUXAMOS os dados do número no Facebook (telefone + nome
+   * verificado) e criamos o canal já com as credenciais preenchidas.
+   */
+  async createFromEmbeddedSignup(
+    organizationId: string,
+    dto: CoexistenceChannelDto,
+    creator?: { userOrganizationId: string; role: OrgRole },
+  ) {
+    const { appId, appSecret } = await this.loadMetaCoexistenceConfig();
+    if (!appId || !appSecret) {
+      throw new BadRequestException(
+        'App Meta não configurado. Peça ao Super Admin para preencher App ID e App Secret em Integrações.',
+      );
+    }
+
+    const accessToken = await this.waOfficialHttpClient.exchangeCodeForToken(
+      dto.code,
+      appId,
+      appSecret,
+    );
+
+    // Puxa os dados do número direto do Facebook pra popular as credenciais.
+    const info = await this.waOfficialHttpClient.fetchPhoneNumberInfo(
+      accessToken,
+      dto.phoneNumberId,
+    );
+
+    return this.create(
+      organizationId,
+      {
+        type: ChannelType.WHATSAPP_OFFICIAL,
+        name: dto.name,
+        config: {
+          accessToken,
+          phoneNumberId: dto.phoneNumberId,
+          businessAccountId: dto.businessAccountId,
+          appSecret,
+          apiVersion: 'v21.0',
+          ...(info.displayPhoneNumber
+            ? { displayPhoneNumber: info.displayPhoneNumber }
+            : {}),
+          ...(info.verifiedName ? { verifiedName: info.verifiedName } : {}),
         },
         ...(dto.visibility ? { visibility: dto.visibility } : {}),
       },

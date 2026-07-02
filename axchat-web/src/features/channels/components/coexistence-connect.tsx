@@ -27,6 +27,12 @@ interface CoexistenceConnectProps {
     businessAccountId: string;
   }) => Promise<void>;
   isSubmitting: boolean;
+  /**
+   * 'coexistence' = número segue no app + Cloud API (lê QR).
+   * 'embedded'    = Embedded Signup padrão (cria/seleciona WABA + número).
+   * Muda o config_id, os extras do FB.login e o texto de instrução.
+   */
+  variant?: 'coexistence' | 'embedded';
 }
 
 /**
@@ -42,7 +48,9 @@ export function CoexistenceConnect({
   name,
   onConnect,
   isSubmitting,
+  variant = 'coexistence',
 }: CoexistenceConnectProps) {
+  const isEmbedded = variant === 'embedded';
   const [config, setConfig] = useState<CoexistenceConfig | null>(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [sdkReady, setSdkReady] = useState(false);
@@ -131,8 +139,12 @@ export function CoexistenceConnect({
     return () => window.removeEventListener('message', handleMessage);
   }, [enabled]);
 
+  const launchConfigId = isEmbedded
+    ? config?.embeddedConfigId || config?.configId
+    : config?.configId;
+
   const launch = useCallback(() => {
-    if (!window.FB || !config?.configId) return;
+    if (!window.FB || !launchConfigId) return;
     setError(null);
     setLaunching(true);
     sessionInfoRef.current = {};
@@ -173,17 +185,21 @@ export function CoexistenceConnect({
         })();
       },
       {
-        config_id: config.configId,
+        config_id: launchConfigId,
         response_type: 'code',
         override_default_response_type: true,
         extras: {
           setup: {},
-          featureType: 'whatsapp_business_app_onboarding',
+          // Coexistência usa o onboarding do app (QR). Embedded padrão NÃO
+          // manda featureType — cai no fluxo de criar/selecionar WABA+número.
+          ...(isEmbedded
+            ? {}
+            : { featureType: 'whatsapp_business_app_onboarding' }),
           sessionInfoVersion: '3',
         },
       },
     );
-  }, [onConnect, config?.configId]);
+  }, [onConnect, launchConfigId, isEmbedded]);
 
   if (loadingConfig) {
     return (
@@ -213,20 +229,40 @@ export function CoexistenceConnect({
   return (
     <div className="mt-6 space-y-4">
       <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-xs leading-relaxed text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100">
-        <p className="font-medium">Como conectar por Coexistência</p>
-        <ol className="mt-2 space-y-1.5">
-          <li>1. Clique em <strong>Conectar com QR Code</strong> abaixo.</li>
-          <li>2. Uma janela da Meta abre com um <strong>QR code</strong>.</li>
-          <li>
-            3. No celular, abra o <strong>WhatsApp Business</strong> →{' '}
-            <strong>Configurações → Dispositivos conectados → Conectar dispositivo</strong>.
-          </li>
-          <li>4. Escaneie o QR exibido na janela.</li>
-          <li>
-            5. Confirme na janela da Meta. O número continua funcionando no
-            celular <em>e</em> passa a responder pela plataforma.
-          </li>
-        </ol>
+        {isEmbedded ? (
+          <>
+            <p className="font-medium">Conectar pela Meta (Embedded Signup)</p>
+            <ol className="mt-2 space-y-1.5">
+              <li>1. Clique em <strong>Conectar com o Facebook</strong> abaixo.</li>
+              <li>2. Faça login com a conta que administra o WhatsApp Business.</li>
+              <li>
+                3. Na janela da Meta, <strong>selecione ou crie</strong> a conta
+                do WhatsApp (WABA) e o <strong>número</strong>.
+              </li>
+              <li>
+                4. Confirme. Nós puxamos as credenciais (token, número, WABA)
+                automaticamente — você não digita nada.
+              </li>
+            </ol>
+          </>
+        ) : (
+          <>
+            <p className="font-medium">Como conectar por Coexistência</p>
+            <ol className="mt-2 space-y-1.5">
+              <li>1. Clique em <strong>Conectar com QR Code</strong> abaixo.</li>
+              <li>2. Uma janela da Meta abre com um <strong>QR code</strong>.</li>
+              <li>
+                3. No celular, abra o <strong>WhatsApp Business</strong> →{' '}
+                <strong>Configurações → Dispositivos conectados → Conectar dispositivo</strong>.
+              </li>
+              <li>4. Escaneie o QR exibido na janela.</li>
+              <li>
+                5. Confirme na janela da Meta. O número continua funcionando no
+                celular <em>e</em> passa a responder pela plataforma.
+              </li>
+            </ol>
+          </>
+        )}
       </div>
 
       {error && (
@@ -251,7 +287,9 @@ export function CoexistenceConnect({
           ? 'Aguardando conexão...'
           : isSubmitting
             ? 'Criando canal...'
-            : 'Conectar com QR Code'}
+            : isEmbedded
+              ? 'Conectar com o Facebook'
+              : 'Conectar com QR Code'}
       </button>
 
       {!sdkReady && (

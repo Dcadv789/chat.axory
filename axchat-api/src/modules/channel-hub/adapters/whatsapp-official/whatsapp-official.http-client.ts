@@ -182,6 +182,39 @@ export class WhatsAppOfficialHttpClient {
   }
 
   /**
+   * Busca os dados do número (telefone formatado + nome verificado) direto do
+   * Facebook usando o token recém-trocado — pra preencher as credenciais do
+   * canal sozinho no fluxo de Embedded Signup. Best-effort: falha vira {}.
+   */
+  async fetchPhoneNumberInfo(
+    token: string,
+    phoneNumberId: string,
+    apiVersion = 'v21.0',
+  ): Promise<{ displayPhoneNumber?: string; verifiedName?: string }> {
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/${phoneNumberId}`,
+        {
+          params: {
+            fields: 'display_phone_number,verified_name',
+            access_token: token,
+          },
+          timeout: 20000,
+        },
+      );
+      return {
+        displayPhoneNumber: data?.display_phone_number,
+        verifiedName: data?.verified_name,
+      };
+    } catch (err: any) {
+      this.logger.warn(
+        `fetchPhoneNumberInfo falhou (${phoneNumberId}): ${err?.message ?? err}`,
+      );
+      return {};
+    }
+  }
+
+  /**
    * Subscribes our app to receive webhooks for this WABA. Idempotent on
    * Meta's side — re-calling is safe. Requires `whatsapp_business_management`
    * scope on the access token.

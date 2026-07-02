@@ -59,6 +59,8 @@ export interface CoexistenceChannelPayload {
 export interface CoexistenceConfig {
   appId: string;
   configId: string;
+  /** Config do Embedded Signup padrão (cai no configId se não configurado). */
+  embeddedConfigId?: string;
   enabled: boolean;
 }
 
@@ -132,6 +134,14 @@ export const channelsService = {
   async createCoexistence(payload: CoexistenceChannelPayload): Promise<Channel> {
     const { data } = await api.post<{ data: Channel }>(
       '/channels/whatsapp/coexistence',
+      payload,
+    );
+    return data.data;
+  },
+
+  async createEmbeddedSignup(payload: CoexistenceChannelPayload): Promise<Channel> {
+    const { data } = await api.post<{ data: Channel }>(
+      '/channels/whatsapp/embedded-signup',
       payload,
     );
     return data.data;
