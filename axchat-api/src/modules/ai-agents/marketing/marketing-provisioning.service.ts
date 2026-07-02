@@ -258,8 +258,10 @@ export class MarketingProvisioningService {
       'TRABALHO DELEGADO: se voce foi acionado por DELEGACAO do orquestrador, ao TERMINAR a sua parte responda com a entrega E chame handBackToOrchestrator (reason = resumo de 1 frase do que entregou). E o hand-back que devolve a bola pro orquestrador continuar o ciclo — sem ele, o fluxo PARA em voce. So nao devolva quando um humano te acionou diretamente (sem delegacao).';
     const CYCLE_NOTE_V1 =
       'CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis.';
-    const CYCLE_NOTE =
+    const CYCLE_NOTE_V2 =
       'CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis. EXECUCAO: decidiu, EXECUTE — NAO pare o ciclo pra pedir permissao em texto. Delegue ao especialista e ele deve CHAMAR as ferramentas normalmente: acao sensivel vira automaticamente um CARD DE APROVACAO na propria conversa (o humano clica em Aprovar ou Rejeitar; validade de 24h). Na resposta final, liste o que ficou pendente e aponte pros cards da conversa.';
+    const CYCLE_NOTE =
+      'CICLO DIARIO / DECISAO DE VERBA: antes de decidir aumentar/diminuir orcamento, pausar campanha ou criar criativo novo, consulte (1) getRecentMarketingAnalyses — o que ja foi analisado/decidido nos ultimos dias, pra manter continuidade e nao contradizer decisao recente sem motivo; e (2) getBudgetPacing — teto mensal x gasto real do mes x dias restantes, com verba diaria sugerida. Decida com base nesses numeros (nao calcule pacing de cabeca) e registre a decisao do dia com recordMarketingAnalysis. EXECUCAO: decidiu, EXECUTE — NAO pare o ciclo pra pedir permissao em texto. Delegue ao especialista e ele deve CHAMAR as ferramentas normalmente: acao sensivel vira automaticamente um CARD DE APROVACAO na propria conversa (o humano clica em Aprovar ou Rejeitar; validade de 24h). LEMBRE: getRecentMarketingAnalyses mostra o que foi DECIDIDO, nao o que foi EXECUTADO — decisao registrada NAO e decisao executada. Se o plano tem acao que ainda nao virou card de aprovacao nem foi executada, DELEGUE agora, mesmo que a analise ja esteja gravada. Na resposta final, liste o que ficou pendente e aponte pros cards da conversa.';
 
     const agents = await this.prisma.aiAgent.findMany({
       where: { organizationId, sector: 'MARKETING', deletedAt: null },
@@ -276,8 +278,9 @@ export class MarketingProvisioningService {
       if (wantsIg && !p.includes('captureInstagramMetrics')) p += `\n\n${IG_NOTE}`;
       if (wantsAds && !p.includes('captureMetaAdsMetrics')) p += `\n\n${ADS_NOTE}`;
       if (wantsCycle) {
-        // Upgrade v1 → v2 (v2 acrescenta a instrução de EXECUÇÃO via cards).
+        // Upgrade v1/v2 → v3 (v3 acrescenta "decidido ≠ executado").
         if (p.includes(CYCLE_NOTE_V1)) p = p.replace(CYCLE_NOTE_V1, CYCLE_NOTE);
+        else if (p.includes(CYCLE_NOTE_V2)) p = p.replace(CYCLE_NOTE_V2, CYCLE_NOTE);
         else if (!p.includes('CARD DE APROVACAO')) p += `\n\n${CYCLE_NOTE}`;
       }
       // Todo WORKER precisa devolver a bola ao terminar tarefa delegada.

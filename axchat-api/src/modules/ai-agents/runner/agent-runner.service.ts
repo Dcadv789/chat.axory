@@ -353,6 +353,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
     let iterationCount = 0;
     const toolsCalled = new Set<string>();
     let salesNudgeUsed = false;
+    let cycleNudgeUsed = false;
     // Hard cap of 1 successful replyToConversation per run. The system
     // prompt encourages "uma ideia por mensagem" + multi-step consultative
     // selling, but the runner used to fire every reply back-to-back in
@@ -465,6 +466,36 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
                 'Você rodou as tools de preparação (lookupOffering / checkPurchase) mas não chamou replyToConversation. O cliente está esperando. Responda agora com replyToConversation: 1 frase de pitch ligada à dor + preço + link do checkout (vindos do lookupOffering). Não termine este turn sem chamar replyToConversation.',
             });
             continue;
+          }
+
+          // Cycle-execution nudge: orquestrador em CICLO INTERNO (crew/cron)
+          // encerrando o turno sem delegar execução e sem NENHUMA proposta
+          // pendente de aprovação — clássico "decidiu mas não executou" que
+          // deixava o ciclo diário morrer em análise (Magnus gravava a
+          // decisão e parava). Confronta UMA vez: ou delega, ou afirma
+          // explicitamente que hoje não mexe.
+          if (
+            !cycleNudgeUsed &&
+            agent.kind === 'ORCHESTRATOR' &&
+            channel.type === 'INTERNAL' &&
+            chainDepth > 0 &&
+            !toolsCalled.has('delegateToAgent')
+          ) {
+            const pendingCount = await this.prisma.aiPendingAction.count({
+              where: { conversationId: conversation.id, status: 'PENDING' },
+            });
+            if (pendingCount === 0) {
+              cycleNudgeUsed = true;
+              this.logger.warn(
+                `Run ${run.id}: orquestrador encerrando ciclo interno sem delegar e sem pendências — nudge de execução`,
+              );
+              messages.push({
+                role: 'user',
+                content:
+                  'ATENÇÃO: você está encerrando o ciclo sem delegar execução e NÃO existe nenhuma proposta aguardando aprovação. Decisão registrada NÃO é decisão executada. Se a sua decisão tem itens acionáveis (ativar/pausar campanha, ajustar verba, criar criativo), chame delegateToAgent AGORA pro especialista executar — as ações sensíveis viram cards de aprovação automaticamente, você não precisa de permissão prévia pra delegar. Se a decisão de hoje é genuinamente NÃO mexer em nada, responda de novo dizendo isso de forma explícita em uma frase.',
+              });
+              continue;
+            }
           }
           break;
         }
