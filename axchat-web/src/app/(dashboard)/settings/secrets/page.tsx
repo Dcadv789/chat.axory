@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Eye, EyeOff, KeyRound, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, KeyRound, Copy } from 'lucide-react';
 import { secretsService, type OrganizationSecret } from '@/features/ai-agents/services/secrets.service';
 import { toast } from 'sonner';
 
@@ -84,6 +84,22 @@ export default function SettingsSecretsPage() {
       return realValues[secret.key];
     }
     return '••••••••';
+  };
+
+  // Copia o VALOR REAL (busca da API se ainda não revelou) — pra reusar a
+  // credencial em outro lugar (ex.: criar o canal do Instagram) sem redigitar.
+  const handleCopy = async (key: string) => {
+    try {
+      let value = realValues[key];
+      if (!value) {
+        value = await secretsService.findValue(key);
+        setRealValues((prev) => ({ ...prev, [key]: value }));
+      }
+      await navigator.clipboard.writeText(value);
+      toast.success(`Valor de "${key}" copiado`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Erro ao copiar valor');
+    }
   };
 
   return (
@@ -198,6 +214,13 @@ export default function SettingsSecretsPage() {
                   ) : (
                     <Eye className="h-4 w-4" />
                   )}
+                </button>
+                <button
+                  onClick={() => handleCopy(secret.key)}
+                  className="shrink-0 rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-300"
+                  title="Copiar valor"
+                >
+                  <Copy className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => handleRemove(secret.key)}

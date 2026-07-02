@@ -111,6 +111,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   // PRIVATE = apenas quem tiver grant explícito (pra canais sensíveis).
   const [visibility, setVisibility] = useState<'ORG' | 'PRIVATE'>('ORG');
   const [showTelegramHelp, setShowTelegramHelp] = useState(false);
+  const [showInstagramHelp, setShowInstagramHelp] = useState(false);
   // WhatsApp Official: 'api' = formulário manual; 'coexistence' = QR Embedded Signup.
   const [waMode, setWaMode] = useState<'api' | 'coexistence'>('api');
 
@@ -368,12 +369,13 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
           </div>
         ) : selectedType === 'INSTAGRAM' ? (
           <form onSubmit={igForm.handleSubmit(onSubmitInstagram)} className="mt-6 space-y-4">
+            <InstagramHelp open={showInstagramHelp} onToggle={() => setShowInstagramHelp((v) => !v)} />
             <Field label="Nome do canal" placeholder="Ex: Instagram Loja" error={igForm.formState.errors.name?.message} {...igForm.register('name')} />
-            <Field label="Access Token" type="text" placeholder="Instagram User Access Token (IGAAN...)" error={igForm.formState.errors.accessToken?.message} {...igForm.register('accessToken')} />
-            <Field label="App Secret" type="text" placeholder="Chave secreta do app (para validar webhooks)" error={igForm.formState.errors.appSecret?.message} {...igForm.register('appSecret')} />
-            <Field label="Instagram Business ID" placeholder="Opcional — detectado automaticamente" optional {...igForm.register('igBusinessId')} />
-            <Field label="Instagram App ID" placeholder="Opcional — ID do app do Instagram" optional {...igForm.register('igAppId')} />
-            <Field label="Webhook Verify Token" placeholder="Token que você definiu no Meta" optional {...igForm.register('webhookSecret')} />
+            <Field label="Access Token" type="text" placeholder="O mesmo token de System User dos agentes (IG_ACCESS_TOKEN nas Variáveis)" error={igForm.formState.errors.accessToken?.message} {...igForm.register('accessToken')} />
+            <Field label="App Secret" type="text" placeholder="developers.facebook.com → seu app → Básico → Chave Secreta" error={igForm.formState.errors.appSecret?.message} {...igForm.register('appSecret')} />
+            <Field label="Instagram Business ID" placeholder="Opcional — o mesmo IG_USER_ID das Variáveis (detectado pelo token)" optional {...igForm.register('igBusinessId')} />
+            <Field label="Instagram App ID" placeholder="Opcional — número do app no topo do painel da Meta" optional {...igForm.register('igAppId')} />
+            <Field label="Webhook Verify Token" placeholder="Uma senha que VOCÊ inventa — vai usar igual no painel da Meta" optional {...igForm.register('webhookSecret')} />
             <WebhookUrl url={`${apiBaseUrl}/webhooks/INSTAGRAM`} copied={copied} onCopy={() => handleCopyWebhook('INSTAGRAM')} />
             <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
           </form>
@@ -501,6 +503,97 @@ function FormFooter({ isLoading, onBack }: { isLoading: boolean; onBack: () => v
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Criar Canal
       </button>
+    </div>
+  );
+}
+
+function InstagramHelp({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <div className="rounded-lg border border-pink-200 bg-pink-50 dark:border-pink-900/50 dark:bg-pink-950/30">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-pink-800 dark:text-pink-200">
+          <HelpCircle className="h-4 w-4 shrink-0" />
+          Onde pegar cada campo (passo a passo)
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-pink-600 transition-transform dark:text-pink-400 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div className="border-t border-pink-200 px-3 py-3 dark:border-pink-900/50">
+          <ol className="space-y-2.5 text-xs leading-relaxed text-pink-900 dark:text-pink-100">
+            <li className="flex gap-2">
+              <span className="font-semibold">1.</span>
+              <span>
+                <strong>Access Token</strong> — é o MESMO token permanente de
+                System User que você usa nos agentes. Se já salvou como{' '}
+                <code className="rounded bg-pink-100 px-1 py-0.5 font-mono dark:bg-pink-900/50">IG_ACCESS_TOKEN</code>{' '}
+                em <strong>Configurações → Variáveis</strong>, clique no olhinho
+                lá e copie. Pra gerar um novo:{' '}
+                <strong>business.facebook.com → Configurações do negócio →
+                Usuários → Usuários do sistema → Gerar token</strong>, marcando
+                os escopos <em>instagram_basic, instagram_manage_messages,
+                instagram_manage_comments, pages_manage_metadata</em>.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">2.</span>
+              <span>
+                <strong>App Secret</strong> —{' '}
+                <strong>developers.facebook.com → seu app → Configurações do
+                aplicativo → Básico</strong> → campo{' '}
+                <em>&quot;Chave Secreta do Aplicativo&quot;</em> → clique em{' '}
+                <em>Mostrar</em>. Serve pra validarmos que os webhooks vieram
+                mesmo da Meta.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">3.</span>
+              <span>
+                <strong>Instagram Business ID</strong> — o ID numérico da conta
+                profissional; é o mesmo{' '}
+                <code className="rounded bg-pink-100 px-1 py-0.5 font-mono dark:bg-pink-900/50">IG_USER_ID</code>{' '}
+                das suas Variáveis. Pode deixar em branco: detectamos pelo token.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">4.</span>
+              <span>
+                <strong>Instagram App ID</strong> — o número do app que aparece
+                no topo do painel do developers.facebook.com. Opcional.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">5.</span>
+              <span>
+                <strong>Webhook Verify Token</strong> — uma senha que{' '}
+                <strong>você inventa agora</strong> (ex.:{' '}
+                <code className="rounded bg-pink-100 px-1 py-0.5 font-mono dark:bg-pink-900/50">minha-empresa-ig-2026</code>).
+                Cole aqui e guarde: vai colar a MESMA no painel da Meta no
+                próximo passo.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-semibold">6.</span>
+              <span>
+                <strong>Depois de criar o canal</strong>:{' '}
+                <strong>developers.facebook.com → seu app → Webhooks → tópico
+                Instagram</strong> → em <em>Callback URL</em> cole a URL de
+                webhook mostrada abaixo do formulário; em <em>Verify Token</em>{' '}
+                cole a senha do passo 5; e <strong>assine os campos{' '}
+                <code className="rounded bg-pink-100 px-1 py-0.5 font-mono dark:bg-pink-900/50">messages</code> e{' '}
+                <code className="rounded bg-pink-100 px-1 py-0.5 font-mono dark:bg-pink-900/50">comments</code></strong>{' '}
+                (messages = DMs; comments = comentários pros agentes responderem).
+              </span>
+            </li>
+          </ol>
+        </div>
+      )}
     </div>
   );
 }
