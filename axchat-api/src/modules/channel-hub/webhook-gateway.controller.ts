@@ -102,6 +102,22 @@ export class WebhookGatewayController {
         this.logger.warn(
           `Invalid webhook signature for channel ${channel.id} (${channelType})`,
         );
+        // Registra o descarte pra ficar VISÍVEL no diagnóstico. Sem isso, um
+        // webhook que casou o canal mas falhou a assinatura (appSecret errado)
+        // sumia — e parecia "nada chegou", mandando o debug pro lado errado.
+        await this.webhookEvents
+          .record(channel.id, channelType, req.body, headers)
+          .then((id) =>
+            id
+              ? this.webhookEvents.markFailed(
+                  id,
+                  'Assinatura inválida (x-hub-signature-256): o App Secret configurado no canal não confere com o do app na Meta.',
+                )
+              : null,
+          )
+          .catch((err) =>
+            this.logger.error(`webhook_events persist (invalid sig) failed: ${err.message}`),
+          );
         continue;
       }
 
