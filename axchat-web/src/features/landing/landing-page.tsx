@@ -66,14 +66,13 @@ export function LandingPage() {
   );
 }
 
+const LOGO_URL =
+  'https://img.axory.com.br/insecure/rs:fit:400:400/q:95/plain/https://storage.axory.com.br/imagens-saas-sites/1782507997191-logo_final.svg@png';
+
 function Logo() {
   return (
-    <span className="flex items-center gap-2 text-lg font-semibold tracking-tight text-white">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#0047ff] to-indigo-500 shadow-lg shadow-[#0047ff]/30">
-        <MessagesSquare className="h-[18px] w-[18px] text-white" />
-      </span>
-      AxChat
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={LOGO_URL} alt="AxChat" className="h-8 w-auto" />
   );
 }
 
