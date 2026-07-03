@@ -56,9 +56,12 @@ function defaultRange(): DateRange {
 
 export function MarketingPanel() {
   const [tab, setTab] = useState<Tab>('resumo');
-  const [range, setRange] = useState<DateRange>(defaultRange);
-  const since = toISODate(range.since);
-  const until = toISODate(range.until);
+  // range = null → "todo o período" (sem filtro de data).
+  const [range, setRange] = useState<DateRange | null>(defaultRange);
+  const all = range === null;
+  const since = range ? toISODate(range.since) : '';
+  const until = range ? toISODate(range.until) : '';
+  const rangeKey = all ? 'all' : `${since}_${until}`;
   const [cols, setCols] = useState<MetricsCols>({
     engagement: true,
     identification: true,
@@ -67,14 +70,14 @@ export function MarketingPanel() {
   });
 
   const { data: mediaMetrics, isLoading: loadingMedia } = useQuery({
-    queryKey: ['marketing-media-metrics', since, until],
-    queryFn: () => marketingService.mediaMetrics(since, until),
+    queryKey: ['marketing-media-metrics', rangeKey],
+    queryFn: () => marketingService.mediaMetrics(since, until, all),
     enabled: tab === 'metrics',
     refetchInterval: 30000,
   });
   const { data: adMetrics, isLoading: loadingAd } = useQuery({
-    queryKey: ['marketing-ad-metrics', since, until],
-    queryFn: () => marketingService.adMetrics(since, until),
+    queryKey: ['marketing-ad-metrics', rangeKey],
+    queryFn: () => marketingService.adMetrics(since, until, all),
     enabled: tab === 'admetrics',
     refetchInterval: 30000,
   });
@@ -144,11 +147,11 @@ export function MarketingPanel() {
         {(tab === 'resumo' || tab === 'admetrics' || tab === 'metrics') && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-zinc-500">Período:</span>
-            <RangeCalendar value={range} onChange={setRange} />
+            <RangeCalendar value={range} onChange={setRange} onClear={() => setRange(null)} />
           </div>
         )}
 
-        {tab === 'resumo' && <ResumoTab since={since} until={until} />}
+        {tab === 'resumo' && <ResumoTab since={since} until={until} all={all} rangeKey={rangeKey} />}
         {tab === 'gestao' && <GestaoTab />}
         {tab === 'admetrics' && (
           loadingAd
@@ -259,15 +262,15 @@ const fmtMoney = (n: number | null | undefined, cur = 'BRL') =>
 const fmtDec = (n: number | null | undefined, suffix = '') =>
   n == null ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
 
-function ResumoTab({ since, until }: { since: string; until: string }) {
+function ResumoTab({ since, until, all, rangeKey }: { since: string; until: string; all: boolean; rangeKey: string }) {
   const { data: ov, isLoading } = useQuery({
-    queryKey: ['marketing-overview', since, until],
-    queryFn: () => marketingService.overview(since, until),
+    queryKey: ['marketing-overview', rangeKey],
+    queryFn: () => marketingService.overview(since, until, all),
     refetchInterval: 60000,
   });
   const { data: adMetrics } = useQuery({
-    queryKey: ['marketing-ad-metrics', since, until],
-    queryFn: () => marketingService.adMetrics(since, until),
+    queryKey: ['marketing-ad-metrics', rangeKey],
+    queryFn: () => marketingService.adMetrics(since, until, all),
     refetchInterval: 60000,
   });
 

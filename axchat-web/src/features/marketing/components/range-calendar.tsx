@@ -31,7 +31,7 @@ function monthGrid(year: number, month: number): (Date | null)[] {
 
 type Shortcut =
   | { label: string; kind: 'days'; days: number }
-  | { label: string; kind: 'thisMonth' | 'lastMonth' | 'all' };
+  | { label: string; kind: 'thisMonth' | 'lastMonth' };
 
 const SHORTCUTS: Shortcut[] = [
   { label: '7 dias', kind: 'days', days: 7 },
@@ -41,9 +41,12 @@ const SHORTCUTS: Shortcut[] = [
   { label: 'Mês passado', kind: 'lastMonth' },
 ];
 
-export function RangeCalendar({ value, onChange }: { value: DateRange; onChange: (r: DateRange) => void }) {
+export function RangeCalendar({ value, onChange, onClear }: { value: DateRange | null; onChange: (r: DateRange) => void; onClear?: () => void }) {
   const [open, setOpen] = useState(false);
-  const [viewMonth, setViewMonth] = useState(() => addMonths(new Date(value.until.getFullYear(), value.until.getMonth(), 1), -1));
+  const [viewMonth, setViewMonth] = useState(() => {
+    const ref = value?.until ?? new Date();
+    return addMonths(new Date(ref.getFullYear(), ref.getMonth(), 1), -1);
+  });
   const [anchor, setAnchor] = useState<Date | null>(null);
   const [hover, setHover] = useState<Date | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -89,16 +92,15 @@ export function RangeCalendar({ value, onChange }: { value: DateRange; onChange:
       const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const last = new Date(now.getFullYear(), now.getMonth(), 0); // último dia do mês passado
       applyRange(first, last, last);
-    } else {
-      // "Limpar" → todo o período (2 anos pra trás até hoje).
-      applyRange(new Date(now.getFullYear() - 2, now.getMonth(), now.getDate()), now);
     }
   };
 
-  const rangeStart = anchor && hover ? (anchor <= hover ? anchor : hover) : value.since;
-  const rangeEnd = anchor && hover ? (anchor <= hover ? hover : anchor) : value.until;
-  const inRange = (d: Date) => d >= startOfDay(rangeStart) && d <= startOfDay(rangeEnd);
-  const isEdge = (d: Date) => sameDay(d, rangeStart) || sameDay(d, rangeEnd);
+  const dragging = anchor && hover;
+  const rangeStart = dragging ? (anchor! <= hover! ? anchor! : hover!) : value?.since ?? null;
+  const rangeEnd = dragging ? (anchor! <= hover! ? hover! : anchor!) : value?.until ?? null;
+  const inRange = (d: Date) => !!rangeStart && !!rangeEnd && d >= startOfDay(rangeStart) && d <= startOfDay(rangeEnd);
+  const isEdge = (d: Date) => (!!rangeStart && sameDay(d, rangeStart)) || (!!rangeEnd && sameDay(d, rangeEnd));
+  const label = value ? `${fmtBR(value.since)} – ${fmtBR(value.until)}` : 'Todo o período';
 
   const renderMonth = (base: Date) => {
     const cells = monthGrid(base.getFullYear(), base.getMonth());
@@ -146,7 +148,7 @@ export function RangeCalendar({ value, onChange }: { value: DateRange; onChange:
         className="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:bg-black dark:text-zinc-200 dark:hover:bg-white/5"
       >
         <Calendar className="h-3.5 w-3.5 text-primary" />
-        {fmtBR(value.since)} – {fmtBR(value.until)}
+        {label}
       </button>
 
       {open && (
@@ -163,13 +165,15 @@ export function RangeCalendar({ value, onChange }: { value: DateRange; onChange:
                 {s.label}
               </button>
             ))}
-            <button
-              type="button"
-              onClick={() => applyShortcut({ label: 'Limpar', kind: 'all' })}
-              className="ml-auto rounded-full px-3 py-1 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10"
-            >
-              Limpar
-            </button>
+            {onClear && (
+              <button
+                type="button"
+                onClick={() => { onClear(); setOpen(false); }}
+                className="ml-auto rounded-full px-3 py-1 text-[11px] font-medium text-zinc-500 hover:bg-rose-50 hover:text-rose-600 dark:text-zinc-400 dark:hover:bg-rose-500/10"
+              >
+                Limpar filtro
+              </button>
+            )}
           </div>
 
           <div className="flex items-start gap-4">
@@ -186,7 +190,7 @@ export function RangeCalendar({ value, onChange }: { value: DateRange; onChange:
           </div>
 
           <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3 dark:border-white/10">
-            <span className="text-xs text-zinc-500">{fmtBR(value.since)} – {fmtBR(value.until)}</span>
+            <span className="text-xs text-zinc-500">{label}</span>
             <button type="button" onClick={() => setOpen(false)} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
               Aplicar
             </button>

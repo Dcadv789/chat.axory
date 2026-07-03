@@ -124,26 +124,29 @@ export const marketingService = {
     return data?.data ?? data;
   },
 
-  async mediaMetrics(since?: string, until?: string): Promise<{
+  async mediaMetrics(since?: string, until?: string, all?: boolean): Promise<{
     window: string;
     since: string;
     metrics: MediaMetricRow[];
   }> {
-    const { data } = await api.get('/marketing/media-metrics', { params: since && until ? { since, until } : undefined });
+    const params = all ? { all: 1 } : since && until ? { since, until } : undefined;
+    const { data } = await api.get('/marketing/media-metrics', { params });
     return data?.data ?? data;
   },
 
-  async adMetrics(since?: string, until?: string): Promise<{
+  async adMetrics(since?: string, until?: string, all?: boolean): Promise<{
     window: string;
     since: string;
     metrics: AdMetricRow[];
   }> {
-    const { data } = await api.get('/marketing/ad-metrics', { params: since && until ? { since, until } : undefined });
+    const params = all ? { all: 1 } : since && until ? { since, until } : undefined;
+    const { data } = await api.get('/marketing/ad-metrics', { params });
     return data?.data ?? data;
   },
 
-  async overview(since?: string, until?: string): Promise<MarketingOverview> {
-    const { data } = await api.get('/marketing/overview', { params: since && until ? { since, until } : undefined });
+  async overview(since?: string, until?: string, all?: boolean): Promise<MarketingOverview> {
+    const params = all ? { all: 1 } : since && until ? { since, until } : undefined;
+    const { data } = await api.get('/marketing/overview', { params });
     return data?.data ?? data;
   },
 

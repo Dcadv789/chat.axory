@@ -211,7 +211,7 @@ export class MarketingAdsService {
    * Resumo do painel: pacing de verba do mês + insights agregados da conta +
    * contagem de campanhas. Tolerante a falhas (devolve o que conseguir).
    */
-  async overview(orgId: string, since?: string, until?: string): Promise<Record<string, unknown>> {
+  async overview(orgId: string, since?: string, until?: string, all = false): Promise<Record<string, unknown>> {
     const profile = await this.prisma.marketingProfile.findUnique({
       where: { organizationId: orgId },
       select: {
@@ -257,8 +257,12 @@ export class MarketingAdsService {
     const monthLabel = `${MONTHS_PT[refMonth0]} de ${refYear}`;
 
     // Janela dos INSIGHTS (KPIs): o range da página; sem range, o mês de ref.
+    // No modo "todo o período" (all), usa date_preset=maximum (histórico total).
     const insightsSince = validDate(since) ?? firstOfMonth;
     const insightsUntil = validDate(until) ?? monthUntil;
+    const windowParam = all
+      ? 'date_preset=maximum'
+      : `time_range=${encodeURIComponent(JSON.stringify({ since: insightsSince, until: insightsUntil }))}`;
 
     const [adAccountId, token] = await Promise.all([
       this.resolve(orgId, 'META_AD_ACCOUNT_ID'),
@@ -276,10 +280,9 @@ export class MarketingAdsService {
     } else {
       try {
         const acct = adAccountId.replace(/^act_/, '');
-        const timeRange = encodeURIComponent(JSON.stringify({ since: insightsSince, until: insightsUntil }));
         const url =
           `${GRAPH}/act_${encodeURIComponent(acct)}/insights` +
-          `?fields=spend,impressions,reach,clicks,ctr,cpc,cpm,actions&time_range=${timeRange}` +
+          `?fields=spend,impressions,reach,clicks,ctr,cpc,cpm,actions&${windowParam}` +
           `&access_token=${encodeURIComponent(token)}`;
         const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
         const json: any = await res.json();
@@ -332,10 +335,9 @@ export class MarketingAdsService {
     if (adAccountId && token) {
       try {
         const acct = adAccountId.replace(/^act_/, '');
-        const tr = encodeURIComponent(JSON.stringify({ since: insightsSince, until: insightsUntil }));
         const url =
           `${GRAPH}/act_${encodeURIComponent(acct)}/insights` +
-          `?level=campaign&time_range=${tr}&fields=campaign_name,spend,actions&limit=500` +
+          `?level=campaign&${windowParam}&fields=campaign_name,spend,actions&limit=500` +
           `&access_token=${encodeURIComponent(token)}`;
         const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
         const json: any = await res.json();
@@ -371,7 +373,7 @@ export class MarketingAdsService {
 
     // Gasto do MÊS DE REFERÊNCIA (pra pacing). Se a janela de insights já é
     // exatamente esse mês, reusa; senão busca à parte (só quando há teto).
-    const isMonthWindow = insightsSince === firstOfMonth && insightsUntil === monthUntil;
+    const isMonthWindow = !all && insightsSince === firstOfMonth && insightsUntil === monthUntil;
     let spentMonth: number | null = isMonthWindow ? insights.spend : null;
     if (spentMonth == null && monthlyBudget != null && adAccountId && token) {
       try {

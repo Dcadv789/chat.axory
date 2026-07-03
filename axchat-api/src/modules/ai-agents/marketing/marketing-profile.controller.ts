@@ -35,8 +35,9 @@ export class MarketingProfileController {
     @CurrentOrg('id') orgId: string,
     @Query('since') since?: string,
     @Query('until') until?: string,
+    @Query('all') all?: string,
   ) {
-    return this.ads.overview(orgId, since, until);
+    return this.ads.overview(orgId, since, until, all === '1' || all === 'true');
   }
 
   @Get('ads/campaigns')
@@ -180,12 +181,14 @@ export class MarketingProfileController {
     @Query('limit') limit?: string,
     @Query('since') since?: string,
     @Query('until') until?: string,
+    @Query('all') all?: string,
   ) {
     return this.service.mediaMetrics(
       orgId,
       limit ? Math.min(parseInt(limit, 10) || 500, 2000) : 500,
       since,
       until,
+      all === '1' || all === 'true',
     );
   }
 
@@ -198,12 +201,14 @@ export class MarketingProfileController {
     @Query('limit') limit?: string,
     @Query('since') since?: string,
     @Query('until') until?: string,
+    @Query('all') all?: string,
   ) {
     return this.service.adMetrics(
       orgId,
       limit ? Math.min(parseInt(limit, 10) || 500, 2000) : 500,
       since,
       until,
+      all === '1' || all === 'true',
     );
   }
 }

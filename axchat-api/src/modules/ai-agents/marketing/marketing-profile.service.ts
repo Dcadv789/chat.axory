@@ -137,8 +137,16 @@ export class MarketingProfileService {
     return { gte: new Date(Date.now() - d * 24 * 60 * 60 * 1000), lte: new Date(), window: win };
   }
 
-  async mediaMetrics(organizationId: string, limit = 500, since?: string, until?: string) {
+  async mediaMetrics(organizationId: string, limit = 500, since?: string, until?: string, all = false) {
     await this.ensureEnabled(organizationId);
+    if (all) {
+      const metrics = await this.prisma.marketingMediaMetric.findMany({
+        where: { organizationId },
+        orderBy: { capturedAt: 'desc' },
+        take: limit,
+      });
+      return { window: 'ALL', since: null, until: null, metrics };
+    }
     const { gte, lte, window } = await this.resolveRange(organizationId, since, until);
     const metrics = await this.prisma.marketingMediaMetric.findMany({
       where: { organizationId, capturedAt: { gte, lte } },
@@ -149,8 +157,16 @@ export class MarketingProfileService {
   }
 
   /** Métricas por campanha de anúncio (série temporal), filtradas pelo range. */
-  async adMetrics(organizationId: string, limit = 500, since?: string, until?: string) {
+  async adMetrics(organizationId: string, limit = 500, since?: string, until?: string, all = false) {
     await this.ensureEnabled(organizationId);
+    if (all) {
+      const metrics = await this.prisma.marketingAdMetric.findMany({
+        where: { organizationId },
+        orderBy: { capturedAt: 'desc' },
+        take: limit,
+      });
+      return { window: 'ALL', since: null, until: null, metrics };
+    }
     const { gte, lte, window } = await this.resolveRange(organizationId, since, until);
     const metrics = await this.prisma.marketingAdMetric.findMany({
       where: { organizationId, capturedAt: { gte, lte } },
