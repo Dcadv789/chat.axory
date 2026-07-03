@@ -276,7 +276,7 @@ function ResumoTab({ since, until }: { since: string; until: string }) {
   const cur = ov.currency;
   const p = ov.pacing ?? {};
   const spendSeries = aggregateSpendByDay(adMetrics?.metrics ?? []);
-  const ranking = rankCampaigns(adMetrics?.metrics ?? []);
+  const ranking = ov.campaignRanking ?? [];
 
   const statusLabel: Record<string, { txt: string; cls: string; Icon: React.ElementType }> = {
     ACIMA_DO_TETO: { txt: 'Acima do teto', cls: 'text-rose-600 dark:text-rose-400', Icon: TrendingUp },
@@ -429,19 +429,6 @@ function RankCard({ title, subtitle, rows, cur, worst }: { title: string; subtit
       </div>
     </div>
   );
-}
-
-/** Agrega campanhas somando gasto+conversões (última captura por campanha) e ordena. */
-function rankCampaigns(rows: AdMetricRow[]): RankRow[] {
-  const latest = new Map<string, AdMetricRow>();
-  // rows vem desc por capturedAt: a primeira vista de cada campanha é a mais recente.
-  for (const r of rows) if (!latest.has(r.campaignId)) latest.set(r.campaignId, r);
-  const list: RankRow[] = [...latest.values()].map((r) => {
-    const spend = r.spend ?? 0;
-    const conversions = r.conversions ?? 0;
-    return { name: r.campaignName ?? `Campanha ${r.campaignId.slice(-8)}`, spend, conversions, cpa: conversions > 0 ? Math.round((spend / conversions) * 100) / 100 : null };
-  });
-  return list.sort((a, b) => b.conversions - a.conversions || a.spend - b.spend);
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {

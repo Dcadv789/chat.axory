@@ -29,10 +29,16 @@ function monthGrid(year: number, month: number): (Date | null)[] {
   return cells;
 }
 
-const SHORTCUTS = [
-  { label: '7 dias', days: 7 },
-  { label: '15 dias', days: 15 },
-  { label: '30 dias', days: 30 },
+type Shortcut =
+  | { label: string; kind: 'days'; days: number }
+  | { label: string; kind: 'thisMonth' | 'lastMonth' | 'all' };
+
+const SHORTCUTS: Shortcut[] = [
+  { label: '7 dias', kind: 'days', days: 7 },
+  { label: '15 dias', kind: 'days', days: 15 },
+  { label: '30 dias', kind: 'days', days: 30 },
+  { label: 'Este mês', kind: 'thisMonth' },
+  { label: 'Mês passado', kind: 'lastMonth' },
 ];
 
 export function RangeCalendar({ value, onChange }: { value: DateRange; onChange: (r: DateRange) => void }) {
@@ -68,11 +74,25 @@ export function RangeCalendar({ value, onChange }: { value: DateRange; onChange:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchor, hover]);
 
-  const applyShortcut = (days: number) => {
-    const until = startOfDay(new Date());
-    const since = startOfDay(new Date(Date.now() - (days - 1) * 86400000));
-    onChange({ since, until });
-    setViewMonth(addMonths(new Date(until.getFullYear(), until.getMonth(), 1), -1));
+  const applyRange = (since: Date, until: Date, focus = until) => {
+    onChange({ since: startOfDay(since), until: startOfDay(until) });
+    setViewMonth(addMonths(new Date(focus.getFullYear(), focus.getMonth(), 1), -1));
+  };
+
+  const applyShortcut = (s: Shortcut) => {
+    const now = new Date();
+    if (s.kind === 'days') {
+      applyRange(new Date(Date.now() - (s.days - 1) * 86400000), now);
+    } else if (s.kind === 'thisMonth') {
+      applyRange(new Date(now.getFullYear(), now.getMonth(), 1), now);
+    } else if (s.kind === 'lastMonth') {
+      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const last = new Date(now.getFullYear(), now.getMonth(), 0); // último dia do mês passado
+      applyRange(first, last, last);
+    } else {
+      // "Limpar" → todo o período (2 anos pra trás até hoje).
+      applyRange(new Date(now.getFullYear() - 2, now.getMonth(), now.getDate()), now);
+    }
   };
 
   const rangeStart = anchor && hover ? (anchor <= hover ? anchor : hover) : value.since;
@@ -135,14 +155,21 @@ export function RangeCalendar({ value, onChange }: { value: DateRange; onChange:
             <span className="text-[11px] font-medium text-zinc-400">Atalhos:</span>
             {SHORTCUTS.map((s) => (
               <button
-                key={s.days}
+                key={s.label}
                 type="button"
-                onClick={() => applyShortcut(s.days)}
+                onClick={() => applyShortcut(s)}
                 className="rounded-full bg-zinc-100 px-3 py-1 text-[11px] font-medium text-zinc-600 hover:bg-primary/10 hover:text-primary dark:bg-white/5 dark:text-zinc-300"
               >
                 {s.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => applyShortcut({ label: 'Limpar', kind: 'all' })}
+              className="ml-auto rounded-full px-3 py-1 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10"
+            >
+              Limpar
+            </button>
           </div>
 
           <div className="flex items-start gap-4">

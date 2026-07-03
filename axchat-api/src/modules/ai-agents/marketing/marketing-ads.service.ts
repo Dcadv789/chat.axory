@@ -325,6 +325,46 @@ export class MarketingAdsService {
       }
     }
 
+    // Ranking por campanha DIRETO da Meta (level=campaign) no período do range.
+    // A Meta calcula o gasto/conversões do time_range exato → respeita o filtro:
+    // campanha sem entrega no período nem aparece.
+    let campaignRanking: any[] = [];
+    if (adAccountId && token) {
+      try {
+        const acct = adAccountId.replace(/^act_/, '');
+        const tr = encodeURIComponent(JSON.stringify({ since: insightsSince, until: insightsUntil }));
+        const url =
+          `${GRAPH}/act_${encodeURIComponent(acct)}/insights` +
+          `?level=campaign&time_range=${tr}&fields=campaign_name,spend,actions&limit=500` +
+          `&access_token=${encodeURIComponent(token)}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+        const json: any = await res.json();
+        if (res.ok && Array.isArray(json?.data)) {
+          campaignRanking = json.data.map((row: any) => {
+            const spend = row?.spend != null ? Number(row.spend) : 0;
+            let conversions = 0;
+            if (Array.isArray(row.actions)) {
+              conversions = row.actions
+                .filter((a: any) =>
+                  /lead|purchase|complete_registration|subscribe|contact|onsite_conversion/i.test(a?.action_type ?? ''),
+                )
+                .reduce((s: number, a: any) => s + (Number(a.value) || 0), 0);
+            }
+            return {
+              name: row.campaign_name ?? '(campanha)',
+              spend: round2(spend),
+              conversions,
+              cpa: conversions > 0 ? round2(spend / conversions) : null,
+            };
+          });
+          // Mais conversões primeiro; empate → menor gasto.
+          campaignRanking.sort((a, b) => b.conversions - a.conversions || a.spend - b.spend);
+        }
+      } catch {
+        /* ranking é opcional — não derruba o overview */
+      }
+    }
+
     const currency = profile?.currency ?? 'BRL';
     const monthlyBudget = profile?.monthlyAdBudgetCents != null ? profile.monthlyAdBudgetCents / 100 : null;
     const maxDailyBudget = profile?.maxDailyBudgetCents != null ? profile.maxDailyBudgetCents / 100 : null;
@@ -385,6 +425,7 @@ export class MarketingAdsService {
       campaignsActive,
       insights,
       pacing,
+      campaignRanking,
       ...(warning ? { warning } : {}),
     };
   }

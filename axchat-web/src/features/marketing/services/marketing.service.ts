@@ -240,6 +240,7 @@ export interface MarketingOverview {
     pctMonthElapsed?: number;
     status?: 'ACIMA_DO_TETO' | 'ABAIXO_DO_TETO' | 'NO_RITMO';
   };
+  campaignRanking: { name: string; spend: number; conversions: number; cpa: number | null }[];
   warning?: string;
 }
 
