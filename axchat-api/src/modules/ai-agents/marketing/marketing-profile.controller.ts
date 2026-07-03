@@ -31,8 +31,8 @@ export class MarketingProfileController {
 
   @Get('overview')
   @ApiOperation({ summary: 'Resumo do painel: pacing de verba + insights da conta' })
-  overview(@CurrentOrg('id') orgId: string) {
-    return this.ads.overview(orgId);
+  overview(@CurrentOrg('id') orgId: string, @Query('days') days?: string) {
+    return this.ads.overview(orgId, days ? parseInt(days, 10) || undefined : undefined);
   }
 
   @Get('ads/campaigns')
@@ -151,10 +151,12 @@ export class MarketingProfileController {
   mediaMetrics(
     @CurrentOrg('id') orgId: string,
     @Query('limit') limit?: string,
+    @Query('days') days?: string,
   ) {
     return this.service.mediaMetrics(
       orgId,
       limit ? Math.min(parseInt(limit, 10) || 500, 2000) : 500,
+      days ? parseInt(days, 10) || undefined : undefined,
     );
   }
 
@@ -165,10 +167,12 @@ export class MarketingProfileController {
   adMetrics(
     @CurrentOrg('id') orgId: string,
     @Query('limit') limit?: string,
+    @Query('days') days?: string,
   ) {
     return this.service.adMetrics(
       orgId,
       limit ? Math.min(parseInt(limit, 10) || 500, 2000) : 500,
+      days ? parseInt(days, 10) || undefined : undefined,
     );
   }
 }

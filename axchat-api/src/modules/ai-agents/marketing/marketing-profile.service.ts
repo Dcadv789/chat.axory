@@ -109,53 +109,44 @@ export class MarketingProfileService {
    * Métricas de posts (série temporal). Filtra pela janela salva no perfil
    * (último mês/3/6/ano) — a mesma opção que a crew usa. Ordena da mais recente.
    */
-  async mediaMetrics(organizationId: string, limit = 500) {
-    await this.ensureEnabled(organizationId);
+  /** Dias da janela: `days` explícito do filtro da página tem prioridade. */
+  private async resolveDays(organizationId: string, days?: number): Promise<{ days: number; window: string }> {
+    if (days && Number.isFinite(days) && days > 0) {
+      return { days: Math.min(days, 730), window: `LAST_${days}D` };
+    }
     const profile = await this.prisma.marketingProfile.findUnique({
       where: { organizationId },
       select: { analysisWindow: true },
     });
     const win = profile?.analysisWindow ?? 'LAST_MONTH';
-    const days =
-      win === 'LAST_YEAR'
-        ? 365
-        : win === 'LAST_6_MONTHS'
-          ? 182
-          : win === 'LAST_3_MONTHS'
-            ? 91
-            : 30;
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const d =
+      win === 'LAST_YEAR' ? 365 : win === 'LAST_6_MONTHS' ? 182 : win === 'LAST_3_MONTHS' ? 91 : 30;
+    return { days: d, window: win };
+  }
+
+  async mediaMetrics(organizationId: string, limit = 500, days?: number) {
+    await this.ensureEnabled(organizationId);
+    const { days: d, window } = await this.resolveDays(organizationId, days);
+    const since = new Date(Date.now() - d * 24 * 60 * 60 * 1000);
     const metrics = await this.prisma.marketingMediaMetric.findMany({
       where: { organizationId, capturedAt: { gte: since } },
       orderBy: { capturedAt: 'desc' },
       take: limit,
     });
-    return { window: win, since: since.toISOString(), metrics };
+    return { window, since: since.toISOString(), metrics };
   }
 
   /** Métricas por campanha de anúncio (série temporal), filtradas pela janela. */
-  async adMetrics(organizationId: string, limit = 500) {
+  async adMetrics(organizationId: string, limit = 500, days?: number) {
     await this.ensureEnabled(organizationId);
-    const profile = await this.prisma.marketingProfile.findUnique({
-      where: { organizationId },
-      select: { analysisWindow: true },
-    });
-    const win = profile?.analysisWindow ?? 'LAST_MONTH';
-    const days =
-      win === 'LAST_YEAR'
-        ? 365
-        : win === 'LAST_6_MONTHS'
-          ? 182
-          : win === 'LAST_3_MONTHS'
-            ? 91
-            : 30;
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const { days: d, window } = await this.resolveDays(organizationId, days);
+    const since = new Date(Date.now() - d * 24 * 60 * 60 * 1000);
     const metrics = await this.prisma.marketingAdMetric.findMany({
       where: { organizationId, capturedAt: { gte: since } },
       orderBy: { capturedAt: 'desc' },
       take: limit,
     });
-    return { window: win, since: since.toISOString(), metrics };
+    return { window, since: since.toISOString(), metrics };
   }
 
   /** Log + análises recentes pra um painel de auditoria do marketing. */

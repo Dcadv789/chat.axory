@@ -43,8 +43,17 @@ interface MetricsCols {
   delta: boolean;
 }
 
+const PERIODS: { days: number | undefined; label: string }[] = [
+  { days: 7, label: '7 dias' },
+  { days: 30, label: '30 dias' },
+  { days: 90, label: '90 dias' },
+  { days: 180, label: '6 meses' },
+  { days: 365, label: '12 meses' },
+];
+
 export function MarketingPanel() {
   const [tab, setTab] = useState<Tab>('resumo');
+  const [days, setDays] = useState<number>(30);
   const [cols, setCols] = useState<MetricsCols>({
     engagement: true,
     identification: true,
@@ -53,14 +62,14 @@ export function MarketingPanel() {
   });
 
   const { data: mediaMetrics } = useQuery({
-    queryKey: ['marketing-media-metrics'],
-    queryFn: () => marketingService.mediaMetrics(),
+    queryKey: ['marketing-media-metrics', days],
+    queryFn: () => marketingService.mediaMetrics(days),
     enabled: tab === 'metrics',
     refetchInterval: 30000,
   });
   const { data: adMetrics } = useQuery({
-    queryKey: ['marketing-ad-metrics'],
-    queryFn: () => marketingService.adMetrics(),
+    queryKey: ['marketing-ad-metrics', days],
+    queryFn: () => marketingService.adMetrics(days),
     enabled: tab === 'admetrics',
     refetchInterval: 30000,
   });
@@ -125,7 +134,27 @@ export function MarketingPanel() {
           </div>
         </nav>
 
-        {tab === 'resumo' && <ResumoTab />}
+        {/* Filtro de período — vale pra Resumo e Métricas */}
+        {(tab === 'resumo' || tab === 'admetrics' || tab === 'metrics') && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-zinc-500">Período:</span>
+            {PERIODS.map((per) => (
+              <button
+                key={per.days}
+                onClick={() => setDays(per.days!)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  days === per.days
+                    ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
+                    : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-white/5 dark:text-zinc-400 dark:hover:bg-white/10'
+                }`}
+              >
+                {per.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {tab === 'resumo' && <ResumoTab days={days} />}
         {tab === 'gestao' && <GestaoTab />}
         {tab === 'admetrics' && (
           <AdMetricsTab rows={adMetrics?.metrics ?? []} window={adMetrics?.window ?? 'LAST_MONTH'} />
@@ -152,15 +181,15 @@ const fmtMoney = (n: number | null | undefined, cur = 'BRL') =>
 const fmtDec = (n: number | null | undefined, suffix = '') =>
   n == null ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
 
-function ResumoTab() {
+function ResumoTab({ days }: { days: number }) {
   const { data: ov, isLoading } = useQuery({
-    queryKey: ['marketing-overview'],
-    queryFn: () => marketingService.overview(),
+    queryKey: ['marketing-overview', days],
+    queryFn: () => marketingService.overview(days),
     refetchInterval: 60000,
   });
   const { data: adMetrics } = useQuery({
-    queryKey: ['marketing-ad-metrics'],
-    queryFn: () => marketingService.adMetrics(),
+    queryKey: ['marketing-ad-metrics', days],
+    queryFn: () => marketingService.adMetrics(days),
     refetchInterval: 60000,
   });
 
@@ -175,6 +204,7 @@ function ResumoTab() {
   const cur = ov.currency;
   const p = ov.pacing ?? {};
   const spendSeries = aggregateSpendByDay(adMetrics?.metrics ?? []);
+  const ranking = rankCampaigns(adMetrics?.metrics ?? []);
 
   const statusLabel: Record<string, { txt: string; cls: string; Icon: React.ElementType }> = {
     ACIMA_DO_TETO: { txt: 'Acima do teto', cls: 'text-rose-600 dark:text-rose-400', Icon: TrendingUp },
@@ -282,8 +312,58 @@ function ResumoTab() {
           </ResponsiveContainer>
         )}
       </div>
+
+      {/* Ranking de campanhas por conversões/gasto */}
+      {ranking.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <RankCard title="Melhores campanhas" subtitle="por conversões no período" rows={ranking.slice(0, 5)} cur={cur} />
+          {ranking.length > 5 && (
+            <RankCard title="Piores campanhas" subtitle="menos conversões / mais custo" rows={ranking.slice(-5).reverse()} cur={cur} worst />
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+interface RankRow { name: string; spend: number; conversions: number; cpa: number | null }
+
+function RankCard({ title, subtitle, rows, cur, worst }: { title: string; subtitle: string; rows: RankRow[]; cur: string; worst?: boolean }) {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</p>
+      <p className="text-[11px] text-zinc-400">{subtitle}</p>
+      <div className="mt-3 space-y-1.5">
+        {rows.map((r, i) => (
+          <div key={r.name + i} className="flex items-center justify-between gap-3 rounded-lg bg-zinc-50 px-3 py-2 dark:bg-white/[0.03]">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold ${
+                worst ? 'bg-rose-100 text-rose-600 dark:bg-rose-500/15' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15'
+              }`}>{i + 1}</span>
+              <span className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-300" title={r.name}>{r.name}</span>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">{r.conversions} conv.</p>
+              <p className="text-[10px] tabular-nums text-zinc-400">{fmtMoney(r.spend, cur)}{r.cpa != null ? ` · CPA ${fmtMoney(r.cpa, cur)}` : ''}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Agrega campanhas somando gasto+conversões (última captura por campanha) e ordena. */
+function rankCampaigns(rows: AdMetricRow[]): RankRow[] {
+  const latest = new Map<string, AdMetricRow>();
+  // rows vem desc por capturedAt: a primeira vista de cada campanha é a mais recente.
+  for (const r of rows) if (!latest.has(r.campaignId)) latest.set(r.campaignId, r);
+  const list: RankRow[] = [...latest.values()].map((r) => {
+    const spend = r.spend ?? 0;
+    const conversions = r.conversions ?? 0;
+    return { name: r.campaignName ?? `Campanha ${r.campaignId.slice(-8)}`, spend, conversions, cpa: conversions > 0 ? Math.round((spend / conversions) * 100) / 100 : null };
+  });
+  return list.sort((a, b) => b.conversions - a.conversions || a.spend - b.spend);
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
@@ -305,6 +385,26 @@ function KpiCard({ icon: Icon, label, value, accent }: { icon: React.ElementType
       <p className="mt-2 text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{value}</p>
     </div>
   );
+}
+
+/** Soma alcance + interações por dia a partir das capturas de posts. */
+function aggregateEngagementByDay(rows: MediaMetricRow[]): { day: string; reach: number; interactions: number }[] {
+  const byDay = new Map<string, { reach: number; interactions: number }>();
+  for (const r of rows) {
+    const d = new Date(r.capturedAt);
+    const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const acc = byDay.get(key) ?? { reach: 0, interactions: 0 };
+    acc.reach += r.reach ?? 0;
+    acc.interactions += r.totalInteractions ?? 0;
+    byDay.set(key, acc);
+  }
+  return [...byDay.entries()]
+    .map(([day, v]) => ({ day, ...v }))
+    .sort((a, b) => {
+      const [da, ma] = a.day.split('/').map(Number);
+      const [db, mb] = b.day.split('/').map(Number);
+      return ma - mb || da - db;
+    });
 }
 
 /** Soma o gasto por dia (rótulo DD/MM) a partir das capturas de anúncio. */
@@ -335,6 +435,8 @@ function GestaoTab() {
     refetchInterval: 30000,
   });
   const [busy, setBusy] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
   const [toDelete, setToDelete] = useState<AdCampaign | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -374,6 +476,19 @@ function GestaoTab() {
   const th = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-500';
   const td = 'px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300';
 
+  const q = search.trim().toLowerCase();
+  const filtered = (data?.campaigns ?? []).filter((c) => {
+    if (statusFilter === 'active' && c.effectiveStatus !== 'ACTIVE') return false;
+    if (statusFilter === 'paused' && c.effectiveStatus === 'ACTIVE') return false;
+    if (q && !c.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const STATUS_TABS: { id: 'all' | 'active' | 'paused'; label: string }[] = [
+    { id: 'all', label: 'Todas' },
+    { id: 'active', label: 'Ativas' },
+    { id: 'paused', label: 'Pausadas' },
+  ];
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -389,6 +504,30 @@ function GestaoTab() {
           <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} /> Atualizar
         </button>
       </div>
+
+      {!isLoading && !isError && (data?.campaigns.length ?? 0) > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {STATUS_TABS.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setStatusFilter(s.id)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                statusFilter === s.id
+                  ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
+                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-white/5 dark:text-zinc-400 dark:hover:bg-white/10'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar campanha…"
+            className="ml-auto w-48 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs focus:border-primary focus:outline-none dark:border-white/10 dark:bg-black dark:text-zinc-100"
+          />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center gap-2 py-10 text-sm text-zinc-400">
@@ -414,7 +553,10 @@ function GestaoTab() {
               </tr>
             </thead>
             <tbody>
-              {data!.campaigns.map((c) => {
+              {filtered.length === 0 && (
+                <tr><td colSpan={4} className={td + ' py-6 text-center text-zinc-400'}>Nenhuma campanha com esse filtro.</td></tr>
+              )}
+              {filtered.map((c) => {
                 const on = c.effectiveStatus === 'ACTIVE';
                 return (
                   <tr key={c.id} className="border-b border-zinc-100 last:border-0 dark:border-white/5">
@@ -604,6 +746,7 @@ function MetricsTab({
   };
   const th = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-zinc-500';
   const td = 'px-3 py-2 text-sm tabular-nums text-zinc-700 dark:text-zinc-300';
+  const engagementSeries = aggregateEngagementByDay(rows);
 
   return (
     <div className="space-y-3">
@@ -628,6 +771,27 @@ function MetricsTab({
           ))}
         </div>
       </div>
+      {engagementSeries.length > 1 && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+          <p className="mb-2 text-xs font-medium text-zinc-500">Alcance e interações por dia</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={engagementSeries} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+              <defs>
+                <linearGradient id="reachGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200 dark:text-white/10" />
+              <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="currentColor" className="text-zinc-400" />
+              <YAxis tick={{ fontSize: 11 }} stroke="currentColor" className="text-zinc-400" width={48} />
+              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+              <Area type="monotone" dataKey="reach" name="Alcance" stroke="#8b5cf6" strokeWidth={2} fill="url(#reachGrad)" />
+              <Area type="monotone" dataKey="interactions" name="Interações" stroke="#0047ff" strokeWidth={2} fillOpacity={0} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-5 py-10 text-center dark:border-white/10 dark:bg-black">
           <p className="text-sm text-zinc-400">Nenhuma métrica capturada ainda. Peça pra crew analisar os posts.</p>

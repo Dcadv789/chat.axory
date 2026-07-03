@@ -121,7 +121,7 @@ export class MarketingAdsService {
    * Resumo do painel: pacing de verba do mês + insights agregados da conta +
    * contagem de campanhas. Tolerante a falhas (devolve o que conseguir).
    */
-  async overview(orgId: string): Promise<Record<string, unknown>> {
+  async overview(orgId: string, days?: number): Promise<Record<string, unknown>> {
     const profile = await this.prisma.marketingProfile.findUnique({
       where: { organizationId: orgId },
       select: {
@@ -143,12 +143,21 @@ export class MarketingAdsService {
     const firstOfMonth = `${year}-${pad(month + 1)}-01`;
     const round2 = (v: number) => Math.round(v * 100) / 100;
 
+    // Janela dos INSIGHTS: se veio `days` do filtro da página, usa os últimos
+    // N dias; senão, o mês corrente. (O pacing de verba é sempre mensal.)
+    const insightsSince =
+      days && days > 0
+        ? new Date(Date.now() - Math.min(days, 730) * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 10)
+        : firstOfMonth;
+
     const [adAccountId, token] = await Promise.all([
       this.resolve(orgId, 'META_AD_ACCOUNT_ID'),
       this.resolve(orgId, 'META_ADS_ACCESS_TOKEN'),
     ]);
 
-    // Insights agregados da conta no mês.
+    // Insights agregados da conta no período.
     let insights: Record<string, number | null> = {
       spend: null, impressions: null, reach: null, clicks: null,
       ctr: null, cpc: null, cpm: null, conversions: null,
@@ -159,7 +168,7 @@ export class MarketingAdsService {
     } else {
       try {
         const acct = adAccountId.replace(/^act_/, '');
-        const timeRange = encodeURIComponent(JSON.stringify({ since: firstOfMonth, until: today }));
+        const timeRange = encodeURIComponent(JSON.stringify({ since: insightsSince, until: today }));
         const url =
           `${GRAPH}/act_${encodeURIComponent(acct)}/insights` +
           `?fields=spend,impressions,reach,clicks,ctr,cpc,cpm,actions&time_range=${timeRange}` +
@@ -211,7 +220,27 @@ export class MarketingAdsService {
     const currency = profile?.currency ?? 'BRL';
     const monthlyBudget = profile?.monthlyAdBudgetCents != null ? profile.monthlyAdBudgetCents / 100 : null;
     const maxDailyBudget = profile?.maxDailyBudgetCents != null ? profile.maxDailyBudgetCents / 100 : null;
-    const spentMonth = insights.spend;
+
+    // Pacing é SEMPRE mensal. Se o filtro da página é o mês, reusa o insights;
+    // se é outro período, busca o gasto do mês em separado (só quando há teto).
+    let spentMonth: number | null = insightsSince === firstOfMonth ? insights.spend : null;
+    if (spentMonth == null && monthlyBudget != null && adAccountId && token) {
+      try {
+        const acct = adAccountId.replace(/^act_/, '');
+        const tr = encodeURIComponent(JSON.stringify({ since: firstOfMonth, until: today }));
+        const res = await fetch(
+          `${GRAPH}/act_${encodeURIComponent(acct)}/insights?fields=spend&time_range=${tr}&access_token=${encodeURIComponent(token)}`,
+          { signal: AbortSignal.timeout(15_000) },
+        );
+        const json: any = await res.json();
+        if (res.ok) {
+          const row = Array.isArray(json?.data) ? json.data[0] : null;
+          spentMonth = row?.spend != null ? Number(row.spend) : 0;
+        }
+      } catch {
+        /* pacing fica sem gasto do mês */
+      }
+    }
 
     let pacing: Record<string, unknown> = {};
     if (monthlyBudget != null && spentMonth != null) {
