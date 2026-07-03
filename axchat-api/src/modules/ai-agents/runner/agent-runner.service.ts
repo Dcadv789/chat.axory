@@ -738,9 +738,13 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
         // delegação encadeada (Magnus → worker) morria quando a org batia a
         // cota, e o worker delegado nunca respondia.
         if (refreshed.channel?.type !== 'INTERNAL') {
+          // Crew de marketing (ex.: Telegram vinculado) usa o orçamento de
+          // marketing, não a cota de cliente.
+          const isMarketing = agent.sector === 'MARKETING';
           const budget = await this.agentRouter.isWithinAiBudget(
             conversation.organizationId,
             conversation.id,
+            isMarketing,
           );
           if (!budget.ok) {
             this.logger.warn(
@@ -943,7 +947,38 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
       });
       if (cfg?.contactId) return cfg.contactId;
     }
+    // MARKETING: memória UNIFICADA da crew — falar pelo console interno ou por
+    // um canal externo vinculado (ex.: Telegram) usa o MESMO contato canônico
+    // (o do console interno da crew), então o contexto/ficha é o mesmo nos dois.
+    if (agent.sector === 'MARKETING') {
+      const canonical = await this.resolveCrewCanonicalContact(
+        conversation.organizationId,
+      );
+      if (canonical) return canonical;
+    }
     return conversation.contactId;
+  }
+
+  /** ContactId canônico da crew de marketing (o do console interno). */
+  private async resolveCrewCanonicalContact(
+    organizationId: string,
+  ): Promise<string | null> {
+    const channel = await this.prisma.channel.findFirst({
+      where: {
+        organizationId,
+        type: 'INTERNAL',
+        deletedAt: null,
+        config: { path: ['marketingCrew'], equals: true },
+      },
+      select: { id: true },
+    });
+    if (!channel) return null;
+    const conv = await this.prisma.conversation.findFirst({
+      where: { channelId: channel.id, deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      select: { contactId: true },
+    });
+    return conv?.contactId ?? null;
   }
 
   private async resolveAgent(conversation: Conversation) {

@@ -492,6 +492,16 @@ export class InboundMessageProcessor extends WorkerHost {
       return;
     }
 
+    // Filtro de remetente da CREW: um canal externo vinculado à crew (ex.:
+    // Telegram) pode ser travado pra só o dono falar. Bloqueia aqui antes de
+    // rodar a IA — quem não é o remetente autorizado não fala com a crew.
+    if (!(await this.crewSenderAllowed(conversation))) {
+      this.logger.debug(
+        `Crew: remetente não autorizado no canal ${conversation.channelId} — msg ignorada`,
+      );
+      return;
+    }
+
     const decision = await this.agentRouter.shouldHandle(conversation);
     if (!decision.handle) {
       this.logger.debug(
@@ -570,6 +580,62 @@ export class InboundMessageProcessor extends WorkerHost {
    * e roda direto (chainDepth=1, pulando o router). Ele delega pro Caspian, que
    * responde o comentário e/ou manda DM (ações gated por aprovação por padrão).
    */
+  /**
+   * Filtro de remetente pra canais EXTERNOS vinculados à crew de marketing.
+   * Quando o canal tem `config.crewLockSender = true`:
+   *   - lista vazia → o PRIMEIRO remetente é vinculado (fica o dono) e liberado;
+   *   - remetente na lista → liberado;
+   *   - qualquer outro → bloqueado.
+   * Canais sem a trava (ou não-crew) sempre liberam.
+   */
+  private async crewSenderAllowed(conversation: {
+    id: string;
+    channelId: string;
+    contactId: string;
+    organizationId: string;
+  }): Promise<boolean> {
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: conversation.channelId },
+      select: { type: true, config: true, defaultOrchestratorId: true },
+    });
+    if (!channel || channel.type === 'INTERNAL') return true; // console interno é livre
+    const cfg = (channel.config as Record<string, any>) || {};
+    if (!cfg.crewLockSender) return true; // trava desligada
+
+    // Só aplica em canal REALMENTE atendido pela crew (orquestrador de marketing).
+    if (!channel.defaultOrchestratorId) return true;
+    const orch = await this.prisma.aiAgent.findUnique({
+      where: { id: channel.defaultOrchestratorId },
+      select: { sector: true },
+    });
+    if (orch?.sector !== 'MARKETING') return true;
+
+    // Identificador do remetente = externalId do contato nesse canal.
+    const link = await this.prisma.contactChannel.findFirst({
+      where: { contactId: conversation.contactId, channelId: conversation.channelId },
+      select: { externalId: true },
+    });
+    const senderId = link?.externalId;
+    if (!senderId) return true; // sem id não dá pra travar
+
+    const allowed: string[] = Array.isArray(cfg.crewAllowedSenders)
+      ? cfg.crewAllowedSenders.map(String)
+      : [];
+
+    if (allowed.length === 0) {
+      // Primeiro remetente vira o dono — grava e libera.
+      await this.prisma.channel.update({
+        where: { id: conversation.channelId },
+        data: { config: { ...cfg, crewAllowedSenders: [senderId] } },
+      });
+      this.logger.log(
+        `Crew: remetente ${senderId} vinculado ao canal ${conversation.channelId} (trava de remetente).`,
+      );
+      return true;
+    }
+    return allowed.includes(String(senderId));
+  }
+
   private async handleInstagramComment(
     conversation: { id: string; organizationId: string },
     triggerMessage: { id: string },

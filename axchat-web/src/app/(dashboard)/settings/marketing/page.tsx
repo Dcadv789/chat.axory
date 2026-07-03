@@ -110,10 +110,20 @@ export default function MarketingRulesPage() {
 
   const handleAttachChannel = async (channelId: string) => {
     if (!channelId) return;
+    // Pergunta se quer travar no primeiro remetente (só o dono fala com a crew).
+    const lockSender = window.confirm(
+      'Restringir para só você falar com a crew nesse canal?\n\n' +
+        'OK = a PRIMEIRA pessoa que mandar mensagem vira o único remetente autorizado (mande você mesmo primeiro).\n' +
+        'Cancelar = qualquer pessoa que mandar mensagem no canal fala com a crew.',
+    );
     setAttaching(channelId);
     try {
-      await marketingService.attachCrewChannel(channelId);
-      toast.success('Canal vinculado à crew');
+      await marketingService.attachCrewChannel(channelId, lockSender);
+      toast.success(
+        lockSender
+          ? 'Canal vinculado — mande a 1ª mensagem pra travar no seu remetente.'
+          : 'Canal vinculado à crew',
+      );
       refetchCrewChannels();
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'Erro ao vincular canal');

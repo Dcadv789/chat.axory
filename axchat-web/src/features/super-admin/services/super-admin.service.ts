@@ -56,6 +56,7 @@ export interface SuperAdminOrganization {
   marketingEnabled: boolean;
   aiMonthlyTokenCap: number | null;
   monthlyConversationLimit: number | null;
+  aiMarketingMonthlyTokenCap: number | null;
   createdAt: string;
   _count: {
     members: number;
@@ -312,6 +313,7 @@ export const superAdminService = {
       marketingEnabled?: boolean;
       aiMonthlyTokenCap?: number | null;
       monthlyConversationLimit?: number | null;
+      aiMarketingMonthlyTokenCap?: number | null;
     },
   ) {
     const { data } = await api.patch(`/super-admin/organizations/${id}/plan`, payload);

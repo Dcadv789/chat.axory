@@ -349,8 +349,11 @@ export class AgentRouterService {
       }
     }
 
-    // Orçamento de IA (cap de tokens + cota de conversas do mês).
-    const budget = await this.checkAiBudget(org, conversation.id);
+    // Orçamento de IA. Conversa da CREW de marketing usa o cap de marketing
+    // (separado), e NÃO consome a cota de conversas de cliente. Demais usam
+    // o cap de atendimento.
+    const isMkt = await this.isMarketingConversation(conversation, channel);
+    const budget = await this.checkAiBudget(org, conversation.id, isMkt);
     if (!budget.ok) {
       return { handle: false, reason: budget.reason };
     }
@@ -358,19 +361,49 @@ export class AgentRouterService {
     return { handle: true };
   }
 
+  /** Ids dos agentes de marketing da org (cache curto por chamada). */
+  private async getMarketingAgentIds(organizationId: string): Promise<string[]> {
+    const agents = await this.prisma.aiAgent.findMany({
+      where: { organizationId, sector: 'MARKETING', deletedAt: null },
+      select: { id: true },
+    });
+    return agents.map((a) => a.id);
+  }
+
   /**
-   * Checagem de orçamento de IA do mês (cap de tokens + cota de conversas).
-   * Extraído pra reuso: `shouldHandle` cobre o fluxo normal; caminhos que
-   * chamam o runner direto (ex.: comentário do Instagram) usam
-   * `isWithinAiBudget` pra não furar a cota.
+   * Uma conversa é "de marketing" quando o agente ativo (ou o orquestrador
+   * padrão do canal) é do setor MARKETING — vale pro console interno e pra
+   * canais externos vinculados à crew (ex.: Telegram).
+   */
+  private async isMarketingConversation(
+    conversation: { activeAgentId?: string | null },
+    channel: { defaultOrchestratorId?: string | null } | null,
+  ): Promise<boolean> {
+    const agentId = conversation.activeAgentId || channel?.defaultOrchestratorId;
+    if (!agentId) return false;
+    const agent = await this.prisma.aiAgent.findUnique({
+      where: { id: agentId },
+      select: { sector: true },
+    });
+    return agent?.sector === 'MARKETING';
+  }
+
+  /**
+   * Checagem de orçamento de IA do mês. Dois orçamentos SEPARADOS:
+   *  - marketing (crew): cap de tokens próprio (aiMarketingMonthlyTokenCap),
+   *    não conta na cota de conversas de cliente.
+   *  - atendimento: cap de tokens + cota de conversas, EXCLUINDO os runs de
+   *    marketing (pra a crew não comer a cota do atendimento).
    */
   private async checkAiBudget(
     org: {
       id: string;
       aiMonthlyTokenCap: number | null;
       monthlyConversationLimit: number | null;
+      aiMarketingMonthlyTokenCap: number | null;
     },
     conversationId: string,
+    isMarketing: boolean,
   ): Promise<{ ok: boolean; reason?: string }> {
     const startOfMonth = () => {
       const d = new Date();
@@ -378,10 +411,39 @@ export class AgentRouterService {
       d.setHours(0, 0, 0, 0);
       return d;
     };
+    const marketingIds = await this.getMarketingAgentIds(org.id);
+
+    if (isMarketing) {
+      // Só o cap de tokens de MARKETING; nada de cota de conversas de cliente.
+      if (org.aiMarketingMonthlyTokenCap && marketingIds.length > 0) {
+        const used = await this.prisma.aiAgentRun.aggregate({
+          where: {
+            organizationId: org.id,
+            startedAt: { gte: startOfMonth() },
+            agentId: { in: marketingIds },
+          },
+          _sum: { inputTokens: true, outputTokens: true },
+        });
+        const total =
+          (used._sum.inputTokens ?? 0) + (used._sum.outputTokens ?? 0);
+        if (total >= org.aiMarketingMonthlyTokenCap) {
+          return { ok: false, reason: 'marketing-token-cap-reached' };
+        }
+      }
+      return { ok: true };
+    }
+
+    // Atendimento: exclui os runs de marketing dos dois limites.
+    const notMarketing =
+      marketingIds.length > 0 ? { agentId: { notIn: marketingIds } } : {};
 
     if (org.aiMonthlyTokenCap) {
       const used = await this.prisma.aiAgentRun.aggregate({
-        where: { organizationId: org.id, startedAt: { gte: startOfMonth() } },
+        where: {
+          organizationId: org.id,
+          startedAt: { gte: startOfMonth() },
+          ...notMarketing,
+        },
         _sum: { inputTokens: true, outputTokens: true },
       });
       const total =
@@ -391,9 +453,6 @@ export class AgentRouterService {
       }
     }
 
-    // Cota de CONVERSAS distintas atendidas pela IA no mês. Conversas já
-    // atendidas continuam; só novas além da cota ficam sem IA. limit=0
-    // (ex.: plano Inbox) bloqueia tudo.
     if (org.monthlyConversationLimit != null) {
       const handled = await this.prisma.aiAgentRun.findMany({
         where: {
@@ -401,6 +460,7 @@ export class AgentRouterService {
           startedAt: { gte: startOfMonth() },
           finalAction: { not: AiFinalAction.NO_ACTION },
           NOT: { finalAction: null },
+          ...notMarketing,
         },
         select: { conversationId: true },
         distinct: ['conversationId'],
@@ -419,11 +479,13 @@ export class AgentRouterService {
 
   /**
    * Wrapper público: carrega a org e checa orçamento. Pra callers que pulam o
-   * `shouldHandle` (ex.: fluxo de comentário do Instagram).
+   * `shouldHandle` (ex.: comentário do Instagram, auto-chain). `isMarketing`
+   * força o orçamento de marketing (o caller sabe que é a crew).
    */
   async isWithinAiBudget(
     organizationId: string,
     conversationId: string,
+    isMarketing = false,
   ): Promise<{ ok: boolean; reason?: string }> {
     const org = await this.prisma.organization.findUnique({
       where: { id: organizationId },
@@ -431,10 +493,11 @@ export class AgentRouterService {
         id: true,
         aiMonthlyTokenCap: true,
         monthlyConversationLimit: true,
+        aiMarketingMonthlyTokenCap: true,
       },
     });
     if (!org) return { ok: false, reason: 'org-not-found' };
-    return this.checkAiBudget(org, conversationId);
+    return this.checkAiBudget(org, conversationId, isMarketing);
   }
 
   private isWithinBusinessHours(org: Organization): boolean {

@@ -46,9 +46,17 @@ export class MarketingProfileService {
     return this.provisioning.listCrewChannels(organizationId);
   }
 
-  async attachCrewChannel(organizationId: string, channelId: string) {
+  async attachCrewChannel(
+    organizationId: string,
+    channelId: string,
+    lockSender?: boolean,
+  ) {
     await this.ensureEnabled(organizationId);
-    return this.provisioning.attachCrewChannel(organizationId, channelId);
+    return this.provisioning.attachCrewChannel(
+      organizationId,
+      channelId,
+      lockSender,
+    );
   }
 
   async detachCrewChannel(organizationId: string, channelId: string) {

@@ -599,6 +599,7 @@ function OrganizationDetails({
     maxDepartments: String(settings.maxDepartments ?? ''),
     aiMonthlyTokenCap: String(org.aiMonthlyTokenCap ?? ''),
     monthlyConversationLimit: String(org.monthlyConversationLimit ?? ''),
+    aiMarketingMonthlyTokenCap: String(org.aiMarketingMonthlyTokenCap ?? ''),
   });
   const [memberForm, setMemberForm] = useState({ email: '', role: 'AGENT' });
   const [billing, setBilling] = useState({
@@ -623,6 +624,7 @@ function OrganizationDetails({
       },
       aiMonthlyTokenCap: toNullableNumber(limits.aiMonthlyTokenCap),
       monthlyConversationLimit: toNullableNumber(limits.monthlyConversationLimit),
+      aiMarketingMonthlyTokenCap: toNullableNumber(limits.aiMarketingMonthlyTokenCap),
     });
     toast.success('Limites atualizados');
     onChanged();
@@ -707,6 +709,7 @@ function OrganizationDetails({
           <Input label="Max. departamentos" value={limits.maxDepartments} onChange={(v) => setLimits({ ...limits, maxDepartments: v })} />
           <Input label="Cap mensal tokens IA" value={limits.aiMonthlyTokenCap} onChange={(v) => setLimits({ ...limits, aiMonthlyTokenCap: v })} placeholder="sem limite" />
           <Input label="Limite mensal conversas IA" value={limits.monthlyConversationLimit} onChange={(v) => setLimits({ ...limits, monthlyConversationLimit: v })} placeholder="ilimitado" />
+          <Input label="Cap mensal tokens IA — Marketing" value={limits.aiMarketingMonthlyTokenCap} onChange={(v) => setLimits({ ...limits, aiMarketingMonthlyTokenCap: v })} placeholder="sem limite" />
         </div>
         <div className="mt-3 flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 dark:border-white/10">
           <div>

@@ -533,6 +533,7 @@ export class SuperAdminService {
         aiEnabled: true,
         aiMonthlyTokenCap: true,
         monthlyConversationLimit: true,
+        aiMarketingMonthlyTokenCap: true,
         createdAt: true,
         _count: {
           select: {
@@ -735,6 +736,9 @@ export class SuperAdminService {
           : {}),
         ...(dto.monthlyConversationLimit !== undefined
           ? { monthlyConversationLimit: dto.monthlyConversationLimit }
+          : {}),
+        ...(dto.aiMarketingMonthlyTokenCap !== undefined
+          ? { aiMarketingMonthlyTokenCap: dto.aiMarketingMonthlyTokenCap }
           : {}),
       },
     });

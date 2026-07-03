@@ -198,6 +198,10 @@ model Organization {
   routeAllToDefaultSector Boolean @default(false) @map("route_all_to_default_sector")
   aiMonthlyTokenCap    Int?    @map("ai_monthly_token_cap")
   monthlyConversationLimit Int? @map("monthly_conversation_limit")
+  /// Cap de tokens de IA do MARKETING no mês, SEPARADO do cap de atendimento.
+  /// A crew consome tokens; esse limite é o do add-on de marketing (não come a
+  /// cota de conversas de cliente). null = sem limite.
+  aiMarketingMonthlyTokenCap Int? @map("ai_marketing_monthly_token_cap")
   /// Add-on vendável: habilita o módulo de Marketing (agentes/menu próprios).
   /// Controlado pelo Super Admin. Quando false, o cliente nem vê o menu.
   marketingEnabled     Boolean @default(false) @map("marketing_enabled")

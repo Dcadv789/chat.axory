@@ -98,8 +98,8 @@ export const marketingService = {
     return data?.data ?? data;
   },
 
-  async attachCrewChannel(channelId: string): Promise<void> {
-    await api.post('/marketing/crew-channels', { channelId });
+  async attachCrewChannel(channelId: string, lockSender?: boolean): Promise<void> {
+    await api.post('/marketing/crew-channels', { channelId, lockSender });
   },
 
   async detachCrewChannel(channelId: string): Promise<void> {

@@ -81,9 +81,9 @@ export class MarketingProfileController {
   @ApiOperation({ summary: 'Vincula um canal externo (ex.: Telegram) à crew' })
   attachCrewChannel(
     @CurrentOrg('id') orgId: string,
-    @Body() body: { channelId: string },
+    @Body() body: { channelId: string; lockSender?: boolean },
   ) {
-    return this.service.attachCrewChannel(orgId, body.channelId);
+    return this.service.attachCrewChannel(orgId, body.channelId, body.lockSender);
   }
 
   @Delete('crew-channels/:channelId')

@@ -496,6 +496,7 @@ export class MarketingProvisioningService {
   async attachCrewChannel(
     organizationId: string,
     channelId: string,
+    lockSender?: boolean,
   ): Promise<{ ok: boolean }> {
     const magnus = await this.getMagnus(organizationId);
     if (!magnus) {
@@ -503,7 +504,7 @@ export class MarketingProvisioningService {
     }
     const channel = await this.prisma.channel.findFirst({
       where: { id: channelId, organizationId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, config: true },
     });
     if (!channel) throw new BadRequestException('Canal não encontrado.');
 
@@ -512,9 +513,20 @@ export class MarketingProvisioningService {
       update: { mode: 'AUTONOMOUS', trigger: 'ALWAYS' },
       create: { agentId: magnus.id, channelId, mode: 'AUTONOMOUS', trigger: 'ALWAYS' },
     });
+
+    // Trava de remetente: liga o filtro e ZERA a lista (o primeiro a mandar
+    // mensagem vira o remetente autorizado — o dono fala primeiro do celular).
+    const cfg = (channel.config as Record<string, any>) || {};
+    const nextConfig = lockSender
+      ? { ...cfg, crewLockSender: true, crewAllowedSenders: [] }
+      : cfg;
+
     await this.prisma.channel.update({
       where: { id: channelId },
-      data: { defaultOrchestratorId: magnus.id },
+      data: {
+        defaultOrchestratorId: magnus.id,
+        ...(lockSender ? { config: nextConfig } : {}),
+      },
     });
     return { ok: true };
   }

@@ -26,4 +26,9 @@ export class UpdateOrganizationPlanDto {
   @Min(0)
   @IsOptional()
   monthlyConversationLimit?: number | null;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  aiMarketingMonthlyTokenCap?: number | null;
 }
