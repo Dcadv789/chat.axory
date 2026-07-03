@@ -91,7 +91,7 @@ export function ContactSidebar({ contactId, onClose }: ContactSidebarProps) {
 
   return (
     <>
-      <div className="flex w-80 flex-col border-l border-zinc-200/80 bg-white dark:border-white/10 dark:bg-zinc-950">
+      <div className="flex w-80 flex-col border-l border-zinc-200/80 bg-white dark:border-white/10 dark:bg-black">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-zinc-200/80 px-4 py-3 dark:border-white/10">
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">

@@ -16,6 +16,7 @@ import {
   UserCircle,
   ShieldAlert,
 } from 'lucide-react';
+import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react';
 import { ConversationAiToggle } from './conversation-ai-toggle';
 import { AssignmentPopover } from './assignment-popover';
 import { TransferDepartmentPopover } from './transfer-department-popover';
@@ -49,50 +50,51 @@ interface ConversationHeaderProps {
   approvalsOpen?: boolean;
 }
 
-function ChannelBadge({ type, name }: { type: string; name: string }) {
+function channelMeta(type: string) {
   const t = type.toUpperCase();
-  const isWhats = t.includes('WHATSAPP') || t.includes('ZAPPFY');
-  const isInsta = t.includes('INSTAGRAM');
-  const isTelegram = t.includes('TELEGRAM');
-  const isEmail = t.includes('EMAIL') || t.includes('MAIL');
-  const isSms = t.includes('SMS');
+  if (t.includes('WHATSAPP') || t.includes('ZAPPFY'))
+    return { Icon: Phone, label: 'WhatsApp', accent: 'text-green-600 dark:text-green-400' };
+  if (t.includes('INSTAGRAM'))
+    return { Icon: Instagram, label: 'Instagram', accent: 'text-pink-600 dark:text-pink-400' };
+  if (t.includes('TELEGRAM'))
+    return { Icon: Send, label: 'Telegram', accent: 'text-sky-600 dark:text-sky-400' };
+  if (t.includes('EMAIL') || t.includes('MAIL'))
+    return { Icon: Mail, label: 'Email', accent: 'text-blue-600 dark:text-blue-400' };
+  if (t.includes('SMS'))
+    return { Icon: MessageSquare, label: 'SMS', accent: 'text-amber-600 dark:text-amber-400' };
+  return { Icon: MessageSquare, label: 'Chat', accent: 'text-zinc-500 dark:text-zinc-400' };
+}
 
-  let Icon = MessageSquare;
-  let label = 'Chat';
-  let cls =
-    'bg-zinc-100 text-zinc-600 dark:bg-black dark:text-zinc-300';
-
-  if (isWhats) {
-    Icon = Phone;
-    label = 'WhatsApp';
-    cls = 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
-  } else if (isInsta) {
-    Icon = Instagram;
-    label = 'Instagram';
-    cls = 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400';
-  } else if (isTelegram) {
-    Icon = Send;
-    label = 'Telegram';
-    cls = 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400';
-  } else if (isEmail) {
-    Icon = Mail;
-    label = 'Email';
-    cls = 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
-  } else if (isSms) {
-    Icon = MessageSquare;
-    label = 'SMS';
-    cls = 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
-  }
-
+/**
+ * Botão discreto (ao lado do lápis) que revela o canal da conversa num
+ * popover — em vez de mostrar o badge fixo embaixo do contato (redundante).
+ */
+function ChannelButton({ type, name }: { type: string; name: string }) {
+  const { Icon, label, accent } = channelMeta(type);
   return (
-    <span
-      title={name}
-      className={`mt-1 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}
-    >
-      <Icon className="h-3 w-3" />
-      {label}
-      <span className="font-normal normal-case opacity-70">· {name}</span>
-    </span>
+    <Popover className="relative">
+      <PopoverButton
+        title="Ver canal"
+        className={`flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300`}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </PopoverButton>
+      <PopoverPanel
+        anchor="bottom start"
+        className="z-50 mt-1.5 rounded-lg border border-zinc-200 bg-white p-3 shadow-lg outline-none dark:border-white/10 dark:bg-black [--anchor-gap:0.25rem]"
+      >
+        <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+          Canal
+        </p>
+        <div className="mt-1 flex items-center gap-2">
+          <Icon className={`h-4 w-4 ${accent}`} />
+          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+            {label}
+          </span>
+          <span className="text-xs text-zinc-500">· {name}</span>
+        </div>
+      </PopoverPanel>
+    </Popover>
   );
 }
 
@@ -181,19 +183,19 @@ export function ConversationHeader({
           avatarUrl={conversation.contact.avatarUrl}
         />
         <div className="flex flex-col">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {conversation.contact.name || conversation.contact.phone || 'Desconhecido'}
             </span>
             <ContactInfoPopover conversation={conversation} />
+            <ChannelButton
+              type={conversation.channel.type}
+              name={conversation.channel.name}
+            />
           </div>
           {conversation.contact.phone && conversation.contact.name && (
             <div className="text-xs text-zinc-500">{formatPhone(conversation.contact.phone)}</div>
           )}
-          <ChannelBadge
-            type={conversation.channel.type}
-            name={conversation.channel.name}
-          />
         </div>
       </div>
 
