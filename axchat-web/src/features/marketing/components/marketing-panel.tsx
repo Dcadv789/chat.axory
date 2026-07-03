@@ -21,6 +21,8 @@ import {
   type MarketingOverview,
 } from '@/features/marketing/services/marketing.service';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { RangeCalendar, toISODate, type DateRange } from '@/features/marketing/components/range-calendar';
 
 type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'posts' | 'activity';
 
@@ -46,17 +48,17 @@ interface MetricsCols {
   delta: boolean;
 }
 
-const PERIODS: { days: number | undefined; label: string }[] = [
-  { days: 7, label: '7 dias' },
-  { days: 30, label: '30 dias' },
-  { days: 90, label: '90 dias' },
-  { days: 180, label: '6 meses' },
-  { days: 365, label: '12 meses' },
-];
+function defaultRange(): DateRange {
+  const until = new Date(); until.setHours(0, 0, 0, 0);
+  const since = new Date(Date.now() - 29 * 86400000); since.setHours(0, 0, 0, 0);
+  return { since, until };
+}
 
 export function MarketingPanel() {
   const [tab, setTab] = useState<Tab>('resumo');
-  const [days, setDays] = useState<number>(30);
+  const [range, setRange] = useState<DateRange>(defaultRange);
+  const since = toISODate(range.since);
+  const until = toISODate(range.until);
   const [cols, setCols] = useState<MetricsCols>({
     engagement: true,
     identification: true,
@@ -64,19 +66,19 @@ export function MarketingPanel() {
     delta: true,
   });
 
-  const { data: mediaMetrics } = useQuery({
-    queryKey: ['marketing-media-metrics', days],
-    queryFn: () => marketingService.mediaMetrics(days),
+  const { data: mediaMetrics, isLoading: loadingMedia } = useQuery({
+    queryKey: ['marketing-media-metrics', since, until],
+    queryFn: () => marketingService.mediaMetrics(since, until),
     enabled: tab === 'metrics',
     refetchInterval: 30000,
   });
-  const { data: adMetrics } = useQuery({
-    queryKey: ['marketing-ad-metrics', days],
-    queryFn: () => marketingService.adMetrics(days),
+  const { data: adMetrics, isLoading: loadingAd } = useQuery({
+    queryKey: ['marketing-ad-metrics', since, until],
+    queryFn: () => marketingService.adMetrics(since, until),
     enabled: tab === 'admetrics',
     refetchInterval: 30000,
   });
-  const { data: activity } = useQuery({
+  const { data: activity, isLoading: loadingActivity } = useQuery({
     queryKey: ['marketing-activity'],
     queryFn: () => marketingService.activity(),
     enabled: tab === 'activity',
@@ -138,42 +140,113 @@ export function MarketingPanel() {
           </div>
         </nav>
 
-        {/* Filtro de período — vale pra Resumo e Métricas */}
+        {/* Filtro de período (calendário) — vale pra Resumo e Métricas */}
         {(tab === 'resumo' || tab === 'admetrics' || tab === 'metrics') && (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-zinc-500">Período:</span>
-            {PERIODS.map((per) => (
-              <button
-                key={per.days}
-                onClick={() => setDays(per.days!)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  days === per.days
-                    ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
-                    : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-white/5 dark:text-zinc-400 dark:hover:bg-white/10'
-                }`}
-              >
-                {per.label}
-              </button>
-            ))}
+            <RangeCalendar value={range} onChange={setRange} />
           </div>
         )}
 
-        {tab === 'resumo' && <ResumoTab days={days} />}
+        {tab === 'resumo' && <ResumoTab since={since} until={until} />}
         {tab === 'gestao' && <GestaoTab />}
         {tab === 'admetrics' && (
-          <AdMetricsTab rows={adMetrics?.metrics ?? []} window={adMetrics?.window ?? 'LAST_MONTH'} />
+          loadingAd
+            ? <TableSkeleton cols={11} />
+            : <AdMetricsTab rows={adMetrics?.metrics ?? []} window={adMetrics?.window ?? 'LAST_MONTH'} />
         )}
         {tab === 'metrics' && (
-          <MetricsTab
-            rows={mediaMetrics?.metrics ?? []}
-            window={mediaMetrics?.window ?? 'LAST_MONTH'}
-            cols={cols}
-            setCols={setCols}
-          />
+          loadingMedia
+            ? <TableSkeleton cols={9} />
+            : <MetricsTab
+                rows={mediaMetrics?.metrics ?? []}
+                window={mediaMetrics?.window ?? 'LAST_MONTH'}
+                cols={cols}
+                setCols={setCols}
+              />
         )}
         {tab === 'posts' && <InstagramPostsTab />}
-        {tab === 'activity' && <ActivityView activity={activity} />}
+        {tab === 'activity' && (
+          loadingActivity
+            ? <div className="grid gap-6 lg:grid-cols-2">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="space-y-2">
+                    <Skeleton className="h-3 w-32" />
+                    {Array.from({ length: 4 }).map((_, j) => <Skeleton key={j} className="h-16 w-full rounded-lg" />)}
+                  </div>
+                ))}
+              </div>
+            : <ActivityView activity={activity} />
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── Skeletons ─────────────────────────────────────────────────
+
+function TableSkeleton({ cols = 6, rows = 6 }: { cols?: number; rows?: number }) {
+  return (
+    <div className="space-y-3">
+      <Skeleton className="h-4 w-72" />
+      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
+        <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]">
+          <Skeleton className="h-3 w-full" />
+        </div>
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 border-b border-zinc-100 px-3 py-3 last:border-0 dark:border-white/5">
+            {Array.from({ length: cols }).map((_, j) => (
+              <Skeleton key={j} className={`h-3 ${j === 0 ? 'w-40' : 'flex-1'}`} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CardsSkeleton({ count = 8 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="mt-3 h-6 w-16" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ResumoSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="mt-3 h-7 w-56" />
+        <Skeleton className="mt-3 h-2 w-full rounded-full" />
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
+        </div>
+      </div>
+      <CardsSkeleton />
+      <Skeleton className="h-56 w-full rounded-xl" />
+    </div>
+  );
+}
+
+function PostsSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <div key={i} className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
+          <Skeleton className="aspect-square w-full rounded-none" />
+          <div className="space-y-2 p-2.5">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-2/3" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -186,25 +259,19 @@ const fmtMoney = (n: number | null | undefined, cur = 'BRL') =>
 const fmtDec = (n: number | null | undefined, suffix = '') =>
   n == null ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
 
-function ResumoTab({ days }: { days: number }) {
+function ResumoTab({ since, until }: { since: string; until: string }) {
   const { data: ov, isLoading } = useQuery({
-    queryKey: ['marketing-overview', days],
-    queryFn: () => marketingService.overview(days),
+    queryKey: ['marketing-overview', since, until],
+    queryFn: () => marketingService.overview(since, until),
     refetchInterval: 60000,
   });
   const { data: adMetrics } = useQuery({
-    queryKey: ['marketing-ad-metrics', days],
-    queryFn: () => marketingService.adMetrics(days),
+    queryKey: ['marketing-ad-metrics', since, until],
+    queryFn: () => marketingService.adMetrics(since, until),
     refetchInterval: 60000,
   });
 
-  if (isLoading || !ov) {
-    return (
-      <div className="flex items-center gap-2 py-10 text-sm text-zinc-400">
-        <Loader2 className="h-4 w-4 animate-spin" /> Carregando resumo…
-      </div>
-    );
-  }
+  if (isLoading || !ov) return <ResumoSkeleton />;
 
   const cur = ov.currency;
   const p = ov.pacing ?? {};
@@ -536,9 +603,7 @@ function GestaoTab() {
       )}
 
       {isLoading ? (
-        <div className="flex items-center gap-2 py-10 text-sm text-zinc-400">
-          <Loader2 className="h-4 w-4 animate-spin" /> Carregando campanhas…
-        </div>
+        <TableSkeleton cols={4} />
       ) : isError ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
           {(error as any)?.response?.data?.message ?? 'Erro ao carregar campanhas. Verifique as credenciais do Meta Ads em Integrações.'}
@@ -647,9 +712,11 @@ function CampaignDetailDrawer({ campaign, onClose, onChanged }: { campaign: AdCa
     queryKey: ['marketing-adsets', campaign.id],
     queryFn: () => marketingService.listAdSets(campaign.id),
   });
+  const until90 = toISODate(new Date());
+  const since90 = toISODate(new Date(Date.now() - 89 * 86400000));
   const { data: adMetrics } = useQuery({
-    queryKey: ['marketing-ad-metrics', 90],
-    queryFn: () => marketingService.adMetrics(90),
+    queryKey: ['marketing-ad-metrics', since90, until90],
+    queryFn: () => marketingService.adMetrics(since90, until90),
   });
 
   const series = aggregateSpendByDay((adMetrics?.metrics ?? []).filter((r) => r.campaignId === campaign.id));
@@ -764,7 +831,9 @@ function CampaignDetailDrawer({ campaign, onClose, onChanged }: { campaign: AdCa
               <Layers className="h-4 w-4 text-primary" /> Conjuntos de anúncios
             </p>
             {loadingAdsets ? (
-              <div className="flex items-center gap-2 py-4 text-sm text-zinc-400"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</div>
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
+              </div>
             ) : adsetsError ? (
               <p className="text-xs text-rose-500">Não consegui carregar os conjuntos de anúncios.</p>
             ) : (adsets?.adsets.length ?? 0) === 0 ? (
@@ -1056,9 +1125,7 @@ function InstagramPostsTab() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center gap-2 py-10 text-sm text-zinc-400">
-          <Loader2 className="h-4 w-4 animate-spin" /> Carregando posts…
-        </div>
+        <PostsSkeleton />
       ) : isError ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
           {(error as any)?.response?.data?.message ?? 'Erro ao carregar posts. Verifique IG_USER_ID / IG_ACCESS_TOKEN em Integrações.'}

@@ -106,13 +106,26 @@ export class MarketingProfileService {
   }
 
   /**
-   * Métricas de posts (série temporal). Filtra pela janela salva no perfil
-   * (último mês/3/6/ano) — a mesma opção que a crew usa. Ordena da mais recente.
+   * Range de datas [gte, lte] pra filtrar as capturas. `since`/`until`
+   * (YYYY-MM-DD) do filtro da página têm prioridade; senão, cai na janela do
+   * perfil. O `lte` inclui o dia inteiro. IMPORTANTE: usa AMBOS os limites —
+   * assim um período antigo (sem dados) volta vazio de verdade.
    */
-  /** Dias da janela: `days` explícito do filtro da página tem prioridade. */
-  private async resolveDays(organizationId: string, days?: number): Promise<{ days: number; window: string }> {
-    if (days && Number.isFinite(days) && days > 0) {
-      return { days: Math.min(days, 730), window: `LAST_${days}D` };
+  private async resolveRange(
+    organizationId: string,
+    since?: string,
+    until?: string,
+  ): Promise<{ gte: Date; lte: Date; window: string }> {
+    const parse = (s?: string): Date | null => {
+      if (!s) return null;
+      const d = new Date(`${s}T00:00:00`);
+      return isNaN(d.getTime()) ? null : d;
+    };
+    const gte = parse(since);
+    const lte = parse(until);
+    if (gte && lte) {
+      lte.setHours(23, 59, 59, 999);
+      return { gte, lte, window: `${since}_${until}` };
     }
     const profile = await this.prisma.marketingProfile.findUnique({
       where: { organizationId },
@@ -121,32 +134,30 @@ export class MarketingProfileService {
     const win = profile?.analysisWindow ?? 'LAST_MONTH';
     const d =
       win === 'LAST_YEAR' ? 365 : win === 'LAST_6_MONTHS' ? 182 : win === 'LAST_3_MONTHS' ? 91 : 30;
-    return { days: d, window: win };
+    return { gte: new Date(Date.now() - d * 24 * 60 * 60 * 1000), lte: new Date(), window: win };
   }
 
-  async mediaMetrics(organizationId: string, limit = 500, days?: number) {
+  async mediaMetrics(organizationId: string, limit = 500, since?: string, until?: string) {
     await this.ensureEnabled(organizationId);
-    const { days: d, window } = await this.resolveDays(organizationId, days);
-    const since = new Date(Date.now() - d * 24 * 60 * 60 * 1000);
+    const { gte, lte, window } = await this.resolveRange(organizationId, since, until);
     const metrics = await this.prisma.marketingMediaMetric.findMany({
-      where: { organizationId, capturedAt: { gte: since } },
+      where: { organizationId, capturedAt: { gte, lte } },
       orderBy: { capturedAt: 'desc' },
       take: limit,
     });
-    return { window, since: since.toISOString(), metrics };
+    return { window, since: gte.toISOString(), until: lte.toISOString(), metrics };
   }
 
-  /** Métricas por campanha de anúncio (série temporal), filtradas pela janela. */
-  async adMetrics(organizationId: string, limit = 500, days?: number) {
+  /** Métricas por campanha de anúncio (série temporal), filtradas pelo range. */
+  async adMetrics(organizationId: string, limit = 500, since?: string, until?: string) {
     await this.ensureEnabled(organizationId);
-    const { days: d, window } = await this.resolveDays(organizationId, days);
-    const since = new Date(Date.now() - d * 24 * 60 * 60 * 1000);
+    const { gte, lte, window } = await this.resolveRange(organizationId, since, until);
     const metrics = await this.prisma.marketingAdMetric.findMany({
-      where: { organizationId, capturedAt: { gte: since } },
+      where: { organizationId, capturedAt: { gte, lte } },
       orderBy: { capturedAt: 'desc' },
       take: limit,
     });
-    return { window, since: since.toISOString(), metrics };
+    return { window, since: gte.toISOString(), until: lte.toISOString(), metrics };
   }
 
   /** Log + análises recentes pra um painel de auditoria do marketing. */

@@ -124,26 +124,26 @@ export const marketingService = {
     return data?.data ?? data;
   },
 
-  async mediaMetrics(days?: number): Promise<{
+  async mediaMetrics(since?: string, until?: string): Promise<{
     window: string;
     since: string;
     metrics: MediaMetricRow[];
   }> {
-    const { data } = await api.get('/marketing/media-metrics', { params: days ? { days } : undefined });
+    const { data } = await api.get('/marketing/media-metrics', { params: since && until ? { since, until } : undefined });
     return data?.data ?? data;
   },
 
-  async adMetrics(days?: number): Promise<{
+  async adMetrics(since?: string, until?: string): Promise<{
     window: string;
     since: string;
     metrics: AdMetricRow[];
   }> {
-    const { data } = await api.get('/marketing/ad-metrics', { params: days ? { days } : undefined });
+    const { data } = await api.get('/marketing/ad-metrics', { params: since && until ? { since, until } : undefined });
     return data?.data ?? data;
   },
 
-  async overview(days?: number): Promise<MarketingOverview> {
-    const { data } = await api.get('/marketing/overview', { params: days ? { days } : undefined });
+  async overview(since?: string, until?: string): Promise<MarketingOverview> {
+    const { data } = await api.get('/marketing/overview', { params: since && until ? { since, until } : undefined });
     return data?.data ?? data;
   },
 

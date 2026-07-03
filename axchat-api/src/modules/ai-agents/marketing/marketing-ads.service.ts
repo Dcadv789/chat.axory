@@ -211,7 +211,7 @@ export class MarketingAdsService {
    * Resumo do painel: pacing de verba do mês + insights agregados da conta +
    * contagem de campanhas. Tolerante a falhas (devolve o que conseguir).
    */
-  async overview(orgId: string, days?: number): Promise<Record<string, unknown>> {
+  async overview(orgId: string, since?: string, until?: string): Promise<Record<string, unknown>> {
     const profile = await this.prisma.marketingProfile.findUnique({
       where: { organizationId: orgId },
       select: {
@@ -233,14 +233,11 @@ export class MarketingAdsService {
     const firstOfMonth = `${year}-${pad(month + 1)}-01`;
     const round2 = (v: number) => Math.round(v * 100) / 100;
 
-    // Janela dos INSIGHTS: se veio `days` do filtro da página, usa os últimos
-    // N dias; senão, o mês corrente. (O pacing de verba é sempre mensal.)
-    const insightsSince =
-      days && days > 0
-        ? new Date(Date.now() - Math.min(days, 730) * 24 * 60 * 60 * 1000)
-            .toISOString()
-            .slice(0, 10)
-        : firstOfMonth;
+    // Janela dos INSIGHTS: se veio range da página (since/until), usa ele;
+    // senão, o mês corrente. (O pacing de verba é sempre mensal.)
+    const validDate = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null);
+    const insightsSince = validDate(since) ?? firstOfMonth;
+    const insightsUntil = validDate(until) ?? today;
 
     const [adAccountId, token] = await Promise.all([
       this.resolve(orgId, 'META_AD_ACCOUNT_ID'),
@@ -258,7 +255,7 @@ export class MarketingAdsService {
     } else {
       try {
         const acct = adAccountId.replace(/^act_/, '');
-        const timeRange = encodeURIComponent(JSON.stringify({ since: insightsSince, until: today }));
+        const timeRange = encodeURIComponent(JSON.stringify({ since: insightsSince, until: insightsUntil }));
         const url =
           `${GRAPH}/act_${encodeURIComponent(acct)}/insights` +
           `?fields=spend,impressions,reach,clicks,ctr,cpc,cpm,actions&time_range=${timeRange}` +
@@ -311,9 +308,10 @@ export class MarketingAdsService {
     const monthlyBudget = profile?.monthlyAdBudgetCents != null ? profile.monthlyAdBudgetCents / 100 : null;
     const maxDailyBudget = profile?.maxDailyBudgetCents != null ? profile.maxDailyBudgetCents / 100 : null;
 
-    // Pacing é SEMPRE mensal. Se o filtro da página é o mês, reusa o insights;
-    // se é outro período, busca o gasto do mês em separado (só quando há teto).
-    let spentMonth: number | null = insightsSince === firstOfMonth ? insights.spend : null;
+    // Pacing é SEMPRE mensal. Se o filtro da página é exatamente o mês, reusa o
+    // insights; se é outro período, busca o gasto do mês à parte (só com teto).
+    const isMonthWindow = insightsSince === firstOfMonth && insightsUntil === today;
+    let spentMonth: number | null = isMonthWindow ? insights.spend : null;
     if (spentMonth == null && monthlyBudget != null && adAccountId && token) {
       try {
         const acct = adAccountId.replace(/^act_/, '');
