@@ -738,6 +738,7 @@ export function ChatPanel({
   // Aprovações pendentes moram num painel lateral dedicado (não na timeline).
   // O hook compartilha o cache/polling com o drawer (mesma queryKey).
   const [approvalsOpen, setApprovalsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { data: pendingActionsData } = usePendingActions(conversation.id);
   const pendingApprovalsCount = (pendingActionsData ?? []).filter(
     (a) => a.status === 'PENDING',
@@ -909,6 +910,8 @@ export function ChatPanel({
         pendingApprovalsCount={pendingApprovalsCount}
         onToggleApprovals={() => setApprovalsOpen((v) => !v)}
         approvalsOpen={approvalsOpen}
+        onToggleSearch={() => setSearchOpen((v) => !v)}
+        searchOpen={searchOpen}
       />
 
       <PendingActionsDrawer
@@ -941,7 +944,12 @@ export function ChatPanel({
         messages={messages}
       />
 
-      <MessageSearchBar messages={messages} onJumpToMessage={handleJumpToMessage} />
+      <MessageSearchBar
+        messages={messages}
+        onJumpToMessage={handleJumpToMessage}
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+      />
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-[#171717]">
         {isLoading ? (

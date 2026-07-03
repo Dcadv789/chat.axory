@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   X, Loader2, MessageSquare, Pencil, Phone, Mail, Tag, Trash2,
-  Check, XCircle, Copy, UserPen,
+  Check, XCircle, Copy, UserPen, UserCircle,
 } from 'lucide-react';
 import { contactsService } from '@/features/contacts/services/contacts.service';
 import { ContactNotesPanel } from './contact-notes-panel';
@@ -93,14 +93,17 @@ export function ContactSidebar({ contactId, onClose }: ContactSidebarProps) {
     <>
       <div className="flex w-80 flex-col border-l border-zinc-200/80 bg-white dark:border-white/10 dark:bg-black">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-200/80 px-4 py-3 dark:border-white/10">
-          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Contato
-          </p>
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-zinc-200/80 px-4 dark:border-white/10">
+          <div className="flex items-center gap-2">
+            <UserCircle className="h-[18px] w-[18px] text-primary" />
+            <p className="text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
+              Contato
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10"
+            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10"
           >
             <X className="h-4 w-4" />
           </button>

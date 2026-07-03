@@ -177,10 +177,10 @@ export function AgentRunsSidebar({
 
   return (
     <aside className="flex w-80 shrink-0 flex-col border-l border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-white/10">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-zinc-200 px-4 dark:border-white/10">
         <div className="flex items-center gap-2">
-          <Activity className="h-3.5 w-3.5 text-primary" />
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <Activity className="h-[18px] w-[18px] text-primary" />
+          <h2 className="text-[15px] font-semibold text-zinc-900 dark:text-zinc-100">
             Agente
           </h2>
         </div>

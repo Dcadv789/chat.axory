@@ -15,6 +15,7 @@ import {
   Activity,
   UserCircle,
   ShieldAlert,
+  Search,
 } from 'lucide-react';
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react';
 import { ConversationAiToggle } from './conversation-ai-toggle';
@@ -48,6 +49,9 @@ interface ConversationHeaderProps {
   pendingApprovalsCount?: number;
   onToggleApprovals?: () => void;
   approvalsOpen?: boolean;
+  /** Alterna a barra de busca de mensagens (lupa). */
+  onToggleSearch?: () => void;
+  searchOpen?: boolean;
 }
 
 function channelMeta(type: string) {
@@ -128,6 +132,8 @@ export function ConversationHeader({
   pendingApprovalsCount = 0,
   onToggleApprovals,
   approvalsOpen,
+  onToggleSearch,
+  searchOpen,
 }: ConversationHeaderProps) {
   const queryClient = useQueryClient();
   const role = useAuthStore((s) =>
@@ -176,7 +182,7 @@ export function ConversationHeader({
   };
 
   return (
-    <div className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black">
+    <div className="flex h-16 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 dark:border-white/10 dark:bg-black">
       <div className="flex items-center gap-3">
         <HeaderAvatar
           name={conversation.contact.name}
@@ -267,6 +273,19 @@ export function ConversationHeader({
             <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
               {pendingApprovalsCount > 9 ? '9+' : pendingApprovalsCount}
             </span>
+          </button>
+        )}
+        {onToggleSearch && (
+          <button
+            onClick={onToggleSearch}
+            title={searchOpen ? 'Fechar busca' : 'Buscar mensagens'}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+              searchOpen
+                ? 'bg-primary/10 text-primary dark:bg-primary/15'
+                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
+            }`}
+          >
+            <Search className="h-3.5 w-3.5" />
           </button>
         )}
         {onToggleAgentLogs && (
