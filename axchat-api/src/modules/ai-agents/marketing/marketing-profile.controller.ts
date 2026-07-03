@@ -29,6 +29,12 @@ export class MarketingProfileController {
 
   // ─── Gestão de anúncios (Meta Ads) — ação direta do dono ───
 
+  @Get('overview')
+  @ApiOperation({ summary: 'Resumo do painel: pacing de verba + insights da conta' })
+  overview(@CurrentOrg('id') orgId: string) {
+    return this.ads.overview(orgId);
+  }
+
   @Get('ads/campaigns')
   @ApiOperation({ summary: 'Lista campanhas de anúncio (Meta Ads) ao vivo' })
   listCampaigns(@CurrentOrg('id') orgId: string) {

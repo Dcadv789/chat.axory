@@ -142,6 +142,11 @@ export const marketingService = {
     return data?.data ?? data;
   },
 
+  async overview(): Promise<MarketingOverview> {
+    const { data } = await api.get('/marketing/overview');
+    return data?.data ?? data;
+  },
+
   // ─── Gestão de anúncios (Meta Ads ao vivo) ───
   async listCampaigns(): Promise<{ campaigns: AdCampaign[] }> {
     const { data } = await api.get('/marketing/ads/campaigns');
@@ -165,6 +170,39 @@ export interface AdCampaign {
   objective: string | null;
   dailyBudgetCents: number | null;
   lifetimeBudgetCents: number | null;
+}
+
+export interface MarketingOverview {
+  month: string;
+  daysInMonth: number;
+  dayOfMonth: number;
+  daysRemaining: number;
+  currency: string;
+  monthlyBudget: number | null;
+  maxDailyBudget: number | null;
+  spentMonth: number | null;
+  campaignsTotal: number | null;
+  campaignsActive: number | null;
+  insights: {
+    spend: number | null;
+    impressions: number | null;
+    reach: number | null;
+    clicks: number | null;
+    ctr: number | null;
+    cpc: number | null;
+    cpm: number | null;
+    conversions: number | null;
+  };
+  pacing: {
+    remaining?: number;
+    dailyRunRate?: number;
+    projectedMonthEnd?: number;
+    suggestedDailyForRest?: number;
+    pctBudgetUsed?: number;
+    pctMonthElapsed?: number;
+    status?: 'ACIMA_DO_TETO' | 'ABAIXO_DO_TETO' | 'NO_RITMO';
+  };
+  warning?: string;
 }
 
 export interface AdMetricRow {

@@ -2,17 +2,24 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw } from 'lucide-react';
+import {
+  Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
+  LayoutDashboard, TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
+} from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { toast } from 'sonner';
 import {
   marketingService,
   type MediaMetricRow,
   type AdMetricRow,
   type AdCampaign,
+  type MarketingOverview,
 } from '@/features/marketing/services/marketing.service';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
-type Tab = 'gestao' | 'admetrics' | 'metrics' | 'activity';
+type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'activity';
 
 const WINDOW_LABELS: Record<string, string> = {
   LAST_MONTH: 'último mês',
@@ -37,7 +44,7 @@ interface MetricsCols {
 }
 
 export function MarketingPanel() {
-  const [tab, setTab] = useState<Tab>('gestao');
+  const [tab, setTab] = useState<Tab>('resumo');
   const [cols, setCols] = useState<MetricsCols>({
     engagement: true,
     identification: true,
@@ -65,6 +72,7 @@ export function MarketingPanel() {
   });
 
   const TABS: { id: Tab; icon: React.ElementType; label: string; subtitle: string }[] = [
+    { id: 'resumo', icon: LayoutDashboard, label: 'Resumo', subtitle: 'Verba do mês, desempenho da conta e campanhas num olhar' },
     { id: 'gestao', icon: Megaphone, label: 'Gestão de anúncios', subtitle: 'Pause, ative e exclua suas campanhas do Meta Ads' },
     { id: 'admetrics', icon: BarChart3, label: 'Métricas dos anúncios', subtitle: 'Desempenho por campanha ao longo do tempo' },
     { id: 'metrics', icon: BarChart3, label: 'Métricas dos posts', subtitle: 'Engajamento dos posts do Instagram' },
@@ -117,6 +125,7 @@ export function MarketingPanel() {
           </div>
         </nav>
 
+        {tab === 'resumo' && <ResumoTab />}
         {tab === 'gestao' && <GestaoTab />}
         {tab === 'admetrics' && (
           <AdMetricsTab rows={adMetrics?.metrics ?? []} window={adMetrics?.window ?? 'LAST_MONTH'} />
@@ -133,6 +142,187 @@ export function MarketingPanel() {
       </div>
     </div>
   );
+}
+
+// ─── Resumo (overview) ─────────────────────────────────────────
+
+const fmtInt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('pt-BR'));
+const fmtMoney = (n: number | null | undefined, cur = 'BRL') =>
+  n == null ? '—' : `${cur === 'USD' ? '$' : 'R$'} ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtDec = (n: number | null | undefined, suffix = '') =>
+  n == null ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
+
+function ResumoTab() {
+  const { data: ov, isLoading } = useQuery({
+    queryKey: ['marketing-overview'],
+    queryFn: () => marketingService.overview(),
+    refetchInterval: 60000,
+  });
+  const { data: adMetrics } = useQuery({
+    queryKey: ['marketing-ad-metrics'],
+    queryFn: () => marketingService.adMetrics(),
+    refetchInterval: 60000,
+  });
+
+  if (isLoading || !ov) {
+    return (
+      <div className="flex items-center gap-2 py-10 text-sm text-zinc-400">
+        <Loader2 className="h-4 w-4 animate-spin" /> Carregando resumo…
+      </div>
+    );
+  }
+
+  const cur = ov.currency;
+  const p = ov.pacing ?? {};
+  const spendSeries = aggregateSpendByDay(adMetrics?.metrics ?? []);
+
+  const statusLabel: Record<string, { txt: string; cls: string; Icon: React.ElementType }> = {
+    ACIMA_DO_TETO: { txt: 'Acima do teto', cls: 'text-rose-600 dark:text-rose-400', Icon: TrendingUp },
+    ABAIXO_DO_TETO: { txt: 'Abaixo do teto', cls: 'text-amber-600 dark:text-amber-400', Icon: TrendingDown },
+    NO_RITMO: { txt: 'No ritmo', cls: 'text-emerald-600 dark:text-emerald-400', Icon: TrendingUp },
+  };
+  const st = p.status ? statusLabel[p.status] : null;
+
+  return (
+    <div className="space-y-5">
+      {ov.warning && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          {ov.warning}
+        </div>
+      )}
+
+      {/* Verba do mês */}
+      <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            <Wallet className="h-4 w-4 text-primary" /> Verba do mês
+          </p>
+          {st && (
+            <span className={`inline-flex items-center gap-1 text-xs font-medium ${st.cls}`}>
+              <st.Icon className="h-3.5 w-3.5" /> {st.txt}
+            </span>
+          )}
+        </div>
+
+        {ov.monthlyBudget == null ? (
+          <p className="mt-3 text-xs text-zinc-500">
+            Sem teto de verba mensal configurado. Defina em Configurações → Marketing pra ver o pacing.
+          </p>
+        ) : (
+          <>
+            <div className="mt-3 flex items-end justify-between gap-2">
+              <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                {fmtMoney(ov.spentMonth, cur)}
+                <span className="ml-1 text-sm font-normal text-zinc-400">/ {fmtMoney(ov.monthlyBudget, cur)}</span>
+              </p>
+              <p className="text-xs text-zinc-500">{fmtDec(p.pctBudgetUsed, '%')} usado</p>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
+              <div
+                className={`h-full rounded-full ${
+                  p.status === 'ACIMA_DO_TETO' ? 'bg-rose-500' : 'bg-primary'
+                }`}
+                style={{ width: `${Math.min(100, p.pctBudgetUsed ?? 0)}%` }}
+              />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <MiniStat label="Dias restantes" value={`${ov.daysRemaining}`} />
+              <MiniStat label="Ritmo/dia" value={fmtMoney(p.dailyRunRate, cur)} />
+              <MiniStat label="Projeção do mês" value={fmtMoney(p.projectedMonthEnd, cur)} />
+              <MiniStat label="Sugestão/dia p/ resto" value={fmtMoney(p.suggestedDailyForRest, cur)} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* KPIs da conta */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard icon={Wallet} label="Investido (mês)" value={fmtMoney(ov.insights.spend, cur)} accent="text-primary" />
+        <KpiCard icon={Eye} label="Impressões" value={fmtInt(ov.insights.impressions)} accent="text-sky-500" />
+        <KpiCard icon={Users} label="Alcance" value={fmtInt(ov.insights.reach)} accent="text-violet-500" />
+        <KpiCard icon={MousePointerClick} label="Cliques" value={fmtInt(ov.insights.clicks)} accent="text-amber-500" />
+        <KpiCard icon={BarChart3} label="CTR" value={fmtDec(ov.insights.ctr, '%')} accent="text-emerald-500" />
+        <KpiCard icon={Wallet} label="CPC" value={fmtMoney(ov.insights.cpc, cur)} accent="text-primary" />
+        <KpiCard icon={Target} label="Conversões" value={fmtInt(ov.insights.conversions)} accent="text-rose-500" />
+        <KpiCard
+          icon={Megaphone}
+          label="Campanhas ativas"
+          value={ov.campaignsActive == null ? '—' : `${ov.campaignsActive}/${ov.campaignsTotal ?? '?'}`}
+          accent="text-emerald-600"
+        />
+      </div>
+
+      {/* Gráfico: gasto por dia */}
+      <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+        <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <BarChart3 className="h-4 w-4 text-primary" /> Gasto por dia (capturado)
+        </p>
+        {spendSeries.length === 0 ? (
+          <p className="py-8 text-center text-xs text-zinc-400">
+            Sem série de gasto ainda. Peça pra crew o "panorama dos anúncios" pra popular a captura diária.
+          </p>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={spendSeries} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+              <defs>
+                <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#0047ff" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#0047ff" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200 dark:text-white/10" />
+              <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="currentColor" className="text-zinc-400" />
+              <YAxis tick={{ fontSize: 11 }} stroke="currentColor" className="text-zinc-400" width={48} />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                formatter={(v: any) => [fmtMoney(Number(v), cur), 'Gasto']}
+              />
+              <Area type="monotone" dataKey="spend" stroke="#0047ff" strokeWidth={2} fill="url(#spendGrad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-zinc-50 px-3 py-2 dark:bg-white/[0.03]">
+      <p className="text-[10px] uppercase tracking-wide text-zinc-400">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold text-zinc-800 dark:text-zinc-200">{value}</p>
+    </div>
+  );
+}
+
+function KpiCard({ icon: Icon, label, value, accent }: { icon: React.ElementType; label: string; value: string; accent: string }) {
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+      <div className="flex items-center gap-2">
+        <Icon className={`h-4 w-4 ${accent}`} />
+        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">{label}</p>
+      </div>
+      <p className="mt-2 text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">{value}</p>
+    </div>
+  );
+}
+
+/** Soma o gasto por dia (rótulo DD/MM) a partir das capturas de anúncio. */
+function aggregateSpendByDay(rows: AdMetricRow[]): { day: string; spend: number }[] {
+  const byDay = new Map<string, number>();
+  for (const r of rows) {
+    if (r.spend == null) continue;
+    const d = new Date(r.capturedAt);
+    const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    byDay.set(key, (byDay.get(key) ?? 0) + r.spend);
+  }
+  return [...byDay.entries()]
+    .map(([day, spend]) => ({ day, spend: Math.round(spend * 100) / 100 }))
+    .sort((a, b) => {
+      const [da, ma] = a.day.split('/').map(Number);
+      const [db, mb] = b.day.split('/').map(Number);
+      return ma - mb || da - db;
+    });
 }
 
 // ─── Gestão de anúncios (ao vivo) ──────────────────────────────
@@ -306,12 +496,34 @@ function AdMetricsTab({ rows, window }: { rows: AdMetricRow[]; window: string })
     }`}>{s ?? '—'}</span>
   );
 
+  const spendSeries = aggregateSpendByDay(rows);
+
   return (
     <div className="space-y-3">
       <p className="text-xs text-zinc-500">
         Uma linha por campanha (captura diária). Período:{' '}
         <span className="font-medium">{WINDOW_LABELS[window] ?? window}</span>. A janela é ajustada em Configurações → Marketing.
       </p>
+      {spendSeries.length > 1 && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+          <p className="mb-2 text-xs font-medium text-zinc-500">Gasto total por dia</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={spendSeries} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+              <defs>
+                <linearGradient id="adSpendGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#0047ff" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#0047ff" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200 dark:text-white/10" />
+              <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="currentColor" className="text-zinc-400" />
+              <YAxis tick={{ fontSize: 11 }} stroke="currentColor" className="text-zinc-400" width={48} />
+              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: any) => [`R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Gasto']} />
+              <Area type="monotone" dataKey="spend" stroke="#0047ff" strokeWidth={2} fill="url(#adSpendGrad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-5 py-10 text-center dark:border-white/10 dark:bg-black">
           <p className="text-sm text-zinc-400">Nenhuma métrica de anúncio ainda. Peça pra crew o "panorama dos anúncios".</p>
