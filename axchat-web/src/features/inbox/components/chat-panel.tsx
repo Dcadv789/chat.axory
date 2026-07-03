@@ -28,6 +28,7 @@ import {
 import { useSocket } from '../hooks/use-socket';
 import { useAuthStore } from '@/stores/auth-store';
 import { PendingActionsDrawer } from '../pending-actions/pending-actions-drawer';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { usePendingActions } from '../pending-actions/use-pending-actions';
 import { WhatsappTemplateSelector } from './whatsapp-template-selector';
 import { MessageSearchBar } from './message-search-bar';
@@ -638,55 +639,60 @@ export function ChatPanel({
     };
   }, [conversation.id, on, onReconnect, queryClient, mergeMessage, user?.id]);
 
-  const handleRevoke = useCallback(
-    async (msg: Message) => {
-      const ok = window.confirm(
-        'Deletar essa mensagem pra todos? ' +
-          'Em WhatsApp via Zappfy a mensagem some no app do cliente. ' +
-          'Em WhatsApp Cloud API e Instagram, ela some apenas no AxChat ' +
-          '(limitação da Meta — o cliente continua vendo no app dele).',
-      );
-      if (!ok) return;
-      try {
-        const result = await inboxService.revokeMessage(msg.id);
-        if (result.succeededRemote) {
-          toast.success('Mensagem deletada pra todos');
-        } else {
-          toast.warning(
-            'Mensagem deletada só no AxChat. ' +
-              'O cliente ainda vê a mensagem no app dele (limitação do canal).',
-          );
-        }
-        // Otimista: marca local enquanto o realtime não chega
-        queryClient.setQueryData<{ messages: Message[] } | undefined>(
-          ['messages', conversation.id],
-          (prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              messages: prev.messages.map((m) =>
-                m.id === msg.id
-                  ? {
-                      ...m,
-                      revokedAt: result.revokedAt,
-                      revokedBy: result.revokedBy,
-                      revokeSucceededRemote: result.succeededRemote,
-                    }
-                  : m,
-              ),
-            };
-          },
-        );
-      } catch (err: any) {
-        toast.error(
-          err?.response?.data?.message ||
-            err?.message ||
-            'Erro ao deletar mensagem',
+  // Confirmação de exclusão via modal moderno (não window.confirm).
+  const [deleteTarget, setDeleteTarget] = useState<Message | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleRevoke = useCallback((msg: Message) => {
+    setDeleteTarget(msg);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    const msg = deleteTarget;
+    if (!msg) return;
+    setDeleting(true);
+    const wasFailed = msg.status === 'FAILED';
+    try {
+      const result = await inboxService.revokeMessage(msg.id);
+      if (wasFailed) {
+        toast.success('Mensagem removida da conversa');
+      } else if (result.succeededRemote) {
+        toast.success('Mensagem deletada pra todos');
+      } else {
+        toast.warning(
+          'Mensagem deletada só no AxChat — o cliente ainda a vê no app dele (limitação do canal).',
         );
       }
-    },
-    [conversation.id, queryClient],
-  );
+      queryClient.setQueryData<{ messages: Message[] } | undefined>(
+        ['messages', conversation.id],
+        (prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            messages: prev.messages.map((m) =>
+              m.id === msg.id
+                ? {
+                    ...m,
+                    revokedAt: result.revokedAt,
+                    revokedBy: result.revokedBy,
+                    revokeSucceededRemote: result.succeededRemote,
+                  }
+                : m,
+            ),
+          };
+        },
+      );
+      setDeleteTarget(null);
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          'Não foi possível excluir a mensagem.',
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, conversation.id, queryClient]);
 
   // Scroll ao fundo ao entrar na conversa (instantâneo) ou ao chegar
   // mensagem nova (suave). O instantâneo é essencial pra não parar no
@@ -909,6 +915,25 @@ export function ChatPanel({
         conversationId={conversation.id}
         open={approvalsOpen}
         onClose={() => setApprovalsOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        variant="danger"
+        loading={deleting}
+        title={
+          deleteTarget?.status === 'FAILED'
+            ? 'Remover mensagem não enviada?'
+            : 'Excluir mensagem?'
+        }
+        description={
+          deleteTarget?.status === 'FAILED'
+            ? 'Esta mensagem não foi entregue ao cliente. Ela será removida da conversa apenas aqui no AxChat.'
+            : 'A mensagem será removida no AxChat. No WhatsApp via Zappfy ela também some para o cliente; no WhatsApp Oficial e Instagram, o cliente ainda a vê no app dele (limitação da Meta).'
+        }
+        confirmLabel={deleteTarget?.status === 'FAILED' ? 'Remover' : 'Excluir'}
+        onConfirm={confirmDelete}
+        onCancel={() => !deleting && setDeleteTarget(null)}
       />
 
       <EngagementWindowBanner

@@ -449,9 +449,42 @@ export class MessagesService {
     }
 
     if (!message.externalId) {
+      // FAILED = nunca foi enviada e nunca vai (o cliente nunca recebeu) —
+      // apaga localmente, é 100% seguro. QUEUED/SENDING ainda pode ganhar
+      // externalId no próximo instante, então aí sim pedimos pra esperar.
+      if (message.status === MessageStatus.FAILED) {
+        const revokedAt = new Date();
+        await this.prisma.message.update({
+          where: { id: message.id },
+          data: { revokedAt, revokedBy: actorId, revokeSucceededRemote: true },
+        });
+        const payload = {
+          messageId: message.id,
+          conversationId: message.conversation.id,
+          revokedAt: revokedAt.toISOString(),
+          revokedBy: actorId,
+          succeededRemote: true,
+        };
+        this.realtimeGateway.emitToConversation(
+          message.conversation.id,
+          'message:revoked',
+          payload,
+        );
+        this.realtimeGateway.emitToChannel(
+          message.conversation.channelId,
+          'message:revoked',
+          payload,
+        );
+        return {
+          messageId: message.id,
+          revokedAt,
+          revokedBy: actorId,
+          succeededRemote: true,
+          remoteError: null,
+        };
+      }
       throw new BadRequestException(
-        'Mensagem ainda não foi entregue ao provider — não tem como deletar pra todos. ' +
-          'Tente de novo em alguns segundos ou apague localmente.',
+        'A mensagem ainda está sendo enviada. Aguarde alguns segundos e tente de novo.',
       );
     }
 
