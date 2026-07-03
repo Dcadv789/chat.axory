@@ -546,7 +546,15 @@ export function ChatPanel({
           return {
             ...prev,
             messages: prev.messages.map((m) =>
-              ids.includes(m.id) ? { ...m, status: payload.status } : m,
+              ids.includes(m.id)
+                ? {
+                    ...m,
+                    status: payload.status,
+                    ...(payload.failedReason
+                      ? { failedReason: payload.failedReason }
+                      : {}),
+                  }
+                : m,
             ),
           };
         },

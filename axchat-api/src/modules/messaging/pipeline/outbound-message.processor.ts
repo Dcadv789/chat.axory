@@ -167,6 +167,7 @@ export class OutboundMessageProcessor extends WorkerHost {
         updated.conversationId,
         messageId,
         MessageStatus.FAILED,
+        updated.failedReason,
       );
       throw error;
     }
@@ -232,8 +233,14 @@ export class OutboundMessageProcessor extends WorkerHost {
     conversationId: string,
     messageId: string,
     status: MessageStatus,
+    failedReason?: string | null,
   ) {
-    const payload = { messageId, status, conversationId };
+    const payload = {
+      messageId,
+      status,
+      conversationId,
+      ...(failedReason ? { failedReason } : {}),
+    };
     this.realtimeGateway.emitToConversation(
       conversationId,
       'message:status',
