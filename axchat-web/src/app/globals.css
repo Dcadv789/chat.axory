@@ -122,31 +122,42 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+  /* Scrollbar fina, translúcida e arredondada (pill flutuante), nos dois temas.
+     O border transparente + background-clip:padding-box dá o aspecto "inset"
+     moderno; escurece no hover. */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.8 0 0) transparent;
+    scrollbar-color: rgb(0 0 0 / 0.2) transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 8px;
+    height: 8px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: oklch(0.8 0 0);
+    background: rgb(0 0 0 / 0.18);
     border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.7 0 0);
+    background: rgb(0 0 0 / 0.32);
+    background-clip: padding-box;
+  }
+  .scrollbar-thin::-webkit-scrollbar-corner {
+    background: transparent;
   }
   .dark .scrollbar-thin {
-    scrollbar-color: oklch(0.35 0 0) transparent;
+    scrollbar-color: rgb(255 255 255 / 0.22) transparent;
   }
   .dark .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: oklch(0.35 0 0);
+    background: rgb(255 255 255 / 0.18);
+    background-clip: padding-box;
   }
   .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.45 0 0);
+    background: rgb(255 255 255 / 0.32);
+    background-clip: padding-box;
   }
 }

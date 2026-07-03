@@ -951,7 +951,7 @@ export function ChatPanel({
         onClose={() => setSearchOpen(false)}
       />
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-zinc-50 p-4 dark:bg-[#171717]">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin bg-zinc-50 p-4 dark:bg-[#171717]">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
