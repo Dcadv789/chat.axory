@@ -104,6 +104,12 @@ export function AppSidebar() {
               sector="marketing"
             />
           )}
+          {activeOrg?.marketingEnabled && (
+            <SidebarItem href="/marketing">
+              <Megaphone className="size-5" />
+              <SidebarLabel>Painel de Marketing</SidebarLabel>
+            </SidebarItem>
+          )}
           {navItems.map((item) => (
             <SidebarItem key={item.href} href={item.href}>
               <item.icon className="size-5" />

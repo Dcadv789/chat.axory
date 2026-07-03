@@ -40,6 +40,7 @@ import { CronTriggerService } from './crons/cron-trigger.service';
 import { IsCronExpressionConstraint } from './crons/dto/create-agent-cron.dto';
 import { MarketingProfileController } from './marketing/marketing-profile.controller';
 import { MarketingProfileService } from './marketing/marketing-profile.service';
+import { MarketingAdsService } from './marketing/marketing-ads.service';
 import { MarketingProvisioningService } from './marketing/marketing-provisioning.service';
 
 @Module({
@@ -85,6 +86,7 @@ import { MarketingProvisioningService } from './marketing/marketing-provisioning
     CronTriggerService,
     IsCronExpressionConstraint,
     MarketingProfileService,
+    MarketingAdsService,
     MarketingProvisioningService,
   ],
   exports: [AiAgentRunnerService, AgentRouterService, MarketingProvisioningService],

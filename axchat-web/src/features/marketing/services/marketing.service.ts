@@ -141,7 +141,31 @@ export const marketingService = {
     const { data } = await api.get('/marketing/ad-metrics');
     return data?.data ?? data;
   },
+
+  // ─── Gestão de anúncios (Meta Ads ao vivo) ───
+  async listCampaigns(): Promise<{ campaigns: AdCampaign[] }> {
+    const { data } = await api.get('/marketing/ads/campaigns');
+    return data?.data ?? data;
+  },
+
+  async setCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSED'): Promise<void> {
+    await api.post(`/marketing/ads/campaigns/${id}/status`, { status });
+  },
+
+  async deleteCampaign(id: string): Promise<void> {
+    await api.delete(`/marketing/ads/campaigns/${id}`);
+  },
 };
+
+export interface AdCampaign {
+  id: string;
+  name: string;
+  status: string;
+  effectiveStatus: string;
+  objective: string | null;
+  dailyBudgetCents: number | null;
+  lifetimeBudgetCents: number | null;
+}
 
 export interface AdMetricRow {
   id: string;

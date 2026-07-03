@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { MarketingProfileService } from './marketing-profile.service';
+import { MarketingAdsService } from './marketing-ads.service';
 import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
 import { CurrentOrg, Roles } from '../../../common/decorators';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
@@ -21,7 +22,36 @@ import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 @UseGuards(JwtAuthGuard, OrgGuard, RolesGuard)
 @Controller('marketing')
 export class MarketingProfileController {
-  constructor(private readonly service: MarketingProfileService) {}
+  constructor(
+    private readonly service: MarketingProfileService,
+    private readonly ads: MarketingAdsService,
+  ) {}
+
+  // ─── Gestão de anúncios (Meta Ads) — ação direta do dono ───
+
+  @Get('ads/campaigns')
+  @ApiOperation({ summary: 'Lista campanhas de anúncio (Meta Ads) ao vivo' })
+  listCampaigns(@CurrentOrg('id') orgId: string) {
+    return this.ads.listCampaigns(orgId);
+  }
+
+  @Post('ads/campaigns/:id/status')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Pausa/ativa uma campanha' })
+  setCampaignStatus(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Body() body: { status: 'ACTIVE' | 'PAUSED' },
+  ) {
+    return this.ads.setCampaignStatus(orgId, id, body.status);
+  }
+
+  @Delete('ads/campaigns/:id')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Exclui uma campanha' })
+  deleteCampaign(@CurrentOrg('id') orgId: string, @Param('id') id: string) {
+    return this.ads.deleteCampaign(orgId, id);
+  }
 
   @Get('profile')
   @ApiOperation({ summary: 'Regras de marketing da organização' })
