@@ -59,6 +59,29 @@ export class MarketingProfileController {
     return this.ads.deleteCampaign(orgId, id);
   }
 
+  @Get('ads/campaigns/:id/adsets')
+  @ApiOperation({ summary: 'Lista os conjuntos de anúncios de uma campanha' })
+  listAdSets(@CurrentOrg('id') orgId: string, @Param('id') id: string) {
+    return this.ads.listAdSets(orgId, id);
+  }
+
+  @Post('ads/campaigns/:id/budget')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Edita o orçamento diário de uma campanha' })
+  setCampaignBudget(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Body() body: { dailyBudgetCents: number },
+  ) {
+    return this.ads.setCampaignBudget(orgId, id, body.dailyBudgetCents);
+  }
+
+  @Get('instagram/posts')
+  @ApiOperation({ summary: 'Posts recentes do Instagram (com miniatura)' })
+  instagramPosts(@CurrentOrg('id') orgId: string) {
+    return this.ads.listInstagramPosts(orgId);
+  }
+
   @Get('profile')
   @ApiOperation({ summary: 'Regras de marketing da organização' })
   getProfile(@CurrentOrg('id') orgId: string) {

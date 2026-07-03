@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
   LayoutDashboard, TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
+  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -15,11 +16,13 @@ import {
   type MediaMetricRow,
   type AdMetricRow,
   type AdCampaign,
+  type AdSet,
+  type InstagramPost,
   type MarketingOverview,
 } from '@/features/marketing/services/marketing.service';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
-type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'activity';
+type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'posts' | 'activity';
 
 const WINDOW_LABELS: Record<string, string> = {
   LAST_MONTH: 'último mês',
@@ -85,6 +88,7 @@ export function MarketingPanel() {
     { id: 'gestao', icon: Megaphone, label: 'Gestão de anúncios', subtitle: 'Pause, ative e exclua suas campanhas do Meta Ads' },
     { id: 'admetrics', icon: BarChart3, label: 'Métricas dos anúncios', subtitle: 'Desempenho por campanha ao longo do tempo' },
     { id: 'metrics', icon: BarChart3, label: 'Métricas dos posts', subtitle: 'Engajamento dos posts do Instagram' },
+    { id: 'posts', icon: Instagram, label: 'Posts do Instagram', subtitle: 'Seus posts recentes com miniatura e engajamento' },
     { id: 'activity', icon: Activity, label: 'Atividade da crew', subtitle: 'Análises e ações registradas pelos agentes' },
   ];
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
@@ -167,6 +171,7 @@ export function MarketingPanel() {
             setCols={setCols}
           />
         )}
+        {tab === 'posts' && <InstagramPostsTab />}
         {tab === 'activity' && <ActivityView activity={activity} />}
       </div>
     </div>
@@ -437,6 +442,7 @@ function GestaoTab() {
   const [busy, setBusy] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paused'>('all');
+  const [detail, setDetail] = useState<AdCampaign | null>(null);
   const [toDelete, setToDelete] = useState<AdCampaign | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -561,7 +567,13 @@ function GestaoTab() {
                 return (
                   <tr key={c.id} className="border-b border-zinc-100 last:border-0 dark:border-white/5">
                     <td className={td + ' max-w-[280px]'}>
-                      <span className="block truncate font-medium" title={c.name}>{c.name}</span>
+                      <button
+                        onClick={() => setDetail(c)}
+                        className="block truncate text-left font-medium text-primary hover:underline"
+                        title={`Ver detalhes de ${c.name}`}
+                      >
+                        {c.name}
+                      </button>
                       {c.objective && <span className="text-[10px] text-zinc-400">{c.objective}</span>}
                     </td>
                     <td className={td}>
@@ -616,6 +628,170 @@ function GestaoTab() {
         onConfirm={confirmDelete}
         onCancel={() => !deleting && setToDelete(null)}
       />
+
+      {detail && (
+        <CampaignDetailDrawer
+          campaign={detail}
+          onClose={() => setDetail(null)}
+          onChanged={invalidate}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Detalhe de campanha (drawer) ──────────────────────────────
+
+function CampaignDetailDrawer({ campaign, onClose, onChanged }: { campaign: AdCampaign; onClose: () => void; onChanged: () => void }) {
+  const { data: adsets, isLoading: loadingAdsets, isError: adsetsError } = useQuery({
+    queryKey: ['marketing-adsets', campaign.id],
+    queryFn: () => marketingService.listAdSets(campaign.id),
+  });
+  const { data: adMetrics } = useQuery({
+    queryKey: ['marketing-ad-metrics', 90],
+    queryFn: () => marketingService.adMetrics(90),
+  });
+
+  const series = aggregateSpendByDay((adMetrics?.metrics ?? []).filter((r) => r.campaignId === campaign.id));
+
+  const [editing, setEditing] = useState(false);
+  const [budget, setBudget] = useState(
+    campaign.dailyBudgetCents != null ? (campaign.dailyBudgetCents / 100).toString() : '',
+  );
+  const [saving, setSaving] = useState(false);
+
+  const saveBudget = async () => {
+    const reais = Number(budget.replace(',', '.'));
+    if (!Number.isFinite(reais) || reais <= 0) {
+      toast.error('Informe um valor válido.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await marketingService.setCampaignBudget(campaign.id, Math.round(reais * 100));
+      toast.success('Orçamento atualizado');
+      setEditing(false);
+      onChanged();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Falha ao atualizar orçamento');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const money = (cents: number | null) =>
+    cents == null ? '—' : `R$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative flex h-full w-full max-w-lg flex-col overflow-y-auto scrollbar-thin border-l border-zinc-200 bg-white shadow-xl dark:border-white/10 dark:bg-black">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-200 px-5 py-4 dark:border-white/10">
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100" title={campaign.name}>{campaign.name}</p>
+            <p className="text-xs text-zinc-500">
+              {campaign.objective ?? 'Campanha'} · {campaign.effectiveStatus === 'ACTIVE' ? 'Ativa' : campaign.effectiveStatus}
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/10">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5">
+          {/* Orçamento */}
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                <Wallet className="h-4 w-4 text-primary" /> Orçamento diário
+              </p>
+              {!editing && (
+                <button onClick={() => setEditing(true)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  <Pencil className="h-3.5 w-3.5" /> Editar
+                </button>
+              )}
+            </div>
+            {editing ? (
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-sm text-zinc-500">R$</span>
+                <input
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="50,00"
+                  className="w-32 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm focus:border-primary focus:outline-none dark:border-white/10 dark:bg-black dark:text-zinc-100"
+                />
+                <button onClick={saveBudget} disabled={saving} className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Salvar
+                </button>
+                <button onClick={() => setEditing(false)} className="text-xs text-zinc-500 hover:underline">Cancelar</button>
+              </div>
+            ) : (
+              <p className="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">{money(campaign.dailyBudgetCents)}</p>
+            )}
+            {campaign.dailyBudgetCents == null && !editing && (
+              <p className="mt-1 text-[11px] text-zinc-400">Sem orçamento de campanha — pode estar nos conjuntos de anúncios abaixo.</p>
+            )}
+          </div>
+
+          {/* Gráfico de gasto da campanha */}
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+            <p className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">Gasto por dia (90 dias)</p>
+            {series.length < 2 ? (
+              <p className="py-6 text-center text-xs text-zinc-400">Série insuficiente. A captura diária popula isso conforme a crew analisa.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={180}>
+                <AreaChart data={series} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="detailSpendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0047ff" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#0047ff" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-zinc-200 dark:text-white/10" />
+                  <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="currentColor" className="text-zinc-400" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="currentColor" className="text-zinc-400" width={48} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v: any) => [`R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Gasto']} />
+                  <Area type="monotone" dataKey="spend" stroke="#0047ff" strokeWidth={2} fill="url(#detailSpendGrad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Conjuntos de anúncios */}
+          <div>
+            <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              <Layers className="h-4 w-4 text-primary" /> Conjuntos de anúncios
+            </p>
+            {loadingAdsets ? (
+              <div className="flex items-center gap-2 py-4 text-sm text-zinc-400"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</div>
+            ) : adsetsError ? (
+              <p className="text-xs text-rose-500">Não consegui carregar os conjuntos de anúncios.</p>
+            ) : (adsets?.adsets.length ?? 0) === 0 ? (
+              <p className="text-xs text-zinc-400">Nenhum conjunto de anúncios nesta campanha.</p>
+            ) : (
+              <div className="space-y-2">
+                {adsets!.adsets.map((a: AdSet) => (
+                  <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg border border-zinc-100 bg-white px-3 py-2 dark:border-white/10 dark:bg-black">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-300" title={a.name}>{a.name}</p>
+                      <p className="text-[10px] text-zinc-400">{a.optimizationGoal ?? '—'}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                        a.effectiveStatus === 'ACTIVE'
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                          : 'bg-zinc-100 text-zinc-500 dark:bg-white/10'
+                      }`}>{a.effectiveStatus === 'ACTIVE' ? 'ATIVO' : a.effectiveStatus}</span>
+                      <p className="mt-0.5 text-[10px] tabular-nums text-zinc-400">{money(a.dailyBudgetCents)}/dia</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -851,6 +1027,86 @@ function MetricsTab({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Posts do Instagram ────────────────────────────────────────
+
+function InstagramPostsTab() {
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['marketing-instagram-posts'],
+    queryFn: () => marketingService.instagramPosts(),
+    refetchInterval: 60000,
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-zinc-500">Seus posts recentes no Instagram (feed). Clique para abrir no Instagram.</p>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} /> Atualizar
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center gap-2 py-10 text-sm text-zinc-400">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando posts…
+        </div>
+      ) : isError ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+          {(error as any)?.response?.data?.message ?? 'Erro ao carregar posts. Verifique IG_USER_ID / IG_ACCESS_TOKEN em Integrações.'}
+        </div>
+      ) : (data?.posts.length ?? 0) === 0 ? (
+        <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-5 py-10 text-center dark:border-white/10 dark:bg-black">
+          <p className="text-sm text-zinc-400">Nenhum post encontrado na conta do Instagram.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {data!.posts.map((post) => (
+            <a
+              key={post.id}
+              href={post.permalink ?? '#'}
+              target="_blank"
+              rel="noreferrer"
+              className="group overflow-hidden rounded-xl border border-zinc-200 bg-white transition-shadow hover:shadow-md dark:border-white/10 dark:bg-black"
+            >
+              <div className="relative aspect-square bg-zinc-100 dark:bg-white/5">
+                {post.thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={post.thumbnailUrl} alt={post.caption ?? 'post'} className="h-full w-full object-cover" loading="lazy" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-zinc-300">
+                    <Instagram className="h-8 w-8" />
+                  </div>
+                )}
+                <span className="absolute right-1.5 top-1.5 rounded bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  <ExternalLink className="h-3 w-3" />
+                </span>
+                {post.mediaType === 'VIDEO' && (
+                  <span className="absolute left-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white">VÍDEO</span>
+                )}
+              </div>
+              <div className="p-2.5">
+                <p className="line-clamp-2 h-8 text-[11px] text-zinc-600 dark:text-zinc-400">
+                  {post.caption ? post.caption.replace(/\s+/g, ' ').trim() : <span className="text-zinc-300">Sem legenda</span>}
+                </p>
+                <div className="mt-1.5 flex items-center gap-3 text-[11px] text-zinc-500">
+                  <span className="inline-flex items-center gap-1"><Heart className="h-3 w-3" /> {post.likes ?? 0}</span>
+                  <span className="inline-flex items-center gap-1"><MessageCircle className="h-3 w-3" /> {post.comments ?? 0}</span>
+                  {post.timestamp && (
+                    <span className="ml-auto text-[10px] text-zinc-400">{new Date(post.timestamp).toLocaleDateString('pt-BR')}</span>
+                  )}
+                </div>
+              </div>
+            </a>
+          ))}
         </div>
       )}
     </div>

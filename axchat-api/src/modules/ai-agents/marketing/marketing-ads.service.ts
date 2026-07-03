@@ -89,6 +89,96 @@ export class MarketingAdsService {
     return { campaigns };
   }
 
+  /** Ad sets de uma campanha (nome, status, orçamento, objetivo de otimização). */
+  async listAdSets(orgId: string, campaignId: string): Promise<{ adsets: any[] }> {
+    const { token } = await this.credentials(orgId);
+    const fields = 'name,status,effective_status,daily_budget,lifetime_budget,optimization_goal';
+    const res = await fetch(
+      `${GRAPH}/${encodeURIComponent(campaignId)}/adsets?fields=${fields}&limit=100&access_token=${encodeURIComponent(token)}`,
+      { signal: AbortSignal.timeout(15_000) },
+    );
+    const json: any = await res.json();
+    if (!res.ok) {
+      throw new BadRequestException(`Meta Ads: ${json?.error?.message ?? `HTTP ${res.status}`}`);
+    }
+    const data: any[] = Array.isArray(json?.data) ? json.data : [];
+    const adsets = data.map((a) => ({
+      id: String(a.id),
+      name: a.name ?? '(sem nome)',
+      status: a.status ?? '—',
+      effectiveStatus: a.effective_status ?? a.status ?? '—',
+      dailyBudgetCents: this.num(a.daily_budget),
+      lifetimeBudgetCents: this.num(a.lifetime_budget),
+      optimizationGoal: a.optimization_goal ?? null,
+    }));
+    return { adsets };
+  }
+
+  /** Edita o orçamento diário da campanha (CBO). Valor em centavos. */
+  async setCampaignBudget(
+    orgId: string,
+    campaignId: string,
+    dailyBudgetCents: number,
+  ): Promise<{ ok: boolean }> {
+    if (!Number.isFinite(dailyBudgetCents) || dailyBudgetCents <= 0) {
+      throw new BadRequestException('Orçamento diário inválido.');
+    }
+    const { token } = await this.credentials(orgId);
+    const res = await fetch(`${GRAPH}/${encodeURIComponent(campaignId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ daily_budget: Math.round(dailyBudgetCents), access_token: token }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const json: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = json?.error?.message ?? `HTTP ${res.status}`;
+      throw new BadRequestException(
+        /budget/i.test(msg)
+          ? `Meta Ads: ${msg}. (Se o orçamento estiver nos conjuntos de anúncios, edite lá — essa campanha não usa orçamento de campanha.)`
+          : `Meta Ads: ${msg}`,
+      );
+    }
+    this.logger.log(`Orçamento da campanha ${campaignId} → ${dailyBudgetCents} (org ${orgId})`);
+    return { ok: true };
+  }
+
+  /** Posts recentes do Instagram (com miniatura) via IG Graph API. */
+  async listInstagramPosts(orgId: string): Promise<{ posts: any[] }> {
+    const [igUserId, token] = await Promise.all([
+      this.resolve(orgId, 'IG_USER_ID'),
+      this.resolve(orgId, 'IG_ACCESS_TOKEN'),
+    ]);
+    if (!igUserId || !token) {
+      throw new BadRequestException(
+        'Faltam IG_USER_ID e/ou IG_ACCESS_TOKEN. Configure em Configurações → Integrações.',
+      );
+    }
+    const fields =
+      'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count';
+    const res = await fetch(
+      `${GRAPH}/${encodeURIComponent(igUserId)}/media?fields=${fields}&limit=30&access_token=${encodeURIComponent(token)}`,
+      { signal: AbortSignal.timeout(15_000) },
+    );
+    const json: any = await res.json();
+    if (!res.ok) {
+      throw new BadRequestException(`Instagram: ${json?.error?.message ?? `HTTP ${res.status}`}`);
+    }
+    const data: any[] = Array.isArray(json?.data) ? json.data : [];
+    const posts = data.map((m) => ({
+      id: String(m.id),
+      caption: m.caption ?? null,
+      mediaType: m.media_type ?? null,
+      // Vídeo usa thumbnail_url; imagem usa media_url.
+      thumbnailUrl: m.thumbnail_url ?? m.media_url ?? null,
+      permalink: m.permalink ?? null,
+      timestamp: m.timestamp ?? null,
+      likes: this.num(m.like_count),
+      comments: this.num(m.comments_count),
+    }));
+    return { posts };
+  }
+
   async setCampaignStatus(
     orgId: string,
     campaignId: string,

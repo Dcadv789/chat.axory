@@ -160,7 +160,42 @@ export const marketingService = {
   async deleteCampaign(id: string): Promise<void> {
     await api.delete(`/marketing/ads/campaigns/${id}`);
   },
+
+  async listAdSets(id: string): Promise<{ adsets: AdSet[] }> {
+    const { data } = await api.get(`/marketing/ads/campaigns/${id}/adsets`);
+    return data?.data ?? data;
+  },
+
+  async setCampaignBudget(id: string, dailyBudgetCents: number): Promise<void> {
+    await api.post(`/marketing/ads/campaigns/${id}/budget`, { dailyBudgetCents });
+  },
+
+  async instagramPosts(): Promise<{ posts: InstagramPost[] }> {
+    const { data } = await api.get('/marketing/instagram/posts');
+    return data?.data ?? data;
+  },
 };
+
+export interface AdSet {
+  id: string;
+  name: string;
+  status: string;
+  effectiveStatus: string;
+  dailyBudgetCents: number | null;
+  lifetimeBudgetCents: number | null;
+  optimizationGoal: string | null;
+}
+
+export interface InstagramPost {
+  id: string;
+  caption: string | null;
+  mediaType: string | null;
+  thumbnailUrl: string | null;
+  permalink: string | null;
+  timestamp: string | null;
+  likes: number | null;
+  comments: number | null;
+}
 
 export interface AdCampaign {
   id: string;
