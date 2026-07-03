@@ -246,19 +246,6 @@ export function ConversationHeader({
             <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
           </button>
         )}
-        {onToggleContactSidebar && (
-          <button
-            onClick={onToggleContactSidebar}
-            title={contactSidebarOpen ? 'Fechar dados do contato' : 'Abrir dados do contato'}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
-              contactSidebarOpen
-                ? 'bg-primary/10 text-primary dark:bg-primary/15'
-                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
-            }`}
-          >
-            <UserCircle className="h-3.5 w-3.5" />
-          </button>
-        )}
         {onToggleApprovals && pendingApprovalsCount > 0 && (
           <button
             onClick={onToggleApprovals}
@@ -275,19 +262,7 @@ export function ConversationHeader({
             </span>
           </button>
         )}
-        {onToggleSearch && (
-          <button
-            onClick={onToggleSearch}
-            title={searchOpen ? 'Fechar busca' : 'Buscar mensagens'}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
-              searchOpen
-                ? 'bg-primary/10 text-primary dark:bg-primary/15'
-                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
-            }`}
-          >
-            <Search className="h-3.5 w-3.5" />
-          </button>
-        )}
+        {/* Ordem fixa dos 3: agente (esq) · contato (meio) · busca (dir) */}
         {onToggleAgentLogs && (
           <button
             onClick={onToggleAgentLogs}
@@ -299,6 +274,33 @@ export function ConversationHeader({
             }`}
           >
             <Activity className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onToggleContactSidebar && (
+          <button
+            onClick={onToggleContactSidebar}
+            title={contactSidebarOpen ? 'Fechar dados do contato' : 'Abrir dados do contato'}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+              contactSidebarOpen
+                ? 'bg-primary/10 text-primary dark:bg-primary/15'
+                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
+            }`}
+          >
+            <UserCircle className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {onToggleSearch && (
+          <button
+            data-search-toggle
+            onClick={onToggleSearch}
+            title={searchOpen ? 'Fechar busca' : 'Buscar mensagens'}
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+              searchOpen
+                ? 'bg-primary/10 text-primary dark:bg-primary/15'
+                : 'text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-300'
+            }`}
+          >
+            <Search className="h-3.5 w-3.5" />
           </button>
         )}
         {conversation.status !== 'CLOSED' && (

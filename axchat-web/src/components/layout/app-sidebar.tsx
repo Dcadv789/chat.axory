@@ -38,8 +38,8 @@ import {
   DropdownDivider,
 } from '@/components/ui/dropdown';
 
+// Dashboard é renderizado no topo (antes do Inbox); aqui ficam os demais.
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/automations', label: 'Automações', icon: Zap },
 ];
 
@@ -86,6 +86,10 @@ export function AppSidebar() {
 
       <SidebarBody>
         <SidebarSection>
+          <SidebarItem href="/dashboard">
+            <LayoutDashboard className="size-5" />
+            <SidebarLabel>Dashboard</SidebarLabel>
+          </SidebarItem>
           <InboxTree />
           <PipelinesTree />
           <AgentSectorTree

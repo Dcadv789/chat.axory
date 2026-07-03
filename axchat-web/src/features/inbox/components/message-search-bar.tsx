@@ -17,8 +17,9 @@ export function MessageSearchBar({ messages, onJumpToMessage, open, onClose }: M
   const [query, setQuery] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Foca ao abrir; limpa e fecha no Escape.
+  // Foca ao abrir; limpa quando fecha.
   useEffect(() => {
     if (open) {
       inputRef.current?.focus();
@@ -27,6 +28,20 @@ export function MessageSearchBar({ messages, onJumpToMessage, open, onClose }: M
       setCurrentIndex(0);
     }
   }, [open]);
+
+  // Clicar fora fecha a busca na hora. Ignora o próprio botão da lupa
+  // (data-search-toggle) pra não brigar com o toggle.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (containerRef.current?.contains(target)) return;
+      if (target.closest('[data-search-toggle]')) return;
+      onClose();
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open, onClose]);
 
   const results = useMemo(() => {
     if (!query.trim()) return [] as { id: string; text: string; index: number }[];
@@ -57,7 +72,7 @@ export function MessageSearchBar({ messages, onJumpToMessage, open, onClose }: M
   if (!open) return null;
 
   return (
-    <div className="flex items-center gap-1.5 border-b border-zinc-100 bg-white px-3 py-1.5 dark:border-white/5 dark:bg-black">
+    <div ref={containerRef} className="flex items-center gap-1.5 border-b border-zinc-100 bg-white px-3 py-1.5 dark:border-white/5 dark:bg-black">
       <Search className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
       <input
         ref={inputRef}
