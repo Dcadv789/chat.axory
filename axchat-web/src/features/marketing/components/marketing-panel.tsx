@@ -297,7 +297,13 @@ function ResumoTab({ since, until }: { since: string; until: string }) {
       <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            <Wallet className="h-4 w-4 text-primary" /> Verba do mês
+            <Wallet className="h-4 w-4 text-primary" />
+            Verba de <span className="capitalize">{ov.monthLabel}</span>
+            {!ov.isCurrentMonth && (
+              <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-zinc-500 dark:bg-white/10">
+                {ov.isPastMonth ? 'mês fechado' : 'mês futuro'}
+              </span>
+            )}
           </p>
           {st && (
             <span className={`inline-flex items-center gap-1 text-xs font-medium ${st.cls}`}>
@@ -328,10 +334,10 @@ function ResumoTab({ since, until }: { since: string; until: string }) {
               />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <MiniStat label="Dias restantes" value={`${ov.daysRemaining}`} />
+              <MiniStat label={ov.isPastMonth ? 'Dias no mês' : 'Dias restantes'} value={ov.isPastMonth ? `${ov.daysInMonth}` : `${ov.daysRemaining}`} />
               <MiniStat label="Ritmo/dia" value={fmtMoney(p.dailyRunRate, cur)} />
-              <MiniStat label="Projeção do mês" value={fmtMoney(p.projectedMonthEnd, cur)} />
-              <MiniStat label="Sugestão/dia p/ resto" value={fmtMoney(p.suggestedDailyForRest, cur)} />
+              <MiniStat label={ov.isPastMonth ? 'Gasto final' : 'Projeção do mês'} value={fmtMoney(p.projectedMonthEnd, cur)} />
+              <MiniStat label="Sugestão/dia p/ resto" value={ov.isPastMonth ? '—' : fmtMoney(p.suggestedDailyForRest, cur)} />
             </div>
           </>
         )}
@@ -339,7 +345,7 @@ function ResumoTab({ since, until }: { since: string; until: string }) {
 
       {/* KPIs da conta */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard icon={Wallet} label="Investido (mês)" value={fmtMoney(ov.insights.spend, cur)} accent="text-primary" />
+        <KpiCard icon={Wallet} label="Investido (período)" value={fmtMoney(ov.insights.spend, cur)} accent="text-primary" />
         <KpiCard icon={Eye} label="Impressões" value={fmtInt(ov.insights.impressions)} accent="text-sky-500" />
         <KpiCard icon={Users} label="Alcance" value={fmtInt(ov.insights.reach)} accent="text-violet-500" />
         <KpiCard icon={MousePointerClick} label="Cliques" value={fmtInt(ov.insights.clicks)} accent="text-amber-500" />

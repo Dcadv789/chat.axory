@@ -209,6 +209,9 @@ export interface AdCampaign {
 
 export interface MarketingOverview {
   month: string;
+  monthLabel: string;
+  isCurrentMonth: boolean;
+  isPastMonth: boolean;
   daysInMonth: number;
   dayOfMonth: number;
   daysRemaining: number;

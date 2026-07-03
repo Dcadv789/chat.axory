@@ -221,23 +221,44 @@ export class MarketingAdsService {
       },
     });
 
-    // Calendário no fuso BRT (UTC-3).
-    const nowBrt = new Date(Date.now() - 3 * 60 * 60 * 1000);
-    const year = nowBrt.getUTCFullYear();
-    const month = nowBrt.getUTCMonth();
-    const dayOfMonth = nowBrt.getUTCDate();
-    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-    const daysRemaining = daysInMonth - dayOfMonth + 1;
     const pad = (v: number) => String(v).padStart(2, '0');
-    const today = `${year}-${pad(month + 1)}-${pad(dayOfMonth)}`;
-    const firstOfMonth = `${year}-${pad(month + 1)}-01`;
     const round2 = (v: number) => Math.round(v * 100) / 100;
-
-    // Janela dos INSIGHTS: se veio range da página (since/until), usa ele;
-    // senão, o mês corrente. (O pacing de verba é sempre mensal.)
     const validDate = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null);
+    const MONTHS_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+    // "Hoje" no fuso BRT (UTC-3).
+    const nowBrt = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    const curYear = nowBrt.getUTCFullYear();
+    const curMonth = nowBrt.getUTCMonth();
+    const curDay = nowBrt.getUTCDate();
+
+    // MÊS DE REFERÊNCIA do pacing = mês da data final (until) do range escolhido;
+    // sem range, o mês corrente. Assim, se o usuário olha maio/2025, a verba
+    // mensal é a de maio/2025 — não a do mês atual.
+    let refYear = curYear;
+    let refMonth0 = curMonth;
+    if (validDate(until)) {
+      const [y, m] = until!.split('-').map(Number);
+      refYear = y;
+      refMonth0 = m - 1;
+    }
+    const daysInMonth = new Date(Date.UTC(refYear, refMonth0 + 1, 0)).getUTCDate();
+    const firstOfMonth = `${refYear}-${pad(refMonth0 + 1)}-01`;
+    const lastOfMonth = `${refYear}-${pad(refMonth0 + 1)}-${pad(daysInMonth)}`;
+
+    const isCurrentMonth = refYear === curYear && refMonth0 === curMonth;
+    const isPastMonth =
+      refYear < curYear || (refYear === curYear && refMonth0 < curMonth);
+    // Dias decorridos e restantes DO MÊS DE REFERÊNCIA.
+    const dayOfMonth = isCurrentMonth ? curDay : isPastMonth ? daysInMonth : 0;
+    const daysRemaining = isCurrentMonth ? daysInMonth - curDay + 1 : isPastMonth ? 0 : daysInMonth;
+    // Fim da janela pra ler o gasto do mês (hoje, se for o mês corrente).
+    const monthUntil = isCurrentMonth ? `${curYear}-${pad(curMonth + 1)}-${pad(curDay)}` : lastOfMonth;
+    const monthLabel = `${MONTHS_PT[refMonth0]} de ${refYear}`;
+
+    // Janela dos INSIGHTS (KPIs): o range da página; sem range, o mês de ref.
     const insightsSince = validDate(since) ?? firstOfMonth;
-    const insightsUntil = validDate(until) ?? today;
+    const insightsUntil = validDate(until) ?? monthUntil;
 
     const [adAccountId, token] = await Promise.all([
       this.resolve(orgId, 'META_AD_ACCOUNT_ID'),
@@ -308,14 +329,14 @@ export class MarketingAdsService {
     const monthlyBudget = profile?.monthlyAdBudgetCents != null ? profile.monthlyAdBudgetCents / 100 : null;
     const maxDailyBudget = profile?.maxDailyBudgetCents != null ? profile.maxDailyBudgetCents / 100 : null;
 
-    // Pacing é SEMPRE mensal. Se o filtro da página é exatamente o mês, reusa o
-    // insights; se é outro período, busca o gasto do mês à parte (só com teto).
-    const isMonthWindow = insightsSince === firstOfMonth && insightsUntil === today;
+    // Gasto do MÊS DE REFERÊNCIA (pra pacing). Se a janela de insights já é
+    // exatamente esse mês, reusa; senão busca à parte (só quando há teto).
+    const isMonthWindow = insightsSince === firstOfMonth && insightsUntil === monthUntil;
     let spentMonth: number | null = isMonthWindow ? insights.spend : null;
     if (spentMonth == null && monthlyBudget != null && adAccountId && token) {
       try {
         const acct = adAccountId.replace(/^act_/, '');
-        const tr = encodeURIComponent(JSON.stringify({ since: firstOfMonth, until: today }));
+        const tr = encodeURIComponent(JSON.stringify({ since: firstOfMonth, until: monthUntil }));
         const res = await fetch(
           `${GRAPH}/act_${encodeURIComponent(acct)}/insights?fields=spend&time_range=${tr}&access_token=${encodeURIComponent(token)}`,
           { signal: AbortSignal.timeout(15_000) },
@@ -333,11 +354,15 @@ export class MarketingAdsService {
     let pacing: Record<string, unknown> = {};
     if (monthlyBudget != null && spentMonth != null) {
       const remaining = round2(monthlyBudget - spentMonth);
-      const dailyRunRate = round2(spentMonth / dayOfMonth);
-      const projectedMonthEnd = round2(dailyRunRate * daysInMonth);
-      const suggestedDailyForRest = round2(Math.max(0, remaining) / daysRemaining);
+      const elapsed = dayOfMonth; // dias já decorridos do mês de referência
+      const dailyRunRate = elapsed > 0 ? round2(spentMonth / elapsed) : 0;
+      // Mês passado já fechou → projeção = gasto real; mês corrente → extrapola.
+      const projectedMonthEnd = isPastMonth
+        ? round2(spentMonth)
+        : elapsed > 0 ? round2(dailyRunRate * daysInMonth) : 0;
+      const suggestedDailyForRest = daysRemaining > 0 ? round2(Math.max(0, remaining) / daysRemaining) : 0;
       const pctBudgetUsed = round2((spentMonth / monthlyBudget) * 100);
-      const pctMonthElapsed = round2((dayOfMonth / daysInMonth) * 100);
+      const pctMonthElapsed = round2((elapsed / daysInMonth) * 100);
       const status =
         projectedMonthEnd > monthlyBudget * 1.1 ? 'ACIMA_DO_TETO'
           : projectedMonthEnd < monthlyBudget * 0.8 ? 'ABAIXO_DO_TETO' : 'NO_RITMO';
@@ -345,8 +370,10 @@ export class MarketingAdsService {
     }
 
     return {
-      month: `${year}-${pad(month + 1)}`,
-      today,
+      month: `${refYear}-${pad(refMonth0 + 1)}`,
+      monthLabel,
+      isCurrentMonth,
+      isPastMonth,
       daysInMonth,
       dayOfMonth,
       daysRemaining,
