@@ -64,52 +64,73 @@ export function MarketingPanel() {
     refetchInterval: 30000,
   });
 
-  const tabBtn = (id: Tab, icon: React.ReactNode, label: string) => (
-    <button
-      onClick={() => setTab(id)}
-      className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium ${
-        tab === id
-          ? 'border-primary text-primary'
-          : 'border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-      }`}
-    >
-      {icon} {label}
-    </button>
-  );
+  const TABS: { id: Tab; icon: React.ElementType; label: string; subtitle: string }[] = [
+    { id: 'gestao', icon: Megaphone, label: 'Gestão de anúncios', subtitle: 'Pause, ative e exclua suas campanhas do Meta Ads' },
+    { id: 'admetrics', icon: BarChart3, label: 'Métricas dos anúncios', subtitle: 'Desempenho por campanha ao longo do tempo' },
+    { id: 'metrics', icon: BarChart3, label: 'Métricas dos posts', subtitle: 'Engajamento dos posts do Instagram' },
+    { id: 'activity', icon: Activity, label: 'Atividade da crew', subtitle: 'Análises e ações registradas pelos agentes' },
+  ];
+  const active = TABS.find((t) => t.id === tab) ?? TABS[0];
+  const ActiveIcon = active.icon;
 
   return (
-    <div className="space-y-6">
-      <div className="max-w-3xl">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-          <Megaphone className="h-5 w-5 text-primary" />
-          Marketing
-        </h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Gerencie seus anúncios, acompanhe as métricas de posts e campanhas e veja
-          o que a crew de IA está fazendo. As regras da crew ficam em Configurações → Marketing.
-        </p>
-      </div>
+    <div className="flex h-full flex-col">
+      {/* Cabeçalho — mesma altura do cabeçalho da sidebar (h-16) */}
+      <header className="flex h-16 shrink-0 items-center border-b border-zinc-200 bg-white px-6 dark:border-white/10 dark:bg-black">
+        <div className="flex min-w-0 items-center gap-2">
+          <Megaphone className="h-5 w-5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <h1 className="flex flex-wrap items-center gap-x-2 text-lg font-semibold leading-tight text-zinc-950 dark:text-zinc-50">
+              <span>Marketing</span>
+              <span className="font-normal text-zinc-300 dark:text-zinc-600">/</span>
+              <span className="inline-flex items-center gap-1.5">
+                <ActiveIcon className="h-4 w-4 text-zinc-400" />
+                {active.label}
+              </span>
+            </h1>
+            <p className="truncate text-xs text-zinc-500">{active.subtitle}</p>
+          </div>
+        </div>
+      </header>
 
-      <div className="flex flex-wrap gap-2 border-b border-zinc-200 dark:border-white/10">
-        {tabBtn('gestao', <Megaphone className="h-4 w-4" />, 'Gestão de anúncios')}
-        {tabBtn('admetrics', <BarChart3 className="h-4 w-4" />, 'Métricas dos anúncios')}
-        {tabBtn('metrics', <BarChart3 className="h-4 w-4" />, 'Métricas dos posts')}
-        {tabBtn('activity', <Activity className="h-4 w-4" />, 'Atividade da crew')}
-      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto scrollbar-thin px-6 py-5">
+        {/* Tabs em pílula — igual ao Configurações */}
+        <nav className="w-full shrink-0 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
+          <div className="flex flex-wrap gap-2">
+            {TABS.map((t) => {
+              const isActive = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`inline-flex items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100'
+                  }`}
+                >
+                  <t.icon className="h-4 w-4 shrink-0" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
-      {tab === 'gestao' && <GestaoTab />}
-      {tab === 'admetrics' && (
-        <AdMetricsTab rows={adMetrics?.metrics ?? []} window={adMetrics?.window ?? 'LAST_MONTH'} />
-      )}
-      {tab === 'metrics' && (
-        <MetricsTab
-          rows={mediaMetrics?.metrics ?? []}
-          window={mediaMetrics?.window ?? 'LAST_MONTH'}
-          cols={cols}
-          setCols={setCols}
-        />
-      )}
-      {tab === 'activity' && <ActivityView activity={activity} />}
+        {tab === 'gestao' && <GestaoTab />}
+        {tab === 'admetrics' && (
+          <AdMetricsTab rows={adMetrics?.metrics ?? []} window={adMetrics?.window ?? 'LAST_MONTH'} />
+        )}
+        {tab === 'metrics' && (
+          <MetricsTab
+            rows={mediaMetrics?.metrics ?? []}
+            window={mediaMetrics?.window ?? 'LAST_MONTH'}
+            cols={cols}
+            setCols={setCols}
+          />
+        )}
+        {tab === 'activity' && <ActivityView activity={activity} />}
+      </div>
     </div>
   );
 }
@@ -188,13 +209,13 @@ function GestaoTab() {
           {(error as any)?.response?.data?.message ?? 'Erro ao carregar campanhas. Verifique as credenciais do Meta Ads em Integrações.'}
         </div>
       ) : (data?.campaigns.length ?? 0) === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-200 px-5 py-10 text-center dark:border-white/10">
+        <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-5 py-10 text-center dark:border-white/10 dark:bg-black">
           <p className="text-sm text-zinc-400">Nenhuma campanha na conta de anúncios.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-white/10">
+        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
           <table className="w-full border-collapse">
-            <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-white/5">
+            <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-white/[0.03]">
               <tr>
                 <th className={th}>Campanha</th>
                 <th className={th}>Status</th>
@@ -292,13 +313,13 @@ function AdMetricsTab({ rows, window }: { rows: AdMetricRow[]; window: string })
         <span className="font-medium">{WINDOW_LABELS[window] ?? window}</span>. A janela é ajustada em Configurações → Marketing.
       </p>
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-200 px-5 py-10 text-center dark:border-white/10">
+        <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-5 py-10 text-center dark:border-white/10 dark:bg-black">
           <p className="text-sm text-zinc-400">Nenhuma métrica de anúncio ainda. Peça pra crew o "panorama dos anúncios".</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-white/10">
+        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
           <table className="w-full border-collapse">
-            <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-white/5">
+            <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-white/[0.03]">
               <tr>
                 <th className={th}>Campanha</th><th className={th}>Status</th><th className={th}>Investido</th>
                 <th className={th}>Impressões</th><th className={th}>Alcance</th><th className={th}>Cliques</th>
@@ -396,13 +417,13 @@ function MetricsTab({
         </div>
       </div>
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-200 px-5 py-10 text-center dark:border-white/10">
+        <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-5 py-10 text-center dark:border-white/10 dark:bg-black">
           <p className="text-sm text-zinc-400">Nenhuma métrica capturada ainda. Peça pra crew analisar os posts.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-white/10">
+        <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
           <table className="w-full border-collapse">
-            <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-white/5">
+            <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-white/10 dark:bg-white/[0.03]">
               <tr>
                 {cols.identification && <th className={th}>Post</th>}
                 {cols.identification && <th className={th}>Capturado</th>}
@@ -500,7 +521,7 @@ function ActivityView({ activity }: { activity: { analyses: any[]; activities: a
               <p className="text-xs text-zinc-400">Nenhuma ação registrada ainda.</p>
             ) : (
               activity!.activities.map((ac) => (
-                <div key={ac.id} className="flex items-center justify-between gap-2 rounded-lg border border-zinc-100 px-3 py-1.5 dark:border-white/10">
+                <div key={ac.id} className="flex items-center justify-between gap-2 rounded-lg border border-zinc-100 bg-white px-3 py-1.5 dark:border-white/10 dark:bg-black">
                   <div className="min-w-0">
                     <p className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-300">{ac.title || ac.action}</p>
                     <p className="text-[10px] text-zinc-400">{ac.action}{ac.channel ? ` · ${ac.channel}` : ''} · {new Date(ac.createdAt).toLocaleString('pt-BR')}</p>
