@@ -13,11 +13,13 @@ import {
   Instagram,
   MessagesSquare,
   Megaphone,
+  Menu,
   Send,
   ShieldCheck,
   Sparkles,
   Timer,
   Workflow,
+  X,
   Zap,
 } from 'lucide-react';
 
@@ -118,21 +120,21 @@ function Nav() {
         </div>
         <button
           onClick={() => setOpen((v) => !v)}
-          className="rounded-md p-2 text-zinc-300 md:hidden"
+          className="rounded-md p-2 text-zinc-300 transition-colors hover:bg-white/5 md:hidden"
           aria-label="Menu"
         >
-          <ChevronDown className={`h-5 w-5 transition-transform ${open ? 'rotate-180' : ''}`} />
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
       {open && (
         <div className="border-t border-white/5 px-5 py-4 md:hidden">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
             {links.map((l) => (
-              <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="text-sm text-zinc-300">
+              <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="rounded-md py-2 text-sm text-zinc-300 transition-colors hover:text-white">
                 {l.label}
               </a>
             ))}
-            <Link href="/login" className="text-sm text-zinc-300">
+            <Link href="/login" onClick={() => setOpen(false)} className="rounded-md py-2 text-sm text-zinc-300 transition-colors hover:text-white">
               Entrar
             </Link>
             <Link
@@ -150,13 +152,13 @@ function Nav() {
 
 function Hero() {
   return (
-    <section className="mx-auto max-w-6xl px-5 pb-16 pt-16 md:pt-24">
+    <section className="mx-auto max-w-6xl px-5 pb-12 pt-12 sm:pb-16 md:pt-24">
       <motion.div {...fadeUp} className="mx-auto max-w-3xl text-center">
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-zinc-300 backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-[#5b8bff]" />
-          Novo · Crew de agentes de IA para atendimento e marketing
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-zinc-300 backdrop-blur sm:px-3.5 sm:text-xs">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#5b8bff]" />
+          <span className="text-left">Crew de agentes de IA para atendimento e marketing</span>
         </span>
-        <h1 className="mt-6 text-balance text-4xl font-bold leading-[1.05] tracking-tight text-white md:text-6xl">
+        <h1 className="mt-6 text-balance text-[2rem] font-bold leading-[1.08] tracking-tight text-white sm:text-5xl sm:leading-[1.05] md:text-6xl">
           Atenda, venda e faça marketing{' '}
           <span className="bg-gradient-to-r from-[#5b8bff] via-white to-[#5b8bff] bg-clip-text text-transparent">
             com uma equipe de IA
@@ -199,10 +201,10 @@ function HeroVisual() {
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.7, delay: 0.15 }}
-      className="mx-auto mt-16 max-w-5xl"
+      className="mx-auto mt-10 max-w-5xl sm:mt-16"
     >
-      <div className="relative rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] p-2 shadow-2xl shadow-black/60 backdrop-blur">
-        <div className="grid gap-2 rounded-xl bg-[#0a0b12] p-3 md:grid-cols-[1.4fr_1fr]">
+      <div className="relative rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] p-1.5 shadow-2xl shadow-black/60 backdrop-blur sm:p-2">
+        <div className="grid gap-2 rounded-xl bg-[#0a0b12] p-2 sm:p-3 md:grid-cols-[1.4fr_1fr]">
           {/* Coluna conversa */}
           <div className="rounded-lg border border-white/5 bg-[#0d0e17] p-4">
             <div className="flex items-center gap-2 border-b border-white/5 pb-3">
@@ -362,10 +364,10 @@ const FEATURES = [
 
 function Features() {
   return (
-    <section id="recursos" className="mx-auto max-w-6xl px-5 py-20">
+    <section id="recursos" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
       <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
         <SectionTag>Recursos</SectionTag>
-        <h2 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
+        <h2 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           Tudo para atender e crescer, sem trocar de aba
         </h2>
         <p className="mt-4 text-zinc-400">
@@ -374,7 +376,7 @@ function Features() {
         </p>
       </motion.div>
 
-      <div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-10 grid gap-4 sm:mt-14 md:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((f, i) => (
           <motion.div
             key={f.title}
@@ -406,11 +408,11 @@ function AISpotlight() {
     { name: 'Mensuração', role: 'mede o resultado e aprende' },
   ];
   return (
-    <section id="ia" className="relative mx-auto max-w-6xl px-5 py-20">
-      <div className="grid items-center gap-12 lg:grid-cols-2">
+    <section id="ia" className="relative mx-auto max-w-6xl px-5 py-16 md:py-24">
+      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <motion.div {...fadeUp}>
           <SectionTag>Inteligência Artificial</SectionTag>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
+          <h2 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
             Não é um chatbot.{' '}
             <span className="bg-gradient-to-r from-[#5b8bff] to-indigo-400 bg-clip-text text-transparent">
               É uma equipe que trabalha por você.
@@ -486,14 +488,14 @@ function HowItWorks() {
     },
   ];
   return (
-    <section className="mx-auto max-w-6xl px-5 py-20">
+    <section className="mx-auto max-w-6xl px-5 py-16 md:py-24">
       <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
         <SectionTag>Como funciona</SectionTag>
-        <h2 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
+        <h2 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           No ar em minutos
         </h2>
       </motion.div>
-      <div className="mt-14 grid gap-4 md:grid-cols-3">
+      <div className="mt-10 grid gap-4 sm:mt-14 md:grid-cols-3">
         {steps.map((s, i) => (
           <motion.div
             key={s.title}
@@ -527,11 +529,11 @@ function Metrics() {
     <section className="mx-auto max-w-6xl px-5 py-10">
       <motion.div
         {...fadeUp}
-        className="grid gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/10 bg-white/10 lg:grid-cols-4"
       >
         {items.map((m) => (
-          <div key={m.label} className="bg-[#0a0b12] p-8 text-center">
-            <p className="bg-gradient-to-r from-white to-[#7ea2ff] bg-clip-text text-4xl font-bold text-transparent">
+          <div key={m.label} className="bg-[#0a0b12] p-6 text-center sm:p-8">
+            <p className="bg-gradient-to-r from-white to-[#7ea2ff] bg-clip-text text-3xl font-bold text-transparent sm:text-4xl">
               {m.value}
             </p>
             <p className="mt-2 text-sm text-zinc-400">{m.label}</p>
@@ -571,10 +573,10 @@ const PLANS = [
 
 function Plans() {
   return (
-    <section id="planos" className="mx-auto max-w-6xl px-5 py-20">
+    <section id="planos" className="mx-auto max-w-6xl px-5 py-16 md:py-24">
       <motion.div {...fadeUp} className="mx-auto max-w-2xl text-center">
         <SectionTag>Planos</SectionTag>
-        <h2 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
+        <h2 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           Escolha por onde começar
         </h2>
         <p className="mt-4 text-zinc-400">
@@ -583,7 +585,7 @@ function Plans() {
         </p>
       </motion.div>
 
-      <div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-10 grid gap-4 sm:mt-14 md:grid-cols-2 lg:grid-cols-4">
         {PLANS.map((p, i) => (
           <motion.div
             key={p.name}
@@ -649,10 +651,10 @@ const FAQS = [
 function Faq() {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section id="faq" className="mx-auto max-w-3xl px-5 py-20">
+    <section id="faq" className="mx-auto max-w-3xl px-5 py-16 md:py-24">
       <motion.div {...fadeUp} className="text-center">
         <SectionTag>Dúvidas</SectionTag>
-        <h2 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
+        <h2 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
           Perguntas frequentes
         </h2>
       </motion.div>
@@ -683,14 +685,14 @@ function Faq() {
 
 function FinalCta() {
   return (
-    <section className="mx-auto max-w-6xl px-5 py-20">
+    <section className="mx-auto max-w-6xl px-5 py-16 md:py-24">
       <motion.div
         {...fadeUp}
-        className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0047ff]/20 via-[#0a0b12] to-[#0a0b12] px-6 py-16 text-center md:px-16"
+        className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0047ff]/20 via-[#0a0b12] to-[#0a0b12] px-6 py-12 text-center sm:py-16 md:px-16"
       >
         <div className="pointer-events-none absolute -top-24 left-1/2 h-64 w-[600px] -translate-x-1/2 rounded-full bg-[#0047ff]/30 blur-[120px]" />
         <div className="relative">
-          <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight text-white md:text-4xl">
+          <h2 className="mx-auto max-w-2xl text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl">
             Pronto para colocar sua operação no automático?
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-zinc-300">
