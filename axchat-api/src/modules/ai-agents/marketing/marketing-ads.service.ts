@@ -281,6 +281,9 @@ export class MarketingAdsService {
     let warning: string | null = null;
     if (!adAccountId || !token) {
       warning = 'Credenciais do Meta Ads ausentes (configure em Integrações).';
+    } else if (isFutureMonth) {
+      // Mês ainda não começou: não há o que buscar (e a Meta rejeita `since` no
+      // futuro). Deixa os insights nulos, sem chamada nem warning enganoso.
     } else {
       try {
         const acct = adAccountId.replace(/^act_/, '');
@@ -330,7 +333,7 @@ export class MarketingAdsService {
     // A Meta calcula o gasto/conversões do time_range exato → respeita o filtro:
     // campanha sem entrega no período nem aparece.
     let campaignRanking: any[] = [];
-    if (adAccountId && token) {
+    if (adAccountId && token && !isFutureMonth) {
       try {
         const acct = adAccountId.replace(/^act_/, '');
         const url =
@@ -358,6 +361,15 @@ export class MarketingAdsService {
       }
     }
 
+    // Coerência do card "Conversões": no nível conta a Meta às vezes NÃO expõe os
+    // tipos de conversão (ex.: date_preset=maximum devolve só cliques/engajamento),
+    // deixando o agregado nulo enquanto o ranking por campanha tem conversões. Nesse
+    // caso, usa a soma do ranking pro card bater com a lista logo abaixo dele.
+    if (insights.conversions == null && campaignRanking.length) {
+      const sumConv = campaignRanking.reduce((acc, r) => acc + (r.conversions || 0), 0);
+      if (sumConv > 0) insights.conversions = sumConv;
+    }
+
     const currency = profile?.currency ?? 'BRL';
     const monthlyBudget = profile?.monthlyAdBudgetCents != null ? profile.monthlyAdBudgetCents / 100 : null;
     const maxDailyBudget = profile?.maxDailyBudgetCents != null ? profile.maxDailyBudgetCents / 100 : null;
@@ -366,7 +378,7 @@ export class MarketingAdsService {
     // exatamente esse mês, reusa; senão busca à parte (só quando há teto).
     const isMonthWindow = !all && insightsSince === firstOfMonth && insightsUntil === monthUntil;
     let spentMonth: number | null = isMonthWindow ? insights.spend : null;
-    if (spentMonth == null && monthlyBudget != null && adAccountId && token) {
+    if (spentMonth == null && monthlyBudget != null && adAccountId && token && !isFutureMonth) {
       try {
         const acct = adAccountId.replace(/^act_/, '');
         const tr = encodeURIComponent(JSON.stringify({ since: firstOfMonth, until: monthUntil }));
