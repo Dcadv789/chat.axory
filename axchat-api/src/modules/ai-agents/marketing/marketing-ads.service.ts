@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../database/prisma.service';
+import { brtNow, countConversions } from './meta-insights.util';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
@@ -227,7 +228,7 @@ export class MarketingAdsService {
     const MONTHS_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
     // "Hoje" no fuso BRT (UTC-3).
-    const nowBrt = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    const nowBrt = brtNow();
     const curYear = nowBrt.getUTCFullYear();
     const curMonth = nowBrt.getUTCMonth();
     const curDay = nowBrt.getUTCDate();
@@ -249,6 +250,9 @@ export class MarketingAdsService {
     const isCurrentMonth = refYear === curYear && refMonth0 === curMonth;
     const isPastMonth =
       refYear < curYear || (refYear === curYear && refMonth0 < curMonth);
+    // Mês ainda não começou (usuário filtrou um período futuro): não há pacing.
+    const isFutureMonth =
+      refYear > curYear || (refYear === curYear && refMonth0 > curMonth);
     // Dias decorridos e restantes DO MÊS DE REFERÊNCIA.
     const dayOfMonth = isCurrentMonth ? curDay : isPastMonth ? daysInMonth : 0;
     const daysRemaining = isCurrentMonth ? daysInMonth - curDay + 1 : isPastMonth ? 0 : daysInMonth;
@@ -289,13 +293,7 @@ export class MarketingAdsService {
         if (!res.ok) throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
         const row = Array.isArray(json?.data) ? json.data[0] : null;
         if (row) {
-          let conversions: number | null = null;
-          if (Array.isArray(row.actions)) {
-            const rel = row.actions.filter((a: any) =>
-              /lead|purchase|complete_registration|subscribe|contact|onsite_conversion/i.test(a?.action_type ?? ''),
-            );
-            if (rel.length) conversions = rel.reduce((s: number, a: any) => s + (Number(a.value) || 0), 0);
-          }
+          const conversions = countConversions(row.actions);
           insights = {
             spend: this.num(row.spend),
             impressions: this.num(row.impressions),
@@ -344,14 +342,7 @@ export class MarketingAdsService {
         if (res.ok && Array.isArray(json?.data)) {
           campaignRanking = json.data.map((row: any) => {
             const spend = row?.spend != null ? Number(row.spend) : 0;
-            let conversions = 0;
-            if (Array.isArray(row.actions)) {
-              conversions = row.actions
-                .filter((a: any) =>
-                  /lead|purchase|complete_registration|subscribe|contact|onsite_conversion/i.test(a?.action_type ?? ''),
-                )
-                .reduce((s: number, a: any) => s + (Number(a.value) || 0), 0);
-            }
+            const conversions = countConversions(row.actions) ?? 0;
             return {
               name: row.campaign_name ?? '(campanha)',
               spend: round2(spend),
@@ -394,7 +385,7 @@ export class MarketingAdsService {
     }
 
     let pacing: Record<string, unknown> = {};
-    if (monthlyBudget != null && spentMonth != null) {
+    if (monthlyBudget != null && spentMonth != null && !isFutureMonth) {
       const remaining = round2(monthlyBudget - spentMonth);
       const elapsed = dayOfMonth; // dias já decorridos do mês de referência
       const dailyRunRate = elapsed > 0 ? round2(spentMonth / elapsed) : 0;
@@ -416,6 +407,7 @@ export class MarketingAdsService {
       monthLabel,
       isCurrentMonth,
       isPastMonth,
+      isFutureMonth,
       daysInMonth,
       dayOfMonth,
       daysRemaining,

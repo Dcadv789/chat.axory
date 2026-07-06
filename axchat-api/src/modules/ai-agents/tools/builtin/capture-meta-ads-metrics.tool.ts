@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../database/prisma.service';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
 import { upsertDailyAdMetric } from '../marketing-metric.util';
+import { brtDateString, countConversions } from '../../marketing/meta-insights.util';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
@@ -13,7 +14,24 @@ const WINDOW_DAYS: Record<string, number> = {
   LAST_YEAR: 365,
 };
 
-const INSIGHT_FIELDS = 'spend,impressions,reach,clicks,ctr,cpc,cpm,actions';
+const INSIGHT_FIELDS = 'spend,impressions,reach,clicks,ctr,cpc,cpm,actions,account_currency';
+
+const round2 = (v: number) => Math.round(v * 100) / 100;
+
+/** Uma linha de insight por DIA (time_increment=1). */
+interface DailyInsight {
+  date: string; // YYYY-MM-DD (date_start)
+  spend: number | null;
+  impressions: number | null;
+  reach: number | null;
+  clicks: number | null;
+  ctr: number | null;
+  cpc: number | null;
+  cpm: number | null;
+  conversions: number | null;
+  currency: string | null;
+  raw: any;
+}
 
 /**
  * Captura de UMA vez as métricas de TODAS as campanhas de anúncio (Meta Ads)
@@ -75,11 +93,10 @@ export class CaptureMetaAdsMetricsTool implements AiTool {
 
     const win = profile?.analysisWindow ?? 'LAST_MONTH';
     const days = WINDOW_DAYS[win] ?? 30;
-    const until = new Date();
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    // Janela no MESMO fuso (BRT) que o painel usa pro pacing, pra não divergir.
     const timeRange = JSON.stringify({
-      since: since.toISOString().slice(0, 10),
-      until: until.toISOString().slice(0, 10),
+      since: brtDateString(new Date(Date.now() - days * 24 * 60 * 60 * 1000)),
+      until: brtDateString(),
     });
 
     // 1) Lista as campanhas.
@@ -106,38 +123,47 @@ export class CaptureMetaAdsMetricsTool implements AiTool {
       };
     }
 
-    // 2) Insights + snapshot por campanha.
-    const results: Array<{ campaignId: string; name: string | null; spend: number | null }> = [];
-    let captured = 0;
+    // 2) Insights DIÁRIOS (time_increment=1) + um snapshot por campanha por dia.
+    // Cada dia é gravado no seu próprio dia (metricDate) → série temporal real:
+    // gasto/dia, não acumulado; e o filtro por período bate com a data do dado.
+    const results: Array<{ campaignId: string; name: string | null; spend: number }> = [];
+    let points = 0;
     for (const c of campaigns) {
-      const ins = await this.fetchInsights(String(c.id), token, timeRange);
-      try {
-        await upsertDailyAdMetric(this.prisma, {
-          organizationId: ctx.organizationId,
-          agentId: ctx.agentId,
-          runId: ctx.runId,
-          campaignId: String(c.id),
-          campaignName: c.name ?? null,
-          objective: c.objective ?? null,
-          status: c.effective_status ?? c.status ?? null,
-          spend: ins.spend,
-          impressions: ins.impressions,
-          reach: ins.reach,
-          clicks: ins.clicks,
-          ctr: ins.ctr,
-          cpc: ins.cpc,
-          cpm: ins.cpm,
-          conversions: ins.conversions,
-          currency: ins.currency,
-          raw: ins.raw,
-        });
-        captured++;
-        results.push({ campaignId: String(c.id), name: c.name ?? null, spend: ins.spend });
-      } catch (e: any) {
-        this.logger.warn(`ad snapshot falhou (campaign ${c.id}): ${e?.message ?? e}`);
+      const daily = await this.fetchDailyInsights(String(c.id), token, timeRange);
+      let campaignSpend = 0;
+      for (const d of daily) {
+        try {
+          await upsertDailyAdMetric(this.prisma, {
+            organizationId: ctx.organizationId,
+            agentId: ctx.agentId,
+            runId: ctx.runId,
+            campaignId: String(c.id),
+            campaignName: c.name ?? null,
+            objective: c.objective ?? null,
+            status: c.effective_status ?? c.status ?? null,
+            spend: d.spend,
+            impressions: d.impressions,
+            reach: d.reach,
+            clicks: d.clicks,
+            ctr: d.ctr,
+            cpc: d.cpc,
+            cpm: d.cpm,
+            conversions: d.conversions,
+            currency: d.currency,
+            raw: d.raw,
+            // Meio-dia UTC do dia do dado → cai sempre dentro do próprio dia.
+            metricDate: new Date(`${d.date}T12:00:00.000Z`),
+          });
+          points++;
+          campaignSpend += d.spend ?? 0;
+        } catch (e: any) {
+          this.logger.warn(`ad snapshot falhou (campaign ${c.id} ${d.date}): ${e?.message ?? e}`);
+        }
       }
+      results.push({ campaignId: String(c.id), name: c.name ?? null, spend: round2(campaignSpend) });
     }
 
+    const capturedCampaigns = results.length;
     try {
       await this.prisma.marketingActivity.create({
         data: {
@@ -147,8 +173,8 @@ export class CaptureMetaAdsMetricsTool implements AiTool {
           action: 'captureMetaAdsMetrics',
           channel: 'META_ADS',
           status: 'OK',
-          title: `Métricas de anúncios capturadas: ${captured} campanha(s) (${win})`,
-          payload: { captured, window: win },
+          title: `Métricas de anúncios capturadas: ${capturedCampaigns} campanha(s), ${points} ponto(s) diário(s) (${win})`,
+          payload: { campaigns: capturedCampaigns, points, window: win },
         },
       });
     } catch {
@@ -158,9 +184,10 @@ export class CaptureMetaAdsMetricsTool implements AiTool {
     return {
       output: {
         ok: true,
-        captured,
+        captured: capturedCampaigns,
+        points,
         window: win,
-        message: `Capturei as métricas de ${captured} campanha(s) do período. Veja a tabela em Configurações → Marketing → Métricas dos anúncios.`,
+        message: `Capturei as métricas de ${capturedCampaigns} campanha(s) (${points} ponto(s) diário(s)) do período. Veja a tabela em Configurações → Marketing → Métricas dos anúncios.`,
         campaigns: results.map((r) => ({
           campaignId: r.campaignId,
           name: r.name,
@@ -189,72 +216,52 @@ export class CaptureMetaAdsMetricsTool implements AiTool {
     return all;
   }
 
-  private async fetchInsights(
+  /**
+   * Insights DIÁRIOS de uma campanha (uma linha por dia, via time_increment=1),
+   * seguindo a paginação. Conversões contadas sem dupla contagem (helper único
+   * compartilhado com o painel). Erros → devolve o que já tiver (não trava).
+   */
+  private async fetchDailyInsights(
     campaignId: string,
     token: string,
     timeRange: string,
-  ): Promise<{
-    spend: number | null;
-    impressions: number | null;
-    reach: number | null;
-    clicks: number | null;
-    ctr: number | null;
-    cpc: number | null;
-    cpm: number | null;
-    conversions: number | null;
-    currency: string | null;
-    raw: any;
-  }> {
-    const empty = {
-      spend: null,
-      impressions: null,
-      reach: null,
-      clicks: null,
-      ctr: null,
-      cpc: null,
-      cpm: null,
-      conversions: null,
-      currency: null,
-      raw: null,
-    };
+  ): Promise<DailyInsight[]> {
+    const n = (v: any) =>
+      v === undefined || v === null || v === '' ? null : Number(v);
+    const out: DailyInsight[] = [];
     try {
-      const url =
+      let url =
         `${GRAPH}/${encodeURIComponent(campaignId)}/insights` +
-        `?fields=${INSIGHT_FIELDS}&time_range=${encodeURIComponent(timeRange)}` +
-        `&access_token=${encodeURIComponent(token)}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-      const json: any = await res.json();
-      if (!res.ok || !Array.isArray(json?.data) || json.data.length === 0) return empty;
-      const row = json.data[0];
-      const n = (v: any) =>
-        v === undefined || v === null || v === '' ? null : Number(v);
-      // actions: soma das ações de conversão (lead, purchase, etc). Aproxima o
-      // "resultado" da campanha. Se não houver, fica null.
-      let conversions: number | null = null;
-      if (Array.isArray(row.actions)) {
-        const relevant = row.actions.filter((a: any) =>
-          /lead|purchase|complete_registration|submit_application|subscribe|contact|onsite_conversion/i.test(
-            a?.action_type ?? '',
-          ),
-        );
-        if (relevant.length > 0) {
-          conversions = relevant.reduce((s: number, a: any) => s + (Number(a.value) || 0), 0);
+        `?fields=${INSIGHT_FIELDS}&time_increment=1&time_range=${encodeURIComponent(timeRange)}` +
+        `&limit=100&access_token=${encodeURIComponent(token)}`;
+      for (let page = 0; page < 30; page++) {
+        const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+        const json: any = await res.json();
+        if (!res.ok || !Array.isArray(json?.data)) break;
+        for (const row of json.data) {
+          const date = typeof row?.date_start === 'string' ? row.date_start : null;
+          if (!date) continue;
+          out.push({
+            date,
+            spend: n(row.spend),
+            impressions: n(row.impressions),
+            reach: n(row.reach),
+            clicks: n(row.clicks),
+            ctr: n(row.ctr),
+            cpc: n(row.cpc),
+            cpm: n(row.cpm),
+            conversions: countConversions(row.actions),
+            currency: row.account_currency ?? null,
+            raw: row,
+          });
         }
+        const next = json?.paging?.next;
+        if (!next) break;
+        url = next;
       }
-      return {
-        spend: n(row.spend),
-        impressions: n(row.impressions),
-        reach: n(row.reach),
-        clicks: n(row.clicks),
-        ctr: n(row.ctr),
-        cpc: n(row.cpc),
-        cpm: n(row.cpm),
-        conversions,
-        currency: row.account_currency ?? null,
-        raw: json.data,
-      };
     } catch {
-      return empty;
+      /* devolve o que já coletou */
     }
+    return out;
   }
 }

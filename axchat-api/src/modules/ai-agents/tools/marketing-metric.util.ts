@@ -89,6 +89,13 @@ export interface DailyAdMetricInput {
   conversions?: number | null;
   currency?: string | null;
   raw?: any;
+  /**
+   * Dia a que a métrica se refere (não "quando capturamos"). Com `time_increment=1`
+   * a Meta devolve o gasto DE CADA DIA — cada dia vira um ponto real, carimbado no
+   * seu próprio dia. Assim o gráfico é gasto/dia (não acumulado) e o filtro por
+   * período bate com a data do dado. Default: hoje (compat.).
+   */
+  metricDate?: Date | null;
 }
 
 /** Igual ao de mídia, mas por CAMPANHA de anúncio: 1 ponto por campanha por dia. */
@@ -96,14 +103,17 @@ export async function upsertDailyAdMetric(
   prisma: PrismaService,
   input: DailyAdMetricInput,
 ): Promise<void> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const day = input.metricDate ?? new Date();
+  const dayStart = new Date(day);
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const dayEnd = new Date(day);
+  dayEnd.setUTCHours(23, 59, 59, 999);
 
   const existing = await prisma.marketingAdMetric.findFirst({
     where: {
       organizationId: input.organizationId,
       campaignId: input.campaignId,
-      capturedAt: { gte: startOfDay },
+      capturedAt: { gte: dayStart, lte: dayEnd },
     },
     orderBy: { capturedAt: 'desc' },
     select: { id: true },
@@ -125,7 +135,7 @@ export async function upsertDailyAdMetric(
     conversions: input.conversions ?? null,
     currency: input.currency ?? null,
     raw: input.raw ?? undefined,
-    capturedAt: new Date(),
+    capturedAt: input.metricDate ?? new Date(),
   };
 
   if (existing) {
