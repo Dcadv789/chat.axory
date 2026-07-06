@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
 
-export type ChannelType = 'WHATSAPP_OFFICIAL' | 'WHATSAPP_ZAPPFY' | 'INSTAGRAM' | 'TELEGRAM' | 'INTERNAL';
+export type ChannelType = 'WHATSAPP_OFFICIAL' | 'WHATSAPP_ZAPPFY' | 'INSTAGRAM' | 'TELEGRAM' | 'INTERNAL' | 'THREADS';
 
 export type ChannelVisibility = 'ORG' | 'PRIVATE';
 
@@ -66,6 +66,24 @@ export interface CoexistenceConfig {
   enabled: boolean;
   /** true quando app + secret + instagramConfigId estão configurados. */
   instagramEnabled?: boolean;
+  /** true quando o app do Threads (id + secret) está configurado. */
+  threadsEnabled?: boolean;
+}
+
+export interface ThreadsCarouselItem {
+  mediaType: 'IMAGE' | 'VIDEO';
+  imageUrl?: string;
+  videoUrl?: string;
+  altText?: string;
+}
+
+export interface ThreadsPublishPayload {
+  mediaType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'CAROUSEL';
+  text?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  altText?: string;
+  children?: ThreadsCarouselItem[];
 }
 
 export interface InstagramFacebookLoginPayload {
@@ -169,6 +187,29 @@ export const channelsService = {
   ): Promise<Channel> {
     const { data } = await api.post<{ data: Channel }>(
       '/channels/instagram/facebook-login',
+      payload,
+    );
+    return data.data;
+  },
+
+  /** URL de autorização do Threads (o navegador é redirecionado pra ela). */
+  async getThreadsAuthUrl(
+    name: string,
+    visibility?: ChannelVisibility,
+  ): Promise<{ url: string }> {
+    const { data } = await api.get<{ data: { url: string } }>(
+      '/channels/threads/oauth/url',
+      { params: { name, ...(visibility ? { visibility } : {}) } },
+    );
+    return data.data;
+  },
+
+  async threadsPublish(
+    channelId: string,
+    payload: ThreadsPublishPayload,
+  ): Promise<{ id: string }> {
+    const { data } = await api.post<{ data: { id: string } }>(
+      `/channels/${channelId}/threads/publish`,
       payload,
     );
     return data.data;

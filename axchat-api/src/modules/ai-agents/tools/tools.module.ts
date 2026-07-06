@@ -24,6 +24,14 @@ import { CaptureInstagramMetricsTool } from './builtin/capture-instagram-metrics
 import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.tool';
 import { GetBudgetPacingTool } from './builtin/get-budget-pacing.tool';
 import { GetRecentMarketingAnalysesTool } from './builtin/get-recent-marketing-analyses.tool';
+import {
+  PublishThreadsPostTool,
+  ReplyToThreadsPostTool,
+  ListThreadsRepliesTool,
+  HideThreadsReplyTool,
+  GetThreadsInsightsTool,
+} from './builtin/threads.tools';
+import { ThreadsModule } from '../../channel-hub/adapters/threads/threads.module';
 import { PersonalContextService } from './builtin/personal/personal-context.service';
 import {
   CreatePersonalTaskTool,
@@ -65,6 +73,7 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     PrismaModule,
     RealtimeModule,
     ConfirmationsModule,
+    ThreadsModule,
     BullModule.registerQueue({ name: 'outbound-messages' }),
   ],
   providers: [
@@ -97,6 +106,11 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     CaptureMetaAdsMetricsTool,
     GetBudgetPacingTool,
     GetRecentMarketingAnalysesTool,
+    PublishThreadsPostTool,
+    ReplyToThreadsPostTool,
+    ListThreadsRepliesTool,
+    HideThreadsReplyTool,
+    GetThreadsInsightsTool,
     MarketingStorageService,
     PersonalContextService,
     CreatePersonalTaskTool,

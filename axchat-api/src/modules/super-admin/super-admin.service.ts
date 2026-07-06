@@ -1779,8 +1779,13 @@ export class SuperAdminService {
       // Config de Facebook Login for Business pro Instagram (IG + Páginas).
       instagramConfigId:
         typeof value.instagramConfigId === 'string' ? value.instagramConfigId : '',
-      // Nunca devolve o secret em texto — só informa se já está salvo.
+      // App do Threads (OAuth próprio, threads.net).
+      threadsAppId:
+        typeof value.threadsAppId === 'string' ? value.threadsAppId : '',
+      // Nunca devolve os secrets em texto — só informa se já estão salvos.
       hasSecret: typeof value.appSecret === 'string' && value.appSecret.length > 0,
+      hasThreadsSecret:
+        typeof value.threadsAppSecret === 'string' && value.threadsAppSecret.length > 0,
     };
   }
 
@@ -1790,6 +1795,8 @@ export class SuperAdminService {
     configId?: string;
     embeddedConfigId?: string;
     instagramConfigId?: string;
+    threadsAppId?: string;
+    threadsAppSecret?: string;
   }) {
     const existing = await this.prisma.platformSetting.findUnique({
       where: { key: META_COEXISTENCE_KEY },
@@ -1807,11 +1814,16 @@ export class SuperAdminService {
       embeddedConfigId: dto.embeddedConfigId ?? current.embeddedConfigId ?? '',
       instagramConfigId:
         dto.instagramConfigId ?? current.instagramConfigId ?? '',
-      // Só sobrescreve o secret quando um novo valor não-vazio é enviado.
+      threadsAppId: dto.threadsAppId ?? current.threadsAppId ?? '',
+      // Só sobrescreve os secrets quando um novo valor não-vazio é enviado.
       appSecret:
         dto.appSecret && dto.appSecret.length > 0
           ? dto.appSecret
           : current.appSecret ?? '',
+      threadsAppSecret:
+        dto.threadsAppSecret && dto.threadsAppSecret.length > 0
+          ? dto.threadsAppSecret
+          : current.threadsAppSecret ?? '',
     };
 
     await this.prisma.platformSetting.upsert({
@@ -1825,7 +1837,9 @@ export class SuperAdminService {
       configId: next.configId as string,
       embeddedConfigId: next.embeddedConfigId as string,
       instagramConfigId: next.instagramConfigId as string,
+      threadsAppId: next.threadsAppId as string,
       hasSecret: (next.appSecret as string).length > 0,
+      hasThreadsSecret: (next.threadsAppSecret as string).length > 0,
     };
   }
 

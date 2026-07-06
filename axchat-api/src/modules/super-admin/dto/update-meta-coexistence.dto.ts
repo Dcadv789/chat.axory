@@ -30,4 +30,14 @@ export class UpdateMetaCoexistenceDto {
   @IsOptional()
   @IsString()
   instagramConfigId?: string;
+
+  @ApiPropertyOptional({ description: 'Threads App ID (Threads API app — OAuth threads.net)' })
+  @IsOptional()
+  @IsString()
+  threadsAppId?: string;
+
+  @ApiPropertyOptional({ description: 'Threads App Secret — write-only, never returned' })
+  @IsOptional()
+  @IsString()
+  threadsAppSecret?: string;
 }

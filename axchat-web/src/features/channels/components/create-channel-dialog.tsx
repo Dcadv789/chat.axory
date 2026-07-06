@@ -6,12 +6,13 @@ import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, X, Copy, Check, HelpCircle, ChevronDown, MessageSquareText } from 'lucide-react';
+import { Loader2, X, Copy, Check, HelpCircle, ChevronDown, MessageSquareText, AtSign } from 'lucide-react';
 import { channelsService, type ChannelType } from '../services/channels.service';
 import { aiAgentsService } from '@/features/ai-agents/services/ai-agents.service';
 import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
 import { CoexistenceConnect } from './coexistence-connect';
 import { InstagramConnect } from './instagram-connect';
+import { ThreadsConnect } from './threads-connect';
 
 const channelTypes: { value: ChannelType; label: string; icon: React.ElementType; color: string; description: string }[] = [
   {
@@ -41,6 +42,13 @@ const channelTypes: { value: ChannelType; label: string; icon: React.ElementType
     icon: TelegramIcon,
     color: 'bg-sky-50 dark:bg-sky-950/40',
     description: 'Telegram Bot API para conversas privadas, grupos e midia',
+  },
+  {
+    value: 'THREADS',
+    label: 'Threads',
+    icon: AtSign,
+    color: 'bg-zinc-50 dark:bg-black',
+    description: 'Publicar posts, gerenciar respostas e ver métricas — via login Meta',
   },
   {
     value: 'INTERNAL',
@@ -119,6 +127,8 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   // Instagram: 'facebook' = Facebook Login for Business (puxa tudo); 'api' =
   // formulário manual (token de System User).
   const [igMode, setIgMode] = useState<'facebook' | 'api'>('facebook');
+  // Threads: nome do canal (OAuth via redirect, sem formulário de credenciais).
+  const [threadsName, setThreadsName] = useState('');
 
   const zappfyForm = useForm<ZappfyFormData>({
     resolver: zodResolver(zappfySchema),
@@ -299,6 +309,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
     setSelectedType(null);
     setWaMode('api');
     setIgMode('facebook');
+    setThreadsName('');
     zappfyForm.reset();
     waForm.reset();
     igForm.reset();
@@ -314,6 +325,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
     WHATSAPP_OFFICIAL: 'Configurar WhatsApp Official',
     INSTAGRAM: 'Configurar Instagram',
     TELEGRAM: 'Configurar Telegram',
+    THREADS: 'Configurar Threads',
     INTERNAL: 'Configurar Canal Interno',
   };
 
@@ -496,6 +508,28 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
             <WebhookUrl url={`${apiBaseUrl}/webhooks/TELEGRAM`} copied={copied} onCopy={() => handleCopyWebhook('TELEGRAM')} />
             <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
           </form>
+        ) : selectedType === 'THREADS' ? (
+          <div className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <label className={labelCls}>Nome do canal</label>
+              <input
+                className={inputCls}
+                placeholder="Ex: Threads da Marca"
+                value={threadsName}
+                onChange={(e) => setThreadsName(e.target.value)}
+              />
+            </div>
+            <ThreadsConnect name={threadsName} visibility={visibility} />
+            <div className="flex items-center justify-start pt-2">
+              <button
+                type="button"
+                onClick={() => setStep('type')}
+                className="rounded-md px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
         ) : selectedType === 'INTERNAL' ? (
           <form onSubmit={internalForm.handleSubmit(onSubmitInternal)} className="mt-6 space-y-4">
             <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-3 text-xs leading-relaxed text-violet-900 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-100">

@@ -1359,6 +1359,8 @@ function IntegrationsPanel() {
   const [embeddedConfigId, setEmbeddedConfigId] = useState('');
   const [instagramConfigId, setInstagramConfigId] = useState('');
   const [appSecret, setAppSecret] = useState('');
+  const [threadsAppId, setThreadsAppId] = useState('');
+  const [threadsAppSecret, setThreadsAppSecret] = useState('');
 
   useEffect(() => {
     if (config) {
@@ -1366,7 +1368,9 @@ function IntegrationsPanel() {
       setConfigId(config.configId);
       setEmbeddedConfigId(config.embeddedConfigId ?? '');
       setInstagramConfigId(config.instagramConfigId ?? '');
+      setThreadsAppId(config.threadsAppId ?? '');
       setAppSecret('');
+      setThreadsAppSecret('');
     }
   }, [config]);
 
@@ -1377,8 +1381,10 @@ function IntegrationsPanel() {
         configId: configId.trim(),
         embeddedConfigId: embeddedConfigId.trim(),
         instagramConfigId: instagramConfigId.trim(),
-        // Só envia o secret se o usuário digitou algo novo.
+        threadsAppId: threadsAppId.trim(),
+        // Só envia os secrets se o usuário digitou algo novo.
         ...(appSecret.trim() ? { appSecret: appSecret.trim() } : {}),
+        ...(threadsAppSecret.trim() ? { threadsAppSecret: threadsAppSecret.trim() } : {}),
       }),
     onSuccess: () => {
       toast.success('Configuração do Meta salva');
@@ -1451,6 +1457,38 @@ function IntegrationsPanel() {
                   ? 'Já existe um secret salvo. Deixe em branco para mantê-lo.'
                   : 'O secret nunca é exibido depois de salvo.'}
               </p>
+            </div>
+
+            <div className="border-t border-zinc-200 pt-4 dark:border-white/10">
+              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                Threads (app próprio)
+              </h3>
+              <p className="mt-1 text-[11px] text-zinc-400">
+                O Threads usa OAuth próprio (threads.net), separado do Facebook Login. Crie um app com o produto Threads API e registre a Callback URL abaixo.
+              </p>
+              <div className="mt-3 space-y-4">
+                <Input label="Threads App ID" value={threadsAppId} onChange={setThreadsAppId} placeholder="client_id do app do Threads" />
+                <div>
+                  <Input
+                    label="Threads App Secret"
+                    type="password"
+                    value={threadsAppSecret}
+                    onChange={setThreadsAppSecret}
+                    placeholder={config?.hasThreadsSecret ? '•••••••• (salvo — preencha só para trocar)' : 'cole o Threads App Secret'}
+                  />
+                  <p className="mt-1 text-[11px] text-zinc-400">
+                    {config?.hasThreadsSecret
+                      ? 'Já existe um secret do Threads salvo. Deixe em branco para mantê-lo.'
+                      : 'O secret nunca é exibido depois de salvo.'}
+                  </p>
+                </div>
+                <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-2.5 text-[11px] text-zinc-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400">
+                  <span className="font-medium">Redirect Callback URL (registre no app do Threads):</span>
+                  <code className="mt-1 block break-all rounded bg-zinc-100 px-2 py-1 font-mono text-zinc-700 dark:bg-black dark:text-zinc-300">
+                    {(process.env.NEXT_PUBLIC_API_URL || 'https://SEU-DOMINIO/api/v1').replace(/\/$/, '')}/channels/threads/oauth/callback
+                  </code>
+                </div>
+              </div>
             </div>
 
             <button

@@ -19,6 +19,14 @@ import { ZappfyHttpClient } from '../adapters/zappfy/zappfy.http-client';
 import { WhatsAppOfficialHttpClient } from '../adapters/whatsapp-official/whatsapp-official.http-client';
 import { InstagramHttpClient } from '../adapters/instagram/instagram.http-client';
 import { TelegramHttpClient } from '../adapters/telegram/telegram.http-client';
+import {
+  ThreadsHttpClient,
+  ThreadsPublishInput,
+} from '../adapters/threads/threads.http-client';
+import {
+  signThreadsState,
+  verifyThreadsState,
+} from '../adapters/threads/threads-oauth-state.util';
 import { ChannelSyncOrchestrator } from '../sync/channel-sync.orchestrator';
 import { syncNotSupportedMessage } from '../sync/sync-messages.util';
 import {
@@ -37,6 +45,7 @@ export class ChannelsService {
     private readonly waOfficialHttpClient: WhatsAppOfficialHttpClient,
     private readonly instagramHttpClient: InstagramHttpClient,
     private readonly telegramHttpClient: TelegramHttpClient,
+    private readonly threadsHttpClient: ThreadsHttpClient,
     private readonly syncOrchestrator: ChannelSyncOrchestrator,
     private readonly prisma: PrismaService,
     private readonly channelAccess: ChannelAccessService,
@@ -235,6 +244,8 @@ export class ChannelsService {
     configId: string;
     embeddedConfigId: string;
     instagramConfigId: string;
+    threadsAppId: string;
+    threadsAppSecret: string;
   }> {
     const row = await this.prisma.platformSetting.findUnique({
       where: { key: 'meta_coexistence' },
@@ -260,7 +271,19 @@ export class ChannelsService {
         typeof value.instagramConfigId === 'string'
           ? value.instagramConfigId
           : '',
+      // App do Threads (client_id/secret próprios do Threads API). O Threads usa
+      // OAuth próprio (threads.net), separado do Facebook Login.
+      threadsAppId:
+        typeof value.threadsAppId === 'string' ? value.threadsAppId : '',
+      threadsAppSecret:
+        typeof value.threadsAppSecret === 'string' ? value.threadsAppSecret : '',
     };
+  }
+
+  /** URL de callback do OAuth do Threads (registrada no app do Threads). */
+  private threadsRedirectUri(): string {
+    const base = (process.env.APP_URL || 'http://localhost:3001').replace(/\/$/, '');
+    return `${base}/api/v1/channels/threads/oauth/callback`;
   }
 
   /**
@@ -268,8 +291,15 @@ export class ChannelsService {
    * WhatsApp e Facebook Login do Instagram). NÃO inclui o appSecret.
    */
   async getCoexistenceConfig() {
-    const { appId, appSecret, configId, embeddedConfigId, instagramConfigId } =
-      await this.loadMetaCoexistenceConfig();
+    const {
+      appId,
+      appSecret,
+      configId,
+      embeddedConfigId,
+      instagramConfigId,
+      threadsAppId,
+      threadsAppSecret,
+    } = await this.loadMetaCoexistenceConfig();
     return {
       appId,
       configId,
@@ -278,7 +308,158 @@ export class ChannelsService {
       enabled: !!(appId && appSecret && configId),
       // Instagram só precisa do app + secret + a config de FLB própria.
       instagramEnabled: !!(appId && appSecret && instagramConfigId),
+      // Threads usa app próprio (OAuth threads.net).
+      threadsEnabled: !!(threadsAppId && threadsAppSecret),
     };
+  }
+
+  /**
+   * Monta a URL de autorização do Threads com um `state` assinado que carrega a
+   * org + o criador (o callback é público, sem sessão). O front redireciona o
+   * navegador pra essa URL.
+   */
+  async getThreadsAuthUrl(
+    organizationId: string,
+    creator: { userOrganizationId: string; role: OrgRole },
+    name: string,
+    visibility?: 'ORG' | 'PRIVATE',
+  ): Promise<{ url: string }> {
+    const { threadsAppId, threadsAppSecret } =
+      await this.loadMetaCoexistenceConfig();
+    if (!threadsAppId || !threadsAppSecret) {
+      throw new BadRequestException(
+        'App do Threads não configurado. Peça ao Super Admin para preencher Threads App ID e App Secret em Integrações.',
+      );
+    }
+    if (!name || !name.trim()) {
+      throw new BadRequestException('Informe um nome para o canal.');
+    }
+    const state = signThreadsState({
+      o: organizationId,
+      u: creator.userOrganizationId,
+      r: creator.role,
+      n: name.trim(),
+      v: visibility,
+      exp: Date.now() + 10 * 60 * 1000, // 10 min
+    });
+    const url = this.threadsHttpClient.buildAuthorizeUrl(
+      threadsAppId,
+      this.threadsRedirectUri(),
+      state,
+    );
+    return { url };
+  }
+
+  /**
+   * Callback do OAuth do Threads: valida o `state`, troca o code por token
+   * curto→longo, puxa o perfil e cria o canal. Chamado pelo controller público.
+   */
+  async createFromThreadsCallback(code: string, state: string) {
+    if (!code) throw new BadRequestException('Código de autorização ausente.');
+    const parsed = verifyThreadsState(state);
+    if (!parsed) {
+      throw new BadRequestException('State inválido ou expirado. Refaça a conexão.');
+    }
+    const { threadsAppId, threadsAppSecret } =
+      await this.loadMetaCoexistenceConfig();
+    if (!threadsAppId || !threadsAppSecret) {
+      throw new BadRequestException('App do Threads não configurado.');
+    }
+
+    // 1) code → token curto (+ user_id) → token longo (60 dias).
+    const short = await this.threadsHttpClient.exchangeCodeForShortToken(
+      code,
+      this.threadsRedirectUri(),
+      threadsAppId,
+      threadsAppSecret,
+    );
+    const long = await this.threadsHttpClient.exchangeForLongLivedToken(
+      short.accessToken,
+      threadsAppSecret,
+    );
+
+    // 2) Perfil (username) pra deixar o canal legível.
+    let username: string | undefined;
+    try {
+      const me = await this.threadsHttpClient.getMe(long.accessToken);
+      username = me.username;
+    } catch {
+      /* best-effort */
+    }
+
+    // 3) Cria o canal. Threads não tem inbound — só guarda credencial + user.
+    return this.create(parsed.o, {
+      type: ChannelType.THREADS,
+      name: parsed.n,
+      config: {
+        accessToken: long.accessToken,
+        threadsUserId: short.userId,
+        apiVersion: 'v1.0',
+        tokenExpiresAt: new Date(Date.now() + long.expiresIn * 1000).toISOString(),
+        ...(username ? { username } : {}),
+      },
+      ...(parsed.v ? { visibility: parsed.v } : {}),
+    }, { userOrganizationId: parsed.u, role: parsed.r as OrgRole });
+  }
+
+  /** Publica um post no Threads (texto/imagem/vídeo/carrossel). */
+  async threadsPublish(
+    channelId: string,
+    organizationId: string,
+    input: ThreadsPublishInput,
+  ) {
+    const channel = await this.assertThreads(channelId, organizationId);
+    return this.threadsHttpClient.publish(channel, input);
+  }
+
+  /** Lista as respostas de um post do Threads. */
+  async threadsReplies(channelId: string, organizationId: string, mediaId: string) {
+    const channel = await this.assertThreads(channelId, organizationId);
+    const replies = await this.threadsHttpClient.listReplies(channel, mediaId);
+    return { replies };
+  }
+
+  /** Responde um post/resposta no Threads. */
+  async threadsReply(
+    channelId: string,
+    organizationId: string,
+    replyToId: string,
+    text: string,
+  ) {
+    const channel = await this.assertThreads(channelId, organizationId);
+    return this.threadsHttpClient.reply(channel, replyToId, text);
+  }
+
+  /** Oculta/reexibe uma resposta (moderação). */
+  async threadsHideReply(
+    channelId: string,
+    organizationId: string,
+    replyId: string,
+    hide: boolean,
+  ) {
+    const channel = await this.assertThreads(channelId, organizationId);
+    return this.threadsHttpClient.hideReply(channel, replyId, hide);
+  }
+
+  /** Insights de um post (mediaId) ou do perfil (sem mediaId). */
+  async threadsInsights(
+    channelId: string,
+    organizationId: string,
+    mediaId?: string,
+  ) {
+    const channel = await this.assertThreads(channelId, organizationId);
+    const data = mediaId
+      ? await this.threadsHttpClient.getMediaInsights(channel, mediaId)
+      : await this.threadsHttpClient.getUserInsights(channel);
+    return { insights: data };
+  }
+
+  private async assertThreads(channelId: string, organizationId: string) {
+    const channel = await this.findOne(channelId, organizationId);
+    if (channel.type !== ChannelType.THREADS) {
+      throw new BadRequestException('Canal não é do tipo Threads.');
+    }
+    return channel;
   }
 
   /**
@@ -852,6 +1033,18 @@ export class ChannelsService {
               canJoinGroups: info.can_join_groups,
               canReadAllGroupMessages: info.can_read_all_group_messages,
             },
+          };
+        }
+
+        case ChannelType.THREADS: {
+          const cfg = (channel.config ?? {}) as Record<string, any>;
+          const me = await this.threadsHttpClient.getMe(
+            String(cfg.accessToken || ''),
+          );
+          return {
+            success: true,
+            status: 'connected',
+            data: { username: me.username, threadsUserId: me.id, name: me.name },
           };
         }
 

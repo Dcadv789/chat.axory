@@ -18,6 +18,11 @@ import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { CoexistenceChannelDto } from './dto/coexistence-channel.dto';
 import { InstagramFacebookLoginDto } from './dto/instagram-facebook-login.dto';
+import {
+  ThreadsPublishDto,
+  ThreadsReplyDto,
+  ThreadsHideReplyDto,
+} from './dto/threads.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 import { CurrentChannelAccess, CurrentOrg, Roles } from '../../../common/decorators';
 import type { ChannelAccess } from '../../iam/channel-access/channel-access.service';
@@ -99,6 +104,74 @@ export class ChannelsController {
       userOrganizationId: org.userOrganizationId,
       role: org.userRole,
     });
+  }
+
+  @Get('threads/oauth/url')
+  @ApiOperation({
+    summary:
+      'Monta a URL de autorização do Threads (OAuth). O front redireciona o navegador pra ela; o retorno cai no callback público.',
+  })
+  getThreadsAuthUrl(
+    @CurrentOrg() org: { id: string; userOrganizationId: string; userRole: OrgRole },
+    @Query('name') name: string,
+    @Query('visibility') visibility?: 'ORG' | 'PRIVATE',
+  ) {
+    return this.service.getThreadsAuthUrl(
+      org.id,
+      { userOrganizationId: org.userOrganizationId, role: org.userRole },
+      name,
+      visibility,
+    );
+  }
+
+  @Post(':id/threads/publish')
+  @ApiOperation({ summary: 'Publica um post no Threads (texto/imagem/vídeo/carrossel)' })
+  threadsPublish(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: ThreadsPublishDto,
+  ) {
+    return this.service.threadsPublish(id, orgId, dto);
+  }
+
+  @Get(':id/threads/replies')
+  @ApiOperation({ summary: 'Lista as respostas de um post do Threads' })
+  threadsReplies(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+    @Query('mediaId') mediaId: string,
+  ) {
+    return this.service.threadsReplies(id, orgId, mediaId);
+  }
+
+  @Post(':id/threads/reply')
+  @ApiOperation({ summary: 'Responde um post/resposta no Threads' })
+  threadsReply(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: ThreadsReplyDto,
+  ) {
+    return this.service.threadsReply(id, orgId, dto.replyToId, dto.text);
+  }
+
+  @Post(':id/threads/hide-reply')
+  @ApiOperation({ summary: 'Oculta/reexibe uma resposta no Threads (moderação)' })
+  threadsHideReply(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: ThreadsHideReplyDto,
+  ) {
+    return this.service.threadsHideReply(id, orgId, dto.replyId, dto.hide);
+  }
+
+  @Get(':id/threads/insights')
+  @ApiOperation({ summary: 'Insights de um post (mediaId) ou do perfil (sem mediaId)' })
+  threadsInsights(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+    @Query('mediaId') mediaId?: string,
+  ) {
+    return this.service.threadsInsights(id, orgId, mediaId);
   }
 
   @Get()

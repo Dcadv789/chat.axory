@@ -26,6 +26,13 @@ import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.to
 import { GetBudgetPacingTool } from './builtin/get-budget-pacing.tool';
 import { GetRecentMarketingAnalysesTool } from './builtin/get-recent-marketing-analyses.tool';
 import {
+  PublishThreadsPostTool,
+  ReplyToThreadsPostTool,
+  ListThreadsRepliesTool,
+  HideThreadsReplyTool,
+  GetThreadsInsightsTool,
+} from './builtin/threads.tools';
+import {
   CreatePersonalTaskTool,
   ListPersonalTasksTool,
   UpdatePersonalTaskTool,
@@ -91,6 +98,11 @@ export class ToolRegistry {
     captureMetaAdsMetrics: CaptureMetaAdsMetricsTool,
     getBudgetPacing: GetBudgetPacingTool,
     getRecentMarketingAnalyses: GetRecentMarketingAnalysesTool,
+    publishThreadsPost: PublishThreadsPostTool,
+    replyToThreadsPost: ReplyToThreadsPostTool,
+    listThreadsReplies: ListThreadsRepliesTool,
+    hideThreadsReply: HideThreadsReplyTool,
+    getThreadsInsights: GetThreadsInsightsTool,
     createPersonalTask: CreatePersonalTaskTool,
     listPersonalTasks: ListPersonalTasksTool,
     updatePersonalTask: UpdatePersonalTaskTool,
@@ -148,6 +160,15 @@ export class ToolRegistry {
     this.register(getRecentMarketingAnalyses, ['ORCHESTRATOR', 'WORKER'], undefined, [
       'MARKETING',
     ]);
+
+    // ─── Threads (publicação/comunidade/insights) — marketing ───
+    // Publicar/responder/moderar: worker (Caspian). Insights: orquestra + worker.
+    const MKT: AiAgentSector[] = ['MARKETING'];
+    this.register(publishThreadsPost, ['WORKER'], undefined, MKT);
+    this.register(replyToThreadsPost, ['WORKER'], undefined, MKT);
+    this.register(listThreadsReplies, ['ORCHESTRATOR', 'WORKER'], undefined, MKT);
+    this.register(hideThreadsReply, ['WORKER'], undefined, MKT);
+    this.register(getThreadsInsights, ['ORCHESTRATOR', 'WORKER'], undefined, MKT);
 
     // ─── Assistente Pessoal — só agentes do setor PESSOAL ───
     // Sector-scoped: não aparecem pra agentes de atendimento/marketing.

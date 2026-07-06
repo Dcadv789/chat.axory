@@ -23,6 +23,8 @@ import { TelegramOutboundAdapter } from './adapters/telegram/telegram.outbound-a
 import { InternalModule } from './adapters/internal/internal.module';
 import { InternalInboundAdapter } from './adapters/internal/internal.inbound-adapter';
 import { InternalOutboundAdapter } from './adapters/internal/internal.outbound-adapter';
+import { ThreadsModule } from './adapters/threads/threads.module';
+import { ThreadsOAuthController } from './channels/threads-oauth.controller';
 import { ChannelSyncOrchestrator } from './sync/channel-sync.orchestrator';
 import { ChannelSyncProcessor } from './sync/channel-sync.processor';
 import { CHANNEL_SYNC_QUEUE } from './sync/channel-sync.constants';
@@ -49,9 +51,15 @@ import { WhatsappTemplateService } from './templates/whatsapp-template.service';
     InstagramModule,
     TelegramModule,
     InternalModule,
+    ThreadsModule,
     forwardRef(() => MessagingModule),
   ],
-  controllers: [WebhookGatewayController, ChannelsController, WhatsappTemplatesController],
+  controllers: [
+    WebhookGatewayController,
+    ChannelsController,
+    ThreadsOAuthController,
+    WhatsappTemplatesController,
+  ],
   providers: [
     ChannelAdapterRegistry,
     ChannelsService,
