@@ -5,7 +5,7 @@ import { AiTool, ToolContext, ToolResult } from '../tool.types';
 import { upsertDailyAdMetric } from '../marketing-metric.util';
 import { brtDateString, countConversions } from '../../marketing/meta-insights.util';
 
-const GRAPH = 'https://graph.facebook.com/v21.0';
+const GRAPH = 'https://graph.facebook.com/v25.0';
 
 const WINDOW_DAYS: Record<string, number> = {
   LAST_MONTH: 30,

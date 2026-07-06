@@ -122,7 +122,7 @@ export class WhatsappTemplateService {
       accessToken: config.accessToken,
       phoneNumberId: config.phoneNumberId,
       businessAccountId: config.businessAccountId,
-      apiVersion: config.apiVersion || 'v21.0',
+      apiVersion: config.apiVersion || 'v25.0',
     };
   }
 }

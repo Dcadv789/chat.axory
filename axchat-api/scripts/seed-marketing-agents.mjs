@@ -24,7 +24,7 @@ const tools = [
     description:
       'Meta Marketing API (Graph) — leitura de insights da ad account/campanhas, listagem e criação de campanhas, estimativa de alcance/delivery e ajuste de orçamento diário.',
     source: 'CUSTOM_HTTP',
-    httpBaseUrl: 'https://graph.facebook.com/v21.0',
+    httpBaseUrl: 'https://graph.facebook.com/v25.0',
     httpHeaders: {
       Authorization: 'Bearer {{env.META_ADS_ACCESS_TOKEN}}',
       'Content-Type': 'application/json',

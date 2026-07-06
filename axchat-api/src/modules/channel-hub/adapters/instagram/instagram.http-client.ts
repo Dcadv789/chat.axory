@@ -34,7 +34,7 @@ export class InstagramHttpClient {
       accessToken,
       igBusinessId: igBusinessId ? String(igBusinessId).trim() : undefined,
       appSecret: config.appSecret,
-      apiVersion: config.apiVersion || 'v21.0',
+      apiVersion: config.apiVersion || 'v25.0',
       graphApi: config.graphApi === 'instagram' ? 'instagram' : 'facebook',
     };
   }
@@ -341,6 +341,90 @@ export class InstagramHttpClient {
       await client.delete(`/${messageId}`);
     } catch (err: any) {
       throw this.wrapGraphError(err, 'deleteMessage');
+    }
+  }
+
+  /**
+   * Facebook Login for Business: troca o `code` devolvido pelo popup por um
+   * access token de usuário (business-scoped, longa duração). Usa as credenciais
+   * do NOSSO app (configuradas pelo Super Admin em PlatformSetting). O App Secret
+   * nunca trafega pelo frontend.
+   */
+  async exchangeCodeForToken(
+    code: string,
+    appId: string,
+    appSecret: string,
+    apiVersion = 'v25.0',
+  ): Promise<string> {
+    if (!appId || !appSecret) {
+      throw new Error(
+        'App Meta não configurado — defina App ID e App Secret em Super Admin > Integrações.',
+      );
+    }
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/oauth/access_token`,
+        {
+          params: { client_id: appId, client_secret: appSecret, code },
+          timeout: 30000,
+        },
+      );
+      if (!data?.access_token) {
+        throw new Error('Meta não retornou access_token na troca do código');
+      }
+      return data.access_token as string;
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message;
+      this.logger.error(`Instagram FLB token exchange failed: ${msg}`);
+      throw new Error(`Falha ao trocar código por token: ${msg}`);
+    }
+  }
+
+  /**
+   * Lista as Páginas do Facebook que o usuário concedeu no popup, cada uma com
+   * a conta profissional do Instagram vinculada (id + username) e o token da
+   * própria Página. É o que o onboarding usa pra montar o canal sozinho: precisa
+   * do Page access token (pra falar com a Graph em nome da conta) e do IG
+   * business id. Requer os escopos pages_show_list + instagram_basic no token.
+   */
+  async listManagedPagesWithInstagram(
+    userToken: string,
+    apiVersion = 'v25.0',
+  ): Promise<
+    Array<{
+      pageId: string;
+      pageName: string | null;
+      pageAccessToken: string;
+      igBusinessId?: string;
+      igUsername?: string;
+    }>
+  > {
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/me/accounts`,
+        {
+          params: {
+            fields: 'id,name,access_token,instagram_business_account{id,username}',
+            limit: 100,
+            access_token: userToken,
+          },
+          timeout: 30000,
+        },
+      );
+      const rows: any[] = Array.isArray(data?.data) ? data.data : [];
+      return rows.map((p) => ({
+        pageId: String(p.id),
+        pageName: p.name ?? null,
+        pageAccessToken: p.access_token,
+        igBusinessId: p.instagram_business_account?.id
+          ? String(p.instagram_business_account.id)
+          : undefined,
+        igUsername: p.instagram_business_account?.username,
+      }));
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message;
+      this.logger.error(`Instagram FLB list pages failed: ${msg}`);
+      throw new Error(`Falha ao listar Páginas/contas do Instagram: ${msg}`);
     }
   }
 

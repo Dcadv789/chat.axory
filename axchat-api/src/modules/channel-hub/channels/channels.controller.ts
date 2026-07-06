@@ -17,6 +17,7 @@ import { WhatsAppHealthService } from './whatsapp-health.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { CoexistenceChannelDto } from './dto/coexistence-channel.dto';
+import { InstagramFacebookLoginDto } from './dto/instagram-facebook-login.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 import { CurrentChannelAccess, CurrentOrg, Roles } from '../../../common/decorators';
 import type { ChannelAccess } from '../../iam/channel-access/channel-access.service';
@@ -80,6 +81,21 @@ export class ChannelsController {
     @Body() dto: CoexistenceChannelDto,
   ) {
     return this.service.createFromEmbeddedSignup(org.id, dto, {
+      userOrganizationId: org.userOrganizationId,
+      role: org.userRole,
+    });
+  }
+
+  @Post('instagram/facebook-login')
+  @ApiOperation({
+    summary:
+      'Cria um canal Instagram via Facebook Login for Business: troca o code do popup por token, acha a Página + conta IG vinculada e configura o canal automaticamente.',
+  })
+  createInstagramFacebookLogin(
+    @CurrentOrg() org: { id: string; userOrganizationId: string; userRole: OrgRole },
+    @Body() dto: InstagramFacebookLoginDto,
+  ) {
+    return this.service.createFromInstagramFacebookLogin(org.id, dto, {
       userOrganizationId: org.userOrganizationId,
       role: org.userRole,
     });

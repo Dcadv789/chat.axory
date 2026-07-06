@@ -23,4 +23,11 @@ export class UpdateMetaCoexistenceDto {
   @IsOptional()
   @IsString()
   embeddedConfigId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Facebook Login for Business config_id for Instagram (IG + Pages permissions)',
+  })
+  @IsOptional()
+  @IsString()
+  instagramConfigId?: string;
 }

@@ -1776,6 +1776,9 @@ export class SuperAdminService {
       // separado do de coexistência (QR).
       embeddedConfigId:
         typeof value.embeddedConfigId === 'string' ? value.embeddedConfigId : '',
+      // Config de Facebook Login for Business pro Instagram (IG + Páginas).
+      instagramConfigId:
+        typeof value.instagramConfigId === 'string' ? value.instagramConfigId : '',
       // Nunca devolve o secret em texto — só informa se já está salvo.
       hasSecret: typeof value.appSecret === 'string' && value.appSecret.length > 0,
     };
@@ -1786,6 +1789,7 @@ export class SuperAdminService {
     appSecret?: string;
     configId?: string;
     embeddedConfigId?: string;
+    instagramConfigId?: string;
   }) {
     const existing = await this.prisma.platformSetting.findUnique({
       where: { key: META_COEXISTENCE_KEY },
@@ -1801,6 +1805,8 @@ export class SuperAdminService {
       appId: dto.appId ?? current.appId ?? '',
       configId: dto.configId ?? current.configId ?? '',
       embeddedConfigId: dto.embeddedConfigId ?? current.embeddedConfigId ?? '',
+      instagramConfigId:
+        dto.instagramConfigId ?? current.instagramConfigId ?? '',
       // Só sobrescreve o secret quando um novo valor não-vazio é enviado.
       appSecret:
         dto.appSecret && dto.appSecret.length > 0
@@ -1818,6 +1824,7 @@ export class SuperAdminService {
       appId: next.appId as string,
       configId: next.configId as string,
       embeddedConfigId: next.embeddedConfigId as string,
+      instagramConfigId: next.instagramConfigId as string,
       hasSecret: (next.appSecret as string).length > 0,
     };
   }

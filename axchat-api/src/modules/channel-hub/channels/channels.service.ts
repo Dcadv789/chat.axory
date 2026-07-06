@@ -13,6 +13,7 @@ import { ChannelsRepository } from './channels.repository';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { CoexistenceChannelDto } from './dto/coexistence-channel.dto';
+import { InstagramFacebookLoginDto } from './dto/instagram-facebook-login.dto';
 import { ChannelAdapterRegistry } from '../channel-adapter.registry';
 import { ZappfyHttpClient } from '../adapters/zappfy/zappfy.http-client';
 import { WhatsAppOfficialHttpClient } from '../adapters/whatsapp-official/whatsapp-official.http-client';
@@ -233,6 +234,7 @@ export class ChannelsService {
     appSecret: string;
     configId: string;
     embeddedConfigId: string;
+    instagramConfigId: string;
   }> {
     const row = await this.prisma.platformSetting.findUnique({
       where: { key: 'meta_coexistence' },
@@ -252,21 +254,30 @@ export class ChannelsService {
         typeof value.embeddedConfigId === 'string' && value.embeddedConfigId
           ? value.embeddedConfigId
           : configId,
+      // Config de Facebook Login for Business pro Instagram (permissões IG +
+      // Páginas). NÃO reusa o de WhatsApp — as permissões são diferentes.
+      instagramConfigId:
+        typeof value.instagramConfigId === 'string'
+          ? value.instagramConfigId
+          : '',
     };
   }
 
   /**
-   * Config pública para a org montar os popups Embedded Signup (coexistência
-   * e signup padrão). NÃO inclui o appSecret.
+   * Config pública para a org montar os popups da Meta (Embedded Signup do
+   * WhatsApp e Facebook Login do Instagram). NÃO inclui o appSecret.
    */
   async getCoexistenceConfig() {
-    const { appId, appSecret, configId, embeddedConfigId } =
+    const { appId, appSecret, configId, embeddedConfigId, instagramConfigId } =
       await this.loadMetaCoexistenceConfig();
     return {
       appId,
       configId,
       embeddedConfigId,
+      instagramConfigId,
       enabled: !!(appId && appSecret && configId),
+      // Instagram só precisa do app + secret + a config de FLB própria.
+      instagramEnabled: !!(appId && appSecret && instagramConfigId),
     };
   }
 
@@ -309,7 +320,7 @@ export class ChannelsService {
           phoneNumberId: dto.phoneNumberId,
           businessAccountId: dto.businessAccountId,
           appSecret,
-          apiVersion: 'v21.0',
+          apiVersion: 'v25.0',
           coexistence: true,
         },
         ...(dto.visibility ? { visibility: dto.visibility } : {}),
@@ -393,12 +404,87 @@ export class ChannelsService {
           phoneNumberId: dto.phoneNumberId,
           businessAccountId: dto.businessAccountId,
           appSecret,
-          apiVersion: 'v21.0',
+          apiVersion: 'v25.0',
           pin,
           ...(info.displayPhoneNumber
             ? { displayPhoneNumber: info.displayPhoneNumber }
             : {}),
           ...(info.verifiedName ? { verifiedName: info.verifiedName } : {}),
+        },
+        ...(dto.visibility ? { visibility: dto.visibility } : {}),
+      },
+      creator,
+    );
+  }
+
+  /**
+   * Instagram via Facebook Login for Business. O popup da Meta devolve só um
+   * `code`; aqui trocamos por um token de usuário (business-scoped), listamos
+   * as Páginas concedidas com a conta profissional do Instagram vinculada e
+   * criamos o canal já com o Page access token + IG business id — sem o dono
+   * digitar token nenhum. O `create()` cuida de inscrever o app nos webhooks
+   * da Página (DMs). Os comentários continuam assinados no nível do app, no
+   * painel de Webhooks da Meta.
+   */
+  async createFromInstagramFacebookLogin(
+    organizationId: string,
+    dto: InstagramFacebookLoginDto,
+    creator?: { userOrganizationId: string; role: OrgRole },
+  ) {
+    const { appId, appSecret, instagramConfigId } =
+      await this.loadMetaCoexistenceConfig();
+    if (!appId || !appSecret) {
+      throw new BadRequestException(
+        'App Meta não configurado. Peça ao Super Admin para preencher App ID e App Secret em Integrações.',
+      );
+    }
+    if (!instagramConfigId) {
+      throw new BadRequestException(
+        'Config do Instagram (Facebook Login) não definida. Peça ao Super Admin para preencher o Instagram Config ID em Integrações.',
+      );
+    }
+
+    // 1) code → token de usuário (business-scoped).
+    const userToken = await this.instagramHttpClient.exchangeCodeForToken(
+      dto.code,
+      appId,
+      appSecret,
+    );
+
+    // 2) Páginas concedidas + conta IG profissional vinculada a cada uma.
+    const pages =
+      await this.instagramHttpClient.listManagedPagesWithInstagram(userToken);
+    const withIg = pages.filter((p) => p.igBusinessId);
+    if (withIg.length === 0) {
+      throw new BadRequestException(
+        'Nenhuma conta profissional do Instagram vinculada a uma Página do Facebook foi encontrada. Confirme que a conta é Profissional (Business/Creator), que está vinculada a uma Página, e que você concedeu acesso a ela no popup da Meta.',
+      );
+    }
+    // O popup do FLB normalmente já limita à seleção do usuário; pega a primeira
+    // Página com Instagram. Com mais de uma, loga qual foi escolhida.
+    const chosen = withIg[0];
+    if (withIg.length > 1) {
+      this.logger.warn(
+        `Instagram FLB: ${withIg.length} páginas com Instagram retornadas; usando "${chosen.pageName ?? chosen.pageId}" (@${chosen.igUsername ?? '?'}).`,
+      );
+    }
+
+    // 3) Cria o canal (o create() dispara o subscribed_apps da Página → DMs).
+    return this.create(
+      organizationId,
+      {
+        type: ChannelType.INSTAGRAM,
+        name: dto.name,
+        config: {
+          accessToken: chosen.pageAccessToken,
+          pageAccessToken: chosen.pageAccessToken,
+          igBusinessId: chosen.igBusinessId,
+          fbPageId: chosen.pageId,
+          appSecret,
+          apiVersion: 'v25.0',
+          graphApi: 'facebook',
+          ...(chosen.igUsername ? { igUsername: chosen.igUsername } : {}),
+          ...(chosen.pageName ? { fbPageName: chosen.pageName } : {}),
         },
         ...(dto.visibility ? { visibility: dto.visibility } : {}),
       },

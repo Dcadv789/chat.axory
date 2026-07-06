@@ -23,7 +23,7 @@ export class WhatsAppOfficialHttpClient {
       accessToken: config.accessToken,
       phoneNumberId: config.phoneNumberId,
       businessAccountId: config.businessAccountId,
-      apiVersion: config.apiVersion || 'v21.0',
+      apiVersion: config.apiVersion || 'v25.0',
     };
   }
 
@@ -155,7 +155,7 @@ export class WhatsAppOfficialHttpClient {
     code: string,
     appId: string,
     appSecret: string,
-    apiVersion = 'v21.0',
+    apiVersion = 'v25.0',
   ): Promise<string> {
     if (!appId || !appSecret) {
       throw new Error(
@@ -189,7 +189,7 @@ export class WhatsAppOfficialHttpClient {
   async fetchPhoneNumberInfo(
     token: string,
     phoneNumberId: string,
-    apiVersion = 'v21.0',
+    apiVersion = 'v25.0',
   ): Promise<{ displayPhoneNumber?: string; verifiedName?: string }> {
     try {
       const { data } = await axios.get(
@@ -224,7 +224,7 @@ export class WhatsAppOfficialHttpClient {
     token: string,
     phoneNumberId: string,
     pin: string,
-    apiVersion = 'v21.0',
+    apiVersion = 'v25.0',
   ): Promise<{ registered: boolean; alreadyRegistered: boolean; error?: string }> {
     try {
       await axios.post(

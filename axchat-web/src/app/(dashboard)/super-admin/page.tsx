@@ -1357,6 +1357,7 @@ function IntegrationsPanel() {
   const [appId, setAppId] = useState('');
   const [configId, setConfigId] = useState('');
   const [embeddedConfigId, setEmbeddedConfigId] = useState('');
+  const [instagramConfigId, setInstagramConfigId] = useState('');
   const [appSecret, setAppSecret] = useState('');
 
   useEffect(() => {
@@ -1364,6 +1365,7 @@ function IntegrationsPanel() {
       setAppId(config.appId);
       setConfigId(config.configId);
       setEmbeddedConfigId(config.embeddedConfigId ?? '');
+      setInstagramConfigId(config.instagramConfigId ?? '');
       setAppSecret('');
     }
   }, [config]);
@@ -1374,6 +1376,7 @@ function IntegrationsPanel() {
         appId: appId.trim(),
         configId: configId.trim(),
         embeddedConfigId: embeddedConfigId.trim(),
+        instagramConfigId: instagramConfigId.trim(),
         // Só envia o secret se o usuário digitou algo novo.
         ...(appSecret.trim() ? { appSecret: appSecret.trim() } : {}),
       }),
@@ -1427,6 +1430,12 @@ function IntegrationsPanel() {
               <Input label="Config ID — Login Facebook padrão" value={embeddedConfigId} onChange={setEmbeddedConfigId} placeholder="config_id do Embedded Signup padrão (se vazio, usa o de coexistência)" />
               <p className="mt-1 text-[11px] text-zinc-400">
                 Configuração de Embedded Signup padrão (criar/selecionar WABA + número). Deixe vazio para reutilizar o Config ID de coexistência.
+              </p>
+            </div>
+            <div>
+              <Input label="Instagram Config ID — Login Facebook" value={instagramConfigId} onChange={setInstagramConfigId} placeholder="config_id do Facebook Login for Business com permissões de Instagram + Páginas" />
+              <p className="mt-1 text-[11px] text-zinc-400">
+                Configuração de Facebook Login for Business para conectar o Instagram (escopos instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_read_engagement). Habilita o botão &quot;Login Facebook&quot; ao criar um canal Instagram.
               </p>
             </div>
             <div>

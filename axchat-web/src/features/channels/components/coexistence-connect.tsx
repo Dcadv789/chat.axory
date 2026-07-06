@@ -93,7 +93,7 @@ export function CoexistenceConnect({
         appId: config.appId,
         autoLogAppEvents: true,
         xfbml: false,
-        version: 'v21.0',
+        version: 'v25.0',
       });
       setSdkReady(true);
     };

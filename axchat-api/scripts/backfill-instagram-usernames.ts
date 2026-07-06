@@ -27,7 +27,7 @@ async function resolveParticipantUsername(
 ): Promise<{ username?: string; name?: string } | null> {
   const token = cfg.accessToken || cfg.pageAccessToken;
   if (!token) return null;
-  const apiVersion = cfg.apiVersion || 'v21.0';
+  const apiVersion = cfg.apiVersion || 'v25.0';
   const url = `https://graph.instagram.com/${apiVersion}/me/conversations`;
 
   try {

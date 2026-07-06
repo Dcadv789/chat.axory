@@ -11,6 +11,7 @@ import { channelsService, type ChannelType } from '../services/channels.service'
 import { aiAgentsService } from '@/features/ai-agents/services/ai-agents.service';
 import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
 import { CoexistenceConnect } from './coexistence-connect';
+import { InstagramConnect } from './instagram-connect';
 
 const channelTypes: { value: ChannelType; label: string; icon: React.ElementType; color: string; description: string }[] = [
   {
@@ -115,6 +116,9 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   // WhatsApp Official: 'api' = formulário manual; 'coexistence' = QR Embedded
   // Signup; 'embedded' = Embedded Signup padrão (login Facebook, puxa credenciais).
   const [waMode, setWaMode] = useState<'api' | 'coexistence' | 'embedded'>('api');
+  // Instagram: 'facebook' = Facebook Login for Business (puxa tudo); 'api' =
+  // formulário manual (token de System User).
+  const [igMode, setIgMode] = useState<'facebook' | 'api'>('facebook');
 
   const zappfyForm = useForm<ZappfyFormData>({
     resolver: zodResolver(zappfySchema),
@@ -240,6 +244,25 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
     }
   };
 
+  const onConnectInstagram = async (payload: { code: string }) => {
+    setIsLoading(true);
+    try {
+      await channelsService.createInstagramFacebookLogin({
+        name: igForm.getValues('name') || 'Instagram',
+        code: payload.code,
+        visibility,
+      });
+      toast.success('Instagram conectado! Página e conta puxadas do Facebook.');
+      handleClose();
+      onCreated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao conectar Instagram');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const onSubmitInstagram = (data: InstagramFormData) =>
     submitChannel(
       'INSTAGRAM',
@@ -249,7 +272,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
         appSecret: data.appSecret,
         igBusinessId: data.igBusinessId || undefined,
         igAppId: data.igAppId || undefined,
-        apiVersion: 'v21.0',
+        apiVersion: 'v25.0',
       },
       data.webhookSecret,
     );
@@ -275,6 +298,7 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
     setStep('type');
     setSelectedType(null);
     setWaMode('api');
+    setIgMode('facebook');
     zappfyForm.reset();
     waForm.reset();
     igForm.reset();
@@ -404,17 +428,64 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
             )}
           </div>
         ) : selectedType === 'INSTAGRAM' ? (
-          <form onSubmit={igForm.handleSubmit(onSubmitInstagram)} className="mt-6 space-y-4">
-            <InstagramHelp open={showInstagramHelp} onToggle={() => setShowInstagramHelp((v) => !v)} />
-            <Field label="Nome do canal" placeholder="Ex: Instagram Loja" error={igForm.formState.errors.name?.message} {...igForm.register('name')} />
-            <Field label="Access Token" type="text" placeholder="O mesmo token de System User dos agentes (IG_ACCESS_TOKEN nas Variáveis)" error={igForm.formState.errors.accessToken?.message} {...igForm.register('accessToken')} />
-            <Field label="App Secret" type="text" placeholder="developers.facebook.com → seu app → Básico → Chave Secreta" error={igForm.formState.errors.appSecret?.message} {...igForm.register('appSecret')} />
-            <Field label="Instagram Business ID" placeholder="Cole o mesmo IG_USER_ID das Variáveis (obrigatório)" error={igForm.formState.errors.igBusinessId?.message} {...igForm.register('igBusinessId')} />
-            <Field label="Instagram App ID" placeholder="Opcional — número do app no topo do painel da Meta" optional {...igForm.register('igAppId')} />
-            <Field label="Webhook Verify Token" placeholder="Uma senha que VOCÊ inventa — vai usar igual no painel da Meta" optional {...igForm.register('webhookSecret')} />
-            <WebhookUrl url={`${apiBaseUrl}/webhooks/INSTAGRAM`} copied={copied} onCopy={() => handleCopyWebhook('INSTAGRAM')} />
-            <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
-          </form>
+          <div className="mt-6 space-y-4">
+            <div className="flex gap-2 rounded-lg border border-zinc-200 p-1 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setIgMode('facebook')}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  igMode === 'facebook'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
+                }`}
+              >
+                Login Facebook
+              </button>
+              <button
+                type="button"
+                onClick={() => setIgMode('api')}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  igMode === 'api'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
+                }`}
+              >
+                Manual
+              </button>
+            </div>
+
+            {igMode === 'facebook' ? (
+              <>
+                <Field label="Nome do canal" placeholder="Ex: Instagram Loja" error={igForm.formState.errors.name?.message} {...igForm.register('name')} />
+                <InstagramConnect
+                  name={igForm.watch('name') || ''}
+                  onConnect={onConnectInstagram}
+                  isSubmitting={isLoading}
+                />
+                <div className="flex items-center justify-start pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('type')}
+                    className="rounded-md px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={igForm.handleSubmit(onSubmitInstagram)} className="space-y-4">
+                <InstagramHelp open={showInstagramHelp} onToggle={() => setShowInstagramHelp((v) => !v)} />
+                <Field label="Nome do canal" placeholder="Ex: Instagram Loja" error={igForm.formState.errors.name?.message} {...igForm.register('name')} />
+                <Field label="Access Token" type="text" placeholder="O mesmo token de System User dos agentes (IG_ACCESS_TOKEN nas Variáveis)" error={igForm.formState.errors.accessToken?.message} {...igForm.register('accessToken')} />
+                <Field label="App Secret" type="text" placeholder="developers.facebook.com → seu app → Básico → Chave Secreta" error={igForm.formState.errors.appSecret?.message} {...igForm.register('appSecret')} />
+                <Field label="Instagram Business ID" placeholder="Cole o mesmo IG_USER_ID das Variáveis (obrigatório)" error={igForm.formState.errors.igBusinessId?.message} {...igForm.register('igBusinessId')} />
+                <Field label="Instagram App ID" placeholder="Opcional — número do app no topo do painel da Meta" optional {...igForm.register('igAppId')} />
+                <Field label="Webhook Verify Token" placeholder="Uma senha que VOCÊ inventa — vai usar igual no painel da Meta" optional {...igForm.register('webhookSecret')} />
+                <WebhookUrl url={`${apiBaseUrl}/webhooks/INSTAGRAM`} copied={copied} onCopy={() => handleCopyWebhook('INSTAGRAM')} />
+                <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
+              </form>
+            )}
+          </div>
         ) : selectedType === 'TELEGRAM' ? (
           <form onSubmit={telegramForm.handleSubmit(onSubmitTelegram)} className="mt-6 space-y-4">
             <TelegramHelp open={showTelegramHelp} onToggle={() => setShowTelegramHelp((v) => !v)} />

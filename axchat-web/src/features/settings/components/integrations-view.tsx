@@ -64,7 +64,7 @@ const INTEGRATIONS: Integration[] = [
     accent: 'text-pink-600 dark:text-pink-400',
     description:
       'Publicar posts, ler insights de mídia, responder comentários e gerir anúncios (Meta Ads). O webhook recebe DMs e eventos em tempo real.',
-    apiBase: 'https://graph.facebook.com/v21.0',
+    apiBase: 'https://graph.facebook.com/v25.0',
     fields: [
       {
         key: 'IG_ACCESS_TOKEN',

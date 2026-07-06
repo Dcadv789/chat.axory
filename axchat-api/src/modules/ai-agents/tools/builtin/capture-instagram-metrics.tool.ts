@@ -4,7 +4,7 @@ import { PrismaService } from '../../../../database/prisma.service';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
 import { upsertDailyMediaMetric } from '../marketing-metric.util';
 
-const GRAPH = 'https://graph.facebook.com/v21.0';
+const GRAPH = 'https://graph.facebook.com/v25.0';
 
 const WINDOW_DAYS: Record<string, number> = {
   LAST_MONTH: 30,

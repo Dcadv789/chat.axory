@@ -17,7 +17,7 @@ export interface WhatsAppHealth {
 @Injectable()
 export class WhatsAppHealthService {
   private readonly logger = new Logger(WhatsAppHealthService.name);
-  private readonly GRAPH_API = 'https://graph.facebook.com/v21.0';
+  private readonly GRAPH_API = 'https://graph.facebook.com/v25.0';
 
   async getHealth(config: Record<string, any>): Promise<WhatsAppHealth> {
     const phoneNumberId = config.phoneNumberId;

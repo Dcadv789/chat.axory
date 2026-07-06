@@ -19,7 +19,7 @@ export interface IntegrationTestResult {
   checks: IntegrationCheck[];
 }
 
-const GRAPH = 'https://graph.facebook.com/v21.0';
+const GRAPH = 'https://graph.facebook.com/v25.0';
 
 /**
  * Valida as credenciais salvas de uma integração batendo na API real do

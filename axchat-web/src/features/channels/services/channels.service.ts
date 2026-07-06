@@ -61,7 +61,17 @@ export interface CoexistenceConfig {
   configId: string;
   /** Config do Embedded Signup padrão (cai no configId se não configurado). */
   embeddedConfigId?: string;
+  /** Config de Facebook Login for Business pro Instagram (IG + Páginas). */
+  instagramConfigId?: string;
   enabled: boolean;
+  /** true quando app + secret + instagramConfigId estão configurados. */
+  instagramEnabled?: boolean;
+}
+
+export interface InstagramFacebookLoginPayload {
+  name: string;
+  code: string;
+  visibility?: ChannelVisibility;
 }
 
 export interface UpdateChannelPayload {
@@ -150,6 +160,16 @@ export const channelsService = {
   async getCoexistenceConfig(): Promise<CoexistenceConfig> {
     const { data } = await api.get<{ data: CoexistenceConfig }>(
       '/channels/integrations/coexistence',
+    );
+    return data.data;
+  },
+
+  async createInstagramFacebookLogin(
+    payload: InstagramFacebookLoginPayload,
+  ): Promise<Channel> {
+    const { data } = await api.post<{ data: Channel }>(
+      '/channels/instagram/facebook-login',
+      payload,
     );
     return data.data;
   },

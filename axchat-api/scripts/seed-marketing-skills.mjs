@@ -18,7 +18,7 @@ const tools = [
     description:
       'Instagram Graph API (Meta) — leitura de mídias/insights, publicação de posts e gestão de comentários da conta business conectada.',
     source: 'CUSTOM_HTTP',
-    httpBaseUrl: 'https://graph.facebook.com/v21.0',
+    httpBaseUrl: 'https://graph.facebook.com/v25.0',
     httpHeaders: {
       Authorization: 'Bearer {{env.IG_ACCESS_TOKEN}}',
       'Content-Type': 'application/json',

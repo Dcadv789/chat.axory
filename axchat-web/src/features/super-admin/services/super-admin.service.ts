@@ -462,6 +462,7 @@ export const superAdminService = {
     appSecret?: string;
     configId?: string;
     embeddedConfigId?: string;
+    instagramConfigId?: string;
   }): Promise<MetaCoexistenceConfig> {
     const { data } = await api.patch<{ data: MetaCoexistenceConfig }>(
       '/super-admin/integrations/meta-coexistence',
@@ -574,6 +575,7 @@ export interface MetaCoexistenceConfig {
   appId: string;
   configId: string;
   embeddedConfigId: string;
+  instagramConfigId: string;
   hasSecret: boolean;
 }
 

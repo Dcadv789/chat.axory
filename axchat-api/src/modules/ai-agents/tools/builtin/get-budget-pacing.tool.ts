@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../../database/prisma.service';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
 
-const GRAPH = 'https://graph.facebook.com/v21.0';
+const GRAPH = 'https://graph.facebook.com/v25.0';
 // America/Sao_Paulo = UTC-3 fixo desde 2019 (sem horário de verão).
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
 
