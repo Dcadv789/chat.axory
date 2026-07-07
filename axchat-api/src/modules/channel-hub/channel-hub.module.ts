@@ -24,7 +24,7 @@ import { InternalModule } from './adapters/internal/internal.module';
 import { InternalInboundAdapter } from './adapters/internal/internal.inbound-adapter';
 import { InternalOutboundAdapter } from './adapters/internal/internal.outbound-adapter';
 import { ThreadsModule } from './adapters/threads/threads.module';
-import { ChannelOAuthController } from './channels/channel-oauth.controller';
+import { ThreadsOAuthController } from './channels/threads-oauth.controller';
 import { ChannelSyncOrchestrator } from './sync/channel-sync.orchestrator';
 import { ChannelSyncProcessor } from './sync/channel-sync.processor';
 import { CHANNEL_SYNC_QUEUE } from './sync/channel-sync.constants';
@@ -57,7 +57,7 @@ import { WhatsappTemplateService } from './templates/whatsapp-template.service';
   controllers: [
     WebhookGatewayController,
     ChannelsController,
-    ChannelOAuthController,
+    ThreadsOAuthController,
     WhatsappTemplatesController,
   ],
   providers: [
