@@ -496,6 +496,60 @@ export class InstagramHttpClient {
     });
   }
 
+  /**
+   * Busca o vínculo IG de UMA Página usando o PAGE access token (não o do
+   * usuário). Em muitos casos o campo instagram_business_account/
+   * connected_instagram_account só volta com o token da própria Página.
+   */
+  async getPageInstagram(
+    pageId: string,
+    pageToken: string,
+    apiVersion = 'v25.0',
+  ): Promise<{ igBusinessId?: string; igUsername?: string }> {
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/${pageId}`,
+        {
+          params: {
+            fields:
+              'instagram_business_account{id,username},connected_instagram_account{id,username}',
+            access_token: pageToken,
+          },
+          timeout: 20000,
+        },
+      );
+      const ig = data?.instagram_business_account ?? data?.connected_instagram_account ?? null;
+      return { igBusinessId: ig?.id ? String(ig.id) : undefined, igUsername: ig?.username };
+    } catch (err: any) {
+      this.logger.warn(`getPageInstagram(${pageId}) falhou: ${err?.response?.data?.error?.message || err.message}`);
+      return {};
+    }
+  }
+
+  /**
+   * Permissões concedidas/negadas pelo usuário (GET /me/permissions). Usado pra
+   * diagnóstico quando o onboarding não acha a conta: mostra se faltou algum
+   * escopo (instagram_basic, business_management, pages_show_list...).
+   */
+  async getGrantedPermissions(
+    userToken: string,
+    apiVersion = 'v25.0',
+  ): Promise<{ granted: string[]; declined: string[] }> {
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/me/permissions`,
+        { params: { access_token: userToken }, timeout: 20000 },
+      );
+      const rows: any[] = Array.isArray(data?.data) ? data.data : [];
+      return {
+        granted: rows.filter((r) => r.status === 'granted').map((r) => r.permission),
+        declined: rows.filter((r) => r.status !== 'granted').map((r) => r.permission),
+      };
+    } catch {
+      return { granted: [], declined: [] };
+    }
+  }
+
   private wrapGraphError(err: any, context: string): Error {
     const metaError = err?.response?.data?.error;
     if (metaError) {

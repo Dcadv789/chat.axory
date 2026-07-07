@@ -696,6 +696,21 @@ export class ChannelsService {
       this.logger.warn(`Instagram FLB onboarding falhou (org ${organizationId}): ${msg}`);
       throw new BadRequestException(`Conexão com o Instagram falhou — ${msg}`);
     }
+    // Passo extra: pra cada Página SEM vínculo IG detectado com o token de
+    // usuário, tenta de novo com o PAGE token — às vezes o vínculo só volta assim.
+    for (const p of pages) {
+      if (!p.igBusinessId && p.pageAccessToken) {
+        const viaPage = await this.instagramHttpClient.getPageInstagram(
+          p.pageId,
+          p.pageAccessToken,
+        );
+        if (viaPage.igBusinessId) {
+          p.igBusinessId = viaPage.igBusinessId;
+          p.igUsername = viaPage.igUsername;
+        }
+      }
+    }
+
     const withIg = pages.filter((p) => p.igBusinessId);
 
     // Config do canal a criar — resolvida por um dos dois caminhos abaixo.
@@ -758,15 +773,30 @@ export class ChannelsService {
     }
 
     if (!igConfig) {
-      // Nenhum dos caminhos achou conta IG — mensagem que orienta a ação certa.
-      if (pages.length === 0) {
+      // Diagnóstico: quais permissões o usuário realmente concedeu? Distingue
+      // "faltou escopo no config_id" de "conta não vinculada de fato".
+      const perms = await this.instagramHttpClient.getGrantedPermissions(userToken);
+      const precisa = [
+        'instagram_basic',
+        'pages_show_list',
+        'pages_read_engagement',
+        'business_management',
+      ];
+      const faltando = precisa.filter((p) => !perms.granted.includes(p));
+      const nomes = pages.length
+        ? pages.map((p) => p.pageName ?? p.pageId).join(', ')
+        : '(nenhuma)';
+      this.logger.warn(
+        `Instagram FLB: nenhuma conta IG. Páginas=[${nomes}] granted=[${perms.granted.join(',')}] faltando=[${faltando.join(',')}]`,
+      );
+
+      if (faltando.length > 0) {
         throw new BadRequestException(
-          'Nenhuma conta do Instagram encontrada. No popup da Meta, selecione o Portfólio Empresarial que contém a conta do Instagram (ou a Página vinculada a ela) e conceda o acesso. Confirme também que a conta é Profissional (Business/Creator).',
+          `Faltam permissões no app da Meta: ${faltando.join(', ')}. O Super Admin precisa adicionar esses escopos na Configuração do Facebook Login (config_id) do Instagram. Sem eles, a conta do Instagram não aparece. Depois refaça a conexão.`,
         );
       }
-      const nomes = pages.map((p) => p.pageName ?? p.pageId).join(', ');
       throw new BadRequestException(
-        `Concedido: [${nomes}], mas nenhuma conta do Instagram foi encontrada nem via Página nem via Portfólio. No popup, marque o Portfólio Empresarial que contém a conta do Instagram e garanta o escopo de acesso a ele. Confirme que a conta é Profissional (Business/Creator).`,
+        `Concedido: [${nomes}], e todas as permissões OK, mas a conta do Instagram não foi retornada pela Meta. Isso costuma ser vínculo incompleto: confirme em Meta Business Suite → Configurações → Contas do Instagram que a conta está vinculada a uma dessas Páginas E ao Portfólio selecionado, que é Profissional (Business/Creator), e refaça a conexão.`,
       );
     }
 
