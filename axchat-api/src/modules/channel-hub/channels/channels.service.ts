@@ -698,8 +698,15 @@ export class ChannelsService {
     }
     const withIg = pages.filter((p) => p.igBusinessId);
     if (withIg.length === 0) {
+      // Distingue os dois cenários — muda totalmente o que o usuário deve fazer.
+      if (pages.length === 0) {
+        throw new BadRequestException(
+          'Nenhuma Página do Facebook foi concedida no popup. Refaça o login e, na tela da Meta, marque a Página vinculada à sua conta do Instagram (e garanta que você é admin dela).',
+        );
+      }
+      const nomes = pages.map((p) => p.pageName ?? p.pageId).join(', ');
       throw new BadRequestException(
-        'Nenhuma conta profissional do Instagram vinculada a uma Página do Facebook foi encontrada. Confirme que a conta é Profissional (Business/Creator), que está vinculada a uma Página, e que você concedeu acesso a ela no popup da Meta.',
+        `A(s) Página(s) [${nomes}] foram concedidas, mas nenhuma tem uma conta do Instagram vinculada. Vincule a conta em Página do Facebook → Configurações → Instagram (ou Meta Business Suite → Configurações → Contas do Instagram), confirme que ela é Profissional (Business/Creator), e refaça o login.`,
       );
     }
     // O popup do FLB normalmente já limita à seleção do usuário; pega a primeira

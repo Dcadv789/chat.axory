@@ -404,7 +404,14 @@ export class InstagramHttpClient {
         `https://graph.facebook.com/${apiVersion}/me/accounts`,
         {
           params: {
-            fields: 'id,name,access_token,instagram_business_account{id,username}',
+            // A Meta tem DOIS campos de vínculo IG↔Página:
+            //  - instagram_business_account: conta linkada via Business Manager;
+            //  - connected_instagram_account: conta conectada à Página (inclui
+            //    Creator e contas conectadas pelo app do Instagram).
+            // Contas Creator/conectadas pelo app vêm só no segundo → sem ele,
+            // "nenhuma conta encontrada" mesmo com a Página certa. Pedimos os dois.
+            fields:
+              'id,name,access_token,instagram_business_account{id,username},connected_instagram_account{id,username}',
             limit: 100,
             access_token: userToken,
           },
@@ -412,15 +419,16 @@ export class InstagramHttpClient {
         },
       );
       const rows: any[] = Array.isArray(data?.data) ? data.data : [];
-      return rows.map((p) => ({
-        pageId: String(p.id),
-        pageName: p.name ?? null,
-        pageAccessToken: p.access_token,
-        igBusinessId: p.instagram_business_account?.id
-          ? String(p.instagram_business_account.id)
-          : undefined,
-        igUsername: p.instagram_business_account?.username,
-      }));
+      return rows.map((p) => {
+        const ig = p.instagram_business_account ?? p.connected_instagram_account ?? null;
+        return {
+          pageId: String(p.id),
+          pageName: p.name ?? null,
+          pageAccessToken: p.access_token,
+          igBusinessId: ig?.id ? String(ig.id) : undefined,
+          igUsername: ig?.username,
+        };
+      });
     } catch (err: any) {
       const msg = err.response?.data?.error?.message || err.message;
       this.logger.error(`Instagram FLB list pages failed: ${msg}`);
