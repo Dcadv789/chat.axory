@@ -310,9 +310,15 @@ export class ChannelsService {
       threadsAppId,
       threadsAppSecret,
     } = await this.loadMetaCoexistenceConfig();
-    // App do Instagram: dedicado ou, se vazio, o mesmo do WhatsApp.
-    const igAppId = instagramAppId || appId;
-    const igAppSecret = instagramAppSecret || appSecret;
+    // App do Instagram: usa o app PRÓPRIO só se App ID **e** Secret vierem juntos;
+    // senão, herda o app inteiro do WhatsApp. ATÔMICO de propósito — misturar
+    // App ID de um app com Secret de outro faz a Meta rejeitar a troca do código.
+    const { igAppId, igAppSecret } = this.resolveInstagramApp(
+      appId,
+      appSecret,
+      instagramAppId,
+      instagramAppSecret,
+    );
     return {
       appId,
       configId,
@@ -325,6 +331,25 @@ export class ChannelsService {
       instagramEnabled: !!(igAppId && igAppSecret && instagramConfigId),
       // Threads usa app próprio (OAuth threads.net).
       threadsEnabled: !!(threadsAppId && threadsAppSecret),
+    };
+  }
+
+  /**
+   * Resolve o par (App ID, App Secret) do Instagram de forma ATÔMICA: só usa o
+   * app próprio do IG quando os DOIS campos estão preenchidos; caso contrário,
+   * herda o app inteiro do WhatsApp. Evita o par cruzado (ID de um app + Secret
+   * de outro), que gera erro de OAuth na Meta.
+   */
+  private resolveInstagramApp(
+    waAppId: string,
+    waAppSecret: string,
+    igAppIdRaw: string,
+    igAppSecretRaw: string,
+  ): { igAppId: string; igAppSecret: string } {
+    const useOwn = !!(igAppIdRaw && igAppSecretRaw);
+    return {
+      igAppId: useOwn ? igAppIdRaw : waAppId,
+      igAppSecret: useOwn ? igAppSecretRaw : waAppSecret,
     };
   }
 
@@ -634,12 +659,16 @@ export class ChannelsService {
       instagramAppSecret,
       instagramConfigId,
     } = await this.loadMetaCoexistenceConfig();
-    // App do Instagram: dedicado ou, se vazio, o mesmo do WhatsApp.
-    const igAppId = instagramAppId || appId;
-    const igAppSecret = instagramAppSecret || appSecret;
+    // App do Instagram: atômico (próprio só com ID+Secret juntos; senão WhatsApp).
+    const { igAppId, igAppSecret } = this.resolveInstagramApp(
+      appId,
+      appSecret,
+      instagramAppId,
+      instagramAppSecret,
+    );
     if (!igAppId || !igAppSecret) {
       throw new BadRequestException(
-        'App do Instagram não configurado. Peça ao Super Admin para preencher o App ID e App Secret do Instagram em Integrações.',
+        'App do Instagram não configurado. Peça ao Super Admin para preencher o App ID e App Secret do Instagram (ou do WhatsApp) em Integrações.',
       );
     }
     if (!instagramConfigId) {
@@ -648,16 +677,25 @@ export class ChannelsService {
       );
     }
 
-    // 1) code → token de usuário (business-scoped).
-    const userToken = await this.instagramHttpClient.exchangeCodeForToken(
-      dto.code,
-      igAppId,
-      igAppSecret,
-    );
-
-    // 2) Páginas concedidas + conta IG profissional vinculada a cada uma.
-    const pages =
-      await this.instagramHttpClient.listManagedPagesWithInstagram(userToken);
+    // 1) code → token de usuário (business-scoped). 2) Páginas + conta IG.
+    // Erros da Meta viram BadRequest (400) com a mensagem REAL — sem isso o
+    // erro cru vira um "Internal server error" (500) que não diz nada.
+    let userToken: string;
+    let pages: Awaited<
+      ReturnType<InstagramHttpClient['listManagedPagesWithInstagram']>
+    >;
+    try {
+      userToken = await this.instagramHttpClient.exchangeCodeForToken(
+        dto.code,
+        igAppId,
+        igAppSecret,
+      );
+      pages = await this.instagramHttpClient.listManagedPagesWithInstagram(userToken);
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      this.logger.warn(`Instagram FLB onboarding falhou (org ${organizationId}): ${msg}`);
+      throw new BadRequestException(`Conexão com o Instagram falhou — ${msg}`);
+    }
     const withIg = pages.filter((p) => p.igBusinessId);
     if (withIg.length === 0) {
       throw new BadRequestException(
