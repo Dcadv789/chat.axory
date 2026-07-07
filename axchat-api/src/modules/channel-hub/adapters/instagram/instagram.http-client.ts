@@ -605,6 +605,77 @@ export class InstagramHttpClient {
     }
   }
 
+  /**
+   * DEBUG: coleta TUDO que a Meta devolve no onboarding (dados brutos) pra
+   * inspeção manual — debug_token, /me/accounts, /me/businesses (+ contas IG
+   * owned/client), /me/permissions. Cada chamada é tolerante a erro (guarda o
+   * erro no lugar do resultado). Não cria canal — só diagnóstico.
+   */
+  async collectOnboardingDebug(
+    userToken: string,
+    appId: string,
+    appSecret: string,
+    apiVersion = 'v25.0',
+  ): Promise<Record<string, any>> {
+    const base = `https://graph.facebook.com/${apiVersion}`;
+    const safeGet = async (url: string, params: Record<string, any>) => {
+      try {
+        const { data } = await axios.get(url, { params, timeout: 20000 });
+        return data;
+      } catch (err: any) {
+        return { __error: err?.response?.data?.error ?? err?.message ?? String(err) };
+      }
+    };
+
+    const debugToken = await safeGet(`${base}/debug_token`, {
+      input_token: userToken,
+      access_token: `${appId}|${appSecret}`,
+    });
+    const accounts = await safeGet(`${base}/me/accounts`, {
+      fields:
+        'id,name,access_token,instagram_business_account{id,username},connected_instagram_account{id,username},instagram_accounts{id,username}',
+      limit: 100,
+      access_token: userToken,
+    });
+    const businesses = await safeGet(`${base}/me/businesses`, {
+      fields: 'id,name',
+      limit: 100,
+      access_token: userToken,
+    });
+    const bizIg: any[] = [];
+    for (const b of Array.isArray(businesses?.data) ? businesses.data : []) {
+      const owned = await safeGet(`${base}/${b.id}/owned_instagram_accounts`, {
+        fields: 'id,username',
+        access_token: userToken,
+      });
+      const client = await safeGet(`${base}/${b.id}/client_instagram_accounts`, {
+        fields: 'id,username',
+        access_token: userToken,
+      });
+      bizIg.push({ business: b, owned, client });
+    }
+    const permissions = await safeGet(`${base}/me/permissions`, {
+      access_token: userToken,
+    });
+
+    // Mascara os page access tokens no dump (sensíveis) — o resto é ID/scope.
+    if (Array.isArray(accounts?.data)) {
+      for (const p of accounts.data) {
+        if (p.access_token) p.access_token = `${String(p.access_token).slice(0, 8)}…(mascarado)`;
+      }
+    }
+
+    return {
+      appIdUsado: appId,
+      tokenPreview: `${userToken.slice(0, 12)}…`,
+      debug_token: debugToken,
+      me_accounts: accounts,
+      me_businesses: businesses,
+      businesses_instagram: bizIg,
+      me_permissions: permissions,
+    };
+  }
+
   private wrapGraphError(err: any, context: string): Error {
     const metaError = err?.response?.data?.error;
     if (metaError) {

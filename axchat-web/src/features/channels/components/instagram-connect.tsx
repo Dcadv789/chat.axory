@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, Bug, Copy } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/icons';
 import { channelsService, type CoexistenceConfig } from '../services/channels.service';
 
@@ -36,6 +36,7 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
   const [sdkReady, setSdkReady] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debugData, setDebugData] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -90,38 +91,48 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
     }
   }, [enabled, igAppId]);
 
-  const launch = useCallback(() => {
-    if (!window.FB || !configId) return;
-    setError(null);
-    setLaunching(true);
+  // `debug=true` → não cria canal; chama o endpoint de debug e mostra o JSON cru.
+  const launch = useCallback(
+    (debug = false) => {
+      if (!window.FB || !configId) return;
+      setError(null);
+      setDebugData(null);
+      setLaunching(true);
 
-    // O SDK do Facebook rejeita callbacks `async` — mantemos síncrono e
-    // disparamos o trabalho assíncrono por dentro.
-    window.FB.login(
-      (response: any) => {
-        const code = response?.authResponse?.code;
-        if (!code) {
-          setError('Não foi possível obter o código de autorização da Meta.');
-          setLaunching(false);
-          return;
-        }
-        void (async () => {
-          try {
-            await onConnect({ code });
-          } catch (err) {
-            setError(err instanceof Error ? err.message : 'Falha ao criar o canal.');
-          } finally {
+      // O SDK do Facebook rejeita callbacks `async` — mantemos síncrono e
+      // disparamos o trabalho assíncrono por dentro.
+      window.FB.login(
+        (response: any) => {
+          const code = response?.authResponse?.code;
+          if (!code) {
+            setError('Não foi possível obter o código de autorização da Meta.');
             setLaunching(false);
+            return;
           }
-        })();
-      },
-      {
-        config_id: configId,
-        response_type: 'code',
-        override_default_response_type: true,
-      },
-    );
-  }, [onConnect, configId]);
+          void (async () => {
+            try {
+              if (debug) {
+                const raw = await channelsService.debugInstagramFacebookLogin({ code });
+                setDebugData(JSON.stringify(raw, null, 2));
+              } else {
+                await onConnect({ code });
+              }
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Falha ao processar.');
+            } finally {
+              setLaunching(false);
+            }
+          })();
+        },
+        {
+          config_id: configId,
+          response_type: 'code',
+          override_default_response_type: true,
+        },
+      );
+    },
+    [onConnect, configId],
+  );
 
   if (loadingConfig) {
     return (
@@ -181,7 +192,7 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
 
       <button
         type="button"
-        onClick={launch}
+        onClick={() => launch(false)}
         disabled={!canLaunch}
         className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
       >
@@ -196,6 +207,37 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
             ? 'Criando canal...'
             : 'Conectar com o Facebook'}
       </button>
+
+      {/* Modo debug: mostra os dados brutos da Meta pra diagnosticar. */}
+      <button
+        type="button"
+        onClick={() => launch(true)}
+        disabled={!canLaunch}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-300 px-4 py-2 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/5"
+      >
+        <Bug className="h-3.5 w-3.5" />
+        Conectar em modo debug (mostrar dados brutos)
+      </button>
+
+      {debugData && (
+        <div className="rounded-lg border border-zinc-300 bg-zinc-50 dark:border-white/10 dark:bg-black">
+          <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-white/10">
+            <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              Resposta bruta da Meta
+            </span>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(debugData)}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-200 dark:hover:bg-white/10"
+            >
+              <Copy className="h-3 w-3" /> Copiar
+            </button>
+          </div>
+          <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all p-3 text-[10px] leading-relaxed text-zinc-700 dark:text-zinc-300">
+            {debugData}
+          </pre>
+        </div>
+      )}
 
       {!sdkReady && (
         <p className="text-center text-[11px] text-zinc-400">

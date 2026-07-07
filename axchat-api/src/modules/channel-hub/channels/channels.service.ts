@@ -647,6 +647,35 @@ export class ChannelsService {
    * da Página (DMs). Os comentários continuam assinados no nível do app, no
    * painel de Webhooks da Meta.
    */
+  /**
+   * DEBUG: troca o code por token e devolve TUDO que a Meta retorna (dados
+   * brutos) pra inspeção — sem criar canal. Usado pra diagnosticar por que a
+   * conta IG não é encontrada. Só OWNER/ADMIN.
+   */
+  async debugInstagramFacebookLogin(organizationId: string, code: string) {
+    const { appId, appSecret, instagramAppId, instagramAppSecret } =
+      await this.loadMetaCoexistenceConfig();
+    const { igAppId, igAppSecret } = this.resolveInstagramApp(
+      appId,
+      appSecret,
+      instagramAppId,
+      instagramAppSecret,
+    );
+    if (!igAppId || !igAppSecret) {
+      throw new BadRequestException('App do Instagram não configurado.');
+    }
+    const userToken = await this.instagramHttpClient.exchangeCodeForToken(
+      code,
+      igAppId,
+      igAppSecret,
+    );
+    return this.instagramHttpClient.collectOnboardingDebug(
+      userToken,
+      igAppId,
+      igAppSecret,
+    );
+  }
+
   async createFromInstagramFacebookLogin(
     organizationId: string,
     dto: InstagramFacebookLoginDto,

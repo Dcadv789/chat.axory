@@ -194,6 +194,17 @@ export const channelsService = {
     return data.data;
   },
 
+  /** DEBUG: retorna os dados brutos da Meta pro code (sem criar canal). */
+  async debugInstagramFacebookLogin(
+    payload: { code: string },
+  ): Promise<Record<string, unknown>> {
+    const { data } = await api.post<{ data: Record<string, unknown> }>(
+      '/channels/instagram/facebook-login/debug',
+      { name: 'debug', ...payload },
+    );
+    return data.data ?? (data as any);
+  },
+
   /** URL de autorização do Threads (o navegador é redirecionado pra ela). */
   async getThreadsAuthUrl(
     name: string,

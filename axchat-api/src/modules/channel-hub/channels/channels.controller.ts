@@ -106,6 +106,18 @@ export class ChannelsController {
     });
   }
 
+  @Post('instagram/facebook-login/debug')
+  @ApiOperation({
+    summary:
+      'DEBUG: troca o code do popup e devolve os dados brutos da Meta (debug_token, /me/accounts, /me/businesses, permissões) sem criar canal.',
+  })
+  debugInstagramFacebookLogin(
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: InstagramFacebookLoginDto,
+  ) {
+    return this.service.debugInstagramFacebookLogin(orgId, dto.code);
+  }
+
   @Get('threads/oauth/url')
   @ApiOperation({
     summary:
