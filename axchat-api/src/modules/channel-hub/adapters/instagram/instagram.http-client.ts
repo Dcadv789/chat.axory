@@ -676,6 +676,31 @@ export class InstagramHttpClient {
     };
   }
 
+  /**
+   * Primeira conta de anúncios acessível pelo token (GET /me/adaccounts).
+   * Retorna o id SEM o prefixo "act_" (formato que o módulo de marketing usa).
+   * Best-effort: null se o token não tiver ads_management/ads_read ou não houver.
+   */
+  async getFirstAdAccount(
+    userToken: string,
+    apiVersion = 'v25.0',
+  ): Promise<string | null> {
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/me/adaccounts`,
+        { params: { fields: 'id,account_id,name', limit: 1, access_token: userToken }, timeout: 20000 },
+      );
+      const first = Array.isArray(data?.data) ? data.data[0] : null;
+      if (!first) return null;
+      return first.account_id
+        ? String(first.account_id)
+        : String(first.id || '').replace(/^act_/, '') || null;
+    } catch (err: any) {
+      this.logger.warn(`getFirstAdAccount falhou: ${err?.response?.data?.error?.message || err.message}`);
+      return null;
+    }
+  }
+
   private wrapGraphError(err: any, context: string): Error {
     const metaError = err?.response?.data?.error;
     if (metaError) {

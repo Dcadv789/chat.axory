@@ -856,7 +856,10 @@ export class ChannelsService {
 
     // 3) Cria o canal (o create() dispara o subscribed_apps da Página → DMs,
     //    quando há Página; sem Página, os endpoints usam o token de usuário).
-    return this.create(
+    //    IMPORTANTE: o appSecret do canal é o do app do INSTAGRAM (igAppSecret),
+    //    pois é ele que assina os webhooks — usar o do WhatsApp faz a validação
+    //    HMAC rejeitar todas as mensagens.
+    const channel = await this.create(
       organizationId,
       {
         type: ChannelType.INSTAGRAM,
@@ -864,7 +867,7 @@ export class ChannelsService {
         config: {
           accessToken: igConfig.accessToken,
           igBusinessId: igConfig.igBusinessId,
-          appSecret,
+          appSecret: igAppSecret,
           apiVersion: 'v25.0',
           graphApi: 'facebook',
           ...(igConfig.pageAccessToken ? { pageAccessToken: igConfig.pageAccessToken } : {}),
@@ -876,6 +879,58 @@ export class ChannelsService {
       },
       creator,
     );
+
+    // 4) Esse login vira a configuração de Instagram + Ads da org: grava os
+    //    secrets que os agentes de marketing usam (publicar, comentar, medir,
+    //    anúncios). Best-effort — não derruba a criação do canal.
+    this.persistInstagramOrgSecrets(organizationId, {
+      igBusinessId: igConfig.igBusinessId,
+      accessToken: igConfig.accessToken,
+      fbPageId: igConfig.fbPageId,
+      userToken,
+    }).catch((err) =>
+      this.logger.warn(`persistInstagramOrgSecrets falhou: ${err?.message ?? err}`),
+    );
+
+    return channel;
+  }
+
+  /**
+   * Grava/atualiza os org secrets do Instagram + Ads a partir do onboarding via
+   * Facebook Login. Assim o mesmo login que conecta o inbox também alimenta os
+   * agentes de marketing (IG_USER_ID/IG_ACCESS_TOKEN pra posts/comentários/
+   * métricas; FB_PAGE_ID; e, se houver conta de anúncios acessível, META_AD_
+   * ACCOUNT_ID/META_ADS_ACCESS_TOKEN pro módulo de Ads).
+   */
+  private async persistInstagramOrgSecrets(
+    organizationId: string,
+    data: { igBusinessId: string; accessToken: string; fbPageId?: string; userToken: string },
+  ): Promise<void> {
+    const upsert = async (key: string, value: string) => {
+      if (!value) return;
+      await this.prisma.organizationSecret.upsert({
+        where: { uq_org_secret_key: { organizationId, key } },
+        create: { organizationId, key, value },
+        update: { value },
+      });
+    };
+
+    await upsert('IG_USER_ID', data.igBusinessId);
+    await upsert('IG_ACCESS_TOKEN', data.accessToken);
+    if (data.fbPageId) await upsert('FB_PAGE_ID', data.fbPageId);
+
+    // Conta de anúncios: o token do FLB costuma ter ads_management/ads_read.
+    // Pega a primeira ad account acessível pra ligar o módulo de Ads sozinho.
+    try {
+      const adAccount = await this.instagramHttpClient.getFirstAdAccount(data.userToken);
+      if (adAccount) {
+        await upsert('META_AD_ACCOUNT_ID', adAccount);
+        await upsert('META_ADS_ACCESS_TOKEN', data.userToken);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Instagram FLB: não achei ad account: ${err?.message ?? err}`);
+    }
+    this.logger.log(`Instagram FLB: org secrets atualizados (org ${organizationId}).`);
   }
 
   /**
