@@ -770,33 +770,58 @@ export class ChannelsService {
           fbPageName: anyPage?.pageName ?? undefined,
         };
       }
+
+      // Caminho C (definitivo p/ FLB): inspeciona o token. Os target_ids dos
+      // escopos de Instagram SÃO os IDs das contas IG concedidas — independe de
+      // /me/accounts e de vínculo com Página/portfólio.
+      if (!igConfig) {
+        const { igTargetIds } = await this.instagramHttpClient.inspectTokenGranularScopes(
+          userToken,
+          igAppId,
+          igAppSecret,
+        );
+        if (igTargetIds.length > 0) {
+          const igId = igTargetIds[0];
+          const username = await this.instagramHttpClient.getIgUsername(igId, userToken);
+          const anyPage = pages[0];
+          this.logger.log(
+            `Instagram FLB: conta ${igId} (@${username ?? '?'}) descoberta via debug_token granular_scopes.`,
+          );
+          igConfig = {
+            accessToken: anyPage?.pageAccessToken || userToken,
+            pageAccessToken: anyPage?.pageAccessToken,
+            igBusinessId: igId,
+            igUsername: username,
+            fbPageId: anyPage?.pageId,
+            fbPageName: anyPage?.pageName ?? undefined,
+          };
+        }
+      }
     }
 
     if (!igConfig) {
-      // Diagnóstico: quais permissões o usuário realmente concedeu? Distingue
-      // "faltou escopo no config_id" de "conta não vinculada de fato".
-      const perms = await this.instagramHttpClient.getGrantedPermissions(userToken);
-      const precisa = [
-        'instagram_basic',
-        'pages_show_list',
-        'pages_read_engagement',
-        'business_management',
-      ];
-      const faltando = precisa.filter((p) => !perms.granted.includes(p));
+      // Diagnóstico via debug_token (fonte confiável no FLB — /me/permissions
+      // não reflete os escopos granulares do system user).
+      const { scopes } = await this.instagramHttpClient.inspectTokenGranularScopes(
+        userToken,
+        igAppId,
+        igAppSecret,
+      );
+      const temIgScope = scopes.some((s) => /^instagram_/.test(s));
       const nomes = pages.length
         ? pages.map((p) => p.pageName ?? p.pageId).join(', ')
         : '(nenhuma)';
       this.logger.warn(
-        `Instagram FLB: nenhuma conta IG. Páginas=[${nomes}] granted=[${perms.granted.join(',')}] faltando=[${faltando.join(',')}]`,
+        `Instagram FLB: nenhuma conta IG. Páginas=[${nomes}] scopes=[${scopes.join(',')}]`,
       );
 
-      if (faltando.length > 0) {
+      if (!temIgScope) {
         throw new BadRequestException(
-          `Faltam permissões no app da Meta: ${faltando.join(', ')}. O Super Admin precisa adicionar esses escopos na Configuração do Facebook Login (config_id) do Instagram. Sem eles, a conta do Instagram não aparece. Depois refaça a conexão.`,
+          'O token não tem nenhum escopo de Instagram. Na Configuração do Facebook Login (config_id) do Instagram, adicione instagram_basic, instagram_manage_messages e instagram_manage_comments; e no popup conceda o acesso à conta do Instagram. Depois refaça a conexão.',
         );
       }
       throw new BadRequestException(
-        `Concedido: [${nomes}], e todas as permissões OK, mas a conta do Instagram não foi retornada pela Meta. Isso costuma ser vínculo incompleto: confirme em Meta Business Suite → Configurações → Contas do Instagram que a conta está vinculada a uma dessas Páginas E ao Portfólio selecionado, que é Profissional (Business/Creator), e refaça a conexão.`,
+        `Concedido: [${nomes}]. O acesso ao Instagram está no token, mas a Meta não retornou o ID da conta. Confirme em Meta Business Suite → Configurações → Contas do Instagram que a conta é Profissional (Business/Creator) e está vinculada ao Portfólio selecionado, e refaça a conexão.`,
       );
     }
 

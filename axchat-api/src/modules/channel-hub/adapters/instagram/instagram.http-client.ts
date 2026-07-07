@@ -550,6 +550,61 @@ export class InstagramHttpClient {
     }
   }
 
+  /**
+   * Inspeciona o token via /debug_token. No Facebook Login for Business o token
+   * é "granular" (system user), e o debug_token devolve `granular_scopes` com os
+   * `target_ids` — que, pros escopos de Instagram, SÃO os IDs das contas IG que
+   * o usuário concedeu no popup. É a fonte de verdade mais confiável (independe
+   * de /me/accounts e de /me/permissions). Retorna também a lista de escopos.
+   */
+  async inspectTokenGranularScopes(
+    token: string,
+    appId: string,
+    appSecret: string,
+    apiVersion = 'v25.0',
+  ): Promise<{ scopes: string[]; igTargetIds: string[] }> {
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/debug_token`,
+        {
+          params: { input_token: token, access_token: `${appId}|${appSecret}` },
+          timeout: 20000,
+        },
+      );
+      const d = data?.data ?? {};
+      const scopes: string[] = Array.isArray(d.scopes) ? d.scopes : [];
+      const granular: any[] = Array.isArray(d.granular_scopes) ? d.granular_scopes : [];
+      const igTargetIds = new Set<string>();
+      for (const g of granular) {
+        const scope = String(g?.scope ?? '');
+        if (/^instagram_/.test(scope) && Array.isArray(g?.target_ids)) {
+          for (const id of g.target_ids) igTargetIds.add(String(id));
+        }
+      }
+      return { scopes, igTargetIds: [...igTargetIds] };
+    } catch (err: any) {
+      this.logger.warn(`debug_token falhou: ${err?.response?.data?.error?.message || err.message}`);
+      return { scopes: [], igTargetIds: [] };
+    }
+  }
+
+  /** Username de uma conta IG a partir do id (best-effort). */
+  async getIgUsername(
+    igId: string,
+    token: string,
+    apiVersion = 'v25.0',
+  ): Promise<string | undefined> {
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/${igId}`,
+        { params: { fields: 'username', access_token: token }, timeout: 20000 },
+      );
+      return data?.username;
+    } catch {
+      return undefined;
+    }
+  }
+
   private wrapGraphError(err: any, context: string): Error {
     const metaError = err?.response?.data?.error;
     if (metaError) {
