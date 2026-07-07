@@ -697,43 +697,96 @@ export class ChannelsService {
       throw new BadRequestException(`Conexão com o Instagram falhou — ${msg}`);
     }
     const withIg = pages.filter((p) => p.igBusinessId);
-    if (withIg.length === 0) {
-      // Distingue os dois cenários — muda totalmente o que o usuário deve fazer.
+
+    // Config do canal a criar — resolvida por um dos dois caminhos abaixo.
+    let igConfig: {
+      accessToken: string;
+      igBusinessId: string;
+      igUsername?: string;
+      fbPageId?: string;
+      fbPageName?: string;
+      pageAccessToken?: string;
+    } | null = null;
+
+    if (withIg.length > 0) {
+      // Caminho A (ideal): a conta IG está vinculada a uma Página concedida.
+      // Usa o Page access token (melhor pra messaging via Messenger Platform).
+      const chosen = withIg[0];
+      if (withIg.length > 1) {
+        this.logger.warn(
+          `Instagram FLB: ${withIg.length} páginas com Instagram; usando "${chosen.pageName ?? chosen.pageId}" (@${chosen.igUsername ?? '?'}).`,
+        );
+      }
+      igConfig = {
+        accessToken: chosen.pageAccessToken,
+        pageAccessToken: chosen.pageAccessToken,
+        igBusinessId: chosen.igBusinessId!,
+        fbPageId: chosen.pageId,
+        igUsername: chosen.igUsername,
+        fbPageName: chosen.pageName ?? undefined,
+      };
+    } else {
+      // Caminho B (fallback): a conta IG está num Business Portfolio (própria ou
+      // compartilhada como client), sem Página vinculada visível. Descobre via
+      // /me/businesses e usa o token de usuário como accessToken do canal.
+      let igAccounts: Awaited<
+        ReturnType<InstagramHttpClient['discoverInstagramViaBusinesses']>
+      > = [];
+      try {
+        igAccounts = await this.instagramHttpClient.discoverInstagramViaBusinesses(userToken);
+      } catch (err: any) {
+        this.logger.warn(`Instagram: descoberta via businesses falhou: ${err?.message ?? err}`);
+      }
+
+      if (igAccounts.length > 0) {
+        const acc = igAccounts[0];
+        // Se houver uma Página concedida (mesmo sem vínculo IG detectado), guarda
+        // pra inscrição de webhook; senão o token de usuário cobre os endpoints.
+        const anyPage = pages[0];
+        this.logger.log(
+          `Instagram FLB: conta @${acc.igUsername ?? acc.igBusinessId} descoberta via portfólio "${acc.businessName ?? '?'}".`,
+        );
+        igConfig = {
+          accessToken: anyPage?.pageAccessToken || userToken,
+          pageAccessToken: anyPage?.pageAccessToken,
+          igBusinessId: acc.igBusinessId,
+          igUsername: acc.igUsername,
+          fbPageId: anyPage?.pageId,
+          fbPageName: anyPage?.pageName ?? undefined,
+        };
+      }
+    }
+
+    if (!igConfig) {
+      // Nenhum dos caminhos achou conta IG — mensagem que orienta a ação certa.
       if (pages.length === 0) {
         throw new BadRequestException(
-          'Nenhuma Página do Facebook foi concedida no popup. Refaça o login e, na tela da Meta, marque a Página vinculada à sua conta do Instagram (e garanta que você é admin dela).',
+          'Nenhuma conta do Instagram encontrada. No popup da Meta, selecione o Portfólio Empresarial que contém a conta do Instagram (ou a Página vinculada a ela) e conceda o acesso. Confirme também que a conta é Profissional (Business/Creator).',
         );
       }
       const nomes = pages.map((p) => p.pageName ?? p.pageId).join(', ');
       throw new BadRequestException(
-        `A(s) Página(s) [${nomes}] foram concedidas, mas nenhuma tem uma conta do Instagram vinculada. Vincule a conta em Página do Facebook → Configurações → Instagram (ou Meta Business Suite → Configurações → Contas do Instagram), confirme que ela é Profissional (Business/Creator), e refaça o login.`,
-      );
-    }
-    // O popup do FLB normalmente já limita à seleção do usuário; pega a primeira
-    // Página com Instagram. Com mais de uma, loga qual foi escolhida.
-    const chosen = withIg[0];
-    if (withIg.length > 1) {
-      this.logger.warn(
-        `Instagram FLB: ${withIg.length} páginas com Instagram retornadas; usando "${chosen.pageName ?? chosen.pageId}" (@${chosen.igUsername ?? '?'}).`,
+        `Concedido: [${nomes}], mas nenhuma conta do Instagram foi encontrada nem via Página nem via Portfólio. No popup, marque o Portfólio Empresarial que contém a conta do Instagram e garanta o escopo de acesso a ele. Confirme que a conta é Profissional (Business/Creator).`,
       );
     }
 
-    // 3) Cria o canal (o create() dispara o subscribed_apps da Página → DMs).
+    // 3) Cria o canal (o create() dispara o subscribed_apps da Página → DMs,
+    //    quando há Página; sem Página, os endpoints usam o token de usuário).
     return this.create(
       organizationId,
       {
         type: ChannelType.INSTAGRAM,
         name: dto.name,
         config: {
-          accessToken: chosen.pageAccessToken,
-          pageAccessToken: chosen.pageAccessToken,
-          igBusinessId: chosen.igBusinessId,
-          fbPageId: chosen.pageId,
+          accessToken: igConfig.accessToken,
+          igBusinessId: igConfig.igBusinessId,
           appSecret,
           apiVersion: 'v25.0',
           graphApi: 'facebook',
-          ...(chosen.igUsername ? { igUsername: chosen.igUsername } : {}),
-          ...(chosen.pageName ? { fbPageName: chosen.pageName } : {}),
+          ...(igConfig.pageAccessToken ? { pageAccessToken: igConfig.pageAccessToken } : {}),
+          ...(igConfig.fbPageId ? { fbPageId: igConfig.fbPageId } : {}),
+          ...(igConfig.igUsername ? { igUsername: igConfig.igUsername } : {}),
+          ...(igConfig.fbPageName ? { fbPageName: igConfig.fbPageName } : {}),
         },
         ...(dto.visibility ? { visibility: dto.visibility } : {}),
       },

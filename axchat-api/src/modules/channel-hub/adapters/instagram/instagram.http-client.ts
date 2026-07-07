@@ -436,6 +436,66 @@ export class InstagramHttpClient {
     }
   }
 
+  /**
+   * Descobre contas profissionais do Instagram via BUSINESS PORTFOLIOS, não via
+   * Página. Cobre o caso em que o IG vive num portfólio empresarial separado da
+   * Página (ou foi compartilhado como client com o portfólio selecionado) — aí o
+   * vínculo IG↔Página não volta em /me/accounts, mas a conta aparece aqui.
+   *
+   * Fluxo: /me/businesses → pra cada portfólio, owned_instagram_accounts
+   * (próprias) + client_instagram_accounts (compartilhadas). Requer o escopo
+   * `business_management` no token. Best-effort: erros por portfólio não travam.
+   */
+  async discoverInstagramViaBusinesses(
+    userToken: string,
+    apiVersion = 'v25.0',
+  ): Promise<Array<{ igBusinessId: string; igUsername?: string; businessName?: string }>> {
+    const base = `https://graph.facebook.com/${apiVersion}`;
+    const out: Array<{ igBusinessId: string; igUsername?: string; businessName?: string }> = [];
+    let businesses: any[] = [];
+    try {
+      const { data } = await axios.get(`${base}/me/businesses`, {
+        params: { fields: 'id,name', limit: 100, access_token: userToken },
+        timeout: 30000,
+      });
+      businesses = Array.isArray(data?.data) ? data.data : [];
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message;
+      this.logger.warn(`Instagram: /me/businesses falhou: ${msg}`);
+      return out;
+    }
+
+    for (const biz of businesses) {
+      for (const edge of ['owned_instagram_accounts', 'client_instagram_accounts']) {
+        try {
+          const { data } = await axios.get(`${base}/${biz.id}/${edge}`, {
+            params: { fields: 'id,username', limit: 100, access_token: userToken },
+            timeout: 30000,
+          });
+          const rows: any[] = Array.isArray(data?.data) ? data.data : [];
+          for (const acc of rows) {
+            if (acc?.id) {
+              out.push({
+                igBusinessId: String(acc.id),
+                igUsername: acc.username,
+                businessName: biz.name,
+              });
+            }
+          }
+        } catch {
+          /* portfólio sem esse edge / sem permissão — ignora */
+        }
+      }
+    }
+    // Dedup por igBusinessId.
+    const seen = new Set<string>();
+    return out.filter((a) => {
+      if (seen.has(a.igBusinessId)) return false;
+      seen.add(a.igBusinessId);
+      return true;
+    });
+  }
+
   private wrapGraphError(err: any, context: string): Error {
     const metaError = err?.response?.data?.error;
     if (metaError) {
