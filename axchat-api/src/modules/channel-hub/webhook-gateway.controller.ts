@@ -194,6 +194,21 @@ export class WebhookGatewayController {
       return res.status(200).json({ status: 'ok' });
     }
 
+    // Verify token APP-LEVEL (env): o app da Meta é um só pra plataforma, então
+    // o callback + verify token são configurados UMA vez no painel. Aceitamos o
+    // token do env antes de olhar canal a canal — assim a verificação passa mesmo
+    // sem nenhum canal ainda conectado (e cobre os canais criados via Facebook
+    // Login, que não têm webhookSecret próprio).
+    const appVerifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
+    if (
+      appVerifyToken &&
+      query['hub.mode'] === 'subscribe' &&
+      query['hub.verify_token'] === appVerifyToken
+    ) {
+      this.logger.log(`Webhook verification (app-level) ok for ${channelType}`);
+      return res.status(200).send(query['hub.challenge']);
+    }
+
     const candidates = await this.channelsService.findActiveByType(channelType);
     // Try each candidate's verifyToken until one matches; the GET verification
     // has no payload to route with, so this is the best we can do.
