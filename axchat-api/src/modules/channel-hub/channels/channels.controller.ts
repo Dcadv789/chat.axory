@@ -106,6 +106,24 @@ export class ChannelsController {
     });
   }
 
+  @Get('instagram/login/url')
+  @ApiOperation({
+    summary:
+      'Monta a URL do Business Login for Instagram (sem Página). O front redireciona o navegador; o retorno cai no callback público.',
+  })
+  getInstagramLoginUrl(
+    @CurrentOrg() org: { id: string; userOrganizationId: string; userRole: OrgRole },
+    @Query('name') name: string,
+    @Query('visibility') visibility?: 'ORG' | 'PRIVATE',
+  ) {
+    return this.service.getInstagramLoginUrl(
+      org.id,
+      { userOrganizationId: org.userOrganizationId, role: org.userRole },
+      name,
+      visibility,
+    );
+  }
+
   @Get('threads/oauth/url')
   @ApiOperation({
     summary:

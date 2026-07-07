@@ -1481,12 +1481,14 @@ function IntegrationsPanel() {
                 {pill(igReady, 'Pronto')}
               </div>
               <p className="mt-1 text-[11px] text-pink-700/80 dark:text-pink-300/80">
-                É aqui que habilita o botão <strong>&quot;Login Facebook&quot;</strong> ao criar um canal Instagram. Pode usar um app próprio OU deixar os dois primeiros campos vazios pra reaproveitar o app do WhatsApp.
+                Há duas formas de conectar: <strong>Login Instagram</strong> (recomendado — sem Página, resolve conta em portfólio empresarial) usa o App ID/Secret abaixo. <strong>Login Facebook</strong> (via Página) usa também o Config ID.
               </p>
               <div className="mt-3 space-y-4">
                 <div>
-                  <Input label="Instagram App ID" value={instagramAppId} onChange={setInstagramAppId} placeholder="app próprio do Instagram (vazio = usa o app do WhatsApp)" />
-                  <p className="mt-1 text-[11px] text-zinc-400">Deixe vazio para reutilizar o Meta App ID do WhatsApp.</p>
+                  <Input label="Instagram App ID" value={instagramAppId} onChange={setInstagramAppId} placeholder="App ID do produto Instagram (App Dashboard → Instagram → API setup)" />
+                  <p className="mt-1 text-[11px] text-zinc-400">
+                    Para <strong>Login Instagram</strong>: use o App ID do produto Instagram (não é o do Facebook). Para <strong>Login Facebook</strong>: pode deixar vazio para herdar o app do WhatsApp.
+                  </p>
                 </div>
                 <div>
                   <Input
@@ -1494,17 +1496,23 @@ function IntegrationsPanel() {
                     type="password"
                     value={instagramAppSecret}
                     onChange={setInstagramAppSecret}
-                    placeholder={config?.hasInstagramSecret ? '•••••••• (salvo — preencha só para trocar)' : 'vazio = usa o App Secret do WhatsApp'}
+                    placeholder={config?.hasInstagramSecret ? '•••••••• (salvo — preencha só para trocar)' : 'App Secret do produto Instagram'}
                   />
                   <p className="mt-1 text-[11px] text-zinc-400">
-                    {config?.hasInstagramSecret ? 'Já salvo. Deixe em branco para manter.' : 'Deixe vazio para reutilizar o App Secret do WhatsApp.'}
+                    {config?.hasInstagramSecret ? 'Já salvo. Deixe em branco para manter.' : 'App Secret do produto Instagram (para Login Instagram).'}
                   </p>
                 </div>
                 <div>
-                  <Input label="Instagram Config ID (obrigatório)" value={instagramConfigId} onChange={setInstagramConfigId} placeholder="config_id do Facebook Login for Business (IG + Páginas)" />
+                  <Input label="Instagram Config ID (só p/ Login Facebook)" value={instagramConfigId} onChange={setInstagramConfigId} placeholder="config_id do Facebook Login for Business (IG + Páginas)" />
                   <p className="mt-1 text-[11px] text-zinc-400">
-                    Config de FLB com escopos instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_read_engagement.
+                    Só necessário para o fluxo <strong>Login Facebook</strong>. Config de FLB com escopos instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_read_engagement.
                   </p>
+                </div>
+                <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-2.5 text-[11px] text-zinc-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400">
+                  <span className="font-medium">Redirect Callback URL (registre no produto Instagram → API setup → OAuth redirect URIs):</span>
+                  <code className="mt-1 block break-all rounded bg-zinc-100 px-2 py-1 font-mono text-zinc-700 dark:bg-black dark:text-zinc-300">
+                    {(process.env.NEXT_PUBLIC_API_URL || 'https://SEU-DOMINIO/api/v1').replace(/\/$/, '')}/channels/instagram/login/callback
+                  </code>
                 </div>
               </div>
             </div>

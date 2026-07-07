@@ -66,8 +66,10 @@ export interface CoexistenceConfig {
   /** Config de Facebook Login for Business pro Instagram (IG + Páginas). */
   instagramConfigId?: string;
   enabled: boolean;
-  /** true quando app + secret + instagramConfigId estão configurados. */
+  /** true quando app + secret + instagramConfigId estão configurados (FLB). */
   instagramEnabled?: boolean;
+  /** true quando o App ID/Secret do produto Instagram estão configurados. */
+  instagramLoginEnabled?: boolean;
   /** true quando o app do Threads (id + secret) está configurado. */
   threadsEnabled?: boolean;
 }
@@ -190,6 +192,18 @@ export const channelsService = {
     const { data } = await api.post<{ data: Channel }>(
       '/channels/instagram/facebook-login',
       payload,
+    );
+    return data.data;
+  },
+
+  /** URL do Business Login for Instagram (o navegador é redirecionado pra ela). */
+  async getInstagramLoginUrl(
+    name: string,
+    visibility?: ChannelVisibility,
+  ): Promise<{ url: string }> {
+    const { data } = await api.get<{ data: { url: string } }>(
+      '/channels/instagram/login/url',
+      { params: { name, ...(visibility ? { visibility } : {}) } },
     );
     return data.data;
   },

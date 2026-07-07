@@ -294,6 +294,115 @@ export class ChannelsService {
     return `${base}/api/v1/channels/threads/oauth/callback`;
   }
 
+  /** URL de callback do Business Login for Instagram (registrada no app IG). */
+  private instagramLoginRedirectUri(): string {
+    const base = (process.env.APP_URL || 'http://localhost:3001').replace(/\/$/, '');
+    return `${base}/api/v1/channels/instagram/login/callback`;
+  }
+
+  /**
+   * Business Login for Instagram: monta a URL de autorização (popup do próprio
+   * Instagram, SEM Página). client_id/secret são o "Instagram App ID/Secret" do
+   * produto Instagram — NÃO herda o app do WhatsApp (o Facebook App ID não vale
+   * em instagram.com/oauth). Carrega org+criador num state assinado.
+   */
+  async getInstagramLoginUrl(
+    organizationId: string,
+    creator: { userOrganizationId: string; role: OrgRole },
+    name: string,
+    visibility?: 'ORG' | 'PRIVATE',
+  ): Promise<{ url: string }> {
+    const { instagramAppId, instagramAppSecret } =
+      await this.loadMetaCoexistenceConfig();
+    if (!instagramAppId || !instagramAppSecret) {
+      throw new BadRequestException(
+        'App do Instagram não configurado. Peça ao Super Admin para preencher o Instagram App ID e App Secret (do produto Instagram) em Integrações.',
+      );
+    }
+    if (!name || !name.trim()) {
+      throw new BadRequestException('Informe um nome para o canal.');
+    }
+    const state = signThreadsState({
+      o: organizationId,
+      u: creator.userOrganizationId,
+      r: creator.role,
+      n: name.trim(),
+      v: visibility,
+      exp: Date.now() + 10 * 60 * 1000,
+    });
+    const url = this.instagramHttpClient.buildInstagramLoginUrl(
+      instagramAppId,
+      this.instagramLoginRedirectUri(),
+      state,
+    );
+    return { url };
+  }
+
+  /**
+   * Callback do Business Login for Instagram: valida o state, troca code→token
+   * curto→longo, puxa o perfil e cria o canal no modo 'instagram' (graph.
+   * instagram.com + token IGAA). Não depende de Página nem de Portfólio.
+   */
+  async createFromInstagramLoginCallback(code: string, state: string) {
+    if (!code) throw new BadRequestException('Código de autorização ausente.');
+    const parsed = verifyThreadsState(state);
+    if (!parsed) {
+      throw new BadRequestException('State inválido ou expirado. Refaça a conexão.');
+    }
+    const { instagramAppId, instagramAppSecret } =
+      await this.loadMetaCoexistenceConfig();
+    if (!instagramAppId || !instagramAppSecret) {
+      throw new BadRequestException('App do Instagram não configurado.');
+    }
+
+    let token: string;
+    let userId: string;
+    let username: string | undefined;
+    try {
+      const short = await this.instagramHttpClient.exchangeInstagramLoginCode(
+        code,
+        this.instagramLoginRedirectUri(),
+        instagramAppId,
+        instagramAppSecret,
+      );
+      const long = await this.instagramHttpClient.exchangeInstagramLoginLongLived(
+        short.accessToken,
+        instagramAppSecret,
+      );
+      token = long.accessToken;
+      userId = short.userId;
+      try {
+        const me = await this.instagramHttpClient.getInstagramLoginMe(token);
+        username = me.username;
+        if (me.userId) userId = me.userId;
+      } catch {
+        /* best-effort */
+      }
+    } catch (err: any) {
+      this.logger.warn(`Instagram Login onboarding falhou (org ${parsed.o}): ${err?.message ?? err}`);
+      throw new BadRequestException(`Conexão com o Instagram falhou — ${err?.message ?? err}`);
+    }
+
+    return this.create(
+      parsed.o,
+      {
+        type: ChannelType.INSTAGRAM,
+        name: parsed.n,
+        config: {
+          accessToken: token,
+          igBusinessId: userId,
+          igUserId: userId,
+          appSecret: instagramAppSecret,
+          apiVersion: 'v25.0',
+          graphApi: 'instagram',
+          ...(username ? { username } : {}),
+        },
+        ...(parsed.v ? { visibility: parsed.v } : {}),
+      },
+      { userOrganizationId: parsed.u, role: parsed.r as OrgRole },
+    );
+  }
+
   /**
    * Config pública para a org montar os popups da Meta (Embedded Signup do
    * WhatsApp e Facebook Login do Instagram). NÃO inclui o appSecret.
@@ -327,8 +436,11 @@ export class ChannelsService {
       instagramAppId: igAppId,
       instagramConfigId,
       enabled: !!(appId && appSecret && configId),
-      // Instagram precisa do app (próprio ou herdado) + secret + a config de FLB.
+      // Instagram (Facebook Login) precisa do app + secret + a config de FLB.
       instagramEnabled: !!(igAppId && igAppSecret && instagramConfigId),
+      // Instagram (Business Login) precisa só do App ID/Secret do produto IG —
+      // sem Página, sem config_id. Resolve conta em portfólio empresarial.
+      instagramLoginEnabled: !!(instagramAppId && instagramAppSecret),
       // Threads usa app próprio (OAuth threads.net).
       threadsEnabled: !!(threadsAppId && threadsAppSecret),
     };
