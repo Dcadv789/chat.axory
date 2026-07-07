@@ -123,7 +123,9 @@ export class InstagramHttpClient {
         `https://graph.facebook.com/${cfg.apiVersion}/${pageId}/subscribed_apps`,
         null,
         {
-          params: { subscribed_fields: 'comments,messages', access_token: pageToken },
+          // Na Página só "messages" é campo válido (DMs). Comentários do IG são
+          // assinados no objeto "instagram" no painel de Webhooks, não aqui.
+          params: { subscribed_fields: 'messages', access_token: pageToken },
           timeout: 30000,
         },
       );
