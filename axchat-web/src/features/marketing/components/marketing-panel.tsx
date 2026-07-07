@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
   LayoutDashboard, TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
-  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers,
+  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -24,7 +24,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RangeCalendar, toISODate, type DateRange } from '@/features/marketing/components/range-calendar';
 
-type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'posts' | 'activity';
+type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'posts' | 'publicar' | 'activity';
 
 const WINDOW_LABELS: Record<string, string> = {
   LAST_MONTH: 'último mês',
@@ -94,6 +94,7 @@ export function MarketingPanel() {
     { id: 'admetrics', icon: BarChart3, label: 'Métricas dos anúncios', subtitle: 'Desempenho por campanha ao longo do tempo' },
     { id: 'metrics', icon: BarChart3, label: 'Métricas dos posts', subtitle: 'Engajamento dos posts do Instagram' },
     { id: 'posts', icon: Instagram, label: 'Posts do Instagram', subtitle: 'Seus posts recentes com miniatura e engajamento' },
+    { id: 'publicar', icon: PenSquare, label: 'Publicar', subtitle: 'Crie e publique posts no Instagram e no Threads' },
     { id: 'activity', icon: Activity, label: 'Atividade da crew', subtitle: 'Análises e ações registradas pelos agentes' },
   ];
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
@@ -169,6 +170,7 @@ export function MarketingPanel() {
               />
         )}
         {tab === 'posts' && <InstagramPostsTab />}
+        {tab === 'publicar' && <PublicarTab />}
         {tab === 'activity' && (
           loadingActivity
             ? <div className="grid gap-6 lg:grid-cols-2">
@@ -1237,3 +1239,179 @@ function ActivityView({ activity }: { activity: { analyses: any[]; activities: a
     </div>
   );
 }
+
+// ─── Publicar (Instagram / Threads) ────────────────────────────
+
+function PublicarTab() {
+  const [channel, setChannel] = useState<'instagram' | 'threads'>('instagram');
+  return (
+    <div className="space-y-4">
+      <div className="flex w-full max-w-sm gap-2 rounded-lg border border-zinc-200 p-1 dark:border-white/10">
+        <button
+          onClick={() => setChannel('instagram')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            channel === 'instagram'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
+          }`}
+        >
+          <Instagram className="h-4 w-4" /> Instagram
+        </button>
+        <button
+          onClick={() => setChannel('threads')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            channel === 'threads'
+              ? 'bg-primary text-primary-foreground'
+              : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
+          }`}
+        >
+          <AtSign className="h-4 w-4" /> Threads
+        </button>
+      </div>
+
+      {channel === 'instagram' ? <PublishInstagramForm /> : <PublishThreadsForm />}
+    </div>
+  );
+}
+
+function PublishInstagramForm() {
+  const [caption, setCaption] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [publishing, setPublishing] = useState(false);
+
+  const canPublish = !!(imageUrl.trim() || videoUrl.trim()) && !publishing;
+
+  const submit = async () => {
+    setPublishing(true);
+    try {
+      const res = await marketingService.publishInstagram({
+        caption: caption.trim() || undefined,
+        imageUrl: imageUrl.trim() || undefined,
+        videoUrl: videoUrl.trim() || undefined,
+      });
+      toast.success(`Publicado no Instagram! (id ${res.mediaId})`);
+      setCaption(''); setImageUrl(''); setVideoUrl('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao publicar no Instagram');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl space-y-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
+      <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+        <Instagram className="h-4 w-4 text-pink-500" /> Novo post no Instagram
+      </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        O Instagram exige mídia: informe a URL pública de uma <strong>imagem</strong> (feed) ou de um <strong>vídeo</strong> (Reels). A legenda é opcional.
+      </p>
+      <PubTextArea label="Legenda" value={caption} onChange={setCaption} placeholder="Escreva a legenda… hashtags e quebras de linha são suportadas." rows={5} />
+      <PubUrlField label="URL da imagem" value={imageUrl} onChange={setImageUrl} placeholder="https://… (JPG/PNG público)" icon={ImageIcon} disabled={!!videoUrl.trim()} />
+      <PubUrlField label="URL do vídeo (Reels)" value={videoUrl} onChange={setVideoUrl} placeholder="https://… (MP4 público)" icon={Play} disabled={!!imageUrl.trim()} />
+      {imageUrl.trim() && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imageUrl} alt="prévia" className="max-h-64 rounded-lg border border-zinc-200 object-contain dark:border-white/10" onError={(e) => (e.currentTarget.style.display = 'none')} />
+      )}
+      <PubButton onClick={submit} disabled={!canPublish} loading={publishing} label="Publicar no Instagram" />
+    </div>
+  );
+}
+
+function PublishThreadsForm() {
+  const [text, setText] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [publishing, setPublishing] = useState(false);
+
+  const canPublish = !!(text.trim() || imageUrl.trim() || videoUrl.trim()) && !publishing;
+
+  const submit = async () => {
+    setPublishing(true);
+    try {
+      const res = await marketingService.publishThreads({
+        text: text.trim() || undefined,
+        imageUrl: imageUrl.trim() || undefined,
+        videoUrl: videoUrl.trim() || undefined,
+      });
+      toast.success(`Publicado no Threads! (id ${res.postId})`);
+      setText(''); setImageUrl(''); setVideoUrl('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao publicar no Threads');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl space-y-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
+      <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+        <AtSign className="h-4 w-4" /> Novo post no Threads
+      </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        No Threads o texto basta (até 500 caracteres). Imagem ou vídeo são opcionais — informe a URL pública.
+      </p>
+      <PubTextArea label="Texto" value={text} onChange={setText} placeholder="O que você quer publicar?" rows={5} maxLength={500} />
+      <PubUrlField label="URL da imagem (opcional)" value={imageUrl} onChange={setImageUrl} placeholder="https://… (JPG/PNG público)" icon={ImageIcon} disabled={!!videoUrl.trim()} />
+      <PubUrlField label="URL do vídeo (opcional)" value={videoUrl} onChange={setVideoUrl} placeholder="https://… (MP4 público)" icon={Play} disabled={!!imageUrl.trim()} />
+      {imageUrl.trim() && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imageUrl} alt="prévia" className="max-h-64 rounded-lg border border-zinc-200 object-contain dark:border-white/10" onError={(e) => (e.currentTarget.style.display = 'none')} />
+      )}
+      <PubButton onClick={submit} disabled={!canPublish} loading={publishing} label="Publicar no Threads" />
+    </div>
+  );
+}
+
+function PubTextArea({ label, value, onChange, placeholder, rows = 4, maxLength }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; rows?: number; maxLength?: number }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{label}</label>
+        {maxLength && <span className="text-[10px] text-zinc-400">{value.length}/{maxLength}</span>}
+      </div>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        maxLength={maxLength}
+        className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+      />
+    </div>
+  );
+}
+
+function PubUrlField({ label, value, onChange, placeholder, icon: Icon, disabled }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; icon: React.ElementType; disabled?: boolean }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{label}</label>
+      <div className={`flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 dark:border-white/10 dark:bg-black ${disabled ? 'opacity-50' : ''}`}>
+        <Icon className="h-4 w-4 shrink-0 text-zinc-400" />
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          className="h-10 w-full bg-transparent text-sm placeholder:text-zinc-400 focus-visible:outline-none dark:text-zinc-100"
+        />
+      </div>
+    </div>
+  );
+}
+
+function PubButton({ onClick, disabled, loading, label }: { onClick: () => void; disabled: boolean; loading: boolean; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+      {loading ? 'Publicando…' : label}
+    </button>
+  );
+}
+
+

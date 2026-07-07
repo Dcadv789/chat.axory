@@ -42,6 +42,7 @@ import { MarketingProfileController } from './marketing/marketing-profile.contro
 import { MarketingProfileService } from './marketing/marketing-profile.service';
 import { MarketingAdsService } from './marketing/marketing-ads.service';
 import { MarketingProvisioningService } from './marketing/marketing-provisioning.service';
+import { MarketingPublishService } from './marketing/marketing-publish.service';
 
 @Module({
   imports: [
@@ -88,6 +89,7 @@ import { MarketingProvisioningService } from './marketing/marketing-provisioning
     MarketingProfileService,
     MarketingAdsService,
     MarketingProvisioningService,
+    MarketingPublishService,
   ],
   exports: [AiAgentRunnerService, AgentRouterService, MarketingProvisioningService],
 })

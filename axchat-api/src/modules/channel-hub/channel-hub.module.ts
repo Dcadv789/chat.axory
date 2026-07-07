@@ -79,6 +79,7 @@ import { WhatsappTemplateService } from './templates/whatsapp-template.service';
     InstagramModule,
     TelegramModule,
     ZappfyModule,
+    ThreadsModule,
   ],
 })
 export class ChannelHubModule implements OnModuleInit {

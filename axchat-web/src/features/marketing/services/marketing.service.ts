@@ -177,6 +177,17 @@ export const marketingService = {
     const { data } = await api.get('/marketing/instagram/posts');
     return data?.data ?? data;
   },
+
+  // ─── Publicação ───
+  async publishInstagram(input: { caption?: string; imageUrl?: string; videoUrl?: string }): Promise<{ mediaId: string }> {
+    const { data } = await api.post('/marketing/instagram/publish', input);
+    return data?.data ?? data;
+  },
+
+  async publishThreads(input: { text?: string; imageUrl?: string; videoUrl?: string }): Promise<{ postId: string }> {
+    const { data } = await api.post('/marketing/threads/publish', input);
+    return data?.data ?? data;
+  },
 };
 
 export interface AdSet {

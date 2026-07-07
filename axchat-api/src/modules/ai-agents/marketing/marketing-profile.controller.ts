@@ -13,9 +13,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { MarketingProfileService } from './marketing-profile.service';
 import { MarketingAdsService } from './marketing-ads.service';
+import { MarketingPublishService } from './marketing-publish.service';
 import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
 import { CurrentOrg, Roles } from '../../../common/decorators';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
+
+type ThreadsMediaType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'CAROUSEL';
 
 @ApiTags('Marketing')
 @ApiBearerAuth()
@@ -25,7 +28,41 @@ export class MarketingProfileController {
   constructor(
     private readonly service: MarketingProfileService,
     private readonly ads: MarketingAdsService,
+    private readonly publish: MarketingPublishService,
   ) {}
+
+  // ─── Publicação direta (dono) ──────────────────────────────
+
+  @Post('instagram/publish')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Publica um post no Instagram (imagem ou vídeo/Reels + legenda)' })
+  publishInstagram(
+    @CurrentOrg('id') orgId: string,
+    @Body() body: { caption?: string; imageUrl?: string; videoUrl?: string },
+  ) {
+    return this.publish.publishInstagram(orgId, body);
+  }
+
+  @Post('threads/publish')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Publica um post no Threads (texto, imagem ou vídeo)' })
+  publishThreads(
+    @CurrentOrg('id') orgId: string,
+    @Body() body: { text?: string; imageUrl?: string; videoUrl?: string },
+  ) {
+    // Deriva o mediaType a partir do que veio (a UI manda texto + mídia opcional).
+    const mediaType: ThreadsMediaType = body.videoUrl
+      ? 'VIDEO'
+      : body.imageUrl
+        ? 'IMAGE'
+        : 'TEXT';
+    return this.publish.publishThreads(orgId, {
+      mediaType,
+      text: body.text,
+      imageUrl: body.imageUrl,
+      videoUrl: body.videoUrl,
+    });
+  }
 
   // ─── Gestão de anúncios (Meta Ads) — ação direta do dono ───
 
