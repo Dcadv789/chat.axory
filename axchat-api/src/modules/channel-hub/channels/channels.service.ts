@@ -846,7 +846,7 @@ export class ChannelsService {
 
       if (!temIgScope) {
         throw new BadRequestException(
-          'O token não tem nenhum escopo de Instagram. Na Configuração do Facebook Login (config_id) do Instagram, adicione instagram_basic, instagram_manage_messages e instagram_manage_comments; e no popup conceda o acesso à conta do Instagram. Depois refaça a conexão.',
+          `O login foi autorizado, mas a Meta NÃO concedeu nenhum escopo de Instagram. Escopos recebidos: [${scopes.join(', ') || 'nenhum'}]. A Configuração do Facebook Login (config_id "${instagramConfigId}") precisa incluir as permissões instagram_basic, instagram_manage_messages e instagram_manage_comments, e o ativo "Contas do Instagram". Peça ao Super Admin para editar essa Configuration no painel da Meta (Facebook Login for Business → Configurations) e refaça a conexão. (Adicionar a permissão só no App Review não basta — tem que estar NA Configuration.)`,
         );
       }
       throw new BadRequestException(
