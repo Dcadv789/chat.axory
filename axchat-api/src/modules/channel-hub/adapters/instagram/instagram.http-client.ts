@@ -99,16 +99,42 @@ export class InstagramHttpClient {
       }
     }
 
+    // CAMINHO PREFERIDO (modo facebook): inscreve a CONTA IG diretamente em
+    // graph.facebook.com — POST /{ig-user-id}/subscribed_apps. Usa o escopo
+    // instagram_manage_messages (que já temos) e NÃO exige pages_manage_metadata
+    // (que costuma quebrar o popup do FLB). Cobre DMs + comentários.
+    if (cfg.igBusinessId) {
+      try {
+        const { data } = await axios.post(
+          `https://graph.facebook.com/${cfg.apiVersion}/${cfg.igBusinessId}/subscribed_apps`,
+          null,
+          {
+            params: {
+              subscribed_fields: 'messages,comments',
+              access_token: cfg.accessToken,
+            },
+            timeout: 30000,
+          },
+        );
+        this.logger.log(`Instagram subscribed via conta IG ${cfg.igBusinessId}`);
+        return { ok: true, node: 'ig', ...data };
+      } catch (err: any) {
+        const msg = err?.response?.data?.error?.message || err.message;
+        this.logger.warn(
+          `subscribe via conta IG falhou (${cfg.igBusinessId}): ${msg} — tentando pela Página.`,
+        );
+        // cai pro fallback da Página abaixo
+      }
+    }
+
     if (!pageId) {
       throw new Error(
-        'Facebook Page ID ausente. Preencha o campo "Facebook Page ID" do canal (é o FB_PAGE_ID das Variáveis) — sem ele a Meta não entrega as DMs.',
+        'Não foi possível inscrever a conta do Instagram nos webhooks e não há Página pra usar como alternativa. Confirme que o token tem o escopo instagram_manage_messages.',
       );
     }
 
-    // A inscrição da Página exige um PAGE access token (#210 com o token de
-    // System User). Busca o token da Página primeiro — o System User precisa
-    // ter a Página atribuída no Business Manager + escopo pages_show_list /
-    // pages_read_engagement pra esse GET funcionar.
+    // FALLBACK: inscrição via PÁGINA (exige pages_manage_metadata). Busca o
+    // page token e inscreve.
     let pageToken: string | undefined;
     try {
       const { data } = await client.get(`/${pageId}`, {
@@ -118,11 +144,7 @@ export class InstagramHttpClient {
     } catch (err: any) {
       throw this.wrapGraphError(err, 'subscribeApp:getPageToken');
     }
-    if (!pageToken) {
-      throw new Error(
-        'Não consegui obter o token da Página. Confirme que a Página está atribuída ao System User no Business Manager e que o token tem os escopos pages_show_list e pages_read_engagement.',
-      );
-    }
+    if (!pageToken) pageToken = cfg.accessToken;
 
     try {
       const { data } = await axios.post(
@@ -130,8 +152,6 @@ export class InstagramHttpClient {
         null,
         {
           params: {
-            // Só campos de MENSAGEM válidos pra Página. Comentários do IG são
-            // assinados no nível do app (objeto Instagram) no painel de Webhooks.
             subscribed_fields:
               'messages,messaging_postbacks,message_reactions,message_reads',
             access_token: pageToken,
