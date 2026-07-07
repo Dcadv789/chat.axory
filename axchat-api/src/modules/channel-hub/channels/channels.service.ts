@@ -243,6 +243,8 @@ export class ChannelsService {
     appSecret: string;
     configId: string;
     embeddedConfigId: string;
+    instagramAppId: string;
+    instagramAppSecret: string;
     instagramConfigId: string;
     threadsAppId: string;
     threadsAppSecret: string;
@@ -265,6 +267,12 @@ export class ChannelsService {
         typeof value.embeddedConfigId === 'string' && value.embeddedConfigId
           ? value.embeddedConfigId
           : configId,
+      // App do Instagram (Facebook Login). Pode ser um app PRÓPRIO; se ficar
+      // vazio, cai no app do WhatsApp (mesmo Meta app com FLB serve pros dois).
+      instagramAppId:
+        typeof value.instagramAppId === 'string' ? value.instagramAppId : '',
+      instagramAppSecret:
+        typeof value.instagramAppSecret === 'string' ? value.instagramAppSecret : '',
       // Config de Facebook Login for Business pro Instagram (permissões IG +
       // Páginas). NÃO reusa o de WhatsApp — as permissões são diferentes.
       instagramConfigId:
@@ -296,18 +304,25 @@ export class ChannelsService {
       appSecret,
       configId,
       embeddedConfigId,
+      instagramAppId,
+      instagramAppSecret,
       instagramConfigId,
       threadsAppId,
       threadsAppSecret,
     } = await this.loadMetaCoexistenceConfig();
+    // App do Instagram: dedicado ou, se vazio, o mesmo do WhatsApp.
+    const igAppId = instagramAppId || appId;
+    const igAppSecret = instagramAppSecret || appSecret;
     return {
       appId,
       configId,
       embeddedConfigId,
+      // appId a usar no FB.init do Instagram (dedicado ou herdado do WhatsApp).
+      instagramAppId: igAppId,
       instagramConfigId,
       enabled: !!(appId && appSecret && configId),
-      // Instagram só precisa do app + secret + a config de FLB própria.
-      instagramEnabled: !!(appId && appSecret && instagramConfigId),
+      // Instagram precisa do app (próprio ou herdado) + secret + a config de FLB.
+      instagramEnabled: !!(igAppId && igAppSecret && instagramConfigId),
       // Threads usa app próprio (OAuth threads.net).
       threadsEnabled: !!(threadsAppId && threadsAppSecret),
     };
@@ -612,11 +627,19 @@ export class ChannelsService {
     dto: InstagramFacebookLoginDto,
     creator?: { userOrganizationId: string; role: OrgRole },
   ) {
-    const { appId, appSecret, instagramConfigId } =
-      await this.loadMetaCoexistenceConfig();
-    if (!appId || !appSecret) {
+    const {
+      appId,
+      appSecret,
+      instagramAppId,
+      instagramAppSecret,
+      instagramConfigId,
+    } = await this.loadMetaCoexistenceConfig();
+    // App do Instagram: dedicado ou, se vazio, o mesmo do WhatsApp.
+    const igAppId = instagramAppId || appId;
+    const igAppSecret = instagramAppSecret || appSecret;
+    if (!igAppId || !igAppSecret) {
       throw new BadRequestException(
-        'App Meta não configurado. Peça ao Super Admin para preencher App ID e App Secret em Integrações.',
+        'App do Instagram não configurado. Peça ao Super Admin para preencher o App ID e App Secret do Instagram em Integrações.',
       );
     }
     if (!instagramConfigId) {
@@ -628,8 +651,8 @@ export class ChannelsService {
     // 1) code → token de usuário (business-scoped).
     const userToken = await this.instagramHttpClient.exchangeCodeForToken(
       dto.code,
-      appId,
-      appSecret,
+      igAppId,
+      igAppSecret,
     );
 
     // 2) Páginas concedidas + conta IG profissional vinculada a cada uma.

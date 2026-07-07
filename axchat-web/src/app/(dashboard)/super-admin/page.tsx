@@ -1357,6 +1357,8 @@ function IntegrationsPanel() {
   const [appId, setAppId] = useState('');
   const [configId, setConfigId] = useState('');
   const [embeddedConfigId, setEmbeddedConfigId] = useState('');
+  const [instagramAppId, setInstagramAppId] = useState('');
+  const [instagramAppSecret, setInstagramAppSecret] = useState('');
   const [instagramConfigId, setInstagramConfigId] = useState('');
   const [appSecret, setAppSecret] = useState('');
   const [threadsAppId, setThreadsAppId] = useState('');
@@ -1367,9 +1369,11 @@ function IntegrationsPanel() {
       setAppId(config.appId);
       setConfigId(config.configId);
       setEmbeddedConfigId(config.embeddedConfigId ?? '');
+      setInstagramAppId(config.instagramAppId ?? '');
       setInstagramConfigId(config.instagramConfigId ?? '');
       setThreadsAppId(config.threadsAppId ?? '');
       setAppSecret('');
+      setInstagramAppSecret('');
       setThreadsAppSecret('');
     }
   }, [config]);
@@ -1380,10 +1384,12 @@ function IntegrationsPanel() {
         appId: appId.trim(),
         configId: configId.trim(),
         embeddedConfigId: embeddedConfigId.trim(),
+        instagramAppId: instagramAppId.trim(),
         instagramConfigId: instagramConfigId.trim(),
         threadsAppId: threadsAppId.trim(),
         // Só envia os secrets se o usuário digitou algo novo.
         ...(appSecret.trim() ? { appSecret: appSecret.trim() } : {}),
+        ...(instagramAppSecret.trim() ? { instagramAppSecret: instagramAppSecret.trim() } : {}),
         ...(threadsAppSecret.trim() ? { threadsAppSecret: threadsAppSecret.trim() } : {}),
       }),
     onSuccess: () => {
@@ -1394,77 +1400,125 @@ function IntegrationsPanel() {
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Erro ao salvar'),
   });
 
-  const enabled = !!(appId.trim() && configId.trim() && (config?.hasSecret || appSecret.trim()));
+  const hasAnySecret = !!(config?.hasSecret || appSecret.trim());
+  const waReady = !!(appId.trim() && configId.trim() && hasAnySecret);
+  const igReady = !!(
+    (instagramAppId.trim() || appId.trim()) &&
+    (config?.hasInstagramSecret || instagramAppSecret.trim() || hasAnySecret) &&
+    instagramConfigId.trim()
+  );
+  const threadsReady = !!(
+    threadsAppId.trim() && (config?.hasThreadsSecret || threadsAppSecret.trim())
+  );
+
+  const pill = (ready: boolean, okLabel: string) => (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+        ready
+          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
+          : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300'
+      }`}
+    >
+      {ready ? okLabel : 'Incompleto'}
+    </span>
+  );
 
   return (
     <section className="mt-6 max-w-2xl">
       <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-          WhatsApp — App Meta (Embedded Signup)
+          Integrações Meta — WhatsApp · Instagram · Threads
         </h2>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          Credenciais do app Meta da plataforma (Tech Provider). Válidas para
-          todos os clientes. Dois Config IDs: um para o fluxo de{' '}
-          <strong>Coexistência (QR)</strong> e outro para o{' '}
-          <strong>Login Facebook padrão</strong> (criar/selecionar número).
+          Credenciais dos apps Meta da plataforma (Tech Provider), válidas para
+          todos os clientes. Cada canal tem a <strong>sua própria seção</strong>{' '}
+          abaixo — configure o que for usar.
         </p>
-
-        <div className="mt-4 flex items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-              enabled
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
-                : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300'
-            }`}
-          >
-            {enabled ? 'Coexistência habilitada' : 'Incompleto — coexistência desabilitada'}
-          </span>
-        </div>
 
         {isLoading ? (
           <p className="mt-4 text-sm text-zinc-400">Carregando…</p>
         ) : (
-          <div className="mt-4 space-y-4">
-            <Input label="Meta App ID" value={appId} onChange={setAppId} placeholder="ex: 123456789012345" />
-            <div>
-              <Input label="Config ID — Coexistência (QR)" value={configId} onChange={setConfigId} placeholder="config_id da configuração de coexistência" />
-              <p className="mt-1 text-[11px] text-zinc-400">
-                Configuração de Embedded Signup com o fluxo de QR Code (número segue no celular).
-              </p>
-            </div>
-            <div>
-              <Input label="Config ID — Login Facebook padrão" value={embeddedConfigId} onChange={setEmbeddedConfigId} placeholder="config_id do Embedded Signup padrão (se vazio, usa o de coexistência)" />
-              <p className="mt-1 text-[11px] text-zinc-400">
-                Configuração de Embedded Signup padrão (criar/selecionar WABA + número). Deixe vazio para reutilizar o Config ID de coexistência.
-              </p>
-            </div>
-            <div>
-              <Input label="Instagram Config ID — Login Facebook" value={instagramConfigId} onChange={setInstagramConfigId} placeholder="config_id do Facebook Login for Business com permissões de Instagram + Páginas" />
-              <p className="mt-1 text-[11px] text-zinc-400">
-                Configuração de Facebook Login for Business para conectar o Instagram (escopos instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_read_engagement). Habilita o botão &quot;Login Facebook&quot; ao criar um canal Instagram.
-              </p>
-            </div>
-            <div>
-              <Input
-                label="Meta App Secret"
-                type="password"
-                value={appSecret}
-                onChange={setAppSecret}
-                placeholder={config?.hasSecret ? '•••••••• (salvo — preencha só para trocar)' : 'cole o App Secret'}
-              />
-              <p className="mt-1 text-[11px] text-zinc-400">
-                {config?.hasSecret
-                  ? 'Já existe um secret salvo. Deixe em branco para mantê-lo.'
-                  : 'O secret nunca é exibido depois de salvo.'}
-              </p>
+          <div className="mt-5 space-y-5">
+            {/* ── WhatsApp ───────────────────────────── */}
+            <div className="rounded-lg border border-zinc-200 p-4 dark:border-white/10">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                  WhatsApp (Embedded Signup / Coexistência)
+                </h3>
+                {pill(waReady, 'Pronto')}
+              </div>
+              <div className="mt-3 space-y-4">
+                <Input label="Meta App ID" value={appId} onChange={setAppId} placeholder="ex: 123456789012345" />
+                <div>
+                  <Input
+                    label="Meta App Secret"
+                    type="password"
+                    value={appSecret}
+                    onChange={setAppSecret}
+                    placeholder={config?.hasSecret ? '•••••••• (salvo — preencha só para trocar)' : 'cole o App Secret'}
+                  />
+                  <p className="mt-1 text-[11px] text-zinc-400">
+                    {config?.hasSecret ? 'Já salvo. Deixe em branco para manter.' : 'O secret nunca é exibido depois de salvo.'}
+                  </p>
+                </div>
+                <div>
+                  <Input label="Config ID — Coexistência (QR)" value={configId} onChange={setConfigId} placeholder="config_id da configuração de coexistência" />
+                  <p className="mt-1 text-[11px] text-zinc-400">Embedded Signup com QR Code (número segue no celular).</p>
+                </div>
+                <div>
+                  <Input label="Config ID — Login Facebook padrão" value={embeddedConfigId} onChange={setEmbeddedConfigId} placeholder="config_id do Embedded Signup padrão (se vazio, usa o de coexistência)" />
+                  <p className="mt-1 text-[11px] text-zinc-400">Criar/selecionar WABA + número. Vazio = reutiliza o de coexistência.</p>
+                </div>
+              </div>
             </div>
 
-            <div className="border-t border-zinc-200 pt-4 dark:border-white/10">
-              <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-                Threads (app próprio)
-              </h3>
+            {/* ── Instagram (Facebook Login) ──────────── */}
+            <div className="rounded-lg border border-pink-200 bg-pink-50/40 p-4 dark:border-pink-900/40 dark:bg-pink-950/10">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-pink-800 dark:text-pink-200">
+                  Instagram (Facebook Login)
+                </h3>
+                {pill(igReady, 'Pronto')}
+              </div>
+              <p className="mt-1 text-[11px] text-pink-700/80 dark:text-pink-300/80">
+                É aqui que habilita o botão <strong>&quot;Login Facebook&quot;</strong> ao criar um canal Instagram. Pode usar um app próprio OU deixar os dois primeiros campos vazios pra reaproveitar o app do WhatsApp.
+              </p>
+              <div className="mt-3 space-y-4">
+                <div>
+                  <Input label="Instagram App ID" value={instagramAppId} onChange={setInstagramAppId} placeholder="app próprio do Instagram (vazio = usa o app do WhatsApp)" />
+                  <p className="mt-1 text-[11px] text-zinc-400">Deixe vazio para reutilizar o Meta App ID do WhatsApp.</p>
+                </div>
+                <div>
+                  <Input
+                    label="Instagram App Secret"
+                    type="password"
+                    value={instagramAppSecret}
+                    onChange={setInstagramAppSecret}
+                    placeholder={config?.hasInstagramSecret ? '•••••••• (salvo — preencha só para trocar)' : 'vazio = usa o App Secret do WhatsApp'}
+                  />
+                  <p className="mt-1 text-[11px] text-zinc-400">
+                    {config?.hasInstagramSecret ? 'Já salvo. Deixe em branco para manter.' : 'Deixe vazio para reutilizar o App Secret do WhatsApp.'}
+                  </p>
+                </div>
+                <div>
+                  <Input label="Instagram Config ID (obrigatório)" value={instagramConfigId} onChange={setInstagramConfigId} placeholder="config_id do Facebook Login for Business (IG + Páginas)" />
+                  <p className="mt-1 text-[11px] text-zinc-400">
+                    Config de FLB com escopos instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_read_engagement.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Threads ─────────────────────────────── */}
+            <div className="rounded-lg border border-zinc-200 p-4 dark:border-white/10">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                  Threads (app próprio)
+                </h3>
+                {pill(threadsReady, 'Pronto')}
+              </div>
               <p className="mt-1 text-[11px] text-zinc-400">
-                O Threads usa OAuth próprio (threads.net), separado do Facebook Login. Crie um app com o produto Threads API e registre a Callback URL abaixo.
+                OAuth próprio (threads.net), separado do Facebook Login. Crie um app com o produto Threads API e registre a Callback URL abaixo.
               </p>
               <div className="mt-3 space-y-4">
                 <Input label="Threads App ID" value={threadsAppId} onChange={setThreadsAppId} placeholder="client_id do app do Threads" />
@@ -1477,9 +1531,7 @@ function IntegrationsPanel() {
                     placeholder={config?.hasThreadsSecret ? '•••••••• (salvo — preencha só para trocar)' : 'cole o Threads App Secret'}
                   />
                   <p className="mt-1 text-[11px] text-zinc-400">
-                    {config?.hasThreadsSecret
-                      ? 'Já existe um secret do Threads salvo. Deixe em branco para mantê-lo.'
-                      : 'O secret nunca é exibido depois de salvo.'}
+                    {config?.hasThreadsSecret ? 'Já salvo. Deixe em branco para manter.' : 'O secret nunca é exibido depois de salvo.'}
                   </p>
                 </div>
                 <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-2.5 text-[11px] text-zinc-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400">
@@ -1493,7 +1545,7 @@ function IntegrationsPanel() {
 
             <button
               onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending || !appId.trim() || !configId.trim()}
+              disabled={saveMutation.isPending}
               className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {saveMutation.isPending ? 'Salvando…' : 'Salvar configuração'}

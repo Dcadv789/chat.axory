@@ -1776,6 +1776,9 @@ export class SuperAdminService {
       // separado do de coexistência (QR).
       embeddedConfigId:
         typeof value.embeddedConfigId === 'string' ? value.embeddedConfigId : '',
+      // App do Instagram (Facebook Login) — próprio ou herdado do WhatsApp.
+      instagramAppId:
+        typeof value.instagramAppId === 'string' ? value.instagramAppId : '',
       // Config de Facebook Login for Business pro Instagram (IG + Páginas).
       instagramConfigId:
         typeof value.instagramConfigId === 'string' ? value.instagramConfigId : '',
@@ -1784,6 +1787,8 @@ export class SuperAdminService {
         typeof value.threadsAppId === 'string' ? value.threadsAppId : '',
       // Nunca devolve os secrets em texto — só informa se já estão salvos.
       hasSecret: typeof value.appSecret === 'string' && value.appSecret.length > 0,
+      hasInstagramSecret:
+        typeof value.instagramAppSecret === 'string' && value.instagramAppSecret.length > 0,
       hasThreadsSecret:
         typeof value.threadsAppSecret === 'string' && value.threadsAppSecret.length > 0,
     };
@@ -1794,6 +1799,8 @@ export class SuperAdminService {
     appSecret?: string;
     configId?: string;
     embeddedConfigId?: string;
+    instagramAppId?: string;
+    instagramAppSecret?: string;
     instagramConfigId?: string;
     threadsAppId?: string;
     threadsAppSecret?: string;
@@ -1812,6 +1819,7 @@ export class SuperAdminService {
       appId: dto.appId ?? current.appId ?? '',
       configId: dto.configId ?? current.configId ?? '',
       embeddedConfigId: dto.embeddedConfigId ?? current.embeddedConfigId ?? '',
+      instagramAppId: dto.instagramAppId ?? current.instagramAppId ?? '',
       instagramConfigId:
         dto.instagramConfigId ?? current.instagramConfigId ?? '',
       threadsAppId: dto.threadsAppId ?? current.threadsAppId ?? '',
@@ -1820,6 +1828,10 @@ export class SuperAdminService {
         dto.appSecret && dto.appSecret.length > 0
           ? dto.appSecret
           : current.appSecret ?? '',
+      instagramAppSecret:
+        dto.instagramAppSecret && dto.instagramAppSecret.length > 0
+          ? dto.instagramAppSecret
+          : current.instagramAppSecret ?? '',
       threadsAppSecret:
         dto.threadsAppSecret && dto.threadsAppSecret.length > 0
           ? dto.threadsAppSecret
@@ -1836,9 +1848,11 @@ export class SuperAdminService {
       appId: next.appId as string,
       configId: next.configId as string,
       embeddedConfigId: next.embeddedConfigId as string,
+      instagramAppId: next.instagramAppId as string,
       instagramConfigId: next.instagramConfigId as string,
       threadsAppId: next.threadsAppId as string,
       hasSecret: (next.appSecret as string).length > 0,
+      hasInstagramSecret: (next.instagramAppSecret as string).length > 0,
       hasThreadsSecret: (next.threadsAppSecret as string).length > 0,
     };
   }

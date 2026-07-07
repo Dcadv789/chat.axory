@@ -57,10 +57,12 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
 
   const enabled = !!config?.instagramEnabled;
   const configId = config?.instagramConfigId;
+  // App do Instagram (dedicado ou herdado do WhatsApp).
+  const igAppId = config?.instagramAppId || config?.appId;
 
   // Carrega o SDK do Facebook uma única vez (após ter o appId).
   useEffect(() => {
-    if (!enabled || !config?.appId) return;
+    if (!enabled || !igAppId) return;
 
     if (window.FB) {
       setSdkReady(true);
@@ -69,7 +71,7 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
 
     window.fbAsyncInit = () => {
       window.FB.init({
-        appId: config.appId,
+        appId: igAppId,
         autoLogAppEvents: true,
         xfbml: false,
         version: 'v25.0',
@@ -86,7 +88,7 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
       script.crossOrigin = 'anonymous';
       document.body.appendChild(script);
     }
-  }, [enabled, config?.appId]);
+  }, [enabled, igAppId]);
 
   const launch = useCallback(() => {
     if (!window.FB || !configId) return;

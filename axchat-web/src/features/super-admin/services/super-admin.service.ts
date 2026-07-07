@@ -462,6 +462,8 @@ export const superAdminService = {
     appSecret?: string;
     configId?: string;
     embeddedConfigId?: string;
+    instagramAppId?: string;
+    instagramAppSecret?: string;
     instagramConfigId?: string;
     threadsAppId?: string;
     threadsAppSecret?: string;
@@ -577,9 +579,11 @@ export interface MetaCoexistenceConfig {
   appId: string;
   configId: string;
   embeddedConfigId: string;
+  instagramAppId: string;
   instagramConfigId: string;
   threadsAppId: string;
   hasSecret: boolean;
+  hasInstagramSecret: boolean;
   hasThreadsSecret: boolean;
 }
 

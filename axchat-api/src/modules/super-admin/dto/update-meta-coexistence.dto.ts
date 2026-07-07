@@ -24,6 +24,16 @@ export class UpdateMetaCoexistenceDto {
   @IsString()
   embeddedConfigId?: string;
 
+  @ApiPropertyOptional({ description: 'Instagram App ID (dedicated; falls back to WhatsApp app if empty)' })
+  @IsOptional()
+  @IsString()
+  instagramAppId?: string;
+
+  @ApiPropertyOptional({ description: 'Instagram App Secret — write-only, never returned' })
+  @IsOptional()
+  @IsString()
+  instagramAppSecret?: string;
+
   @ApiPropertyOptional({
     description: 'Facebook Login for Business config_id for Instagram (IG + Pages permissions)',
   })

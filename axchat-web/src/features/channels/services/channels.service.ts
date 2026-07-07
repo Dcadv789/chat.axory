@@ -61,6 +61,8 @@ export interface CoexistenceConfig {
   configId: string;
   /** Config do Embedded Signup padrão (cai no configId se não configurado). */
   embeddedConfigId?: string;
+  /** App ID a usar no FB.init do Instagram (dedicado ou herdado do WhatsApp). */
+  instagramAppId?: string;
   /** Config de Facebook Login for Business pro Instagram (IG + Páginas). */
   instagramConfigId?: string;
   enabled: boolean;
