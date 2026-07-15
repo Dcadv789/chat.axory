@@ -192,9 +192,12 @@ export function CoexistenceConnect({
           setup: {},
           // Coexistência usa o onboarding do app (QR). Embedded padrão NÃO
           // manda featureType — cai no fluxo de criar/selecionar WABA+número.
+          // `version: 'v4'` = versão nova do Embedded Signup que suporta o
+          // companion pairing (coexistência). Sem ela, o popup usa o fluxo
+          // antigo e bate no erro #4563039 no scan do QR.
           ...(isEmbedded
             ? {}
-            : { featureType: 'whatsapp_business_app_onboarding' }),
+            : { featureType: 'whatsapp_business_app_onboarding', version: 'v4' }),
           sessionInfoVersion: '3',
         },
       },
