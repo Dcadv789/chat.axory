@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  HttpException,
   Logger,
 } from '@nestjs/common';
 import { ChannelType, ChannelSyncMode, ChannelSyncStatus, OrgRole } from '@prisma/client';
@@ -525,29 +526,38 @@ export class ChannelsService {
       );
     }
 
-    const accessToken = await this.waOfficialHttpClient.exchangeCodeForToken(
-      dto.code,
-      appId,
-      appSecret,
-    );
+    try {
+      const accessToken = await this.waOfficialHttpClient.exchangeCodeForToken(
+        dto.code,
+        appId,
+        appSecret,
+      );
 
-    return this.create(
-      organizationId,
-      {
-        type: ChannelType.WHATSAPP_OFFICIAL,
-        name: dto.name,
-        config: {
-          accessToken,
-          phoneNumberId: dto.phoneNumberId,
-          businessAccountId: dto.businessAccountId,
-          appSecret,
-          apiVersion: 'v25.0',
-          coexistence: true,
+      return await this.create(
+        organizationId,
+        {
+          type: ChannelType.WHATSAPP_OFFICIAL,
+          name: dto.name,
+          config: {
+            accessToken,
+            phoneNumberId: dto.phoneNumberId,
+            businessAccountId: dto.businessAccountId,
+            appSecret,
+            apiVersion: 'v25.0',
+            coexistence: true,
+          },
+          ...(dto.visibility ? { visibility: dto.visibility } : {}),
         },
-        ...(dto.visibility ? { visibility: dto.visibility } : {}),
-      },
-      creator,
-    );
+        creator,
+      );
+    } catch (err: any) {
+      if (err instanceof HttpException) throw err;
+      // Erro cru (ex.: App Secret inválido na troca do code) vira 400 com a
+      // mensagem REAL da Meta — sem isso vira "Internal server error" (500).
+      const msg = err?.message ?? String(err);
+      this.logger.error(`Coexistência falhou (org ${organizationId}): ${msg}`);
+      throw new BadRequestException(`Coexistência: ${msg}`);
+    }
   }
 
   /**
@@ -569,6 +579,24 @@ export class ChannelsService {
       );
     }
 
+    try {
+      return await this.doEmbeddedSignup(organizationId, dto, appId, appSecret, creator);
+    } catch (err: any) {
+      if (err instanceof HttpException) throw err;
+      const msg = err?.message ?? String(err);
+      this.logger.error(`Embedded Signup falhou (org ${organizationId}): ${msg}`);
+      throw new BadRequestException(`Embedded Signup: ${msg}`);
+    }
+  }
+
+  /** Corpo do Embedded Signup — separado pra o try/catch acima capturar tudo. */
+  private async doEmbeddedSignup(
+    organizationId: string,
+    dto: CoexistenceChannelDto,
+    appId: string,
+    appSecret: string,
+    creator?: { userOrganizationId: string; role: OrgRole },
+  ) {
     // 1) code → access token.
     const accessToken = await this.waOfficialHttpClient.exchangeCodeForToken(
       dto.code,
