@@ -331,7 +331,9 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
+      {/* Backdrop SEM onClick: o drawer só fecha pelo X — clicar fora não pode
+          descartar o fluxo (ex.: no meio da conexão de coexistência). */}
+      <div className="absolute inset-0 bg-black/50" />
       <div className="relative z-50 flex h-full w-full max-w-lg flex-col bg-white shadow-2xl dark:bg-black">
         <div className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-white/10">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">

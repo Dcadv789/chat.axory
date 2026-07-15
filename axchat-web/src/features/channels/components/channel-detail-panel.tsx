@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import { channelsService, type Channel } from '../services/channels.service';
 import { channelAccessService } from '../../settings/services/channel-access.service';
+import { membersService } from '../../settings/services/members.service';
 import { aiAgentsService } from '../../ai-agents/services/ai-agents.service';
 import { useChannelSync } from '../hooks/use-channel-sync';
 import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
@@ -476,9 +477,12 @@ function AgentsTab({ channelId }: { channelId: string }) {
     queryFn: () => channelAccessService.listChannelAgents(channelId),
   });
 
-  const { data: eligible } = useQuery({
-    queryKey: ['channel-eligible-agents', channelId],
-    queryFn: () => channelAccessService.listEligibleAgents(channelId),
+  // TODOS os membros ativos da org — pra poder conceder acesso a qualquer um
+  // (o antigo listEligibleAgents só trazia quem já tinha grant, então nunca
+  // aparecia ninguém novo pra adicionar).
+  const { data: members } = useQuery({
+    queryKey: ['org-members'],
+    queryFn: () => membersService.list(),
   });
 
   const { data: aiAgents, isLoading: loadingAi } = useQuery({
@@ -489,9 +493,14 @@ function AgentsTab({ channelId }: { channelId: string }) {
   const linkedBots = (aiAgents ?? []).filter((agent) =>
     agent.channels?.some((link) => link.channelId === channelId),
   );
+  const unlinkedBots = (aiAgents ?? []).filter(
+    (agent) => !agent.channels?.some((link) => link.channelId === channelId),
+  );
 
   const [showAdd, setShowAdd] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [showAddAi, setShowAddAi] = useState(false);
+  const [linkingAi, setLinkingAi] = useState(false);
 
   const handleAdd = async (userId: string) => {
     setAdding(true);
@@ -499,7 +508,6 @@ function AgentsTab({ channelId }: { channelId: string }) {
       await channelAccessService.addChannelAgent(channelId, userId);
       toast.success('Membro adicionado ao canal');
       queryClient.invalidateQueries({ queryKey: ['channel-agents', channelId] });
-      queryClient.invalidateQueries({ queryKey: ['channel-eligible-agents', channelId] });
       setShowAdd(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao adicionar membro');
@@ -513,15 +521,38 @@ function AgentsTab({ channelId }: { channelId: string }) {
       await channelAccessService.removeChannelAgent(channelId, userId);
       toast.success('Acesso removido');
       queryClient.invalidateQueries({ queryKey: ['channel-agents', channelId] });
-      queryClient.invalidateQueries({ queryKey: ['channel-eligible-agents', channelId] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao remover membro');
     }
   };
 
-  const notInChannel = (eligible ?? []).filter(
-    (e) => !(agents ?? []).some((a) => a.user.id === e.id),
-  );
+  const handleLinkAi = async (agentId: string) => {
+    setLinkingAi(true);
+    try {
+      await aiAgentsService.assignChannel(agentId, { channelId });
+      toast.success('Agente de IA vinculado ao canal');
+      queryClient.invalidateQueries({ queryKey: ['ai-agents'] });
+      setShowAddAi(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao vincular agente de IA');
+    } finally { setLinkingAi(false); }
+  };
+
+  const handleUnlinkAi = async (agentId: string, name: string) => {
+    const ok = window.confirm(`Desvincular o agente "${name}" deste canal?`);
+    if (!ok) return;
+    try {
+      await aiAgentsService.unassignChannel(agentId, channelId);
+      toast.success('Agente de IA desvinculado');
+      queryClient.invalidateQueries({ queryKey: ['ai-agents'] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao desvincular agente de IA');
+    }
+  };
+
+  const notInChannel = (members ?? [])
+    .filter((m) => m.user.isActive)
+    .filter((m) => !(agents ?? []).some((a) => a.user.id === m.user.id));
 
   return (
     <div className="space-y-6 p-6">
@@ -591,18 +622,25 @@ function AgentsTab({ channelId }: { channelId: string }) {
         </div>
       </section>
 
-      {/* ── Agentes de IA (bots) — somente leitura ── */}
+      {/* ── Agentes de IA (bots) ── */}
       <section className="rounded-lg border border-zinc-200 dark:border-white/10">
-        <div className="border-b border-zinc-100 px-4 py-3 dark:border-white/5">
+        <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-white/5">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-violet-400" />
             <div>
               <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Agentes de IA (bots)</p>
               <p className="text-xs text-zinc-400">
-                Vinculados em Configurações → IA. Não são gerenciados aqui.
+                Bots que respondem neste canal
               </p>
             </div>
           </div>
+          <button
+            onClick={() => setShowAddAi(true)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-violet-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-600"
+          >
+            <Bot className="h-3.5 w-3.5" />
+            Adicionar IA
+          </button>
         </div>
 
         <div className="px-4 py-3">
@@ -631,11 +669,20 @@ function AgentsTab({ channelId }: { channelId: string }) {
                         </p>
                       </div>
                     </div>
-                    {link && (
-                      <span className="shrink-0 rounded bg-violet-100 px-2 py-0.5 text-[10px] font-medium uppercase text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
-                        {link.mode}
-                      </span>
-                    )}
+                    <div className="flex shrink-0 items-center gap-2">
+                      {link && (
+                        <span className="rounded bg-violet-100 px-2 py-0.5 text-[10px] font-medium uppercase text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                          {link.mode}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleUnlinkAi(bot.id, bot.name)}
+                        className="rounded-md p-1.5 text-zinc-300 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                        title="Desvincular do canal"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -659,28 +706,75 @@ function AgentsTab({ channelId }: { channelId: string }) {
             <div className="max-h-72 overflow-y-auto p-3">
               {notInChannel.length === 0 ? (
                 <p className="py-8 text-center text-sm text-zinc-400">
-                  Todos os membros elegíveis já têm acesso a este canal
+                  Todos os membros da equipe já têm acesso a este canal
                 </p>
               ) : (
                 <div className="space-y-1">
                   {notInChannel.map((member) => (
                     <button
-                      key={member.id}
-                      onClick={() => handleAdd(member.id)}
+                      key={member.user.id}
+                      onClick={() => handleAdd(member.user.id)}
                       disabled={adding}
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:hover:bg-white/5"
                     >
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-medium text-zinc-600 dark:bg-white/10 dark:text-zinc-400">
-                        {member.name.charAt(0).toUpperCase()}
+                        {member.user.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                          {member.name}
+                          {member.user.name}
                         </p>
-                        <p className="truncate text-xs text-zinc-400">{member.email}</p>
+                        <p className="truncate text-xs text-zinc-400">{member.user.email}</p>
                       </div>
                       <span className="shrink-0 rounded bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
                         {member.role}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add AI agent dialog */}
+      {showAddAi && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-white/10 dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-3 dark:border-white/10">
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                Vincular agente de IA ao canal
+              </h3>
+              <button onClick={() => setShowAddAi(false)} className="rounded-md p-1 text-zinc-400 hover:text-zinc-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-72 overflow-y-auto p-3">
+              {unlinkedBots.length === 0 ? (
+                <p className="py-8 text-center text-sm text-zinc-400">
+                  Todos os agentes de IA já estão vinculados a este canal
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {unlinkedBots.map((bot) => (
+                    <button
+                      key={bot.id}
+                      onClick={() => handleLinkAi(bot.id)}
+                      disabled={linkingAi}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-violet-50 disabled:opacity-50 dark:hover:bg-violet-900/10"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                        <Sparkles className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                          {bot.name}
+                        </p>
+                        <p className="truncate text-xs text-zinc-400">{bot.description || bot.kind}</p>
+                      </div>
+                      <span className="shrink-0 rounded bg-violet-100 px-2 py-0.5 text-[10px] font-medium uppercase text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                        {bot.kind}
                       </span>
                     </button>
                   ))}
