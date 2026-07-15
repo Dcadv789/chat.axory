@@ -114,21 +114,35 @@ export function CoexistenceConnect({
     if (!enabled) return;
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') {
+      // Aceita QUALQUER subdomínio do facebook — o popup do Embedded Signup pode
+      // emitir de www./web./business.facebook.com dependendo do fluxo (a v4 de
+      // coexistência roda em business.facebook.com). Restringir a www. fazia os
+      // ids serem descartados → "O popup não retornou o número/conta".
+      let host = '';
+      try {
+        host = new URL(event.origin).hostname;
+      } catch {
         return;
       }
+      if (host !== 'facebook.com' && !host.endsWith('.facebook.com')) return;
+
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (data?.type === 'WA_EMBEDDED_SIGNUP') {
-          if (data.event === 'FINISH' || data.event === 'FINISH_ONLY_WABA') {
-            sessionInfoRef.current = {
-              phoneNumberId: data.data?.phone_number_id,
-              wabaId: data.data?.waba_id,
-            };
-          } else if (data.event === 'CANCEL') {
-            setError('Conexão cancelada antes de concluir.');
-            setLaunching(false);
-          }
+        if (data?.type !== 'WA_EMBEDDED_SIGNUP') return;
+        // eslint-disable-next-line no-console
+        console.debug('[coex] WA_EMBEDDED_SIGNUP', data.event, data.data);
+        // Captura os ids sempre que aparecerem (não só no FINISH) e não sobrescreve
+        // com vazio — assim eventos parciais não apagam o que já veio.
+        const d = (data.data ?? {}) as Record<string, any>;
+        if (d.phone_number_id || d.waba_id) {
+          sessionInfoRef.current = {
+            phoneNumberId: d.phone_number_id ?? sessionInfoRef.current.phoneNumberId,
+            wabaId: d.waba_id ?? sessionInfoRef.current.wabaId,
+          };
+        }
+        if (data.event === 'CANCEL') {
+          setError('Conexão cancelada antes de concluir.');
+          setLaunching(false);
         }
       } catch {
         // payloads não-JSON do FB são ignorados
@@ -161,17 +175,26 @@ export function CoexistenceConnect({
           return;
         }
 
-        const { phoneNumberId, wabaId } = sessionInfoRef.current;
-        if (!phoneNumberId || !wabaId) {
-          setError(
-            'O popup não retornou o número/conta. Conclua a leitura do QR no app WhatsApp Business e tente novamente.',
-          );
-          setLaunching(false);
-          return;
-        }
-
         void (async () => {
           try {
+            // O postMessage FINISH pode chegar um instante DEPOIS do callback do
+            // code. Espera curta (até ~3s) pelos ids antes de desistir.
+            for (
+              let i = 0;
+              i < 10 &&
+              (!sessionInfoRef.current.phoneNumberId || !sessionInfoRef.current.wabaId);
+              i++
+            ) {
+              await new Promise((r) => setTimeout(r, 300));
+            }
+            const { phoneNumberId, wabaId } = sessionInfoRef.current;
+            if (!phoneNumberId || !wabaId) {
+              setError(
+                'O popup não retornou o número/conta. Conclua a leitura do QR no app WhatsApp Business e tente novamente.',
+              );
+              setLaunching(false);
+              return;
+            }
             await onConnect({
               code,
               phoneNumberId,
