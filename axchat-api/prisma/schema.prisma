@@ -558,6 +558,8 @@ model Contact {
   email          String?
   avatarUrl      String?   @map("avatar_url")
   notes          String?
+  campaign       String? // campanha/origem que trouxe o contato (nome livre)
+  source         String? // como o contato entrou: manual, import, whatsapp, etc.
   metadata       Json      @default("{}")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
@@ -573,6 +575,7 @@ model Contact {
 
   @@index([organizationId, phone], name: "idx_contact_org_phone")
   @@index([organizationId, email], name: "idx_contact_org_email")
+  @@index([organizationId, campaign], name: "idx_contact_org_campaign")
   @@map("contacts")
 }
 

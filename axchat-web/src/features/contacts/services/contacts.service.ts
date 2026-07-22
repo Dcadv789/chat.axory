@@ -7,6 +7,8 @@ export interface Contact {
   email: string | null;
   avatarUrl: string | null;
   notes: string | null;
+  campaign: string | null;
+  source: string | null;
   metadata: Record<string, any>;
   channels: { id: string; channelId: string; externalId: string; channel: { id: string; type: string; name: string } }[];
   tags: { tag: { id: string; name: string; color: string } }[];
@@ -14,6 +16,22 @@ export interface Contact {
   conversations?: any[];
   _count?: { conversations: number };
   createdAt: string;
+}
+
+export interface ImportContactRow {
+  name?: string;
+  phone?: string;
+  email?: string;
+  campaign?: string;
+  tags?: string[];
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  total: number;
+  errors: string[];
 }
 
 export const contactsService = {
@@ -30,13 +48,40 @@ export const contactsService = {
     return data.data;
   },
 
-  async update(id: string, payload: Partial<Contact>): Promise<Contact> {
+  async update(
+    id: string,
+    payload: Partial<Contact> & { tagIds?: string[] },
+  ): Promise<Contact> {
     const { data } = await api.patch(`/contacts/${id}`, payload);
+    return data.data;
+  },
+
+  async create(payload: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    campaign?: string;
+    tags?: string[];
+  }): Promise<Contact> {
+    const { data } = await api.post('/contacts', payload);
     return data.data;
   },
 
   async remove(id: string): Promise<void> {
     await api.delete(`/contacts/${id}`);
+  },
+
+  async listCampaigns(): Promise<string[]> {
+    const { data } = await api.get('/contacts/campaigns');
+    return (data.data ?? data)?.campaigns ?? [];
+  },
+
+  async importContacts(
+    contacts: ImportContactRow[],
+    campaign?: string,
+  ): Promise<ImportResult> {
+    const { data } = await api.post('/contacts/import', { contacts, campaign });
+    return data.data ?? data;
   },
 
   // ─── Notes ──────────────────────────────────────
