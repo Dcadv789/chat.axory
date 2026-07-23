@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap, Variable, Plug, Clock, Megaphone, Network, Send } from 'lucide-react';
+import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap, Variable, Plug, Clock, Megaphone, Network } from 'lucide-react';
 
 const tabs = [
   { href: '/settings/channels', label: 'Canais', icon: Radio, subtitle: 'Gerencie seus canais de atendimento' },
@@ -11,7 +11,6 @@ const tabs = [
   { href: '/settings/members', label: 'Membros', icon: Users, subtitle: 'Gerencie os membros da sua organização' },
   { href: '/settings/sectors', label: 'Setores', icon: Network, subtitle: 'Departamentos humanos (Atendimento, Vendas, Financeiro) e quem atende cada fila' },
   { href: '/settings/contacts', label: 'Contatos', icon: BookUser, subtitle: 'Lista de contatos e canais vinculados' },
-  { href: '/settings/campaigns', label: 'Campanhas', icon: Send, subtitle: 'Dispare mensagens em massa por WhatsApp, Instagram ou Telegram' },
   { href: '/settings/tags', label: 'Tags', icon: Tags, subtitle: 'Organize conversas e contatos com tags coloridas' },
   { href: '/settings/notifications', label: 'Notificações', icon: Bell, subtitle: 'Configure como e quando você deseja ser notificado' },
   { href: '/settings/whatsapp-templates', label: 'Templates WhatsApp', icon: MessageSquareDiff, subtitle: 'Gerencie e sincronize templates do WhatsApp com a Meta' },
@@ -30,11 +29,11 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
-        <div className="flex items-center gap-2">
+      <header className="flex h-16 shrink-0 items-center border-b border-zinc-200 bg-white px-6 dark:border-white/10 dark:bg-black">
+        <div className="flex min-w-0 items-center gap-2">
           <Building2 className="h-5 w-5 shrink-0 text-primary" />
           <div className="min-w-0">
-            <h1 className="flex flex-wrap items-center gap-x-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+            <h1 className="flex flex-wrap items-center gap-x-2 text-lg font-semibold leading-tight text-zinc-950 dark:text-zinc-50">
               <span>Configurações</span>
               <span className="font-normal text-zinc-300 dark:text-zinc-600">/</span>
               <span className="inline-flex items-center gap-1.5">
@@ -42,7 +41,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 {active.label}
               </span>
             </h1>
-            <p className="text-xs text-zinc-500">{active.subtitle}</p>
+            <p className="truncate text-xs text-zinc-500">{active.subtitle}</p>
           </div>
         </div>
       </header>

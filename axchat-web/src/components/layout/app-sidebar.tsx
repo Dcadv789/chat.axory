@@ -11,6 +11,7 @@ import {
   Zap,
   Headset,
   Megaphone,
+  Send,
 } from 'lucide-react';
 import { InboxTree } from '@/features/inbox-views/components/inbox-tree';
 import { AgentSectorTree } from '@/features/ai-agents/components/agent-sector-tree';
@@ -110,6 +111,10 @@ export function AppSidebar() {
               <SidebarLabel>Painel de Marketing</SidebarLabel>
             </SidebarItem>
           )}
+          <SidebarItem href="/campaigns">
+            <Send className="size-5" />
+            <SidebarLabel>Campanhas</SidebarLabel>
+          </SidebarItem>
           {navItems.map((item) => (
             <SidebarItem key={item.href} href={item.href}>
               <item.icon className="size-5" />
