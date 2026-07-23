@@ -110,20 +110,17 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {pagination && (
-        <p className="mt-2 text-xs text-zinc-500">{pagination.total} contatos</p>
-      )}
-
       <div className="mt-3 flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
         <table className="w-full table-fixed shrink-0">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-white/10 dark:bg-white/5">
-              <th className="w-[26%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Contato</th>
-              <th className="w-[16%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Telefone</th>
-              <th className="w-[16%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Canais</th>
-              <th className="w-[18%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Tags</th>
+              <th className="w-[5%] px-2 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">#</th>
+              <th className="w-[24%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Contato</th>
+              <th className="w-[15%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Telefone</th>
+              <th className="w-[13%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Canais</th>
+              <th className="w-[17%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Tags</th>
               <th className="w-[16%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Campanha</th>
-              <th className="w-[8%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">Conv.</th>
+              <th className="w-[10%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">Conv.</th>
             </tr>
           </thead>
         </table>
@@ -131,32 +128,35 @@ export default function ContactsPage() {
         <div className="flex-1 overflow-y-auto min-h-0">
           <table className="w-full table-fixed">
             <colgroup>
-              <col className="w-[26%]" /><col className="w-[16%]" /><col className="w-[16%]" />
-              <col className="w-[18%]" /><col className="w-[16%]" /><col className="w-[8%]" />
+              <col className="w-[5%]" /><col className="w-[24%]" /><col className="w-[15%]" /><col className="w-[13%]" />
+              <col className="w-[17%]" /><col className="w-[16%]" /><col className="w-[10%]" />
             </colgroup>
             <tbody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-zinc-50 dark:border-white/10">
-                    {Array.from({ length: 6 }).map((_, j) => (
+                    {Array.from({ length: 7 }).map((_, j) => (
                       <td key={j} className="px-4 py-3"><div className="h-4 w-24 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" /></td>
                     ))}
                   </tr>
                 ))
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center">
+                  <td colSpan={7} className="px-4 py-16 text-center">
                     <Users className="mx-auto h-10 w-10 text-zinc-200 dark:text-zinc-700" />
                     <p className="mt-3 text-sm text-zinc-500">Nenhum contato encontrado</p>
                   </td>
                 </tr>
               ) : (
-                contacts.map((contact) => (
+                contacts.map((contact, i) => (
                   <tr
                     key={contact.id}
                     onClick={() => setEditing(contact)}
                     className="cursor-pointer border-b border-zinc-50 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-white/10"
                   >
+                    <td className="px-2 py-3 text-center text-xs font-medium text-zinc-400 tabular-nums">
+                      {((pagination?.page ?? 1) - 1) * (pagination?.limit ?? 20) + i + 1}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-medium text-zinc-600 dark:bg-black dark:text-zinc-300">
@@ -205,13 +205,21 @@ export default function ContactsPage() {
           </table>
         </div>
 
-        {pagination && pagination.totalPages > 1 && (
+        {/* Rodapé: contagem total (sempre) + paginação (quando houver). */}
+        {pagination && (
           <div className="shrink-0 flex items-center justify-between border-t border-zinc-100 px-4 py-3 dark:border-white/10">
-            <p className="text-xs text-zinc-500">Página {pagination.page} de {pagination.totalPages}</p>
-            <div className="flex gap-1">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded px-3 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-white/10">Anterior</button>
-              <button onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages} className="rounded px-3 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-white/10">Próxima</button>
-            </div>
+            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              {pagination.total} {pagination.total === 1 ? 'contato' : 'contatos'}
+              {pagination.totalPages > 1 && (
+                <span className="ml-2 font-normal text-zinc-400">· página {pagination.page} de {pagination.totalPages}</span>
+              )}
+            </p>
+            {pagination.totalPages > 1 && (
+              <div className="flex gap-1">
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="rounded px-3 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-white/10">Anterior</button>
+                <button onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))} disabled={page === pagination.totalPages} className="rounded px-3 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-white/10">Próxima</button>
+              </div>
+            )}
           </div>
         )}
       </div>
