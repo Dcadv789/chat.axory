@@ -25,6 +25,7 @@ import { ContactsService } from './contacts/contacts.service';
 import { ContactsRepository } from './contacts/contacts.repository';
 import { ContactNotesController } from './contacts/contact-notes.controller';
 import { ContactNotesService } from './contacts/contact-notes.service';
+import { CampaignsModule } from './campaigns/campaigns.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { ContactNotesService } from './contacts/contact-notes.service';
     RatingsModule,
     AiAgentsModule,
     WatchdogModule,
+    CampaignsModule,
   ],
   controllers: [ConversationsController, MessagesController, ContactsController, ContactNotesController],
   providers: [

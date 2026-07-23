@@ -777,6 +777,73 @@ model Message {
   @@map("messages")
 }
 
+// ─── Campanhas de disparo em massa ───────────────
+// Envio de uma mensagem para uma lista de contatos por um canal. WhatsApp
+// Official/Coex só por TEMPLATE (regra da Meta); Zappfy/Instagram/Telegram
+// aceitam texto livre. Reusa o pipeline outbound (fila + adapters).
+
+enum CampaignStatus {
+  DRAFT
+  SENDING
+  COMPLETED
+  CANCELED
+  FAILED
+}
+
+enum CampaignRecipientStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model Campaign {
+  id             String         @id @default(cuid())
+  organizationId String         @map("organization_id")
+  channelId      String         @map("channel_id")
+  channelType    String         @map("channel_type") // snapshot do tipo do canal
+  name           String
+  status         CampaignStatus @default(DRAFT)
+  // 'TEXT' (texto livre) ou 'TEMPLATE' (WhatsApp HSM)
+  messageType    String         @default("TEXT") @map("message_type")
+  // TEXT: { text }. TEMPLATE: { name, language: { code }, components: [...] }
+  content        Json           @default("{}")
+  // Como os destinatários foram escolhidos: { mode: all|tag|campaign, tagId?, campaign? }
+  audience       Json           @default("{}")
+  total          Int            @default(0)
+  sentCount      Int            @default(0) @map("sent_count")
+  failedCount    Int            @default(0) @map("failed_count")
+  createdById    String?        @map("created_by_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  startedAt      DateTime?      @map("started_at")
+  completedAt    DateTime?      @map("completed_at")
+
+  recipients CampaignRecipient[]
+
+  @@index([organizationId, status], name: "idx_campaign_org_status")
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id         String                  @id @default(cuid())
+  campaignId String                  @map("campaign_id")
+  contactId  String                  @map("contact_id")
+  // Snapshot pra listar sem depender do contato (e preservar o histórico)
+  name       String?
+  externalId String?                 @map("external_id") // número/id no canal
+  status     CampaignRecipientStatus @default(PENDING)
+  error      String?
+  messageId  String?                 @map("message_id") // Message criada no envio
+  sentAt     DateTime?               @map("sent_at")
+  createdAt  DateTime                @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status], name: "idx_camp_recipient_status")
+  @@map("campaign_recipients")
+}
+
 // ─── Departments / Routing ───────────────────────
 
 model Department {

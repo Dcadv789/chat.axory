@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap, Variable, Plug, Clock, Megaphone, Network } from 'lucide-react';
+import { Radio, Users, Tags, Bell, Building2, KeyRound, Sparkles, BookUser, MessageSquareDiff, Zap, Variable, Plug, Clock, Megaphone, Network, Send } from 'lucide-react';
 
 const tabs = [
   { href: '/settings/channels', label: 'Canais', icon: Radio, subtitle: 'Gerencie seus canais de atendimento' },
@@ -11,6 +11,7 @@ const tabs = [
   { href: '/settings/members', label: 'Membros', icon: Users, subtitle: 'Gerencie os membros da sua organização' },
   { href: '/settings/sectors', label: 'Setores', icon: Network, subtitle: 'Departamentos humanos (Atendimento, Vendas, Financeiro) e quem atende cada fila' },
   { href: '/settings/contacts', label: 'Contatos', icon: BookUser, subtitle: 'Lista de contatos e canais vinculados' },
+  { href: '/settings/campaigns', label: 'Campanhas', icon: Send, subtitle: 'Dispare mensagens em massa por WhatsApp, Instagram ou Telegram' },
   { href: '/settings/tags', label: 'Tags', icon: Tags, subtitle: 'Organize conversas e contatos com tags coloridas' },
   { href: '/settings/notifications', label: 'Notificações', icon: Bell, subtitle: 'Configure como e quando você deseja ser notificado' },
   { href: '/settings/whatsapp-templates', label: 'Templates WhatsApp', icon: MessageSquareDiff, subtitle: 'Gerencie e sincronize templates do WhatsApp com a Meta' },
