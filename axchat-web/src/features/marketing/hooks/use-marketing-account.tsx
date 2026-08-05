@@ -61,7 +61,12 @@ export function MarketingAccountProvider({ children }: { children: ReactNode }) 
     // Só aceita o que ainda existe: canal removido ou de outra empresa faria o
     // painel pedir uma conta que o backend recusa.
     const valido = accounts.find((a) => a.channelId === salvo);
-    setChannelIdState(valido ? valido.channelId : accounts[0]?.channelId);
+    // Sem escolha salva, abre na conta PADRÃO da empresa — é sobre ela que a
+    // IA age, então é o que o operador espera ver ao entrar.
+    const padrao = accounts.find((a) => a.isDefault);
+    setChannelIdState(
+      valido?.channelId ?? padrao?.channelId ?? accounts[0]?.channelId,
+    );
     setHidratado(true);
   }, [accounts, hidratado]);
 

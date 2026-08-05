@@ -88,6 +88,20 @@ export class MarketingProfileController {
     return { accounts: await this.credentials.listAccounts(orgId) };
   }
 
+  @Post('accounts/default')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Define a conta de Instagram padrão — é a que os agentes de IA usam, já que o contexto deles não carrega canal.',
+  })
+  async setDefaultAccount(
+    @CurrentOrg('id') orgId: string,
+    @Body() body: { channelId: string | null },
+  ) {
+    await this.credentials.setDefaultAccount(orgId, body.channelId ?? null);
+    return { ok: true };
+  }
+
   @Get('overview')
   @ApiOperation({ summary: 'Resumo do painel: pacing de verba + insights da conta' })
   overview(

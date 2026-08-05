@@ -75,6 +75,18 @@ export class WhatsAppOfficialInboundAdapter implements InboundChannelPort {
     return verifyMetaSignature(headers, rawBody, secrets);
   }
 
+  /**
+   * Dois números são o mesmo se um termina no outro. Cobre a diferença de
+   * código de país / formatação entre `display_phone_number` e `from`, sem
+   * casar dois números curtos por coincidência.
+   */
+  private mesmoNumero(a: string, b?: string): boolean {
+    if (!a || !b) return false;
+    const [menor, maior] = a.length <= b.length ? [a, b] : [b, a];
+    if (menor.length < 8) return a === b;
+    return maior.endsWith(menor);
+  }
+
   parseWebhook(payload: unknown, channel?: Channel): WebhookParseResult {
     const result: WebhookParseResult = {
       messages: [],
@@ -123,6 +135,43 @@ export class WhatsAppOfficialInboundAdapter implements InboundChannelPort {
             const normalized = this.mapper.normalizeStatus(status);
             if (normalized) {
               result.statuses.push(normalized);
+            }
+          }
+
+          // Coexistência: o que o dono manda PELO CELULAR chega em
+          // `smb_message_echoes`. Sem digerir isso, quem responde pelo aparelho
+          // não aparece na conversa e o histórico fica pela metade.
+          for (const echo of value.message_echoes || []) {
+            const normalized = this.mapper.normalizeEcho(
+              echo,
+              contacts.find((c: any) => c.wa_id === echo.to),
+            );
+            if (normalized) result.messages.push(normalized);
+          }
+
+          // Conversas ANTERIORES à conexão, entregues em lotes pelo campo
+          // `history`. Aqui não existe `to`: a direção sai de comparar `from`
+          // com o número da própria empresa.
+          const businessPhone = value.metadata?.display_phone_number
+            ? String(value.metadata.display_phone_number).replace(/\D/g, '')
+            : undefined;
+          for (const bloco of value.history || []) {
+            for (const thread of bloco?.threads || []) {
+              const clienteId = thread?.id ? String(thread.id) : undefined;
+              if (!clienteId) continue;
+              for (const msg of thread?.messages || []) {
+                const from = String(msg?.from ?? '').replace(/\D/g, '');
+                // `display_phone_number` vem formatado ("+55 11 91234-5678") e
+                // nem sempre com o mesmo código de país que o `from`. Igualdade
+                // exata falharia e inverteria o histórico INTEIRO — o que a
+                // empresa disse viraria fala do cliente. Comparar pelo final
+                // resolve, com um piso de dígitos pra não casar por acaso.
+                const daEmpresa = this.mesmoNumero(from, businessPhone);
+                const normalized = daEmpresa
+                  ? this.mapper.normalizeEcho({ ...msg, to: clienteId })
+                  : this.mapper.normalizeInbound(msg, {});
+                if (normalized) result.messages.push(normalized);
+              }
             }
           }
         }

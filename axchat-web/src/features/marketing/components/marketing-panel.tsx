@@ -74,7 +74,24 @@ export function MarketingPanel() {
  */
 function AccountPicker() {
   const { accounts, channelId, setChannelId, current } = useMarketingAccount();
+  const qc = useQueryClient();
+  const [salvando, setSalvando] = useState(false);
   if (accounts.length < 2) return null;
+
+  const definirPadrao = async () => {
+    if (!channelId) return;
+    setSalvando(true);
+    try {
+      await marketingService.setDefaultAccount(channelId);
+      await qc.invalidateQueries({ queryKey: ['marketing-accounts'] });
+      toast.success('Conta padrão definida. Os agentes de IA passam a usar ela.');
+    } catch {
+      toast.error('Não foi possível definir a conta padrão.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
       <Instagram className="h-4 w-4 shrink-0 text-zinc-400" />
@@ -87,10 +104,33 @@ function AccountPicker() {
         {accounts.map((a) => (
           <option key={a.channelId} value={a.channelId}>
             {a.igUsername ? `@${a.igUsername}` : a.name}
+            {a.isDefault ? ' — padrão' : ''}
             {a.hasAds ? '' : ' (sem anúncios)'}
           </option>
         ))}
       </select>
+
+      {/* A conta padrão é a que os agentes usam: o contexto de execução deles
+          não carrega canal, então sem escolher uma eles agiriam sobre a última
+          conectada. */}
+      {current?.isDefault ? (
+        <span
+          title="Os agentes de IA usam esta conta"
+          className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+        >
+          padrão da IA
+        </span>
+      ) : (
+        <button
+          onClick={definirPadrao}
+          disabled={salvando}
+          title="Faz os agentes de IA agirem sobre esta conta"
+          className="rounded px-1.5 py-0.5 text-[10px] text-zinc-500 underline-offset-2 hover:underline disabled:opacity-50 dark:text-zinc-400"
+        >
+          {salvando ? 'definindo…' : 'usar como padrão da IA'}
+        </button>
+      )}
+
       {current && !current.hasAds && (
         <span
           title="Esta conta não tem conta de anúncios vinculada. Reconecte o canal concedendo as permissões de Anúncios."

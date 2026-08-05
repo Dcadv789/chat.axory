@@ -205,6 +205,15 @@ export const marketingService = {
     return data?.data ?? data;
   },
 
+  /**
+   * Conta padrão da empresa. É a que os agentes de IA usam: o contexto de
+   * execução deles não carrega canal, então sem uma padrão eles agiriam sobre
+   * a última conta conectada.
+   */
+  async setDefaultAccount(channelId: string | null): Promise<void> {
+    await api.post('/marketing/accounts/default', { channelId });
+  },
+
   async overview(
     since?: string,
     until?: string,
@@ -320,6 +329,8 @@ export interface MarketingAccount {
   igUserId?: string;
   /** Sem conta de anúncios vinculada, só publicação e métricas de post. */
   hasAds: boolean;
+  /** A conta que os agentes de IA usam quando ninguém escolhe. */
+  isDefault: boolean;
 }
 
 export interface MarketingOverview {

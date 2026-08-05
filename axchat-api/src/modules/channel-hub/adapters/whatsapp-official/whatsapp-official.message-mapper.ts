@@ -35,6 +35,50 @@ export class WhatsAppOfficialMessageMapper {
     return result;
   }
 
+  /**
+   * Mensagem que o dono mandou PELO CELULAR (app WhatsApp Business), na
+   * coexistência. A Meta entrega no campo `smb_message_echoes` e no `history`.
+   *
+   * Sem isto, quem respondia pelo celular sumia da conversa: a tela mostrava só
+   * o lado do cliente e o que saía pela plataforma, um histórico pela metade.
+   *
+   * Diferente da mensagem recebida, aqui o CONTATO é o destinatário (`to`) —
+   * `from` é o número da própria empresa. Trocar os dois criaria um "contato"
+   * com o número da empresa e jogaria a conversa no lugar errado.
+   *
+   * Doc: developers.facebook.com → whatsapp/webhooks/reference/smb_message_echoes
+   */
+  normalizeEcho(
+    echo: Record<string, any>,
+    contact?: Record<string, any>,
+  ): NormalizedInboundMessage | null {
+    if (!echo?.id) return null;
+    // `to` só existe nos ecos; no `history` a direção vem de comparar `from`
+    // com o número da empresa, e quem chama resolve isso antes.
+    const contactId = echo.to ?? echo.recipient;
+    if (!contactId) return null;
+
+    const result: NormalizedInboundMessage = {
+      externalMessageId: echo.id,
+      externalContactId: String(contactId),
+      contactName: contact?.profile?.name,
+      contactPhone: String(contactId),
+      channelType: ChannelType.WHATSAPP_OFFICIAL,
+      timestamp: new Date(parseInt(echo.timestamp, 10) * 1000),
+      type: this.resolveContentType(echo),
+      content: this.extractContent(echo),
+      isForwarded: !!echo.context?.forwarded,
+      isEcho: true,
+      rawPayload: echo,
+    };
+
+    if (echo.context?.id) {
+      result.replyTo = { externalMessageId: echo.context.id };
+    }
+
+    return result;
+  }
+
   normalizeStatus(status: Record<string, any>): StatusUpdate | null {
     if (!status?.id) return null;
 

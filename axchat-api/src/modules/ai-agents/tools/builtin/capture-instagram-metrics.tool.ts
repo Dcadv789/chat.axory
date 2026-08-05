@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MarketingCredentialsService } from '../../marketing/marketing-credentials.service';
 import { PrismaService } from '../../../../database/prisma.service';
 import { AiTool, ToolContext, ToolResult } from '../tool.types';
 import { upsertDailyMediaMetric } from '../marketing-metric.util';
@@ -42,8 +43,15 @@ export class CaptureInstagramMetricsTool implements AiTool {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly credentials: MarketingCredentialsService,
   ) {}
 
+  /**
+   * As credenciais saem da conta PADRÃO de marketing da empresa (definida no
+   * painel), com os secrets da organização como fallback. Antes cada tool lia
+   * IG_/META_ direto dos secrets — que são um só por empresa e a última conexão
+   * sobrescrevia, então a crew media a conta errada sem ninguém perceber.
+   */
   private async resolve(orgId: string, key: string): Promise<string | null> {
     const secret = await this.prisma.organizationSecret.findFirst({
       where: { organizationId: orgId, key },
@@ -57,8 +65,8 @@ export class CaptureInstagramMetricsTool implements AiTool {
     ctx: ToolContext,
   ): Promise<ToolResult> {
     const [igUserId, token, profile] = await Promise.all([
-      this.resolve(ctx.organizationId, 'IG_USER_ID'),
-      this.resolve(ctx.organizationId, 'IG_ACCESS_TOKEN'),
+      this.credentials.resolve(ctx.organizationId).then((c) => c.igUserId ?? null),
+      this.credentials.resolve(ctx.organizationId).then((c) => c.igToken ?? null),
       this.prisma.marketingProfile.findUnique({
         where: { organizationId: ctx.organizationId },
         select: { analysisWindow: true },

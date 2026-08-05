@@ -451,6 +451,7 @@ model Channel {
   aiAgentChannels AiAgentChannel[]
   whatsappTemplates WhatsappTemplate[]
   defaultOrchestrator AiAgent? @relation("DefaultOrchestrator", fields: [defaultOrchestratorId], references: [id], onDelete: SetNull)
+  marketingProfiles MarketingProfile[]
 
   @@index([organizationId, type], name: "idx_channel_org_type")
   @@map("channels")
@@ -1456,10 +1457,16 @@ model MarketingProfile {
   // opção marcada). LAST_MONTH | LAST_3_MONTHS | LAST_6_MONTHS | LAST_YEAR.
   analysisWindow String @default("LAST_MONTH") @map("analysis_window")
 
+  /// Conta de Instagram PADRÃO do marketing. As skills dos agentes não recebem
+  /// canal no contexto: sem isto elas agiriam sobre "a última conta conectada",
+  /// que é justamente o que fazia um perfil novo roubar o marketing do antigo.
+  defaultChannelId String? @map("default_channel_id")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  defaultChannel Channel?     @relation(fields: [defaultChannelId], references: [id], onDelete: SetNull)
 
   @@map("marketing_profiles")
 }
