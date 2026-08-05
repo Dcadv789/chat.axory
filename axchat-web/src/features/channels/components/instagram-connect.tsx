@@ -105,7 +105,27 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
         (response: any) => {
           const code = response?.authResponse?.code;
           if (!code) {
-            setError('Não foi possível obter o código de autorização da Meta.');
+            // A resposta da Meta era DESCARTADA aqui, e o dono via só uma
+            // mensagem genérica — sem nada pra diagnosticar. O objeto costuma
+            // trazer `status` ('unknown' = popup fechado/bloqueado,
+            // 'not_authorized' = usuário recusou) e, quando há falha de
+            // configuração do app, um bloco de erro com o motivo real.
+            const status = response?.status ? ` (status: ${response.status})` : '';
+            setError(
+              `Não foi possível obter o código de autorização da Meta${status}. Abra os detalhes abaixo e envie ao suporte.`,
+            );
+            setDebugData(
+              JSON.stringify(
+                {
+                  respostaDaMeta: response ?? null,
+                  appIdUsado: igAppId,
+                  configIdUsado: configId,
+                  origem: typeof window !== 'undefined' ? window.location.origin : null,
+                },
+                null,
+                2,
+              ),
+            );
             setLaunching(false);
             return;
           }
