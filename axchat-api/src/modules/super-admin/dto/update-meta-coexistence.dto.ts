@@ -50,4 +50,19 @@ export class UpdateMetaCoexistenceDto {
   @IsOptional()
   @IsString()
   threadsAppSecret?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Instagram App ID do produto "Instagram" (Login do Instagram — sem Página do Facebook). É um ID PRÓPRIO desse produto, diferente do instagramAppId (Facebook Login for Business).',
+  })
+  @IsOptional()
+  @IsString()
+  instagramLoginAppId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Instagram Login App Secret — write-only, never returned',
+  })
+  @IsOptional()
+  @IsString()
+  instagramLoginAppSecret?: string;
 }
