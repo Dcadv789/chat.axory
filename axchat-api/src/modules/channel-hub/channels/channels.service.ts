@@ -15,7 +15,10 @@ import { ChannelsRepository } from './channels.repository';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { CoexistenceChannelDto } from './dto/coexistence-channel.dto';
-import { InstagramFacebookLoginDto } from './dto/instagram-facebook-login.dto';
+import {
+  InstagramFacebookLoginDto,
+  InstagramReconnectDto,
+} from './dto/instagram-facebook-login.dto';
 import { ChannelAdapterRegistry } from '../channel-adapter.registry';
 import { ZappfyHttpClient } from '../adapters/zappfy/zappfy.http-client';
 import { WhatsAppOfficialHttpClient } from '../adapters/whatsapp-official/whatsapp-official.http-client';
@@ -923,15 +926,16 @@ export class ChannelsService {
   async reconnectInstagramFromFacebookLogin(
     organizationId: string,
     channelId: string,
-    dto: InstagramFacebookLoginDto,
+    dto: InstagramReconnectDto,
   ) {
     const atual = await this.findOne(channelId, organizationId);
     if (atual.type !== ChannelType.INSTAGRAM) {
       throw new BadRequestException('Este canal não é do Instagram.');
     }
+    // Nome e visibilidade já são do canal — só o `code` vem do popup.
     return this.createFromInstagramFacebookLogin(
       organizationId,
-      dto,
+      { ...dto, name: atual.name },
       undefined,
       atual,
     );

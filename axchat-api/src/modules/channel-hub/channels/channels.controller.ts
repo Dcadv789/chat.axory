@@ -17,7 +17,10 @@ import { WhatsAppHealthService } from './whatsapp-health.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { CoexistenceChannelDto } from './dto/coexistence-channel.dto';
-import { InstagramFacebookLoginDto } from './dto/instagram-facebook-login.dto';
+import {
+  InstagramFacebookLoginDto,
+  InstagramReconnectDto,
+} from './dto/instagram-facebook-login.dto';
 import {
   ThreadsPublishDto,
   ThreadsReplyDto,
@@ -243,7 +246,7 @@ export class ChannelsController {
   reconnectInstagram(
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
-    @Body() dto: InstagramFacebookLoginDto,
+    @Body() dto: InstagramReconnectDto,
   ) {
     return this.service.reconnectInstagramFromFacebookLogin(orgId, id, dto);
   }
