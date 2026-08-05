@@ -99,6 +99,19 @@ export interface InstagramFacebookLoginPayload {
   visibility?: ChannelVisibility;
 }
 
+/**
+ * Canal recém-conectado + o que mais o login trouxe junto. Hoje só anúncios:
+ * `connected: false` significa que as mensagens funcionam, mas a configuração
+ * de Login do Facebook não concedeu permissão de anúncios.
+ */
+export type ChannelWithIntegrations = Channel & {
+  integrations?: {
+    ads:
+      | { connected: true; adAccountId?: string }
+      | { connected: false; reason: string };
+  };
+};
+
 export interface UpdateChannelPayload {
   name?: string;
   config?: Record<string, any>;
@@ -189,10 +202,15 @@ export const channelsService = {
     return data.data;
   },
 
+  /**
+   * Além do canal, devolve `integrations.ads` dizendo se a conta de anúncios
+   * entrou junto. Sem a permissão de anúncios na configuração de Login do
+   * Facebook, o canal conecta só com mensagens — e a tela precisa avisar.
+   */
   async createInstagramFacebookLogin(
     payload: InstagramFacebookLoginPayload,
-  ): Promise<Channel> {
-    const { data } = await api.post<{ data: Channel }>(
+  ): Promise<ChannelWithIntegrations> {
+    const { data } = await api.post<{ data: ChannelWithIntegrations }>(
       '/channels/instagram/facebook-login',
       payload,
     );

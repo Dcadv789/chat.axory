@@ -1047,16 +1047,33 @@ export class ChannelsService {
     // 4) Esse login vira a configuração de Instagram + Ads da org: grava os
     //    secrets que os agentes de marketing usam (publicar, comentar, medir,
     //    anúncios). Best-effort — não derruba a criação do canal.
-    this.persistInstagramOrgSecrets(organizationId, {
-      igBusinessId: igConfig.igBusinessId,
-      accessToken: igConfig.accessToken,
-      fbPageId: igConfig.fbPageId,
-      userToken,
-    }).catch((err) =>
-      this.logger.warn(`persistInstagramOrgSecrets falhou: ${err?.message ?? err}`),
-    );
+    // Aguardamos (em vez do antigo fire-and-forget) pra poder DIZER na resposta
+    // se os anúncios entraram. O try/catch garante que uma falha aqui não
+    // derruba o canal, que é o que o fire-and-forget protegia.
+    let ads: { adsConnected: boolean; adAccountId?: string } = { adsConnected: false };
+    try {
+      ads = await this.persistInstagramOrgSecrets(organizationId, {
+        igBusinessId: igConfig.igBusinessId,
+        accessToken: igConfig.accessToken,
+        fbPageId: igConfig.fbPageId,
+        userToken,
+      });
+    } catch (err: any) {
+      this.logger.warn(`persistInstagramOrgSecrets falhou: ${err?.message ?? err}`);
+    }
 
-    return channel;
+    return {
+      ...channel,
+      integrations: {
+        ads: ads.adsConnected
+          ? { connected: true as const, adAccountId: ads.adAccountId }
+          : {
+              connected: false as const,
+              reason:
+                'Nenhuma conta de anúncios foi liberada neste login. As mensagens funcionam normalmente, mas o módulo de Anúncios fica sem credencial. Peça ao Super Admin para incluir as permissões de anúncios (ads_management/ads_read e business_management) na configuração de Login do Facebook, e reconecte.',
+            },
+      },
+    };
   }
 
   /**
@@ -1069,7 +1086,7 @@ export class ChannelsService {
   private async persistInstagramOrgSecrets(
     organizationId: string,
     data: { igBusinessId: string; accessToken: string; fbPageId?: string; userToken: string },
-  ): Promise<void> {
+  ): Promise<{ adsConnected: boolean; adAccountId?: string }> {
     const upsert = async (key: string, value: string) => {
       if (!value) return;
       await this.prisma.organizationSecret.upsert({
@@ -1083,18 +1100,30 @@ export class ChannelsService {
     await upsert('IG_ACCESS_TOKEN', data.accessToken);
     if (data.fbPageId) await upsert('FB_PAGE_ID', data.fbPageId);
 
-    // Conta de anúncios: o token do FLB costuma ter ads_management/ads_read.
-    // Pega a primeira ad account acessível pra ligar o módulo de Ads sozinho.
+    // Conta de anúncios: só vem se a configuração de Facebook Login for Business
+    // pediu `ads_management`/`ads_read`. Sem essa permissão a Meta devolve lista
+    // vazia — o canal conecta e as mensagens funcionam, mas o módulo de Ads fica
+    // sem credencial. O resultado sobe pro chamador pra que a TELA avise; antes
+    // isso morria num log de servidor e o dono só descobria quando o agente de
+    // marketing não achava campanha nenhuma.
     try {
       const adAccount = await this.instagramHttpClient.getFirstAdAccount(data.userToken);
       if (adAccount) {
         await upsert('META_AD_ACCOUNT_ID', adAccount);
         await upsert('META_ADS_ACCESS_TOKEN', data.userToken);
+        this.logger.log(
+          `Instagram FLB: anúncios conectados (org ${organizationId}, conta ${adAccount}).`,
+        );
+        return { adsConnected: true, adAccountId: adAccount };
       }
+      this.logger.warn(
+        `Instagram FLB: nenhuma conta de anúncios acessível (org ${organizationId}). ` +
+          `A configuração de Facebook Login precisa incluir ads_management/ads_read.`,
+      );
     } catch (err: any) {
       this.logger.warn(`Instagram FLB: não achei ad account: ${err?.message ?? err}`);
     }
-    this.logger.log(`Instagram FLB: org secrets atualizados (org ${organizationId}).`);
+    return { adsConnected: false };
   }
 
   /**

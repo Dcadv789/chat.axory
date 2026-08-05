@@ -259,12 +259,27 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   const onConnectInstagram = async (payload: { code: string }) => {
     setIsLoading(true);
     try {
-      await channelsService.createInstagramFacebookLogin({
+      const created = await channelsService.createInstagramFacebookLogin({
         name: igForm.getValues('name') || 'Instagram',
         code: payload.code,
         visibility,
       });
-      toast.success('Instagram conectado! Página e conta puxadas do Facebook.');
+      // O canal conecta mesmo sem permissão de anúncios — mas isso precisa
+      // ficar VISÍVEL, senão o dono só descobre quando o agente de marketing
+      // não encontra campanha nenhuma.
+      const ads = created?.integrations?.ads;
+      if (ads?.connected) {
+        toast.success(
+          `Instagram conectado! Mensagens e anúncios ativos${ads.adAccountId ? ` (conta ${ads.adAccountId})` : ''}.`,
+        );
+      } else {
+        toast.success('Instagram conectado! Página e conta puxadas do Facebook.');
+        toast.warning(
+          ads?.reason ??
+            'Anúncios não conectados — por enquanto só as mensagens estarão disponíveis.',
+          { duration: 12000 },
+        );
+      }
       handleClose();
       onCreated();
     } catch (err) {
@@ -455,7 +470,10 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
                     : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
                 }`}
               >
-                Login Facebook
+                <span className="block">Login Facebook</span>
+                <span className={`block text-[10px] font-normal ${igMode === 'facebook' ? 'text-primary-foreground/80' : 'text-zinc-400'}`}>
+                  mensagens + anúncios
+                </span>
               </button>
               <button
                 type="button"
@@ -466,7 +484,10 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
                     : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
                 }`}
               >
-                Login Instagram
+                <span className="block">Login Instagram</span>
+                <span className={`block text-[10px] font-normal ${igMode === 'instagram' ? 'text-primary-foreground/80' : 'text-zinc-400'}`}>
+                  apenas DM
+                </span>
               </button>
               <button
                 type="button"
