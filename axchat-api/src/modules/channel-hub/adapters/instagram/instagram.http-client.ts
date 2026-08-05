@@ -194,6 +194,36 @@ export class InstagramHttpClient {
     }
   }
 
+  /**
+   * O token do canal ainda fala com a conta do Instagram?
+   *
+   * Um token morto NÃO impede as DMs de chegarem (o webhook é assinado pelo
+   * app, não pelo canal) — ele quebra tudo o que sai daqui pra Meta: buscar o
+   * nome/foto de quem mandou a DM, responder, conferir a inscrição. O contato
+   * fica sem nome e nada explica o porquê. Foi o caso do canal que guardava um
+   * token da Página "N8N Bot", sem Instagram vinculado.
+   */
+  async checkToken(
+    channel: Channel,
+  ): Promise<{ valid: boolean; error?: string }> {
+    const cfg = this.getConfig(channel);
+    if (!cfg.accessToken) return { valid: false, error: 'Canal sem token.' };
+    try {
+      await this.createClient(channel).get(`/${this.selfRef(cfg)}`, {
+        params: { fields: 'id' },
+      });
+      return { valid: true };
+    } catch (err: any) {
+      return {
+        valid: false,
+        error:
+          err?.response?.data?.error?.message ??
+          err?.message ??
+          'token recusado pela Meta',
+      };
+    }
+  }
+
   async getMe(channel: Channel): Promise<any> {
     const cfg = this.getConfig(channel);
     const client = this.createClient(channel);

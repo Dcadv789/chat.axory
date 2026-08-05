@@ -1061,6 +1061,24 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
               {data.configuredIds.join(', ') || '—'}
             </code>
           </p>
+
+          {/* Token morto não impede a DM de chegar, mas quebra tudo que sai
+              daqui pra Meta — o sintoma vira "contato sem nome" sem explicação. */}
+          {data.token && !data.token.valid && (
+            <div className="flex items-start gap-2 rounded-md bg-rose-50 p-3 text-rose-800 dark:bg-rose-900/20 dark:text-rose-300">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <strong>O token deste canal não é mais aceito pela Meta.</strong>{' '}
+                As mensagens continuam chegando, mas não conseguimos buscar o
+                nome e a foto de quem envia, nem responder. Reconecte o canal.
+                {data.token.error && (
+                  <p className="mt-1 text-[11px] opacity-80">
+                    Meta respondeu: “{data.token.error}”
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
           {data.totalReceived === 0 ? (
             <div className="rounded-md bg-amber-50 p-3 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
               <strong>Nenhum webhook chegou ainda.</strong> Provavelmente o app

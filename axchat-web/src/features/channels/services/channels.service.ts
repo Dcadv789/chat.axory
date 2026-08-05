@@ -23,6 +23,8 @@ export interface WebhookDiagnostics {
     node: string;
     error?: string;
   };
+  /** O token do canal ainda fala com a Meta (só Instagram). */
+  token?: { valid: boolean; error?: string };
   totalReceived: number;
   events: WebhookDiagnosticsEvent[];
 }

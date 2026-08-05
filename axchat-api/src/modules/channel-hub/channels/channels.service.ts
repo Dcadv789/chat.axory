@@ -1394,21 +1394,30 @@ export class ChannelsService {
     // Estado REAL da inscrição na Meta. É o que responde "o recebimento está
     // ligado?" — a inscrição vive lá, não aqui, e some se o canal for
     // reconectado ou a permissão revogada. Não derruba o diagnóstico se falhar.
-    const subscription =
-      channel.type === ChannelType.INSTAGRAM
-        ? await this.instagramHttpClient
-            .getSubscription(channel as any)
-            .catch((err) => ({
-              active: false,
-              fields: [] as string[],
-              node: 'page',
-              error: err?.message ?? 'falha ao consultar',
-            }))
-        : undefined;
+    const isInstagram = channel.type === ChannelType.INSTAGRAM;
+    const [subscription, token] = await Promise.all([
+      isInstagram
+        ? this.instagramHttpClient.getSubscription(channel as any).catch((err) => ({
+            active: false,
+            fields: [] as string[],
+            node: 'page',
+            error: err?.message ?? 'falha ao consultar',
+          }))
+        : Promise.resolve(undefined),
+      // Token morto não bloqueia a DM de chegar, mas quebra buscar nome/foto de
+      // quem enviou e responder. Sem este check, o sintoma era um contato sem
+      // nome e nenhuma pista do motivo.
+      isInstagram
+        ? this.instagramHttpClient
+            .checkToken(channel as any)
+            .catch((err) => ({ valid: false, error: err?.message ?? 'falha ao checar' }))
+        : Promise.resolve(undefined),
+    ]);
 
     return {
       configuredIds,
       subscription,
+      token,
       totalReceived: events.length,
       events: events.map((e) => {
         const entryIds = extractEntryIds(e.rawPayload);
