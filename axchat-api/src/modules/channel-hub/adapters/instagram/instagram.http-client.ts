@@ -133,10 +133,16 @@ export class InstagramHttpClient {
       return { ok: true, node: 'page', ...data };
     } catch (err: any) {
       const meta = err?.response?.data?.error;
-      // #200 = falta pages_manage_metadata no token (config_id sem o escopo).
+      // #200 = falta permissão no token. A Meta diz QUAL na mensagem — repassamos
+      // literalmente em vez de presumir, porque são permissões diferentes com
+      // sintomas idênticos: sem `pages_messaging` a inscrição em `messages` é
+      // recusada e NENHUMA DM chega, sem que nada apareça como erro.
       if (meta?.code === 200) {
+        const detalhe = meta?.message ? ` A Meta respondeu: "${meta.message}".` : '';
         throw new Error(
-          'Não consegui inscrever a Página nos webhooks: falta a permissão pages_manage_metadata no token. Adicione pages_manage_metadata na Configuração do Facebook Login (config_id) e garanta Advanced Access dela (ou app em modo Desenvolvimento). Depois reconecte.',
+          `Não consegui inscrever a Página nos webhooks de mensagem.${detalhe} ` +
+            'Confira se a Configuração de Login do Facebook concede pages_messaging ' +
+            'e pages_manage_metadata, e reconecte o canal. Sem isso as DMs não chegam.',
         );
       }
       throw this.wrapGraphError(err, 'subscribeApp');
