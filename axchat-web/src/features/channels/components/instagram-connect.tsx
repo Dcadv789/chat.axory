@@ -149,6 +149,11 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
           config_id: configId,
           response_type: 'code',
           override_default_response_type: true,
+          // Permissão recusada uma vez fica "grudada": a Meta NÃO pergunta de
+          // novo nas próximas tentativas e devolve a sessão antiga, com os
+          // mesmos escopos negados. `rerequest` força a tela de consentimento a
+          // pedir outra vez o que foi recusado.
+          auth_type: 'rerequest',
         },
       );
     },

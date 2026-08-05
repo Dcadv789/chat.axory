@@ -417,21 +417,130 @@ export class InstagramHttpClient {
         },
       );
       const rows: any[] = Array.isArray(data?.data) ? data.data : [];
-      return rows.map((p) => {
-        const ig = p.instagram_business_account ?? p.connected_instagram_account ?? null;
-        return {
-          pageId: String(p.id),
-          pageName: p.name ?? null,
-          pageAccessToken: p.access_token,
-          igBusinessId: ig?.id ? String(ig.id) : undefined,
-          igUsername: ig?.username,
-        };
-      });
+      if (rows.length > 0) {
+        return rows.map((p) => {
+          const ig = p.instagram_business_account ?? p.connected_instagram_account ?? null;
+          return {
+            pageId: String(p.id),
+            pageName: p.name ?? null,
+            pageAccessToken: p.access_token,
+            igBusinessId: ig?.id ? String(ig.id) : undefined,
+            igUsername: ig?.username,
+          };
+        });
+      }
+
+      // `/me/accounts` VAZIO com token do Facebook Login for Business é comum:
+      // o token é business-scoped e a listagem depende de permissões que a
+      // configuração pode não conceder (business_management/instagram_basic).
+      // Mas o próprio token carrega, nos `granular_scopes`, os IDs que o dono
+      // ESCOLHEU no popup. Usamos isso em vez de desistir.
+      this.logger.warn(
+        'Instagram FLB: /me/accounts vazio — tentando pelos granular_scopes do token.',
+      );
+      return this.pagesFromGranularScopes(userToken, apiVersion);
     } catch (err: any) {
       const msg = err.response?.data?.error?.message || err.message;
       this.logger.error(`Instagram FLB list pages failed: ${msg}`);
       throw new Error(`Falha ao listar Páginas/contas do Instagram: ${msg}`);
     }
+  }
+
+  /**
+   * Descobre Página + conta do Instagram a partir dos `granular_scopes` do
+   * próprio token (via `/debug_token`), quando `/me/accounts` volta vazio.
+   *
+   * O popup do FLB grava ali exatamente o que o dono selecionou:
+   *   pages_show_list            → id da Página
+   *   instagram_manage_messages  → id da conta do Instagram
+   *
+   * Com o id da Página em mãos, buscamos o token dela direto por id — o que
+   * dispensa a listagem que estava falhando.
+   */
+  private async pagesFromGranularScopes(
+    userToken: string,
+    apiVersion: string,
+  ): Promise<
+    Array<{
+      pageId: string;
+      pageName: string | null;
+      pageAccessToken: string;
+      igBusinessId?: string;
+      igUsername?: string;
+    }>
+  > {
+    const targets = (scopes: any[], scope: string): string[] => {
+      const hit = scopes.find((s) => s?.scope === scope);
+      return Array.isArray(hit?.target_ids) ? hit.target_ids.map(String) : [];
+    };
+
+    let pageIds: string[] = [];
+    let igIds: string[] = [];
+    try {
+      // input_token e access_token iguais: a Meta aceita o próprio token
+      // inspecionar a si mesmo, sem precisar do app access token.
+      const { data } = await axios.get(`https://graph.facebook.com/${apiVersion}/debug_token`, {
+        params: { input_token: userToken, access_token: userToken },
+        timeout: 20000,
+      });
+      const granular: any[] = data?.data?.granular_scopes ?? [];
+      pageIds = targets(granular, 'pages_show_list');
+      igIds = [
+        ...targets(granular, 'instagram_manage_messages'),
+        ...targets(granular, 'instagram_basic'),
+      ];
+    } catch (err: any) {
+      this.logger.warn(
+        `Instagram FLB: debug_token falhou: ${err?.response?.data?.error?.message || err.message}`,
+      );
+      return [];
+    }
+
+    if (pageIds.length === 0) {
+      this.logger.warn('Instagram FLB: nenhum id de Página nos granular_scopes.');
+      return [];
+    }
+
+    const out: Array<{
+      pageId: string;
+      pageName: string | null;
+      pageAccessToken: string;
+      igBusinessId?: string;
+      igUsername?: string;
+    }> = [];
+
+    for (const pageId of pageIds) {
+      try {
+        const { data: page } = await axios.get(
+          `https://graph.facebook.com/${apiVersion}/${pageId}`,
+          {
+            params: {
+              fields:
+                'id,name,access_token,instagram_business_account{id,username},connected_instagram_account{id,username}',
+              access_token: userToken,
+            },
+            timeout: 20000,
+          },
+        );
+        const ig =
+          page?.instagram_business_account ?? page?.connected_instagram_account ?? null;
+        out.push({
+          pageId: String(page?.id ?? pageId),
+          pageName: page?.name ?? null,
+          pageAccessToken: page?.access_token,
+          // Sem `instagram_basic` a Página não expõe a conta ligada; nesse caso
+          // caímos no id que veio do escopo de mensagens, que é o que importa
+          // pro atendimento.
+          igBusinessId: ig?.id ? String(ig.id) : igIds[0],
+          igUsername: ig?.username,
+        });
+      } catch (err: any) {
+        this.logger.warn(
+          `Instagram FLB: falha ao ler a Página ${pageId}: ${err?.response?.data?.error?.message || err.message}`,
+        );
+      }
+    }
+    return out;
   }
 
   /**
