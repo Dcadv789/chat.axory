@@ -959,9 +959,20 @@ function ConfigTab({
 function WebhookDiagnostics({ channelId }: { channelId: string }) {
   const [loading, setLoading] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+  const [subscribedAt, setSubscribedAt] = useState<string | null>(null);
   const [data, setData] = useState<Awaited<
     ReturnType<typeof channelsService.webhookDiagnostics>
   > | null>(null);
+
+  // A inscrição vive na Meta, não no nosso banco — então lembramos localmente
+  // quando foi feita, pra não sugerir ao operador que clique de novo.
+  useEffect(() => {
+    try {
+      setSubscribedAt(localStorage.getItem(`ig-subscribed:${channelId}`));
+    } catch {
+      setSubscribedAt(null);
+    }
+  }, [channelId]);
 
   const run = async () => {
     setLoading(true);
@@ -1003,14 +1014,36 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <button
-            onClick={subscribe}
-            disabled={subscribing}
-            title="Inscreve o app pra receber DMs e comentários reais (não só o Teste da Meta)"
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {subscribing ? 'Ativando…' : 'Ativar recebimento'}
-          </button>
+          {subscribedAt ? (
+            <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+              <div className="leading-tight">
+                <p className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300">
+                  Recebimento ativado
+                </p>
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                  em {new Date(subscribedAt).toLocaleString('pt-BR')}
+                </p>
+              </div>
+              <button
+                onClick={subscribe}
+                disabled={subscribing}
+                title="Refazer a inscrição — só é necessário se você reconectou o canal ou trocou permissões na Meta"
+                className="ml-1 rounded px-1.5 py-0.5 text-[10px] text-emerald-700 underline-offset-2 hover:underline disabled:opacity-50 dark:text-emerald-400"
+              >
+                {subscribing ? 'refazendo…' : 'refazer'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={subscribe}
+              disabled={subscribing}
+              title="Inscreve o app pra receber DMs e comentários reais (não só o Teste da Meta)"
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              {subscribing ? 'Ativando…' : 'Ativar recebimento'}
+            </button>
+          )}
           <button
             onClick={run}
             disabled={loading}
