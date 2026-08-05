@@ -65,6 +65,24 @@ export function getSocket(): Socket {
   return socket;
 }
 
+/**
+ * Refaz o handshake pra que o backend recoloque o socket nas salas certas.
+ *
+ * O `auth` só é lido na CONEXÃO: quem troca de empresa continua nas salas da
+ * anterior e para de receber `message:new`. O sintoma engana — a lista de
+ * conversas ainda se atualiza pelo poll de 60s, então parece que só a janela da
+ * conversa travou, e o F5 "resolve".
+ *
+ * Reconecta a MESMA instância em vez de criar outra: os componentes guardam a
+ * referência do socket, e trocá-la deixaria os listeners deles órfãos.
+ */
+export function reconnectSocket() {
+  if (!socket) return;
+  recoverAttempts = 0;
+  socket.disconnect();
+  socket.connect();
+}
+
 export function disconnectSocket() {
   if (socket) {
     socket.disconnect();

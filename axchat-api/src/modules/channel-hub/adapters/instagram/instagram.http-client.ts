@@ -259,11 +259,35 @@ export class InstagramHttpClient {
     payload: Record<string, any>,
   ): Promise<any> {
     const cfg = this.getConfig(channel);
-    const client = this.createClient(channel);
+    const config = channel.config as Record<string, any>;
+    const pageId = config?.fbPageId ? String(config.fbPageId).trim() : undefined;
+
+    // No modo facebook (Instagram API with Facebook Login) o envio é pela
+    // PÁGINA, com o page token — igual à inscrição de webhook. Postar em
+    // /{ig-business-id}/messages devolve "#3 Application does not have the
+    // capability to make this API call" e TODA resposta falha: a conversa
+    // chegava, mas ninguém conseguia responder.
+    if (cfg.graphApi !== 'instagram' && pageId) {
+      const token = config?.pageAccessToken || cfg.accessToken;
+      try {
+        const { data } = await axios.post(
+          `https://graph.facebook.com/${cfg.apiVersion}/${pageId}/messages`,
+          payload,
+          { params: { access_token: token }, timeout: 30000 },
+        );
+        return data;
+      } catch (err: any) {
+        throw this.wrapGraphError(err, 'sendMessage');
+      }
+    }
+
+    // Modo instagram (graph.instagram.com + token IGAA): envia pela própria
+    // conta — lá não existe Página.
     try {
-      // facebook: POST /{ig-business-id}/messages — mesmo path que a skill
-      // sendInstagramDirectMessage dos agentes (comprovadamente funciona).
-      const { data } = await client.post(`/${this.selfRef(cfg)}/messages`, payload);
+      const { data } = await this.createClient(channel).post(
+        `/${this.selfRef(cfg)}/messages`,
+        payload,
+      );
       return data;
     } catch (err: any) {
       throw this.wrapGraphError(err, 'sendMessage');

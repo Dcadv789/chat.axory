@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '@/lib/api';
+import { reconnectSocket } from '@/lib/socket';
 
 interface AuthUser {
   id: string;
@@ -49,6 +50,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   setActiveOrg: (orgId) => {
     localStorage.setItem('active_org_id', orgId);
     set({ activeOrgId: orgId });
+    // O socket manda a org no handshake e só ali — sem reconectar, quem troca
+    // de empresa fica escutando as salas da anterior e não recebe mais nenhuma
+    // mensagem em tempo real.
+    reconnectSocket();
   },
 
   applyChannelPermissionUpdate: (channelId, granted) => {

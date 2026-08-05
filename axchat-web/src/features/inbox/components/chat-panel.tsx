@@ -419,6 +419,10 @@ export function ChatPanel({
     // catch the case where a `message:new` was missed.
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
+    // A lista de conversas já tinha um poll lento de segurança; a thread não
+    // tinha nenhum. Por isso uma falha de realtime aparecia como "só a janela
+    // da conversa travou" e o operador tinha que dar F5.
+    refetchInterval: 30000,
     staleTime: 5000,
   });
 
