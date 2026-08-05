@@ -118,6 +118,24 @@ export class ChannelsController {
     return this.service.debugInstagramFacebookLogin(orgId, dto.code);
   }
 
+  @Get('instagram-login/oauth/url')
+  @ApiOperation({
+    summary:
+      'URL de autorização do Login do Instagram (conta do próprio Instagram, sem Página do Facebook). O front redireciona o navegador; o retorno cai no callback público.',
+  })
+  getInstagramLoginAuthUrl(
+    @CurrentOrg() org: { id: string; userOrganizationId: string; userRole: OrgRole },
+    @Query('name') name: string,
+    @Query('visibility') visibility?: 'ORG' | 'PRIVATE',
+  ) {
+    return this.service.getInstagramLoginAuthUrl(
+      org.id,
+      { userOrganizationId: org.userOrganizationId, role: org.userRole },
+      name,
+      visibility,
+    );
+  }
+
   @Get('threads/oauth/url')
   @ApiOperation({
     summary:

@@ -6,7 +6,9 @@ import {
   Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
   LayoutDashboard, TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
   Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon,
+  type LucideIcon,
 } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
@@ -101,26 +103,14 @@ export function MarketingPanel() {
   const ActiveIcon = active.icon;
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Cabeçalho — mesma altura do cabeçalho da sidebar (h-16) */}
-      <header className="flex h-16 shrink-0 items-center border-b border-zinc-200 bg-white px-6 dark:border-white/10 dark:bg-black">
-        <div className="flex min-w-0 items-center gap-2">
-          <Megaphone className="h-5 w-5 shrink-0 text-primary" />
-          <div className="min-w-0">
-            <h1 className="flex flex-wrap items-center gap-x-2 text-lg font-semibold leading-tight text-zinc-950 dark:text-zinc-50">
-              <span>Marketing</span>
-              <span className="font-normal text-zinc-300 dark:text-zinc-600">/</span>
-              <span className="inline-flex items-center gap-1.5">
-                <ActiveIcon className="h-4 w-4 text-zinc-400" />
-                {active.label}
-              </span>
-            </h1>
-            <p className="truncate text-xs text-zinc-500">{active.subtitle}</p>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto scrollbar-thin px-6 py-5">
+    <PageHeader
+      icon={ActiveIcon as LucideIcon}
+      title={active.label}
+      subtitle={active.subtitle}
+      breadcrumb={[{ label: 'Marketing', href: '/marketing' }]}
+      contentClassName="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-thin px-4 py-3"
+    >
+      <div className="flex flex-col gap-5">
         {/* Tabs em pílula — igual ao Configurações */}
         <nav className="w-full shrink-0 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
           <div className="flex flex-wrap gap-2">
@@ -184,7 +174,7 @@ export function MarketingPanel() {
             : <ActivityView activity={activity} />
         )}
       </div>
-    </div>
+    </PageHeader>
   );
 }
 

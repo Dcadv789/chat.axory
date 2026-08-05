@@ -12,6 +12,7 @@ import { aiAgentsService } from '@/features/ai-agents/services/ai-agents.service
 import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
 import { CoexistenceConnect } from './coexistence-connect';
 import { InstagramConnect } from './instagram-connect';
+import { InstagramLoginConnect } from './instagram-login-connect';
 import { ThreadsConnect } from './threads-connect';
 
 const channelTypes: { value: ChannelType; label: string; icon: React.ElementType; color: string; description: string }[] = [
@@ -124,9 +125,10 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   // WhatsApp Official: 'api' = formulário manual; 'coexistence' = QR Embedded
   // Signup; 'embedded' = Embedded Signup padrão (login Facebook, puxa credenciais).
   const [waMode, setWaMode] = useState<'api' | 'coexistence' | 'embedded'>('api');
-  // Instagram: 'facebook' = Facebook Login for Business (puxa tudo); 'api' =
-  // formulário manual (token de System User).
-  const [igMode, setIgMode] = useState<'facebook' | 'api'>('facebook');
+  // Instagram: 'facebook' = Facebook Login for Business (via Página, puxa tudo);
+  // 'instagram' = Login do Instagram (conta própria, sem Página, via redirect);
+  // 'api' = formulário manual (token de System User).
+  const [igMode, setIgMode] = useState<'facebook' | 'instagram' | 'api'>('facebook');
   // Threads: nome do canal (OAuth via redirect, sem formulário de credenciais).
   const [threadsName, setThreadsName] = useState('');
 
@@ -457,6 +459,17 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
               </button>
               <button
                 type="button"
+                onClick={() => setIgMode('instagram')}
+                className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  igMode === 'instagram'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
+                }`}
+              >
+                Login Instagram
+              </button>
+              <button
+                type="button"
                 onClick={() => setIgMode('api')}
                 className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                   igMode === 'api'
@@ -475,6 +488,23 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
                   name={igForm.watch('name') || ''}
                   onConnect={onConnectInstagram}
                   isSubmitting={isLoading}
+                />
+                <div className="flex items-center justify-start pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('type')}
+                    className="rounded-md px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              </>
+            ) : igMode === 'instagram' ? (
+              <>
+                <Field label="Nome do canal" placeholder="Ex: Instagram Loja" error={igForm.formState.errors.name?.message} {...igForm.register('name')} />
+                <InstagramLoginConnect
+                  name={igForm.watch('name') || ''}
+                  visibility={visibility}
                 />
                 <div className="flex items-center justify-start pt-2">
                   <button

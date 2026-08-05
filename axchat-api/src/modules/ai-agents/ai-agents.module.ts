@@ -24,7 +24,6 @@ import { AiCatalogController } from './catalog/catalog.controller';
 // ─── Fase 2 — AI Intelligence Layer ──────────────
 import { PromptsModule } from './prompts/prompts.module';
 import { ClassifierModule } from './classifier/classifier.module';
-import { ShortTermMemoryModule } from './memory/short-term/short-term.module';
 import { LongTermMemoryModule } from './memory/long-term/long-term.module';
 import { ConfirmationsModule } from './confirmations/confirmations.module';
 import { ConfirmationExecutorModule } from './confirmations/confirmation-executor.module';
@@ -41,6 +40,7 @@ import { IsCronExpressionConstraint } from './crons/dto/create-agent-cron.dto';
 import { MarketingProfileController } from './marketing/marketing-profile.controller';
 import { MarketingProfileService } from './marketing/marketing-profile.service';
 import { MarketingAdsService } from './marketing/marketing-ads.service';
+import { MarketingBudgetService } from './marketing/marketing-budget.service';
 import { MarketingProvisioningService } from './marketing/marketing-provisioning.service';
 import { MarketingPublishService } from './marketing/marketing-publish.service';
 
@@ -55,7 +55,6 @@ import { MarketingPublishService } from './marketing/marketing-publish.service';
     forwardRef(() => ChannelHubModule),
     PromptsModule,
     ClassifierModule,
-    ShortTermMemoryModule,
     LongTermMemoryModule,
     ConfirmationsModule,
     ConfirmationExecutorModule,
@@ -88,6 +87,7 @@ import { MarketingPublishService } from './marketing/marketing-publish.service';
     IsCronExpressionConstraint,
     MarketingProfileService,
     MarketingAdsService,
+    MarketingBudgetService,
     MarketingProvisioningService,
     MarketingPublishService,
   ],

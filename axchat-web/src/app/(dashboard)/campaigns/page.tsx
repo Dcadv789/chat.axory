@@ -12,6 +12,7 @@ import { channelsService, type Channel, type WhatsappTemplate } from '@/features
 import { tagsService } from '@/features/settings/services/tags.service';
 import { contactsService } from '@/features/contacts/services/contacts.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
+import { PageHeader } from '@/components/layout/page-header';
 
 const inputCls =
   'w-full rounded-lg border border-zinc-200 bg-white py-2.5 px-3 text-sm placeholder:text-zinc-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100';
@@ -59,25 +60,16 @@ export default function CampaignsPage() {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Cabeçalho — mesma altura/padrão dos demais painéis (h-16). */}
-      <header className="flex h-16 shrink-0 items-center border-b border-zinc-200 bg-white px-6 dark:border-white/10 dark:bg-black">
-        <div className="flex min-w-0 items-center gap-2">
-          <Send className="h-5 w-5 shrink-0 text-primary" />
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold leading-tight text-zinc-950 dark:text-zinc-50">Campanhas</h1>
-            <p className="truncate text-xs text-zinc-500">Dispare mensagens em massa por WhatsApp, Instagram ou Telegram</p>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-zinc-500">Dispare uma mensagem para uma lista de contatos por um canal.</p>
-          <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-            <Plus className="h-4 w-4" /> Nova campanha
-          </button>
-        </div>
+    <PageHeader
+      icon={Send}
+      title="Campanhas"
+      subtitle="Dispare mensagens em massa por WhatsApp, Instagram ou Telegram"
+      actions={
+        <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          <Plus className="h-4 w-4" /> Nova campanha
+        </button>
+      }
+    >
 
         <div className="mt-4 space-y-3">
         {isLoading ? (
@@ -140,10 +132,9 @@ export default function CampaignsPage() {
           })
         )}
         </div>
-      </div>
 
       {creating && <CreateCampaignDialog onClose={() => setCreating(false)} onCreated={() => { setCreating(false); refresh(); }} />}
-    </div>
+    </PageHeader>
   );
 }
 

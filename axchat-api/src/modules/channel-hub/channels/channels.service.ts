@@ -25,9 +25,12 @@ import {
   ThreadsPublishInput,
 } from '../adapters/threads/threads.http-client';
 import {
+  // Payload e assinatura são genéricos (org + criador + nome + validade), então
+  // o Login do Instagram reusa o mesmo state em vez de duplicar o HMAC.
   signThreadsState,
   verifyThreadsState,
 } from '../adapters/threads/threads-oauth-state.util';
+import { InstagramLoginHttpClient } from '../adapters/instagram/instagram-login.http-client';
 import { ChannelSyncOrchestrator } from '../sync/channel-sync.orchestrator';
 import { syncNotSupportedMessage } from '../sync/sync-messages.util';
 import {
@@ -47,6 +50,7 @@ export class ChannelsService {
     private readonly instagramHttpClient: InstagramHttpClient,
     private readonly telegramHttpClient: TelegramHttpClient,
     private readonly threadsHttpClient: ThreadsHttpClient,
+    private readonly instagramLoginHttpClient: InstagramLoginHttpClient,
     private readonly syncOrchestrator: ChannelSyncOrchestrator,
     private readonly prisma: PrismaService,
     private readonly channelAccess: ChannelAccessService,
@@ -249,6 +253,8 @@ export class ChannelsService {
     instagramConfigId: string;
     threadsAppId: string;
     threadsAppSecret: string;
+    instagramLoginAppId: string;
+    instagramLoginAppSecret: string;
   }> {
     const row = await this.prisma.platformSetting.findUnique({
       where: { key: 'meta_coexistence' },
@@ -286,7 +292,26 @@ export class ChannelsService {
         typeof value.threadsAppId === 'string' ? value.threadsAppId : '',
       threadsAppSecret:
         typeof value.threadsAppSecret === 'string' ? value.threadsAppSecret : '',
+      // App do produto "Instagram" (Login do Instagram). São credenciais
+      // DIFERENTES das do Facebook Login for Business acima — vêm da aba
+      // Instagram > Configuração básica do app na Meta, e o token resultante
+      // fala com graph.instagram.com. Sem fallback pro app do WhatsApp, por
+      // serem de outro produto.
+      instagramLoginAppId:
+        typeof value.instagramLoginAppId === 'string'
+          ? value.instagramLoginAppId
+          : '',
+      instagramLoginAppSecret:
+        typeof value.instagramLoginAppSecret === 'string'
+          ? value.instagramLoginAppSecret
+          : '',
     };
+  }
+
+  /** URL de callback do OAuth do Login do Instagram (registrada no app). */
+  private instagramLoginRedirectUri(): string {
+    const base = (process.env.APP_URL || 'http://localhost:3001').replace(/\/$/, '');
+    return `${base}/api/v1/channels/instagram-login/oauth/callback`;
   }
 
   /** URL de callback do OAuth do Threads (registrada no app do Threads). */
@@ -310,6 +335,8 @@ export class ChannelsService {
       instagramConfigId,
       threadsAppId,
       threadsAppSecret,
+      instagramLoginAppId,
+      instagramLoginAppSecret,
     } = await this.loadMetaCoexistenceConfig();
     // App do Instagram: usa o app PRÓPRIO só se App ID **e** Secret vierem juntos;
     // senão, herda o app inteiro do WhatsApp. ATÔMICO de propósito — misturar
@@ -332,6 +359,9 @@ export class ChannelsService {
       instagramEnabled: !!(igAppId && igAppSecret && instagramConfigId),
       // Threads usa app próprio (OAuth threads.net).
       threadsEnabled: !!(threadsAppId && threadsAppSecret),
+      // Login do Instagram: OAuth direto no instagram.com, sem Página do
+      // Facebook. Exige o par do produto "Instagram" no app da Meta.
+      instagramLoginEnabled: !!(instagramLoginAppId && instagramLoginAppSecret),
     };
   }
 
@@ -389,6 +419,112 @@ export class ChannelsService {
       state,
     );
     return { url };
+  }
+
+  /**
+   * Monta a URL de autorização do **Login do Instagram** — o fluxo em que o
+   * dono entra com a conta do próprio Instagram, sem Página do Facebook.
+   *
+   * O `state` assinado carrega org + criador porque o callback é público (é um
+   * redirect do navegador, sem Bearer). Mesmo esquema já usado no Threads.
+   */
+  async getInstagramLoginAuthUrl(
+    organizationId: string,
+    creator: { userOrganizationId: string; role: OrgRole },
+    name: string,
+    visibility?: 'ORG' | 'PRIVATE',
+  ): Promise<{ url: string }> {
+    const { instagramLoginAppId, instagramLoginAppSecret } =
+      await this.loadMetaCoexistenceConfig();
+    if (!instagramLoginAppId || !instagramLoginAppSecret) {
+      throw new BadRequestException(
+        'Login do Instagram não configurado. Peça ao Super Admin para preencher Instagram Login App ID e App Secret em Integrações.',
+      );
+    }
+    if (!name || !name.trim()) {
+      throw new BadRequestException('Informe um nome para o canal.');
+    }
+
+    const state = signThreadsState({
+      o: organizationId,
+      u: creator.userOrganizationId,
+      r: creator.role,
+      n: name.trim(),
+      v: visibility,
+      exp: Date.now() + 10 * 60 * 1000, // 10 min
+    });
+
+    const url = this.instagramLoginHttpClient.buildAuthorizeUrl(
+      instagramLoginAppId,
+      this.instagramLoginRedirectUri(),
+      state,
+    );
+    return { url };
+  }
+
+  /**
+   * Callback do Login do Instagram: valida o `state`, troca o code por token
+   * curto→longo, puxa o perfil e cria o canal.
+   *
+   * O canal nasce com `graphApi: 'instagram'` — é isso que faz o adapter falar
+   * com graph.instagram.com e usar `/me`. Sem essa marca ele tentaria o
+   * graph.facebook.com com um token que não serve lá, e o envio falharia.
+   */
+  async createFromInstagramLoginCallback(code: string, state: string) {
+    if (!code) throw new BadRequestException('Código de autorização ausente.');
+    const parsed = verifyThreadsState(state);
+    if (!parsed) {
+      throw new BadRequestException('State inválido ou expirado. Refaça a conexão.');
+    }
+    const { instagramLoginAppId, instagramLoginAppSecret } =
+      await this.loadMetaCoexistenceConfig();
+    if (!instagramLoginAppId || !instagramLoginAppSecret) {
+      throw new BadRequestException('Login do Instagram não configurado.');
+    }
+
+    const short = await this.instagramLoginHttpClient.exchangeCodeForShortToken(
+      code,
+      this.instagramLoginRedirectUri(),
+      instagramLoginAppId,
+      instagramLoginAppSecret,
+    );
+    const long = await this.instagramLoginHttpClient.exchangeForLongLivedToken(
+      short.accessToken,
+      instagramLoginAppSecret,
+    );
+
+    // Perfil é best-effort: se falhar, o canal ainda funciona — só fica sem o
+    // @username no nome.
+    let username: string | undefined;
+    let igUserId = short.userId;
+    try {
+      const me = await this.instagramLoginHttpClient.getMe(long.accessToken);
+      username = me.username;
+      if (me.userId) igUserId = me.userId;
+    } catch (err: any) {
+      this.logger.warn(
+        `Instagram Login: perfil não carregado (${err?.message ?? err}) — canal criado assim mesmo.`,
+      );
+    }
+
+    return this.create(
+      parsed.o,
+      {
+        type: ChannelType.INSTAGRAM,
+        name: username ? `${parsed.n} (@${username})` : parsed.n,
+        config: {
+          accessToken: long.accessToken,
+          igBusinessId: igUserId,
+          graphApi: 'instagram',
+          apiVersion: 'v21.0',
+          appSecret: instagramLoginAppSecret,
+          tokenExpiresAt: new Date(Date.now() + long.expiresIn * 1000).toISOString(),
+          ...(username ? { username } : {}),
+        },
+        ...(parsed.v ? { visibility: parsed.v } : {}),
+      },
+      { userOrganizationId: parsed.u, role: parsed.r as OrgRole },
+    );
   }
 
   /**

@@ -25,7 +25,7 @@ export class OrganizationsService {
   }
 
   async updateOrganization(orgId: string, dto: UpdateOrganizationDto) {
-    await this.getOrganization(orgId);
+    const current = await this.getOrganization(orgId);
     const {
       aiBusinessHours,
       watchdogBusinessHours,
@@ -34,6 +34,20 @@ export class OrganizationsService {
       deepseekApiKey,
       ...rest
     } = dto;
+
+    // No motor da AxChat quem paga o LLM somos nós — a org não pode plantar uma
+    // chave própria (a UI já esconde o campo; isto fecha a porta na API). Limpar
+    // a chave continua valendo, pra não travar quem foi migrado pro nosso motor.
+    if (
+      current.axchatAiEnabled &&
+      deepseekApiKey !== undefined &&
+      deepseekApiKey !== null &&
+      deepseekApiKey.trim() !== ''
+    ) {
+      throw new BadRequestException(
+        'Esta organização usa a IA da AxChat. Para configurar um motor próprio, peça ao suporte para desativar a opção "IA AxChat".',
+      );
+    }
     const updated = await this.repository.update(orgId, {
       ...rest,
       ...(aiBusinessHours !== undefined

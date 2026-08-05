@@ -14,6 +14,7 @@ import {
 } from '@/features/automations/utils/labels';
 import { AutomationBuilder } from '@/features/automations/components/automation-builder';
 import { AutomationRunsPanel } from '@/features/automations/components/automation-runs-panel';
+import { PageHeader } from '@/components/layout/page-header';
 
 export default function AutomationsPage() {
   const qc = useQueryClient();
@@ -54,29 +55,21 @@ export default function AutomationsPage() {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-amber-500" />
-            <div>
-              <h1 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Automações</h1>
-              <p className="text-xs text-zinc-500">
-                Quando algo acontece → execute uma sequência de ações
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setCreating(true)}
-            disabled={!meta}
-            className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" /> Nova automação
-          </button>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+    <PageHeader
+      icon={Zap}
+      title="Automações"
+      subtitle="Quando algo acontece → execute uma sequência de ações"
+      actions={
+        <button
+          onClick={() => setCreating(true)}
+          disabled={!meta}
+          className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" /> Nova automação
+        </button>
+      }
+    >
+      <div>
         {isLoading && (
           <div className="text-sm text-zinc-500 dark:text-zinc-400">Carregando…</div>
         )}
@@ -123,7 +116,7 @@ export default function AutomationsPage() {
           onClose={() => setViewingRuns(null)}
         />
       )}
-    </div>
+    </PageHeader>
   );
 }
 

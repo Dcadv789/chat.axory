@@ -7,6 +7,7 @@ import {
   Globe, Lock, RefreshCw, AlertCircle, CheckCircle2, XCircle,
   Activity, Phone, Building2, Shield, Webhook,
   Radio, Eye, EyeOff, ExternalLink, Info, UserPlus, X, Users, Sparkles, Bot,
+  Clock, MessageSquareDiff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { channelsService, type Channel } from '../services/channels.service';
@@ -29,7 +30,7 @@ const labelCls = 'text-sm font-medium text-zinc-700 dark:text-zinc-300';
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
-type InternalTab = 'dados' | 'agentes' | 'config' | 'saude';
+type InternalTab = 'dados' | 'agentes' | 'config' | 'saude' | 'templates';
 
 interface ChannelDetailPanelProps {
   channel: Channel;
@@ -171,6 +172,7 @@ export function ChannelDetailPanel({ channel, onUpdate, onSelect }: ChannelDetai
     ];
     items.push({ key: 'config', label: 'Configuração' });
     if (channel.type === 'WHATSAPP_OFFICIAL') {
+      items.push({ key: 'templates', label: 'Templates aprovados' });
       items.push({ key: 'saude', label: 'Saúde' });
     }
     return items;
@@ -218,6 +220,7 @@ export function ChannelDetailPanel({ channel, onUpdate, onSelect }: ChannelDetai
                 {t.key === 'agentes' && <Users className="h-4 w-4 shrink-0" />}
                 {t.key === 'config' && <Shield className="h-4 w-4 shrink-0" />}
                 {t.key === 'saude' && <Activity className="h-4 w-4 shrink-0" />}
+                {t.key === 'templates' && <MessageSquareDiff className="h-4 w-4 shrink-0" />}
                 {t.label}
               </button>
             );
@@ -264,7 +267,96 @@ export function ChannelDetailPanel({ channel, onUpdate, onSelect }: ChannelDetai
         {tab === 'saude' && channel.type === 'WHATSAPP_OFFICIAL' && (
           <SaudeTab channelId={channel.id} config={channel.config ?? {}} />
         )}
+        {tab === 'templates' && channel.type === 'WHATSAPP_OFFICIAL' && (
+          <TemplatesTab channelId={channel.id} />
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── Templates aprovados Tab (WhatsApp Official) ─────
+const templateStatus: Record<string, { label: string; icon: React.ElementType; cls: string }> = {
+  APPROVED: { label: 'Aprovado', icon: CheckCircle2, cls: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20' },
+  PENDING: { label: 'Pendente', icon: Clock, cls: 'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/20' },
+  REJECTED: { label: 'Rejeitado', icon: XCircle, cls: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20' },
+};
+
+function TemplatesTab({ channelId }: { channelId: string }) {
+  const queryClient = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
+
+  const { data: templates = [], isLoading } = useQuery({
+    queryKey: ['whatsapp-templates', channelId],
+    queryFn: () => channelsService.listWhatsappTemplates(channelId),
+  });
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const result = await channelsService.syncWhatsappTemplates(channelId);
+      toast.success(`${result.synced} de ${result.total} templates sincronizados`);
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-templates', channelId] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao sincronizar templates');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 p-6">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-zinc-500">
+          {templates.length} template{templates.length !== 1 ? 's' : ''} da Meta
+        </p>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+          Sincronizar
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-zinc-300" />
+        </div>
+      ) : templates.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <MessageSquareDiff className="h-10 w-10 text-zinc-200 dark:text-zinc-700" />
+          <p className="mt-3 text-sm text-zinc-500">Nenhum template encontrado</p>
+          <p className="mt-1 text-xs text-zinc-400">
+            Clique em <strong>Sincronizar</strong> para buscar da Meta.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {templates.map((tmpl) => {
+            const st = templateStatus[tmpl.status] ?? templateStatus.PENDING;
+            const StatusIcon = st.icon;
+            return (
+              <div
+                key={tmpl.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-100 bg-zinc-50 px-4 py-2.5 dark:border-white/10 dark:bg-white/5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{tmpl.name}</p>
+                  <p className="truncate text-xs text-zinc-400">
+                    {tmpl.category} · {tmpl.language?.toUpperCase()}
+                  </p>
+                </div>
+                <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>
+                  <StatusIcon className="h-3 w-3" />
+                  {st.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

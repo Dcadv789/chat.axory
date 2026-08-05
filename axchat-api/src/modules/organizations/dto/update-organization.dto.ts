@@ -5,6 +5,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   ValidateIf,
@@ -85,6 +86,18 @@ export class UpdateOrganizationDto {
   @IsInt()
   @Min(0)
   aiMonthlyTokenCap?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Quantas mensagens anteriores da conversa o agente lê. 5 a 200 (default 50).',
+    minimum: 5,
+    maximum: 200,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(5)
+  @Max(200)
+  aiHistoryWindow?: number;
 
   @ApiPropertyOptional({
     description:

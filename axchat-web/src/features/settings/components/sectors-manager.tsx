@@ -22,7 +22,7 @@ import {
 import { membersService } from '@/features/settings/services/members.service';
 import { aiSettingsService } from '@/features/ai-agents/services/ai-settings.service';
 
-export default function SettingsSectorsPage() {
+export function SectorsManager() {
   const qc = useQueryClient();
   const role = useAuthStore((s) =>
     s.organizations.find((o) => o.id === s.activeOrgId)?.role,
@@ -94,9 +94,9 @@ export default function SettingsSectorsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
       {/* Trava no setor padrão */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+      <section className="rounded-lg bg-zinc-50 p-4 dark:bg-white/5">
         <label className="flex cursor-pointer items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -124,7 +124,7 @@ export default function SettingsSectorsPage() {
       </section>
 
       {/* Criar setor */}
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+      <section className="rounded-lg bg-zinc-50 p-4 dark:bg-white/5">
         <p className="mb-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
           Novo setor
         </p>
@@ -134,7 +134,7 @@ export default function SettingsSectorsPage() {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             placeholder="Ex.: Atendimento, Vendas, Financeiro"
-            className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+            className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
           />
           <button
             onClick={handleCreate}
@@ -154,8 +154,10 @@ export default function SettingsSectorsPage() {
 
       {/* Lista de setores */}
       {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-24 animate-pulse rounded-lg bg-zinc-100 dark:bg-white/5" />
+          ))}
         </div>
       ) : isError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
@@ -168,7 +170,7 @@ export default function SettingsSectorsPage() {
           </button>
         </div>
       ) : departments.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-500 dark:border-white/10 dark:bg-black">
+        <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center text-sm text-zinc-500 dark:border-white/10 dark:bg-white/5">
           Nenhum setor ainda. Crie o primeiro acima.
         </div>
       ) : (
@@ -225,7 +227,7 @@ function DepartmentCard({
   };
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+    <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4 dark:border-white/10 dark:bg-white/5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           {editing ? (
@@ -234,7 +236,7 @@ function DepartmentCard({
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && save({ name: name.trim() })}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
             />
           ) : (
             <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -368,8 +370,10 @@ function DepartmentMembers({ dept }: { dept: Department }) {
   return (
     <div className="mt-3 border-t border-zinc-100 pt-3 dark:border-white/10">
       {isLoading ? (
-        <div className="flex justify-center py-3">
-          <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+        <div className="flex flex-wrap gap-1.5 py-1">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-6 w-20 animate-pulse rounded-full bg-zinc-100 dark:bg-white/5" />
+          ))}
         </div>
       ) : (
         <>

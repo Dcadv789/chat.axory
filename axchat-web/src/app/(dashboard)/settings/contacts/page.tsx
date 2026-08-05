@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Search, Users, MessageSquare, Plus, Upload, Download, X, Loader2,
-  Tag as TagIcon, Megaphone, Trash2, Save,
+  Tag as TagIcon, Megaphone, Trash2, Save, ChevronDown,
 } from 'lucide-react';
 import { contactsService, type Contact, type ImportContactRow } from '@/features/contacts/services/contacts.service';
 import { tagsService, type Tag } from '@/features/settings/services/tags.service';
@@ -22,10 +22,58 @@ const channelIcons: Record<string, React.ElementType> = {
 const inputCls =
   'w-full rounded-lg border border-zinc-200 bg-white py-2.5 px-3 text-sm placeholder:text-zinc-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100';
 
+/**
+ * Controles da faixa de filtros. Fundo levemente destacado (não branco/preto
+ * absoluto) porque a própria faixa já é absoluta — sem isso os campos somem
+ * dentro dela, principalmente no dark.
+ */
+const filterCls =
+  'h-[42px] rounded-lg border border-zinc-200 bg-zinc-50 text-sm text-zinc-700 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-200';
+
+/**
+ * `appearance-none` + chevron próprio: a seta nativa do <select> encosta na
+ * borda e muda de tamanho/posição conforme o navegador e o tema. Com o ícone
+ * posicionado e `pr-9` reservando o espaço, o alinhamento fica igual em todos.
+ */
+function FilterSelect({
+  value,
+  onChange,
+  children,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative shrink-0">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${filterCls} w-full cursor-pointer appearance-none py-0 pl-3 pr-9 leading-[42px]`}
+      >
+        {children}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+    </div>
+  );
+}
+
+// Rótulos amigáveis pra origem (source) do contato.
+const SOURCE_LABELS: Record<string, string> = {
+  manual: 'Manual',
+  import: 'Importado',
+  whatsapp: 'WhatsApp',
+  instagram: 'Instagram',
+  telegram: 'Telegram',
+  inbound: 'Mensagem recebida',
+};
+const sourceLabel = (s: string) => SOURCE_LABELS[s] ?? s;
+
 export default function ContactsPage() {
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Contact | 'new' | null>(null);
   const [importing, setImporting] = useState(false);
@@ -33,18 +81,20 @@ export default function ContactsPage() {
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['contacts', orgId, search, tagFilter, campaignFilter, page],
+    queryKey: ['contacts', orgId, search, tagFilter, campaignFilter, sourceFilter, page],
     queryFn: () =>
       contactsService.list({
         search,
         ...(tagFilter ? { tagId: tagFilter } : {}),
         ...(campaignFilter ? { campaign: campaignFilter } : {}),
+        ...(sourceFilter ? { source: sourceFilter } : {}),
         page: String(page),
         limit: '20',
       }),
   });
   const { data: tags = [] } = useQuery({ queryKey: ['tags', orgId], queryFn: () => tagsService.list() });
   const { data: campaigns = [] } = useQuery({ queryKey: ['contact-campaigns', orgId], queryFn: () => contactsService.listCampaigns() });
+  const { data: sources = [] } = useQuery({ queryKey: ['contact-sources', orgId], queryFn: () => contactsService.listSources() });
 
   const contacts = data?.contacts || [];
   const pagination = data?.pagination;
@@ -52,75 +102,78 @@ export default function ContactsPage() {
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['contacts'] });
     queryClient.invalidateQueries({ queryKey: ['contact-campaigns'] });
+    queryClient.invalidateQueries({ queryKey: ['contact-sources'] });
     queryClient.invalidateQueries({ queryKey: ['tags'] });
   };
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      {/* ── Toolbar ── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-56 flex-1">
+      {/* ── Faixa de filtros ──────────────────────────────────────────────
+          Ordem: Novo contato · filtros · busca · Modelo/Importar.
+          A busca é o único item com `flex-1`, então ela absorve a sobra e
+          empurra Modelo/Importar pra direita — encolhendo/crescendo junto com
+          a tela. O `min-w-0` evita que o input estoure a faixa em telas
+          estreitas (padrão flex: um item não encolhe abaixo do conteúdo). */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 dark:border-white/10 dark:bg-black">
+        <button
+          onClick={() => setEditing('new')}
+          className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <Plus className="h-4 w-4" /> Novo contato
+        </button>
+
+        <FilterSelect value={tagFilter} onChange={(v) => { setTagFilter(v); setPage(1); }}>
+          <option value="">Todas as tags</option>
+          {tags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </FilterSelect>
+
+        <FilterSelect value={campaignFilter} onChange={(v) => { setCampaignFilter(v); setPage(1); }}>
+          <option value="">Todas as campanhas</option>
+          {campaigns.map((c) => <option key={c} value={c}>{c}</option>)}
+        </FilterSelect>
+
+        <FilterSelect value={sourceFilter} onChange={(v) => { setSourceFilter(v); setPage(1); }}>
+          <option value="">Todas as origens</option>
+          {sources.map((s) => <option key={s} value={s}>{sourceLabel(s)}</option>)}
+        </FilterSelect>
+
+        <div className="relative min-w-40 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
             placeholder="Buscar por nome, telefone ou email..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className={`${inputCls} pl-10`}
+            className={`${filterCls} w-full py-0 pl-10 pr-3 placeholder:text-zinc-400`}
           />
         </div>
 
-        <select
-          value={tagFilter}
-          onChange={(e) => { setTagFilter(e.target.value); setPage(1); }}
-          className="h-[42px] rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-700 focus:border-primary focus:outline-none dark:border-white/10 dark:bg-black dark:text-zinc-200"
+        <button
+          onClick={downloadTemplate}
+          className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
         >
-          <option value="">Todas as tags</option>
-          {tags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
-
-        <select
-          value={campaignFilter}
-          onChange={(e) => { setCampaignFilter(e.target.value); setPage(1); }}
-          className="h-[42px] rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-700 focus:border-primary focus:outline-none dark:border-white/10 dark:bg-black dark:text-zinc-200"
+          <Download className="h-4 w-4" /> Modelo
+        </button>
+        <button
+          onClick={() => setImporting(true)}
+          className="inline-flex h-[42px] shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
         >
-          <option value="">Todas as campanhas</option>
-          {campaigns.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-
-        <div className="ml-auto flex gap-2">
-          <button
-            onClick={downloadTemplate}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:bg-black dark:text-zinc-300 dark:hover:bg-white/5"
-          >
-            <Download className="h-4 w-4" /> Modelo
-          </button>
-          <button
-            onClick={() => setImporting(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:bg-black dark:text-zinc-300 dark:hover:bg-white/5"
-          >
-            <Upload className="h-4 w-4" /> Importar
-          </button>
-          <button
-            onClick={() => setEditing('new')}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Novo contato
-          </button>
-        </div>
+          <Upload className="h-4 w-4" /> Importar
+        </button>
       </div>
 
       <div className="mt-3 flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
         <table className="w-full table-fixed shrink-0">
           <thead>
-            <tr className="border-b border-zinc-100 bg-zinc-50 dark:border-white/10 dark:bg-white/5">
-              <th className="w-[5%] px-2 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">#</th>
-              <th className="w-[24%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Contato</th>
-              <th className="w-[15%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Telefone</th>
-              <th className="w-[13%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Canais</th>
-              <th className="w-[17%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Tags</th>
-              <th className="w-[16%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Campanha</th>
-              <th className="w-[10%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-500">Conv.</th>
+            {/* Cabeçalho no azul principal — mesma cor no light e no dark. */}
+            <tr className="bg-primary">
+              <th className="w-[5%] px-2 py-3 text-center text-xs font-semibold uppercase tracking-wider text-primary-foreground/70">#</th>
+              <th className="w-[24%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-primary-foreground">Contato</th>
+              <th className="w-[15%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-primary-foreground">Telefone</th>
+              <th className="w-[13%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-primary-foreground">Canais</th>
+              <th className="w-[17%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-primary-foreground">Tags</th>
+              <th className="w-[16%] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-primary-foreground">Campanha</th>
+              <th className="w-[10%] px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-primary-foreground">Conv.</th>
             </tr>
           </thead>
         </table>
@@ -170,16 +223,29 @@ export default function ContactsPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400 truncate">{contact.phone || '—'}</td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {contact.channels.map((ch) => {
-                          const Icon = channelIcons[ch.channel.type] || MessageSquare;
-                          return (
-                            <span key={ch.id} className="inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-500 dark:bg-black">
-                              <Icon className="h-3 w-3" />
-                            </span>
-                          );
-                        })}
-                      </div>
+                      {contact.channels.length === 0 ? (
+                        <span className="text-xs text-zinc-400">—</span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap gap-1">
+                            {contact.channels.map((ch) => {
+                              const Icon = channelIcons[ch.channel.type] || MessageSquare;
+                              return (
+                                <span
+                                  key={ch.id}
+                                  title={ch.channel.name}
+                                  className="inline-flex items-center rounded bg-zinc-100 px-1 py-0.5 text-zinc-500 dark:bg-white/10 dark:text-zinc-300"
+                                >
+                                  <Icon className="h-3 w-3" />
+                                </span>
+                              );
+                            })}
+                          </div>
+                          <span className="text-xs font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
+                            {contact.channels.length}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">

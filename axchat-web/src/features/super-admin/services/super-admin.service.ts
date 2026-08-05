@@ -54,6 +54,8 @@ export interface SuperAdminOrganization {
   currentPeriodEndsAt: string | null;
   aiEnabled: boolean;
   marketingEnabled: boolean;
+  /** true = IA AxChat (nosso motor); false = o cliente configura o motor dele. */
+  axchatAiEnabled: boolean;
   aiMonthlyTokenCap: number | null;
   monthlyConversationLimit: number | null;
   aiMarketingMonthlyTokenCap: number | null;
@@ -311,6 +313,7 @@ export const superAdminService = {
       settings?: Record<string, unknown>;
       aiEnabled?: boolean;
       marketingEnabled?: boolean;
+      axchatAiEnabled?: boolean;
       aiMonthlyTokenCap?: number | null;
       monthlyConversationLimit?: number | null;
       aiMarketingMonthlyTokenCap?: number | null;
@@ -386,7 +389,20 @@ export const superAdminService = {
     return data.data;
   },
 
-  async addOrganizationMember(id: string, payload: { email: string; role: string }) {
+  /**
+   * `name` só é usado quando o email ainda não tem conta — nesse caso o usuário
+   * é criado e a resposta traz `temporaryPassword` UMA única vez.
+   */
+  async addOrganizationMember(
+    id: string,
+    payload: { email: string; role: string; name?: string },
+  ): Promise<{
+    id: string;
+    role: string;
+    joinedAt: string | null;
+    /** Só vem preenchido quando a conta foi criada agora. */
+    temporaryPassword: string | null;
+  }> {
     const { data } = await api.post(`/super-admin/organizations/${id}/members`, payload);
     return data.data;
   },
@@ -467,6 +483,10 @@ export const superAdminService = {
     instagramConfigId?: string;
     threadsAppId?: string;
     threadsAppSecret?: string;
+    /** Login do Instagram (conta própria, sem Página do FB). */
+    instagramLoginAppId?: string;
+    /** Write-only: enviar vazio NÃO apaga o secret já salvo. */
+    instagramLoginAppSecret?: string;
   }): Promise<MetaCoexistenceConfig> {
     const { data } = await api.patch<{ data: MetaCoexistenceConfig }>(
       '/super-admin/integrations/meta-coexistence',
@@ -566,7 +586,63 @@ export const superAdminService = {
     const { data } = await api.post(`/super-admin/skills/${skillId}/copy`, { targetOrgId });
     return data.data;
   },
+
+  // ─── Motor de IA global ───────────────────────────
+
+  async getAiEngine(): Promise<AiEngineConfig> {
+    const { data } = await api.get<{ data: AiEngineConfig }>('/super-admin/ai-engine');
+    return data.data ?? data;
+  },
+
+  /**
+   * Campo ausente = não mexe. String vazia = apaga o override e volta pro env.
+   */
+  async updateAiEngine(payload: AiEngineUpdatePayload): Promise<AiEngineConfig> {
+    const { data } = await api.patch<{ data: AiEngineConfig }>('/super-admin/ai-engine', payload);
+    return data.data ?? data;
+  },
+
+  /** Testa a config JÁ SALVA contra o provider real. */
+  async testAiEngine(kind: AiEngineKind): Promise<AiEngineTestResult> {
+    const { data } = await api.post<{ data: AiEngineTestResult }>('/super-admin/ai-engine/test', {
+      kind,
+    });
+    return data.data ?? data;
+  },
 };
+
+export type AiEngineKind = 'text' | 'vision' | 'audio';
+
+/** De onde veio o valor efetivo de cada campo. */
+export type AiEngineFieldSource = 'ui' | 'env' | 'default';
+
+export interface AiEngineSlot {
+  baseUrl: string | null;
+  modelId: string | null;
+  apiKeySet: boolean;
+  apiKeyPreview: string | null;
+  source: {
+    baseUrl: AiEngineFieldSource;
+    modelId: AiEngineFieldSource;
+    apiKey: AiEngineFieldSource;
+  };
+}
+
+export type AiEngineConfig = Record<AiEngineKind, AiEngineSlot>;
+
+export interface AiEngineSlotPatch {
+  baseUrl?: string;
+  apiKey?: string;
+  modelId?: string;
+}
+
+export type AiEngineUpdatePayload = Partial<Record<AiEngineKind, AiEngineSlotPatch>>;
+
+export interface AiEngineTestResult {
+  success: boolean;
+  message: string;
+  latencyMs: number;
+}
 
 export interface GlobalDepartment {
   id: string;
@@ -582,9 +658,12 @@ export interface MetaCoexistenceConfig {
   instagramAppId: string;
   instagramConfigId: string;
   threadsAppId: string;
+  /** App ID do produto "Instagram" (Login do Instagram, sem Página do FB). */
+  instagramLoginAppId: string;
   hasSecret: boolean;
   hasInstagramSecret: boolean;
   hasThreadsSecret: boolean;
+  hasInstagramLoginSecret: boolean;
 }
 
 export interface AiModelProvider {

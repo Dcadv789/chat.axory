@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AiAgentSector, BillingStatus, OrgRole, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import type { SignOptions } from 'jsonwebtoken';
 import { PrismaService } from '../../database/prisma.service';
 import { AddOrganizationMemberDto } from './dto/add-organization-member.dto';
@@ -21,11 +22,13 @@ import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
 import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
 import { MarketingProvisioningService } from '../ai-agents/marketing/marketing-provisioning.service';
 import { PersonalAssistantProvisioningService } from '../ai-agents/personal-assistant/personal-assistant-provisioning.service';
+import { AiEngineSettingsService } from '../ai-agents/llm/ai-engine-settings.service';
 
 const BCRYPT_ROUNDS = 12;
 const PLAN_TEMPLATES_KEY = 'plan_templates';
 const PRICING_META_KEY = 'pricing_meta';
 const META_COEXISTENCE_KEY = 'meta_coexistence';
+const AI_ENGINE_KEY = 'ai_engine';
 // Catálogo comercial real do AxChat (sem plano grátis — trial de 7 dias).
 const KNOWN_PLANS = ['inbox', 'essencial', 'profissional', 'performance'] as const;
 
@@ -143,7 +146,37 @@ export class SuperAdminService {
     private readonly configService: ConfigService,
     private readonly marketingProvisioning: MarketingProvisioningService,
     private readonly assistantProvisioning: PersonalAssistantProvisioningService,
+    private readonly aiEngineSettings: AiEngineSettingsService,
   ) {}
+
+  /**
+   * Atualiza a config global do motor de IA (a que roda pras orgs com
+   * `axchatAiEnabled`). A auditoria registra QUAIS campos mudaram, nunca o
+   * valor — senão a chave de API vazaria pro log de auditoria.
+   */
+  async updateAiEngine(
+    actorId: string,
+    dto: Partial<
+      Record<'text' | 'vision' | 'audio', { baseUrl?: string; apiKey?: string; modelId?: string }>
+    >,
+  ) {
+    const changed: string[] = [];
+    for (const kind of ['text', 'vision', 'audio'] as const) {
+      const slot = dto[kind];
+      if (!slot) continue;
+      for (const field of ['baseUrl', 'apiKey', 'modelId'] as const) {
+        if (field in slot) changed.push(`${kind}.${field}`);
+      }
+    }
+
+    const result = await this.aiEngineSettings.save(dto);
+
+    await this.audit(actorId, 'UPDATE_AI_ENGINE', 'platform', AI_ENGINE_KEY, null, {
+      changedFields: changed,
+    });
+
+    return result;
+  }
 
   /**
    * Clona os agentes de IA de uma empresa-modelo (origem) pra outra (destino),
@@ -531,6 +564,8 @@ export class SuperAdminService {
         trialEndsAt: true,
         currentPeriodEndsAt: true,
         aiEnabled: true,
+        marketingEnabled: true,
+        axchatAiEnabled: true,
         aiMonthlyTokenCap: true,
         monthlyConversationLimit: true,
         aiMarketingMonthlyTokenCap: true,
@@ -731,6 +766,9 @@ export class SuperAdminService {
         ...(dto.marketingEnabled !== undefined
           ? { marketingEnabled: dto.marketingEnabled }
           : {}),
+        ...(dto.axchatAiEnabled !== undefined
+          ? { axchatAiEnabled: dto.axchatAiEnabled }
+          : {}),
         ...(dto.aiMonthlyTokenCap !== undefined
           ? { aiMonthlyTokenCap: dto.aiMonthlyTokenCap }
           : {}),
@@ -748,6 +786,7 @@ export class SuperAdminService {
         plan: organization.plan,
         aiEnabled: organization.aiEnabled,
         marketingEnabled: organization.marketingEnabled,
+        axchatAiEnabled: organization.axchatAiEnabled,
         aiMonthlyTokenCap: organization.aiMonthlyTokenCap,
         monthlyConversationLimit: organization.monthlyConversationLimit,
       },
@@ -755,6 +794,7 @@ export class SuperAdminService {
         plan: updated.plan,
         aiEnabled: updated.aiEnabled,
         marketingEnabled: updated.marketingEnabled,
+        axchatAiEnabled: updated.axchatAiEnabled,
         aiMonthlyTokenCap: updated.aiMonthlyTokenCap,
         monthlyConversationLimit: updated.monthlyConversationLimit,
       },
@@ -872,12 +912,34 @@ export class SuperAdminService {
     id: string,
     dto: AddOrganizationMemberDto,
   ) {
-    const [organization, user] = await Promise.all([
+    const [organization, existingUser] = await Promise.all([
       this.prisma.organization.findUnique({ where: { id } }),
       this.prisma.user.findUnique({ where: { email: dto.email } }),
     ]);
     if (!organization) throw new NotFoundException('Organization not found');
-    if (!user) throw new NotFoundException('User not found. Create the user first.');
+
+    // Email sem conta: cria na hora com o nome informado e uma senha
+    // temporária, devolvida UMA única vez pra quem está cadastrando repassar.
+    // Nunca fica salva em texto puro nem aparece na auditoria.
+    let user = existingUser;
+    let temporaryPassword: string | null = null;
+    if (!user) {
+      if (!dto.name?.trim()) {
+        throw new BadRequestException(
+          'Este email ainda não tem conta. Informe o nome para criar o usuário.',
+        );
+      }
+      temporaryPassword = randomBytes(9).toString('base64url');
+      user = await this.prisma.user.create({
+        data: {
+          name: dto.name.trim(),
+          email: dto.email,
+          password: await bcrypt.hash(temporaryPassword, BCRYPT_ROUNDS),
+          isActive: true,
+          isSuperAdmin: false,
+        },
+      });
+    }
 
     const existing = await this.prisma.userOrganization.findUnique({
       where: { userId_organizationId: { userId: user.id, organizationId: id } },
@@ -909,9 +971,11 @@ export class SuperAdminService {
       userId: user.id,
       email: user.email,
       role: membership.role,
+      // registra QUE a conta foi criada, nunca a senha
+      userCreated: !!temporaryPassword,
     });
 
-    return membership;
+    return { ...membership, temporaryPassword };
   }
 
   async updateOrganizationMember(
@@ -1785,12 +1849,18 @@ export class SuperAdminService {
       // App do Threads (OAuth próprio, threads.net).
       threadsAppId:
         typeof value.threadsAppId === 'string' ? value.threadsAppId : '',
+      // App do produto "Instagram" (Login do Instagram, sem Página do Facebook).
+      instagramLoginAppId:
+        typeof value.instagramLoginAppId === 'string' ? value.instagramLoginAppId : '',
       // Nunca devolve os secrets em texto — só informa se já estão salvos.
       hasSecret: typeof value.appSecret === 'string' && value.appSecret.length > 0,
       hasInstagramSecret:
         typeof value.instagramAppSecret === 'string' && value.instagramAppSecret.length > 0,
       hasThreadsSecret:
         typeof value.threadsAppSecret === 'string' && value.threadsAppSecret.length > 0,
+      hasInstagramLoginSecret:
+        typeof value.instagramLoginAppSecret === 'string' &&
+        value.instagramLoginAppSecret.length > 0,
     };
   }
 
@@ -1804,6 +1874,8 @@ export class SuperAdminService {
     instagramConfigId?: string;
     threadsAppId?: string;
     threadsAppSecret?: string;
+    instagramLoginAppId?: string;
+    instagramLoginAppSecret?: string;
   }) {
     const existing = await this.prisma.platformSetting.findUnique({
       where: { key: META_COEXISTENCE_KEY },
@@ -1836,6 +1908,12 @@ export class SuperAdminService {
         dto.threadsAppSecret && dto.threadsAppSecret.length > 0
           ? dto.threadsAppSecret
           : current.threadsAppSecret ?? '',
+      instagramLoginAppId:
+        dto.instagramLoginAppId ?? current.instagramLoginAppId ?? '',
+      instagramLoginAppSecret:
+        dto.instagramLoginAppSecret && dto.instagramLoginAppSecret.length > 0
+          ? dto.instagramLoginAppSecret
+          : current.instagramLoginAppSecret ?? '',
     };
 
     await this.prisma.platformSetting.upsert({

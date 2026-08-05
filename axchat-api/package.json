@@ -17,6 +17,7 @@
     "prisma:seed:marketing": "node scripts/seed-marketing-skills.mjs",
     "prisma:seed:marketing-agents": "node scripts/seed-marketing-agents.mjs",
     "prisma:seed:plans": "node scripts/seed-plans.mjs",
+    "rag:backfill": "node scripts/rag-backfill.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",

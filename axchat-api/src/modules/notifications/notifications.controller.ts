@@ -1,13 +1,16 @@
 import {
+  Body,
   Controller,
   Get,
   Patch,
   Param,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
+import { SaveNotificationPreferencesDto } from './dto/save-notification-preferences.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../common/guards';
 import { CurrentUser, CurrentOrg } from '../../common/decorators';
 
@@ -43,6 +46,25 @@ export class NotificationsController {
     @CurrentOrg('id') orgId: string,
   ) {
     return this.service.getUnreadCount(userId, orgId);
+  }
+
+  @Get('preferences')
+  @ApiOperation({ summary: 'Get notification preferences for current user' })
+  getPreferences(
+    @CurrentUser('id') userId: string,
+    @CurrentOrg('id') orgId: string,
+  ) {
+    return this.service.getPreferences(userId, orgId);
+  }
+
+  @Put('preferences')
+  @ApiOperation({ summary: 'Save notification preferences for current user' })
+  savePreferences(
+    @CurrentUser('id') userId: string,
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: SaveNotificationPreferencesDto,
+  ) {
+    return this.service.savePreferences(userId, orgId, dto);
   }
 
   @Patch(':id/read')

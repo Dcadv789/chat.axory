@@ -44,4 +44,72 @@ export class NotificationsRepository {
       data: { isRead: true, readAt: new Date() },
     });
   }
+
+  // ─── Preferências ────────────────────────────────
+
+  async findPreferences(userId: string, orgId: string) {
+    return this.prisma.notificationPreference.findMany({
+      where: { userId, organizationId: orgId },
+    });
+  }
+
+  /**
+   * Preferência de UM tipo. `null` = usuário nunca salvou nada → o chamador
+   * decide o default (hoje: tudo ligado).
+   */
+  async findPreference(userId: string, orgId: string, type: NotificationType) {
+    return this.prisma.notificationPreference.findUnique({
+      where: {
+        userId_organizationId_type: { userId, organizationId: orgId, type },
+      },
+    });
+  }
+
+  /**
+   * Grava a matriz inteira de uma vez. O "Não perturbe" é global do usuário,
+   * mas a tabela guarda por tipo — então repetimos a janela em todas as linhas
+   * e a leitura pega de qualquer uma.
+   */
+  async savePreferences(
+    userId: string,
+    orgId: string,
+    items: Array<{
+      type: NotificationType;
+      inApp: boolean;
+      browserPush: boolean;
+      sound: boolean;
+    }>,
+    dnd: { start: string | null; end: string | null },
+  ) {
+    return this.prisma.$transaction(
+      items.map((item) =>
+        this.prisma.notificationPreference.upsert({
+          where: {
+            userId_organizationId_type: {
+              userId,
+              organizationId: orgId,
+              type: item.type,
+            },
+          },
+          create: {
+            userId,
+            organizationId: orgId,
+            type: item.type,
+            inApp: item.inApp,
+            browserPush: item.browserPush,
+            sound: item.sound,
+            dndStart: dnd.start,
+            dndEnd: dnd.end,
+          },
+          update: {
+            inApp: item.inApp,
+            browserPush: item.browserPush,
+            sound: item.sound,
+            dndStart: dnd.start,
+            dndEnd: dnd.end,
+          },
+        }),
+      ),
+    );
+  }
 }

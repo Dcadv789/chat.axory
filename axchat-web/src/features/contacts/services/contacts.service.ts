@@ -14,7 +14,7 @@ export interface Contact {
   tags: { tag: { id: string; name: string; color: string } }[];
   contactNotes: { id: string; content: string; createdAt: string; author: { id: string; name: string; avatarUrl: string | null } }[];
   conversations?: any[];
-  _count?: { conversations: number };
+  _count?: { conversations: number; channels: number };
   createdAt: string;
 }
 
@@ -74,6 +74,11 @@ export const contactsService = {
   async listCampaigns(): Promise<string[]> {
     const { data } = await api.get('/contacts/campaigns');
     return (data.data ?? data)?.campaigns ?? [];
+  },
+
+  async listSources(): Promise<string[]> {
+    const { data } = await api.get('/contacts/sources');
+    return (data.data ?? data)?.sources ?? [];
   },
 
   async importContacts(

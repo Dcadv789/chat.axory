@@ -16,14 +16,28 @@ function ThreadsOAuthToast() {
 
   useEffect(() => {
     const threads = params.get('threads');
-    if (!threads) return;
+    const instagram = params.get('instagram');
+    if (!threads && !instagram) return;
+
     if (threads === 'connected') {
       const name = params.get('name');
       toast.success(name ? `Threads conectado: ${name}` : 'Threads conectado!');
     } else if (threads === 'error') {
       toast.error(`Falha ao conectar o Threads: ${params.get('reason') || 'erro desconhecido'}`);
     }
-    router.replace('/dashboard/settings/channels');
+
+    if (instagram === 'connected') {
+      const name = params.get('name');
+      toast.success(name ? `Instagram conectado: ${name}` : 'Instagram conectado!');
+    } else if (instagram === 'error') {
+      toast.error(
+        `Falha ao conectar o Instagram: ${params.get('reason') || 'erro desconhecido'}`,
+      );
+    }
+
+    // Sem `/dashboard`: o route group `(dashboard)` não faz parte da URL —
+    // o caminho antigo levava a um 404 logo após conectar.
+    router.replace('/settings/channels');
   }, [params, router]);
 
   return null;

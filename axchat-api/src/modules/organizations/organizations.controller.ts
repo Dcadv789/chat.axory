@@ -112,6 +112,14 @@ export class OrganizationsController {
 
   // ─── AI Model Providers ──────────────────────────
 
+  @Get('current/ai-model-catalog')
+  @ApiOperation({
+    summary: 'Catalog of AI providers/models offered by the "Adicionar IA" screen',
+  })
+  aiModelCatalog() {
+    return this.aiModelProviders.catalog();
+  }
+
   @Get('current/ai-models')
   @ApiOperation({ summary: 'List AI model providers for current organization' })
   listAiModels(@CurrentOrg('id') orgId: string) {

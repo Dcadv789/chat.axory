@@ -30,6 +30,32 @@ export interface UpsertMarketingProfileInput {
   analysisWindow?: string;
 }
 
+/**
+ * De onde saiu o valor exibido no mês:
+ * - `explicit`  → verba definida naquele mês
+ * - `inherited` → herdada do mês definido mais recente antes dele
+ * - `legacy`    → veio do campo antigo de verba única do perfil
+ * - `none`      → não há verba nenhuma configurada
+ */
+export type MarketingBudgetOrigin = 'explicit' | 'inherited' | 'legacy' | 'none';
+
+export interface MarketingBudgetMonth {
+  year: number;
+  /** 1..12 */
+  month: number;
+  amountCents: number | null;
+  origin: MarketingBudgetOrigin;
+  inheritedFrom: { year: number; month: number } | null;
+  note: string | null;
+}
+
+export interface MarketingBudgetYear {
+  year: number;
+  currency: string;
+  legacyAmountCents: number | null;
+  months: MarketingBudgetMonth[];
+}
+
 export interface MediaMetricRow {
   id: string;
   mediaId: string;
@@ -72,6 +98,30 @@ export const marketingService = {
 
   async upsertProfile(input: UpsertMarketingProfileInput): Promise<MarketingProfile> {
     const { data } = await api.put('/marketing/profile', input);
+    return data?.data ?? data;
+  },
+
+  // ─── Verba de mídia mês a mês ───
+  /** Os 12 meses do ano com a origem de cada valor (definido / herdado / legado). */
+  async listBudgets(year: number): Promise<MarketingBudgetYear> {
+    const { data } = await api.get(`/marketing/budgets/${year}`);
+    return data?.data ?? data;
+  },
+
+  /** Define a verba própria de um mês. Devolve o ano inteiro já atualizado. */
+  async setBudget(
+    year: number,
+    month: number,
+    amountCents: number,
+    note?: string,
+  ): Promise<MarketingBudgetYear> {
+    const { data } = await api.put(`/marketing/budgets/${year}/${month}`, { amountCents, note });
+    return data?.data ?? data;
+  },
+
+  /** Remove a verba própria do mês — ele volta a herdar. Devolve o ano atualizado. */
+  async clearBudget(year: number, month: number): Promise<MarketingBudgetYear> {
+    const { data } = await api.delete(`/marketing/budgets/${year}/${month}`);
     return data?.data ?? data;
   },
 

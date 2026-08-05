@@ -26,6 +26,7 @@ import { ContactsRepository } from './contacts/contacts.repository';
 import { ContactNotesController } from './contacts/contact-notes.controller';
 import { ContactNotesService } from './contacts/contact-notes.service';
 import { CampaignsModule } from './campaigns/campaigns.module';
+import { LlmModule } from '../ai-agents/llm/llm.module';
 
 @Module({
   imports: [
@@ -37,6 +38,8 @@ import { CampaignsModule } from './campaigns/campaigns.module';
     forwardRef(() => ChannelHubModule),
     RatingsModule,
     AiAgentsModule,
+    // TranscriptionService lê a credencial de áudio da config global do motor.
+    LlmModule,
     WatchdogModule,
     CampaignsModule,
   ],

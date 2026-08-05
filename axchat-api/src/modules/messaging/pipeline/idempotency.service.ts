@@ -79,6 +79,21 @@ export class IdempotencyService implements OnModuleDestroy {
     );
   }
 
+  /**
+   * DEVOLVE a claim: apaga a chave pra que a retentativa consiga reivindicar de
+   * novo. É o oposto de `markProcessed` — usar aquele num catch de erro mantinha
+   * a chave viva por 24h, então o retry batia em `claimProcessing` = false e a
+   * mensagem era descartada como "duplicata", com o webhook marcado PROCESSED.
+   * Na prática, qualquer falha transitória virava perda definitiva.
+   */
+  async releaseClaim(
+    externalMessageId: string,
+    channelId: string,
+  ): Promise<void> {
+    if (!externalMessageId) return;
+    await this.redis.del(this.key(channelId, externalMessageId));
+  }
+
   async isDuplicate(
     externalMessageId: string,
     channelId: string,

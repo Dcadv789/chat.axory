@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart, Grid3X3, GitBranch, Headset, Megaphone } from 'lucide-react';
+import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart, Grid3X3, GitBranch, Headset, Megaphone, type LucideIcon } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
 import { AgentsList } from '@/features/ai-agents/components/agents-list';
 import { AgentsSectorView } from '@/features/ai-agents/components/agents-sector-view';
 import { JarvisOverviewTab } from '@/features/ai-agents/components/jarvis/overview-tab';
@@ -82,7 +83,6 @@ export default function AiAgentsPage() {
   const agentSector: 'ATENDIMENTO' | 'MARKETING' =
     sector === 'marketing' ? 'MARKETING' : 'ATENDIMENTO';
   const sectorMeta = SECTOR_LABELS[sector] ?? SECTOR_LABELS.atendimento;
-  const SectorIcon = sectorMeta.icon;
 
   useEffect(() => {
     if (raw === 'overview' && !isSuperAdmin) {
@@ -93,25 +93,14 @@ export default function AiAgentsPage() {
   }, [isSuperAdmin, raw, router, searchParams]);
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
-        <div className="flex items-center gap-2">
-          <SectorIcon className="h-5 w-5 shrink-0 text-primary" />
-          <div className="min-w-0">
-            <h1 className="flex flex-wrap items-center gap-x-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-              <span>{sectorMeta.label}</span>
-              <span className="font-normal text-zinc-300 dark:text-zinc-600">/</span>
-              <span className="inline-flex items-center gap-1.5">
-                <meta.icon className="h-4 w-4 text-zinc-400" />
-                {meta.label}
-              </span>
-            </h1>
-            <p className="text-xs text-zinc-500">{meta.subtitle}</p>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto">
+    <PageHeader
+      icon={meta.icon as LucideIcon}
+      title={meta.label}
+      subtitle={meta.subtitle}
+      breadcrumb={[{ label: sectorMeta.label, href: `/ai-agents?sector=${sector}` }]}
+      contentClassName="flex min-h-0 flex-1 flex-col px-4 pt-3"
+    >
+      <div className="-mx-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
         {tab === 'overview' && isSuperAdmin && <JarvisOverviewTab agentSector={agentSector} />}
         {tab === 'metrics' && <JarvisMetricsTab agentSector={agentSector} />}
         {tab === 'agents' && (
@@ -155,6 +144,6 @@ export default function AiAgentsPage() {
         {tab === 'watchdog' && <JarvisWatchdogTab agentSector={agentSector} />}
         {tab === 'agent' && <JarvisAgentTab agentSector={agentSector} />}
       </div>
-    </div>
+    </PageHeader>
   );
 }

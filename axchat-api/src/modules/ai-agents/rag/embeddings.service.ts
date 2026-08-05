@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { EmbeddingResult } from './types';
+import { AiEngineSettingsService } from '../llm/ai-engine-settings.service';
 
 /**
  * Generates embeddings via the OpenAI Embeddings API (`text-embedding-3-small`,
@@ -17,17 +17,28 @@ export class EmbeddingsService {
   private readonly MODEL = 'text-embedding-3-small';
   /** USD cost per 1M tokens for `text-embedding-3-small`. */
   private readonly COST_PER_1M_TOKENS = 0.02;
-  private readonly apiKey: string;
+  constructor(private readonly engineSettings: AiEngineSettingsService) {}
 
-  constructor(config: ConfigService) {
-    const apiKey =
-      config.get<string>('OPENAI_API_KEY') ?? process.env.OPENAI_API_KEY ?? '';
+  /**
+   * Credencial OpenAI do bloco "Áudio/OpenAI" da config global (Super Admin >
+   * Motor de IA), com fallback pra env.
+   *
+   * Antes lia só a env, uma vez no construtor: trocar a chave pela tela não
+   * tinha efeito até reiniciar a API, e num deploy só por UI o RAG ficava sem
+   * chave mesmo com tudo configurado.
+   */
+  private async resolveCredentials(): Promise<{ apiKey: string; baseUrl: string }> {
+    const audio = (await this.engineSettings.getEffective()).audio;
+    const apiKey = audio.apiKey ?? '';
     if (!apiKey) {
       this.logger.warn(
-        'No OPENAI_API_KEY set — embeddings will fail at runtime',
+        'Sem chave OpenAI (Super Admin > Motor de IA, bloco Áudio) — embeddings vão falhar',
       );
     }
-    this.apiKey = apiKey;
+    return {
+      apiKey,
+      baseUrl: (audio.baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, ''),
+    };
   }
 
   /**
@@ -36,10 +47,11 @@ export class EmbeddingsService {
    */
   async embed(text: string): Promise<EmbeddingResult> {
     const t0 = Date.now();
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
+    const { apiKey, baseUrl } = await this.resolveCredentials();
+    const response = await fetch(`${baseUrl}/embeddings`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ model: this.MODEL, input: text }),
@@ -87,10 +99,11 @@ export class EmbeddingsService {
     if (texts.length === 0) return [];
 
     const t0 = Date.now();
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
+    const { apiKey, baseUrl } = await this.resolveCredentials();
+    const response = await fetch(`${baseUrl}/embeddings`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ model: this.MODEL, input: texts }),

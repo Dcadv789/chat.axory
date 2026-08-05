@@ -12,8 +12,21 @@ export class NotificationProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<any> {
-    const { notificationId, recipientId, organizationId, type, title, body, data } = job.data;
+    const {
+      notificationId,
+      recipientId,
+      organizationId,
+      type,
+      title,
+      body,
+      data,
+      browserPush,
+      sound,
+    } = job.data;
 
+    // `browserPush`/`sound` vêm da preferência do usuário (já com o "Não
+    // perturbe" aplicado). O cliente usa esses flags pra decidir se dispara a
+    // Notification do navegador e se toca o som — o sininho sempre aparece.
     this.realtimeGateway.emitToUser(recipientId, 'notification:new', {
       id: notificationId,
       recipientId,
@@ -21,6 +34,8 @@ export class NotificationProcessor extends WorkerHost {
       title,
       body,
       data,
+      browserPush: browserPush !== false,
+      sound: sound !== false,
       createdAt: new Date().toISOString(),
     });
 

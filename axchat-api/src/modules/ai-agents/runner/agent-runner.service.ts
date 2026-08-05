@@ -47,7 +47,15 @@ import { MediaUrlResolverService } from './media-url-resolver.service';
 // + reply) — com teto 8, o nudge de execução era injetado mas o loop
 // estourava antes de o modelo VER a mensagem. 12 dá folga pro ciclo inteiro.
 const MAX_TOOL_ITERATIONS = 12;
-const MAX_RECENT_MESSAGES = 30;
+/**
+ * Janela de histórico: agora vem de `Organization.aiHistoryWindow`. Estes são
+ * só os limites de segurança — abaixo do mínimo o agente perde o fio da
+ * conversa; acima do máximo o custo por chamada dispara e há risco de estourar
+ * o contexto do modelo (não há corte por tokens no caminho).
+ */
+const DEFAULT_HISTORY_WINDOW = 50;
+const MIN_HISTORY_WINDOW = 5;
+const MAX_HISTORY_WINDOW = 200;
 
 /**
  * Tools that signal "agent is preparing to sell": pulled product info,
@@ -203,6 +211,19 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
     // Demais agentes usam o contato da conversa normalmente.
     const memoryContactId = await this.resolveMemoryContactId(agent, conversation);
 
+    // Janela de histórico da org, resolvida ANTES do Promise.all porque o
+    // `take` da query de mensagens depende dela. É um lookup por PK, barato.
+    // Clamp defensivo: valor fora da faixa no banco não pode nem cegar o agente
+    // nem estourar o contexto do modelo.
+    const orgWindow = await this.prisma.organization.findUniqueOrThrow({
+      where: { id: conversation.organizationId },
+      select: { aiHistoryWindow: true },
+    });
+    const historyWindow = Math.min(
+      Math.max(orgWindow.aiHistoryWindow || DEFAULT_HISTORY_WINDOW, MIN_HISTORY_WINDOW),
+      MAX_HISTORY_WINDOW,
+    );
+
     const [organization, channel, contact, recentMessages, memory, catalog] =
       await Promise.all([
         this.prisma.organization.findUniqueOrThrow({
@@ -215,9 +236,18 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
           where: { id: conversation.contactId },
         }),
         this.prisma.message.findMany({
-          where: { conversationId: conversation.id },
+          where: {
+            conversationId: conversation.id,
+            // Nota interna é gravada como OUTBOUND, então sem este filtro ela
+            // virava um turno `assistant` idêntico a uma resposta real — a IA
+            // podia repetir pro cliente algo escrito só pra equipe.
+            type: { not: 'INTERNAL_NOTE' },
+            // "Apagar para todos": a UI já mostra placeholder, mas o runner
+            // seguia lendo o conteúdo original que o operador achou ter apagado.
+            revokedAt: null,
+          },
           orderBy: { createdAt: 'desc' },
-          take: MAX_RECENT_MESSAGES,
+          take: historyWindow,
         }),
         this.prisma.aiAgentMemory.findUnique({
           where: {
@@ -1449,7 +1479,10 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
           scope: {
             agentId,
             contactId,
-            conversationId,
+            // SEM `conversationId` de propósito: o RAG existe pra resgatar o
+            // que saiu da janela de histórico, inclusive de conversas
+            // anteriores do mesmo contato. Travar na conversa atual anulava
+            // exatamente o ganho da camada.
             ownerType: 'any',
           },
           k: 5,

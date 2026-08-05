@@ -9,7 +9,7 @@ import { useOrgId } from '@/hooks/use-org-query-key';
 
 const PRESET_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#10b981', '#0047FF', '#6366f1', '#8b5cf6', '#ec4899', '#6b7280'];
 
-export default function SettingsTagsPage() {
+export function TagsManager() {
   const queryClient = useQueryClient();
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#0047FF');
@@ -75,7 +75,7 @@ export default function SettingsTagsPage() {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             placeholder="Ex: VIP, Urgente, Lead..."
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
           />
         </div>
         <div>
@@ -103,7 +103,7 @@ export default function SettingsTagsPage() {
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg border bg-zinc-50 dark:border-white/10 dark:bg-black" />
+            <div key={i} className="h-12 animate-pulse rounded-lg border bg-zinc-100 dark:border-white/10 dark:bg-white/5" />
           ))
         ) : !tags?.length ? (
           <div className="col-span-full flex flex-col items-center py-12 text-center">
@@ -112,13 +112,13 @@ export default function SettingsTagsPage() {
           </div>
         ) : (
           tags.map((tag) => (
-            <div key={tag.id} className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black">
+            <div key={tag.id} className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
               {editingId === tag.id ? (
                 <div className="flex flex-1 items-center gap-3">
                   <input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
+                    className="flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
                   />
                   <div className="flex gap-1">
                     {PRESET_COLORS.map((c) => (

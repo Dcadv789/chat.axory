@@ -14,7 +14,9 @@ import { OrgRole } from '@prisma/client';
 import { MarketingProfileService } from './marketing-profile.service';
 import { MarketingAdsService } from './marketing-ads.service';
 import { MarketingPublishService } from './marketing-publish.service';
+import { MarketingBudgetService } from './marketing-budget.service';
 import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
+import { SetMonthlyBudgetDto } from './dto/set-monthly-budget.dto';
 import { CurrentOrg, Roles } from '../../../common/decorators';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 
@@ -29,6 +31,7 @@ export class MarketingProfileController {
     private readonly service: MarketingProfileService,
     private readonly ads: MarketingAdsService,
     private readonly publish: MarketingPublishService,
+    private readonly budgetService: MarketingBudgetService,
   ) {}
 
   // ─── Publicação direta (dono) ──────────────────────────────
@@ -138,6 +141,48 @@ export class MarketingProfileController {
     @Body() dto: UpsertMarketingProfileDto,
   ) {
     return this.service.upsert(orgId, dto);
+  }
+
+  // ─── Verba de mídia mês a mês ────────────────────────
+
+  @Get('budgets/:year')
+  @ApiOperation({
+    summary:
+      'Verba de mídia dos 12 meses do ano, com a origem de cada um (definida, herdada do mês anterior ou valor legado).',
+  })
+  listBudgets(@CurrentOrg('id') orgId: string, @Param('year') year: string) {
+    return this.budgetService.listYear(orgId, parseInt(year, 10));
+  }
+
+  @Put('budgets/:year/:month')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Define a verba de um mês específico' })
+  setBudget(
+    @CurrentOrg('id') orgId: string,
+    @Param('year') year: string,
+    @Param('month') month: string,
+    @Body() dto: SetMonthlyBudgetDto,
+  ) {
+    return this.budgetService.setMonth(
+      orgId,
+      parseInt(year, 10),
+      parseInt(month, 10),
+      dto.amountCents,
+      dto.note,
+    );
+  }
+
+  @Delete('budgets/:year/:month')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary: 'Remove a verba própria do mês — ele volta a herdar do mês anterior',
+  })
+  clearBudget(
+    @CurrentOrg('id') orgId: string,
+    @Param('year') year: string,
+    @Param('month') month: string,
+  ) {
+    return this.budgetService.clearMonth(orgId, parseInt(year, 10), parseInt(month, 10));
   }
 
   @Post('crew-channel')

@@ -19,6 +19,7 @@ export class ContactsController {
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'tagId', required: false })
   @ApiQuery({ name: 'campaign', required: false })
+  @ApiQuery({ name: 'source', required: false })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   findAll(
@@ -26,6 +27,7 @@ export class ContactsController {
     @Query('search') search?: string,
     @Query('tagId') tagId?: string,
     @Query('campaign') campaign?: string,
+    @Query('source') source?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -34,7 +36,7 @@ export class ContactsController {
       search,
       parseInt(page || '1', 10),
       parseInt(limit || '20', 10),
-      { tagId: tagId || undefined, campaign: campaign || undefined },
+      { tagId: tagId || undefined, campaign: campaign || undefined, source: source || undefined },
     );
   }
 
@@ -42,6 +44,12 @@ export class ContactsController {
   @ApiOperation({ summary: 'Distinct campaigns used by contacts (for filter/autocomplete)' })
   campaigns(@CurrentOrg('id') orgId: string) {
     return this.service.listCampaigns(orgId);
+  }
+
+  @Get('sources')
+  @ApiOperation({ summary: 'Distinct sources used by contacts (for filter)' })
+  sources(@CurrentOrg('id') orgId: string) {
+    return this.service.listSources(orgId);
   }
 
   @Post()

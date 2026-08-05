@@ -25,6 +25,8 @@ import { InternalInboundAdapter } from './adapters/internal/internal.inbound-ada
 import { InternalOutboundAdapter } from './adapters/internal/internal.outbound-adapter';
 import { ThreadsModule } from './adapters/threads/threads.module';
 import { ThreadsOAuthController } from './channels/threads-oauth.controller';
+import { InstagramLoginOAuthController } from './channels/instagram-login-oauth.controller';
+import { InstagramLoginHttpClient } from './adapters/instagram/instagram-login.http-client';
 import { ChannelSyncOrchestrator } from './sync/channel-sync.orchestrator';
 import { ChannelSyncProcessor } from './sync/channel-sync.processor';
 import { CHANNEL_SYNC_QUEUE } from './sync/channel-sync.constants';
@@ -58,11 +60,13 @@ import { WhatsappTemplateService } from './templates/whatsapp-template.service';
     WebhookGatewayController,
     ChannelsController,
     ThreadsOAuthController,
+    InstagramLoginOAuthController,
     WhatsappTemplatesController,
   ],
   providers: [
     ChannelAdapterRegistry,
     ChannelsService,
+    InstagramLoginHttpClient,
     ChannelsRepository,
     WhatsAppHealthService,
     ChannelSyncOrchestrator,

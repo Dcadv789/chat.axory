@@ -1,32 +1,43 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building2,
   Bot,
   Ban,
-  ChevronDown,
+  ChevronRight,
   CheckCircle2,
   CreditCard,
   Crown,
+  Eye,
   History,
+  Info,
   LogIn,
   MessageCircle,
+  Mic,
   Pencil,
+  PlugZap,
   Plus,
   RefreshCw,
   Search,
   Shield,
+  Sparkles,
   ToggleLeft,
   ToggleRight,
   Trash2,
+  User,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   superAdminService,
   DEFAULT_PLAN_TEMPLATES,
+  type AiEngineFieldSource,
+  type AiEngineKind,
+  type AiEngineSlot,
+  type AiEngineSlotPatch,
+  type AiEngineTestResult,
   type BillingStatus,
   type SuperAdminAuditLog,
   type SuperAdminOrganization,
@@ -38,6 +49,7 @@ import { AgentsPanel } from '@/features/super-admin/components/agents-panel';
 import { SkillsPanel } from '@/features/super-admin/components/skills-panel';
 import { DepartmentsPanel } from '@/features/super-admin/components/departments-panel';
 import { JarvisBuiltinToolsTab } from '@/features/ai-agents/components/jarvis/builtin-tools-tab';
+import { PageHeader } from '@/components/layout/page-header';
 import { useAuthStore } from '@/stores/auth-store';
 
 const planOptions = ['inbox', 'essencial', 'profissional', 'performance'];
@@ -46,7 +58,7 @@ const billingStatusOptions: BillingStatus[] = ['TRIALING', 'ACTIVE', 'PAST_DUE',
 export default function SuperAdminPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const [tab, setTab] = useState<'organizations' | 'users' | 'agents' | 'skills' | 'departments' | 'plans' | 'audit' | 'tools' | 'integrations'>('organizations');
+  const [tab, setTab] = useState<'organizations' | 'users' | 'agents' | 'skills' | 'departments' | 'plans' | 'audit' | 'tools' | 'integrations' | 'ai-engine'>('organizations');
   const [search, setSearch] = useState('');
 
   const { data: overview, isLoading: overviewLoading } = useQuery({
@@ -94,17 +106,13 @@ export default function SuperAdminPage() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Crown className="h-5 w-5 shrink-0 text-amber-500" />
-            <div>
-              <h1 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Super Admin</h1>
-              <p className="text-xs text-zinc-500">Controle global da plataforma, clientes, planos e acessos.</p>
-            </div>
-          </div>
-
+    <PageHeader
+      icon={Crown}
+      title="Super Admin"
+      subtitle="Controle global da plataforma, clientes, planos e acessos."
+      actions={
+        // Nas abas Empresas e Usuários a busca mora no card da lista (layout mestre-detalhe).
+        tab === 'organizations' || tab === 'users' ? undefined : (
           <div className="relative w-full min-w-[220px] sm:max-w-md lg:max-w-xl">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
             <input
@@ -114,10 +122,9 @@ export default function SuperAdminPage() {
               className="w-full rounded-md border border-zinc-300 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
             />
           </div>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+        )
+      }
+    >
         <div className="w-full min-w-0">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Kpi loading={overviewLoading} label="Empresas" value={overview?.organizations} icon={Building2} />
@@ -127,7 +134,7 @@ export default function SuperAdminPage() {
           <Kpi loading={overviewLoading} label="Agentes IA" value={overview?.agents} icon={Bot} />
         </div>
 
-        <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
+        <div className="mt-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
           <div className="flex flex-wrap gap-2">
             <Tab active={tab === 'organizations'} onClick={() => setTab('organizations')}>Empresas</Tab>
             <Tab active={tab === 'users'} onClick={() => setTab('users')}>Usuarios</Tab>
@@ -138,6 +145,7 @@ export default function SuperAdminPage() {
             <Tab active={tab === 'audit'} onClick={() => setTab('audit')}>Auditoria</Tab>
             <Tab active={tab === 'tools'} onClick={() => setTab('tools')}>Tools do sistema</Tab>
             <Tab active={tab === 'integrations'} onClick={() => setTab('integrations')}>Integrações</Tab>
+            <Tab active={tab === 'ai-engine'} onClick={() => setTab('ai-engine')}>Motor de IA</Tab>
           </div>
         </div>
 
@@ -145,6 +153,8 @@ export default function SuperAdminPage() {
           <OrganizationsPanel
             organizations={organizations}
             loading={loadingOrgs}
+            search={search}
+            onSearchChange={setSearch}
             onChanged={refresh}
           />
         )}
@@ -153,6 +163,8 @@ export default function SuperAdminPage() {
             users={users}
             organizations={organizations}
             loading={loadingUsers}
+            search={search}
+            onSearchChange={setSearch}
             onChanged={refresh}
           />
         )}
@@ -177,9 +189,9 @@ export default function SuperAdminPage() {
         {tab === 'audit' && <AuditPanel logs={auditLogs} loading={loadingAudit} />}
         {tab === 'tools' && <JarvisBuiltinToolsTab />}
         {tab === 'integrations' && <IntegrationsPanel />}
+        {tab === 'ai-engine' && <AiEnginePanel />}
         </div>
-      </div>
-    </div>
+    </PageHeader>
   );
 }
 
@@ -228,15 +240,19 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
 function OrganizationsPanel({
   organizations,
   loading,
+  search,
+  onSearchChange,
   onChanged,
 }: {
   organizations: SuperAdminOrganization[];
   loading: boolean;
+  search: string;
+  onSearchChange: (value: string) => void;
   onChanged: () => void;
 }) {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
-  const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
   const [form, setForm] = useState({
     organizationName: '',
     slug: '',
@@ -264,125 +280,242 @@ function OrganizationsPanel({
     queryClient.invalidateQueries({ queryKey: ['super-admin-overview'] });
   };
 
+  // O objeto selecionado é derivado da lista a cada render (nunca guardado em
+  // state) — assim, quando `onChanged` invalida a query, o painel da direita já
+  // renderiza com os dados novos.
+  const selectedOrg = organizations.find((org) => org.id === selectedOrgId) ?? null;
+
   return (
-    <section className="mt-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Empresas</h2>
-        <button
-          onClick={() => setFormOpen((value) => !value)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" /> Nova empresa
-        </button>
+    <section className="mt-3 flex w-full items-start gap-4">
+      {/* Esquerda: card com criar + busca + lista de empresas */}
+      <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-white/10 dark:bg-black">
+        <div className="space-y-2 border-b border-zinc-200 p-3 dark:border-white/10">
+          <button
+            onClick={() => setFormOpen((value) => !value)}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Nova empresa
+          </button>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
+            <input
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="Buscar empresa ou plano"
+              className="w-full rounded-lg border border-zinc-300 bg-white py-2 pl-8 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+            />
+          </div>
+        </div>
+
+        <div className="max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin p-2">
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-white/5" />
+              ))}
+            </div>
+          ) : organizations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Building2 className="h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+              <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                Nenhuma empresa encontrada
+              </p>
+              <button
+                onClick={() => setFormOpen(true)}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Nova empresa
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1 pb-4">
+              {organizations.map((org) => {
+                const isSelected = selectedOrgId === org.id;
+                return (
+                  <div
+                    key={org.id}
+                    className={`flex items-center rounded-lg transition-colors ${
+                      isSelected
+                        ? 'bg-primary/[0.06] text-primary dark:bg-primary/10'
+                        : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <button
+                      onClick={() => setSelectedOrgId(org.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-3 text-left"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200/60 bg-white dark:border-white/10 dark:bg-black">
+                        <Building2 className={`h-5 w-5 ${isSelected ? 'text-primary' : 'text-zinc-500 dark:text-zinc-400'}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium">{org.name}</span>
+                          <span
+                            className={`inline-block h-2 w-2 shrink-0 rounded-full ${
+                              org.status === 'ACTIVE'
+                                ? 'bg-emerald-500'
+                                : org.status === 'SUSPENDED'
+                                  ? 'bg-red-500'
+                                  : 'bg-zinc-300 dark:bg-zinc-600'
+                            }`}
+                            title={org.status}
+                          />
+                        </div>
+                        <p className="truncate text-xs text-zinc-400 dark:text-zinc-500">{org.slug}</p>
+                      </div>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1 pr-2">
+                      <AxchatAiBadge org={org} onChanged={onChanged} />
+                      {isSelected && <ChevronRight className="h-4 w-4 shrink-0 text-primary" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {formOpen && (
-        <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-zinc-300 bg-white p-4 dark:border-white/10 dark:bg-black sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          <Input label="Empresa" value={form.organizationName} onChange={(v) => setForm({ ...form, organizationName: v })} />
-          <Input label="Slug" value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} placeholder="opcional" />
-          <Select label="Plano" value={form.plan} onChange={(v) => setForm({ ...form, plan: v })} options={planOptions} />
-          <Input label="Dono" value={form.ownerName} onChange={(v) => setForm({ ...form, ownerName: v })} />
-          <Input label="Email do dono" value={form.ownerEmail} onChange={(v) => setForm({ ...form, ownerEmail: v })} />
-          <Input label="Senha inicial" type="password" value={form.ownerPassword} onChange={(v) => setForm({ ...form, ownerPassword: v })} />
-          <div className="sm:col-span-2 lg:col-span-3 xl:col-span-6">
+      {/* Direita: criação + detalhe da empresa selecionada */}
+      <div className="min-w-0 flex-1 space-y-4">
+        {formOpen && (
+          <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-4 dark:border-white/10 dark:bg-black">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Nova empresa</h3>
+              <button
+                onClick={() => setFormOpen(false)}
+                className="rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
+              >
+                Cancelar
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Input label="Empresa" value={form.organizationName} onChange={(v) => setForm({ ...form, organizationName: v })} />
+              <Input label="Slug" value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} placeholder="opcional" />
+              <Select label="Plano" value={form.plan} onChange={(v) => setForm({ ...form, plan: v })} options={planOptions} />
+              <Input label="Dono" value={form.ownerName} onChange={(v) => setForm({ ...form, ownerName: v })} />
+              <Input label="Email do dono" value={form.ownerEmail} onChange={(v) => setForm({ ...form, ownerEmail: v })} />
+              <Input label="Senha inicial" type="password" value={form.ownerPassword} onChange={(v) => setForm({ ...form, ownerPassword: v })} />
+            </div>
             <button
               onClick={() => createMutation.mutate()}
               disabled={createMutation.isPending || !form.organizationName || !form.ownerEmail || !form.ownerPassword}
-              className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950"
+              className="mt-3 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950"
             >
               Criar empresa e owner
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
-        <table className="w-full min-w-[980px] text-sm">
-          <thead className="border-b border-zinc-100 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-white/10 dark:bg-white/5">
-            <tr>
-              <th className="px-4 py-3">Empresa</th>
-              <th className="px-4 py-3">Plano</th>
-              <th className="px-4 py-3">Owner</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Cobranca</th>
-              <th className="px-4 py-3">Uso</th>
-              <th className="px-4 py-3">IA</th>
-              <th className="px-4 py-3">Criada</th>
-              <th className="px-4 py-3 text-right">Acoes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <TableSkeleton cols={9} />
-            ) : organizations.length === 0 ? (
-              <EmptyRow cols={9} text="Nenhuma empresa encontrada" />
-            ) : (
-              organizations.map((org) => {
-                const owner = org.members.find((member) => member.role === 'OWNER');
-                const expanded = expandedOrgId === org.id;
-                return (
-                <Fragment key={org.id}>
-                <tr className="border-b border-zinc-50 dark:border-white/10">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{org.name}</p>
-                    <p className="text-xs text-zinc-400">{org.slug}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={org.plan}
-                      onChange={(event) => updatePlan(org, event.target.value)}
-                      className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs font-medium capitalize text-zinc-900 dark:border-white/10 dark:bg-black dark:text-zinc-100"
-                    >
-                      {planOptions.map((plan) => <option key={plan} value={plan}>{plan}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">
-                    {owner?.user.name ?? 'Sem owner'}
-                    <br />
-                    {owner?.user.email}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={org.status} />
-                    {org.suspendedReason && (
-                      <p className="mt-1 max-w-40 truncate text-xs text-zinc-500">{org.suspendedReason}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">
-                    <p>{org.billingStatus}</p>
-                    <p>{formatMoney(org.billingAmountCents, org.billingCurrency)}</p>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">
-                    {org._count.members} membros · {org._count.channels} canais · {org._count.aiAgents} agentes
-                  </td>
-                  <td className="px-4 py-3">
-                    <AiToggle org={org} onChanged={onChanged} />
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">{new Date(org.createdAt).toLocaleDateString('pt-BR')}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setExpandedOrgId(expanded ? null : org.id)}
-                      className="inline-flex items-center gap-1 rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/10"
-                    >
-                      Gerenciar
-                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-                    </button>
-                  </td>
-                </tr>
-                {expanded && (
-                  <tr key={`${org.id}-details`} className="border-b border-zinc-100 dark:border-white/10">
-                    <td colSpan={9} className="bg-zinc-50 px-4 py-4 dark:bg-white/5">
-                      <OrganizationDetails org={org} onChanged={onChanged} />
-                    </td>
-                  </tr>
-                )}
-                </Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+        {selectedOrg ? (
+          <>
+            <OrganizationHeaderCard
+              org={selectedOrg}
+              onChanged={onChanged}
+              onPlanChange={(plan) => updatePlan(selectedOrg, plan)}
+            />
+            <OrganizationDetails key={selectedOrg.id} org={selectedOrg} onChanged={onChanged} />
+          </>
+        ) : (
+          !formOpen && (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 py-20 text-center dark:border-white/10">
+              <Building2 className="h-14 w-14 text-zinc-200 dark:text-zinc-700" />
+              <h2 className="mt-4 text-lg font-semibold text-zinc-500 dark:text-zinc-400">
+                Selecione uma empresa
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
+                Escolha uma empresa à esquerda para ver e editar as configurações dela
+              </p>
+            </div>
+          )
+        )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Cabeçalho do detalhe: concentra tudo que antes vivia nas colunas da tabela
+ * (plano, owner, status, cobrança, uso, IA/motor e data de criação).
+ */
+function OrganizationHeaderCard({
+  org,
+  onChanged,
+  onPlanChange,
+}: {
+  org: SuperAdminOrganization;
+  onChanged: () => void;
+  onPlanChange: (plan: string) => void;
+}) {
+  const owner = org.members.find((member) => member.role === 'OWNER');
+
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200/60 bg-white dark:border-white/10 dark:bg-black">
+            <Building2 className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">{org.name}</h2>
+              <StatusBadge status={org.status} />
+            </div>
+            <p className="text-xs text-zinc-400">
+              {org.slug} · criada em {new Date(org.createdAt).toLocaleDateString('pt-BR')}
+            </p>
+            {org.suspendedReason && (
+              <p className="mt-1 text-xs text-zinc-500">Motivo: {org.suspendedReason}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            Plano
+            <select
+              value={org.plan}
+              onChange={(event) => onPlanChange(event.target.value)}
+              className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs font-medium capitalize text-zinc-900 dark:border-white/10 dark:bg-black dark:text-zinc-100"
+            >
+              {planOptions.map((plan) => <option key={plan} value={plan}>{plan}</option>)}
+            </select>
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">IA</span>
+            <AiToggle org={org} onChanged={onChanged} />
+            <AxchatAiBadge org={org} onChanged={onChanged} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 border-t border-zinc-100 pt-3 dark:border-white/10 sm:grid-cols-3">
+        <OrgMetric label="Owner">
+          <p className="truncate text-zinc-700 dark:text-zinc-300">{owner?.user.name ?? 'Sem owner'}</p>
+          <p className="truncate">{owner?.user.email}</p>
+        </OrgMetric>
+        <OrgMetric label="Uso">
+          <p>
+            {org._count.members} membros · {org._count.channels} canais · {org._count.aiAgents} agentes
+          </p>
+        </OrgMetric>
+        <OrgMetric label="Cobranca">
+          <p>{org.billingStatus}</p>
+          <p>{formatMoney(org.billingAmountCents, org.billingCurrency)}</p>
+        </OrgMetric>
+      </div>
+    </div>
+  );
+}
+
+function OrgMetric({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">{label}</p>
+      <div className="mt-0.5 text-xs text-zinc-500">{children}</div>
+    </div>
   );
 }
 
@@ -601,7 +734,10 @@ function OrganizationDetails({
     monthlyConversationLimit: String(org.monthlyConversationLimit ?? ''),
     aiMarketingMonthlyTokenCap: String(org.aiMarketingMonthlyTokenCap ?? ''),
   });
-  const [memberForm, setMemberForm] = useState({ email: '', role: 'AGENT' });
+  const [memberForm, setMemberForm] = useState({ email: '', name: '', role: 'AGENT' });
+  const [newUserCredentials, setNewUserCredentials] = useState<
+    { email: string; password: string } | null
+  >(null);
   const [billing, setBilling] = useState({
     billingStatus: org.billingStatus,
     billingEmail: org.billingEmail ?? '',
@@ -632,13 +768,31 @@ function OrganizationDetails({
 
   const addMember = async () => {
     if (!memberForm.email.trim()) return;
-    await superAdminService.addOrganizationMember(org.id, {
-      email: memberForm.email.trim(),
-      role: memberForm.role,
-    });
-    toast.success('Membro adicionado');
-    setMemberForm({ email: '', role: 'AGENT' });
-    onChanged();
+    try {
+      const result = await superAdminService.addOrganizationMember(org.id, {
+        email: memberForm.email.trim(),
+        role: memberForm.role,
+        ...(memberForm.name.trim() ? { name: memberForm.name.trim() } : {}),
+      });
+      // Conta nova: a senha temporária vem UMA vez. Fica na tela (não some
+      // sozinha como toast) até o admin fechar, senão ele perde e precisa
+      // resetar a senha do usuário.
+      if (result?.temporaryPassword) {
+        setNewUserCredentials({
+          email: memberForm.email.trim(),
+          password: result.temporaryPassword,
+        });
+        toast.success('Usuário criado e adicionado');
+      } else {
+        toast.success('Membro adicionado');
+      }
+      setMemberForm({ email: '', name: '', role: 'AGENT' });
+      onChanged();
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || 'Erro ao adicionar membro',
+      );
+    }
   };
 
   const saveBilling = async () => {
@@ -698,8 +852,6 @@ function OrganizationDetails({
   };
 
   return (
-    <div className="space-y-4">
-    <CommercialCard org={org} onChanged={onChanged} />
     <div className="grid gap-4 xl:grid-cols-[320px_320px_1fr]">
       <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Limites da empresa</h3>
@@ -717,6 +869,17 @@ function OrganizationDetails({
             <p className="text-[11px] text-zinc-400">Add-on: libera o menu e agentes de marketing.</p>
           </div>
           <MarketingToggle org={org} onChanged={onChanged} />
+        </div>
+        <div className="mt-2 flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 dark:border-white/10">
+          <div>
+            <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">IA AxChat</p>
+            <p className="text-[11px] text-zinc-400">
+              {org.axchatAiEnabled
+                ? 'Ligado: roda no nosso motor. O cliente não configura chave.'
+                : 'Desligado: IA própria — o cliente configura o motor dele.'}
+            </p>
+          </div>
+          <AxchatAiToggle org={org} onChanged={onChanged} />
         </div>
         <button
           onClick={saveLimits}
@@ -767,10 +930,15 @@ function OrganizationDetails({
         </div>
       </div>
 
+      {/* Coluna larga: Usuarios e, abaixo dele, o bloco Comercial. */}
+      <div className="space-y-4">
       <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-64 flex-1">
-            <Input label="Adicionar usuario por email" value={memberForm.email} onChange={(v) => setMemberForm({ ...memberForm, email: v })} />
+          <div className="min-w-56 flex-1">
+            <Input label="Email" value={memberForm.email} onChange={(v) => setMemberForm({ ...memberForm, email: v })} placeholder="pessoa@empresa.com" />
+          </div>
+          <div className="min-w-48 flex-1">
+            <Input label="Nome" value={memberForm.name} onChange={(v) => setMemberForm({ ...memberForm, name: v })} placeholder="só se ainda não tem conta" />
           </div>
           <Select label="Role" value={memberForm.role} onChange={(v) => setMemberForm({ ...memberForm, role: v })} options={['OWNER', 'ADMIN', 'AGENT']} />
           <button
@@ -780,6 +948,41 @@ function OrganizationDetails({
             Adicionar
           </button>
         </div>
+        <p className="mt-1.5 text-[11px] text-zinc-400">
+          Se o email já tiver conta, é só vinculado à empresa. Se não tiver, a conta é criada
+          com o nome informado e uma senha temporária.
+        </p>
+
+        {newUserCredentials && (
+          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300">
+              Conta criada — anote a senha temporária agora
+            </p>
+            <p className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-400">
+              Ela não será mostrada de novo. Repasse para {newUserCredentials.email} trocar no primeiro acesso.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <code className="rounded bg-white px-2 py-1 font-mono text-sm text-zinc-900 dark:bg-black dark:text-zinc-100">
+                {newUserCredentials.password}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(newUserCredentials.password);
+                  toast.success('Senha copiada');
+                }}
+                className="rounded-md border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+              >
+                Copiar
+              </button>
+              <button
+                onClick={() => setNewUserCredentials(null)}
+                className="rounded-md px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+              >
+                Já anotei
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 overflow-hidden rounded-md border border-zinc-100 dark:border-white/10">
           <table className="w-full text-sm">
@@ -823,7 +1026,9 @@ function OrganizationDetails({
           </table>
         </div>
       </div>
-    </div>
+
+      <CommercialCard org={org} onChanged={onChanged} />
+      </div>
     </div>
   );
 }
@@ -832,15 +1037,20 @@ function UsersPanel({
   users,
   organizations,
   loading,
+  search,
+  onSearchChange,
   onChanged,
 }: {
   users: SuperAdminUser[];
   organizations: SuperAdminOrganization[];
   loading: boolean;
+  search: string;
+  onSearchChange: (value: string) => void;
   onChanged: () => void;
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<SuperAdminUser | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', isSuperAdmin: true });
 
   const { data: allOrganizations } = useQuery({
@@ -867,8 +1077,13 @@ function UsersPanel({
     onChanged();
   };
 
+  // O objeto selecionado é derivado da lista a cada render (nunca guardado em
+  // state) — assim, quando `onChanged` invalida a query, os toggles do painel da
+  // direita já refletem o dado novo.
+  const selectedUser = users.find((u) => u.id === selectedUserId) ?? null;
+
   return (
-    <section className="mt-6">
+    <section className="mt-3 flex w-full items-start gap-4">
       <EditUserDialog
         user={editingUser}
         organizations={orgPickerOptions}
@@ -876,116 +1091,255 @@ function UsersPanel({
         onSaved={onChanged}
       />
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Usuarios</h2>
-        <button
-          onClick={() => setFormOpen((value) => !value)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" /> Novo usuario
-        </button>
+      {/* Esquerda: card com criar + busca + lista de usuários */}
+      <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-white/10 dark:bg-black">
+        <div className="space-y-2 border-b border-zinc-200 p-3 dark:border-white/10">
+          <button
+            onClick={() => setFormOpen((value) => !value)}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            Novo usuário
+          </button>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
+            <input
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="Buscar nome ou email"
+              className="w-full rounded-lg border border-zinc-300 bg-white py-2 pl-8 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+            />
+          </div>
+        </div>
+
+        <div className="max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin p-2">
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-white/5" />
+              ))}
+            </div>
+          ) : users.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Users className="h-10 w-10 text-zinc-300 dark:text-zinc-600" />
+              <p className="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                Nenhum usuário encontrado
+              </p>
+              <button
+                onClick={() => setFormOpen(true)}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Novo usuário
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1 pb-4">
+              {users.map((u) => {
+                const isSelected = selectedUserId === u.id;
+                return (
+                  <div
+                    key={u.id}
+                    className={`flex items-center rounded-lg transition-colors ${
+                      isSelected
+                        ? 'bg-primary/[0.06] text-primary dark:bg-primary/10'
+                        : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <button
+                      onClick={() => setSelectedUserId(u.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-3 text-left"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200/60 bg-white dark:border-white/10 dark:bg-black">
+                        <User className={`h-5 w-5 ${isSelected ? 'text-primary' : 'text-zinc-500 dark:text-zinc-400'}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium">{u.name}</span>
+                          <span
+                            className={`inline-block h-2 w-2 shrink-0 rounded-full ${
+                              u.isActive ? 'bg-emerald-500' : 'bg-red-500'
+                            }`}
+                            title={u.isActive ? 'Ativo' : 'Inativo'}
+                          />
+                        </div>
+                        <p className="truncate text-xs text-zinc-400 dark:text-zinc-500">{u.email}</p>
+                      </div>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1 pr-2">
+                      {u.isSuperAdmin && (
+                        <span
+                          className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                          title="Super admin"
+                        >
+                          <Crown className="h-3 w-3" />
+                          super
+                        </span>
+                      )}
+                      {isSelected && <ChevronRight className="h-4 w-4 shrink-0 text-primary" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {formOpen && (
-        <div className="mt-4 grid gap-3 rounded-lg border border-dashed border-zinc-300 bg-white p-4 dark:border-white/10 dark:bg-black md:grid-cols-4">
-          <Input label="Nome" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-          <Input label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
-          <Input label="Senha" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
-          <label className="flex items-end gap-2 pb-2 text-sm text-zinc-700 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              checked={form.isSuperAdmin}
-              onChange={(event) => setForm({ ...form, isSuperAdmin: event.target.checked })}
-            />
-            Super admin
-          </label>
-          <div className="md:col-span-4">
+      {/* Direita: criação + detalhe do usuário selecionado */}
+      <div className="min-w-0 flex-1 space-y-4">
+        {formOpen && (
+          <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-4 dark:border-white/10 dark:bg-black">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Novo usuário</h3>
+              <button
+                onClick={() => setFormOpen(false)}
+                className="rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/10"
+              >
+                Cancelar
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Input label="Nome" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+              <Input label="Email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} />
+              <Input label="Senha" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
+            </div>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                checked={form.isSuperAdmin}
+                onChange={(event) => setForm({ ...form, isSuperAdmin: event.target.checked })}
+                className="h-3.5 w-3.5 rounded border-zinc-300 text-primary focus:ring-primary dark:border-white/20"
+              />
+              Super admin
+            </label>
             <button
               onClick={() => createMutation.mutate()}
               disabled={createMutation.isPending || !form.name || !form.email || !form.password}
-              className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950"
+              className="mt-3 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950"
             >
               Criar usuario
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
-        <table className="w-full min-w-[920px] text-sm">
-          <thead className="border-b border-zinc-100 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-white/10 dark:bg-white/5">
-            <tr>
-              <th className="px-4 py-3">Usuario</th>
-              <th className="px-4 py-3">Empresas</th>
-              <th className="px-4 py-3">Super admin</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Criado</th>
-              <th className="px-4 py-3 text-right">Acoes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <TableSkeleton cols={6} />
-            ) : users.length === 0 ? (
-              <EmptyRow cols={6} text="Nenhum usuario encontrado" />
-            ) : (
-              users.map((u) => (
-                <tr key={u.id} className="border-b border-zinc-50 dark:border-white/10">
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-zinc-900 dark:text-zinc-100">{u.name}</p>
-                    <p className="text-xs text-zinc-400">{u.email}</p>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">
-                    {u.organizations.length === 0 ? (
-                      <span className="text-amber-600 dark:text-amber-400">Sem empresa</span>
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {u.organizations.map((m) => (
-                          <span
-                            key={m.id ?? `${u.id}:${m.organization.id}`}
-                            className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700 dark:bg-white/10 dark:text-zinc-200"
-                          >
-                            {m.organization.name} ({m.role})
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => updateUser(u.id, { isSuperAdmin: !u.isSuperAdmin })} className="text-zinc-500 hover:text-primary">
-                      {u.isSuperAdmin ? <ToggleRight className="h-5 w-5 text-primary" /> : <ToggleLeft className="h-5 w-5" />}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => updateUser(u.id, { isActive: !u.isActive })}
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                        u.isActive
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
-                          : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
-                      }`}
-                    >
-                      <CheckCircle2 className="h-3 w-3" />
-                      {u.isActive ? 'Ativo' : 'Inativo'}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">{new Date(u.createdAt).toLocaleDateString('pt-BR')}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setEditingUser(u)}
-                      className="rounded p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
-                      title="Editar usuario"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        {selectedUser ? (
+          <UserHeaderCard
+            user={selectedUser}
+            onToggleActive={() => updateUser(selectedUser.id, { isActive: !selectedUser.isActive })}
+            onToggleSuperAdmin={() => updateUser(selectedUser.id, { isSuperAdmin: !selectedUser.isSuperAdmin })}
+            onEdit={() => setEditingUser(selectedUser)}
+          />
+        ) : (
+          !formOpen && (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 py-20 text-center dark:border-white/10">
+              <Users className="h-14 w-14 text-zinc-200 dark:text-zinc-700" />
+              <h2 className="mt-4 text-lg font-semibold text-zinc-500 dark:text-zinc-400">
+                Selecione um usuário
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
+                Escolha um usuário à esquerda para ver e editar os acessos dele
+              </p>
+            </div>
+          )
+        )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Cabeçalho do detalhe do usuário: concentra tudo que antes vivia nas colunas da
+ * tabela (nome/email, super admin, status, data de criação, empresas e editar).
+ */
+function UserHeaderCard({
+  user,
+  onToggleActive,
+  onToggleSuperAdmin,
+  onEdit,
+}: {
+  user: SuperAdminUser;
+  onToggleActive: () => void;
+  onToggleSuperAdmin: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200/60 bg-white dark:border-white/10 dark:bg-black">
+            <User className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">{user.name}</h2>
+              <button
+                onClick={onToggleActive}
+                title="Alternar ativo/inativo"
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                  user.isActive
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
+                    : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'
+                }`}
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                {user.isActive ? 'Ativo' : 'Inativo'}
+              </button>
+              {user.isSuperAdmin && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                  <Crown className="h-3 w-3" />
+                  Super admin
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-400">
+              {user.email} · criado em {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Super admin</span>
+            <button
+              onClick={onToggleSuperAdmin}
+              title="Alternar super admin"
+              className="text-zinc-500 hover:text-primary"
+            >
+              {user.isSuperAdmin ? <ToggleRight className="h-5 w-5 text-primary" /> : <ToggleLeft className="h-5 w-5" />}
+            </button>
+          </div>
+          <button
+            onClick={onEdit}
+            className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/5"
+            title="Editar usuario"
+          >
+            <Pencil className="h-4 w-4" />
+            Editar
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-zinc-100 pt-3 dark:border-white/10">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-400">Empresas</p>
+        <div className="mt-1.5 text-xs text-zinc-500">
+          {user.organizations.length === 0 ? (
+            <span className="text-amber-600 dark:text-amber-400">Sem empresa</span>
+          ) : (
+            <div className="flex flex-wrap gap-1">
+              {user.organizations.map((m) => (
+                <span
+                  key={m.id ?? `${user.id}:${m.organization.id}`}
+                  className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-700 dark:bg-white/10 dark:text-zinc-200"
+                >
+                  {m.organization.name} ({m.role})
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1096,11 +1450,11 @@ function PlansPanel({
   });
 
   if (isLoading && !plans.length) {
-    return <p className="mt-6 text-sm text-zinc-500 dark:text-zinc-400">Carregando planos…</p>;
+    return <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">Carregando planos…</p>;
   }
 
   return (
-    <section className="mt-6 space-y-6">
+    <section className="mt-3 space-y-6">
       <p className="text-sm text-zinc-500 dark:text-zinc-400">
         Catálogo comercial do AxChat. Cobrança <strong>por atendente</strong> + cota de IA; Marketing e
         Assistente são caixas fixas por org. Sem plano grátis — trial de 7 dias. Preços em reais.
@@ -1360,6 +1714,9 @@ function IntegrationsPanel() {
   const [instagramAppId, setInstagramAppId] = useState('');
   const [instagramAppSecret, setInstagramAppSecret] = useState('');
   const [instagramConfigId, setInstagramConfigId] = useState('');
+  // Login do Instagram: app do produto "Instagram" (sem Página do Facebook).
+  const [instagramLoginAppId, setInstagramLoginAppId] = useState('');
+  const [instagramLoginAppSecret, setInstagramLoginAppSecret] = useState('');
   const [appSecret, setAppSecret] = useState('');
   const [threadsAppId, setThreadsAppId] = useState('');
   const [threadsAppSecret, setThreadsAppSecret] = useState('');
@@ -1371,9 +1728,11 @@ function IntegrationsPanel() {
       setEmbeddedConfigId(config.embeddedConfigId ?? '');
       setInstagramAppId(config.instagramAppId ?? '');
       setInstagramConfigId(config.instagramConfigId ?? '');
+      setInstagramLoginAppId(config.instagramLoginAppId ?? '');
       setThreadsAppId(config.threadsAppId ?? '');
       setAppSecret('');
       setInstagramAppSecret('');
+      setInstagramLoginAppSecret('');
       setThreadsAppSecret('');
     }
   }, [config]);
@@ -1386,10 +1745,14 @@ function IntegrationsPanel() {
         embeddedConfigId: embeddedConfigId.trim(),
         instagramAppId: instagramAppId.trim(),
         instagramConfigId: instagramConfigId.trim(),
+        instagramLoginAppId: instagramLoginAppId.trim(),
         threadsAppId: threadsAppId.trim(),
         // Só envia os secrets se o usuário digitou algo novo.
         ...(appSecret.trim() ? { appSecret: appSecret.trim() } : {}),
         ...(instagramAppSecret.trim() ? { instagramAppSecret: instagramAppSecret.trim() } : {}),
+        ...(instagramLoginAppSecret.trim()
+          ? { instagramLoginAppSecret: instagramLoginAppSecret.trim() }
+          : {}),
         ...(threadsAppSecret.trim() ? { threadsAppSecret: threadsAppSecret.trim() } : {}),
       }),
     onSuccess: () => {
@@ -1410,6 +1773,18 @@ function IntegrationsPanel() {
   const threadsReady = !!(
     threadsAppId.trim() && (config?.hasThreadsSecret || threadsAppSecret.trim())
   );
+  // Login do Instagram: app PRÓPRIO obrigatório (não herda o do WhatsApp).
+  const igLoginReady = !!(
+    instagramLoginAppId.trim() &&
+    (config?.hasInstagramLoginSecret || instagramLoginAppSecret.trim())
+  );
+
+  // NEXT_PUBLIC_API_URL já costuma vir com /api/v1 — tira e recoloca pra montar
+  // a callback exatamente como o backend a registra.
+  const apiOrigin = (process.env.NEXT_PUBLIC_API_URL || 'https://SEU-DOMINIO/api/v1')
+    .replace(/\/+$/, '')
+    .replace(/\/api\/v1$/, '');
+  const instagramLoginCallbackUrl = `${apiOrigin}/api/v1/channels/instagram-login/oauth/callback`;
 
   const pill = (ready: boolean, okLabel: string) => (
     <span
@@ -1424,7 +1799,7 @@ function IntegrationsPanel() {
   );
 
   return (
-    <section className="mt-6 max-w-2xl">
+    <section className="mt-3 max-w-2xl">
       <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           Integrações Meta — WhatsApp · Instagram · Threads
@@ -1506,6 +1881,52 @@ function IntegrationsPanel() {
                     Config de FLB com escopos instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_read_engagement.
                   </p>
                 </div>
+
+                {/* ── Login do Instagram (sem Página do Facebook) ── */}
+                <div className="border-t border-pink-200 pt-4 dark:border-pink-900/40">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-pink-800 dark:text-pink-200">
+                      Login do Instagram (sem Página do Facebook)
+                    </h4>
+                    {pill(igLoginReady, 'Pronto')}
+                  </div>
+                  <p className="mt-1 text-[11px] text-pink-700/80 dark:text-pink-300/80">
+                    Habilita a aba <strong>&quot;Login Instagram&quot;</strong> ao criar um canal:
+                    o cliente entra direto com a conta do Instagram, sem Página do Facebook.
+                    App próprio obrigatório — <strong>não</strong> herda o do WhatsApp.
+                  </p>
+                  <div className="mt-3 space-y-4">
+                    <div>
+                      <Input
+                        label="Instagram Login App ID"
+                        value={instagramLoginAppId}
+                        onChange={setInstagramLoginAppId}
+                        placeholder="ex: 1234567890123456"
+                      />
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        Meta app → produto &quot;Instagram&quot; → Configuração básica. Diferente do Facebook Login for Business acima.
+                      </p>
+                    </div>
+                    <div>
+                      <Input
+                        label="Instagram Login App Secret"
+                        type="password"
+                        value={instagramLoginAppSecret}
+                        onChange={setInstagramLoginAppSecret}
+                        placeholder={config?.hasInstagramLoginSecret ? '•••••••• (salvo — preencha só para trocar)' : 'cole o Instagram App Secret'}
+                      />
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        {config?.hasInstagramLoginSecret ? 'Já salvo. Deixe em branco para manter.' : 'O secret nunca é exibido depois de salvo.'}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-dashed border-pink-300 bg-pink-50 p-2.5 text-[11px] text-pink-800 dark:border-pink-900/50 dark:bg-pink-950/20 dark:text-pink-200">
+                      <span className="font-medium">Redirect Callback URL (registre no produto Instagram do app):</span>
+                      <code className="mt-1 block break-all rounded bg-pink-100 px-2 py-1 font-mono text-pink-900 dark:bg-black dark:text-pink-200">
+                        {instagramLoginCallbackUrl}
+                      </code>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1557,6 +1978,303 @@ function IntegrationsPanel() {
   );
 }
 
+// ─── Motor de IA global ───────────────────────────────
+
+const ENGINE_KINDS: AiEngineKind[] = ['text', 'vision', 'audio'];
+
+const ENGINE_META: Record<
+  AiEngineKind,
+  {
+    label: string;
+    icon: React.ElementType;
+    description: string;
+    showBaseUrl: boolean;
+    baseUrlPlaceholder: string;
+    modelPlaceholder: string;
+  }
+> = {
+  text: {
+    label: 'Texto',
+    icon: Sparkles,
+    description:
+      'Motor principal (API compatível com DeepSeek). É ele que responde as conversas dos clientes.',
+    showBaseUrl: true,
+    baseUrlPlaceholder: 'https://api.deepseek.com',
+    modelPlaceholder: 'deepseek-chat',
+  },
+  vision: {
+    label: 'Visão',
+    icon: Eye,
+    description:
+      'Anthropic (Claude). Usado quando chega uma imagem na conversa. A base-URL é fixa do provider.',
+    showBaseUrl: false,
+    baseUrlPlaceholder: '',
+    modelPlaceholder: 'claude-haiku-4-5',
+  },
+  audio: {
+    label: 'Áudio / OpenAI',
+    icon: Mic,
+    description:
+      'OpenAI (Whisper) para transcrever áudios recebidos — e também usado pelos modelos gpt-*.',
+    showBaseUrl: true,
+    baseUrlPlaceholder: 'https://api.openai.com/v1',
+    modelPlaceholder: 'whisper-1',
+  },
+};
+
+function AiEnginePanel() {
+  const queryClient = useQueryClient();
+  const { data: config, isLoading } = useQuery({
+    queryKey: ['super-admin-ai-engine'],
+    queryFn: superAdminService.getAiEngine,
+  });
+
+  const onSaved = () => queryClient.invalidateQueries({ queryKey: ['super-admin-ai-engine'] });
+
+  return (
+    <section className="mt-3 max-w-2xl space-y-4">
+      <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-900/40 dark:bg-amber-950/10">
+        <div className="flex gap-2">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="text-sm text-amber-800 dark:text-amber-200">
+            Configuração <strong>global</strong> do motor de IA da AxChat. Vale para{' '}
+            <strong>todas as empresas com a flag &quot;IA AxChat&quot; ligada</strong>. Empresas com a
+            flag desligada usam o motor próprio delas, configurado em{' '}
+            <strong>Configurações › IA</strong> de cada uma.
+          </p>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+          <p className="text-sm text-zinc-400">Carregando…</p>
+        </div>
+      ) : !config ? (
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+          <p className="text-sm text-zinc-500">Não foi possível carregar a configuração do motor.</p>
+        </div>
+      ) : (
+        ENGINE_KINDS.filter((kind) => config[kind]).map((kind) => (
+          <EngineCard key={kind} kind={kind} slot={config[kind]} onSaved={onSaved} />
+        ))
+      )}
+    </section>
+  );
+}
+
+function EngineSourceBadge({ source }: { source: AiEngineFieldSource }) {
+  const map: Record<AiEngineFieldSource, { label: string; className: string }> = {
+    ui: { label: 'salvo na UI', className: 'bg-primary/10 text-primary' },
+    env: {
+      label: 'vindo da env',
+      className: 'bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300',
+    },
+    default: {
+      label: 'não configurado',
+      className: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
+    },
+  };
+  const { label, className } = map[source];
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${className}`}>{label}</span>
+  );
+}
+
+function EngineCard({
+  kind,
+  slot,
+  onSaved,
+}: {
+  kind: AiEngineKind;
+  slot: AiEngineSlot;
+  onSaved: () => void;
+}) {
+  const meta = ENGINE_META[kind];
+  const Icon = meta.icon;
+
+  const [baseUrl, setBaseUrl] = useState(slot.baseUrl ?? '');
+  const [modelId, setModelId] = useState(slot.modelId ?? '');
+  const [apiKey, setApiKey] = useState('');
+  const [lastTest, setLastTest] = useState<AiEngineTestResult | null>(null);
+
+  // Ao recarregar do servidor, volta o form pro estado salvo (e limpa a chave digitada).
+  useEffect(() => {
+    setBaseUrl(slot.baseUrl ?? '');
+    setModelId(slot.modelId ?? '');
+    setApiKey('');
+  }, [slot]);
+
+  // Só manda o que mudou: campo herdado da env que ninguém tocou não vira override.
+  const buildPatch = (): AiEngineSlotPatch => {
+    const patch: AiEngineSlotPatch = {};
+    if (meta.showBaseUrl && baseUrl.trim() !== (slot.baseUrl ?? '')) patch.baseUrl = baseUrl.trim();
+    if (modelId.trim() !== (slot.modelId ?? '')) patch.modelId = modelId.trim();
+    if (apiKey.trim()) patch.apiKey = apiKey.trim();
+    return patch;
+  };
+
+  const dirty = Object.keys(buildPatch()).length > 0;
+
+  const patchMutation = useMutation({
+    mutationFn: (patch: AiEngineSlotPatch) => superAdminService.updateAiEngine({ [kind]: patch }),
+    onSuccess: () => {
+      setApiKey('');
+      setLastTest(null);
+      onSaved();
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Erro ao salvar'),
+  });
+
+  const save = () => {
+    const patch = buildPatch();
+    if (!Object.keys(patch).length) {
+      toast.info('Nada para salvar neste motor');
+      return;
+    }
+    patchMutation.mutate(patch, {
+      onSuccess: () => toast.success(`Motor de ${meta.label} salvo`),
+    });
+  };
+
+  const clearApiKey = () =>
+    patchMutation.mutate(
+      { apiKey: '' },
+      { onSuccess: () => toast.success('Chave da UI removida — voltou para a env') },
+    );
+
+  const testMutation = useMutation({
+    mutationFn: () => superAdminService.testAiEngine(kind),
+    onSuccess: (result) => {
+      setLastTest(result);
+      const suffix = result.latencyMs ? ` (${result.latencyMs} ms)` : '';
+      if (result.success) toast.success(`${result.message}${suffix}`);
+      else toast.error(`${result.message}${suffix}`);
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Erro ao testar'),
+  });
+
+  const busy = patchMutation.isPending || testMutation.isPending;
+
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 shrink-0 text-primary" />
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{meta.label}</h3>
+      </div>
+      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{meta.description}</p>
+
+      <div className="mt-4 space-y-4">
+        {meta.showBaseUrl && (
+          <div>
+            <div className="mb-1 flex items-center gap-2">
+              <EngineSourceBadge source={slot.source.baseUrl} />
+            </div>
+            <Input
+              label="Base URL"
+              value={baseUrl}
+              onChange={setBaseUrl}
+              placeholder={meta.baseUrlPlaceholder}
+            />
+            <p className="mt-1 text-[11px] text-zinc-400">
+              Limpe o campo e salve para voltar ao valor da env.
+            </p>
+          </div>
+        )}
+
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <EngineSourceBadge source={slot.source.apiKey} />
+          </div>
+          <Input
+            label="Chave de API"
+            type="password"
+            value={apiKey}
+            onChange={setApiKey}
+            placeholder={
+              slot.apiKeySet
+                ? `${slot.apiKeyPreview ?? '••••••••'} (substituir)`
+                : 'cole a chave de API'
+            }
+          />
+          <p className="mt-1 text-[11px] text-zinc-400">
+            {slot.apiKeySet
+              ? 'Já configurada. Deixe em branco para manter a atual.'
+              : 'Nenhuma chave configurada — a IA deste motor não vai funcionar.'}
+            {slot.source.apiKey === 'ui' && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={clearApiKey}
+                  disabled={busy}
+                  className="font-medium text-primary underline-offset-2 hover:underline disabled:opacity-50"
+                >
+                  Usar a chave da env
+                </button>
+              </>
+            )}
+          </p>
+        </div>
+
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <EngineSourceBadge source={slot.source.modelId} />
+          </div>
+          <Input
+            label="Modelo"
+            value={modelId}
+            onChange={setModelId}
+            placeholder={meta.modelPlaceholder}
+          />
+          <p className="mt-1 text-[11px] text-zinc-400">
+            Limpe o campo e salve para voltar ao valor da env.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={busy}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {patchMutation.isPending ? 'Salvando…' : 'Salvar'}
+        </button>
+        <button
+          type="button"
+          onClick={() => testMutation.mutate()}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
+        >
+          <PlugZap className="h-4 w-4" />
+          {testMutation.isPending ? 'Testando…' : 'Testar conexão'}
+        </button>
+        <span className="text-[11px] text-zinc-400">Testa a configuração já salva.</span>
+      </div>
+
+      {dirty && (
+        <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+          Há alterações não salvas — salve antes de testar, senão o teste usa a config anterior.
+        </p>
+      )}
+
+      {lastTest && (
+        <p
+          className={`mt-2 text-xs ${
+            lastTest.success
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-red-600 dark:text-red-400'
+          }`}
+        >
+          {lastTest.success ? '✓' : '✕'} {lastTest.message}
+          {lastTest.latencyMs ? ` · ${lastTest.latencyMs} ms` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AuditPanel({
   logs,
   loading,
@@ -1565,7 +2283,7 @@ function AuditPanel({
   loading: boolean;
 }) {
   return (
-    <section className="mt-6 overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
+    <section className="mt-3 overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-white/10 dark:bg-black">
       <div className="flex items-center gap-2 border-b border-zinc-100 px-4 py-3 dark:border-white/10">
         <History className="h-4 w-4 text-zinc-400" />
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Auditoria do Super Admin</h2>
@@ -1627,6 +2345,64 @@ function MarketingToggle({ org, onChanged }: { org: SuperAdminOrganization; onCh
   return (
     <button onClick={toggle} className="text-zinc-500 hover:text-primary">
       {org.marketingEnabled ? <ToggleRight className="h-5 w-5 text-primary" /> : <ToggleLeft className="h-5 w-5" />}
+    </button>
+  );
+}
+
+/**
+ * Versão compacta pra própria lista de empresas: mostra QUAL motor a empresa
+ * usa e troca com um clique. O toggle detalhado (com explicação) continua
+ * dentro de "Gerenciar" — aqui é pra bater o olho e resolver na hora.
+ */
+function AxchatAiBadge({ org, onChanged }: { org: SuperAdminOrganization; onChanged: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const toggle = async () => {
+    setSaving(true);
+    try {
+      await superAdminService.updateOrganizationPlan(org.id, {
+        axchatAiEnabled: !org.axchatAiEnabled,
+      });
+      toast.success(
+        org.axchatAiEnabled
+          ? `${org.name}: agora usa IA própria`
+          : `${org.name}: agora usa a IA AxChat`,
+      );
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao trocar o motor');
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <button
+      onClick={toggle}
+      disabled={saving}
+      title={
+        org.axchatAiEnabled
+          ? 'Roda no motor da AxChat. Clique para liberar motor próprio.'
+          : 'Cliente usa o motor dele. Clique para passar para a IA AxChat.'
+      }
+      className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-50 ${
+        org.axchatAiEnabled
+          ? 'bg-primary/10 text-primary hover:bg-primary/20'
+          : 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30'
+      }`}
+    >
+      {org.axchatAiEnabled ? 'Motor: AxChat' : 'Motor: própria'}
+    </button>
+  );
+}
+
+function AxchatAiToggle({ org, onChanged }: { org: SuperAdminOrganization; onChanged: () => void }) {
+  const toggle = async () => {
+    await superAdminService.updateOrganizationPlan(org.id, { axchatAiEnabled: !org.axchatAiEnabled });
+    toast.success(org.axchatAiEnabled ? 'Empresa passou para IA própria' : 'Empresa passou para a IA AxChat');
+    onChanged();
+  };
+  return (
+    <button onClick={toggle} className="text-zinc-500 hover:text-primary">
+      {org.axchatAiEnabled ? <ToggleRight className="h-5 w-5 text-primary" /> : <ToggleLeft className="h-5 w-5" />}
     </button>
   );
 }

@@ -3,7 +3,6 @@ import {
   Logger,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 
 import { PrismaService } from '../../../database/prisma.service';
@@ -16,6 +15,11 @@ import {
   LlmUsage,
 } from './llm.types';
 import { OpenAiCompatProvider } from './openai-compat.provider';
+import { AiEngineSettingsService } from './ai-engine-settings.service';
+import {
+  resolveBaseUrl,
+  resolveTransport,
+} from '../../organizations/ai-model-catalog';
 
 type LlmProvider = 'deepseek' | 'openai' | 'anthropic';
 
@@ -38,125 +42,191 @@ type LlmProvider = 'deepseek' | 'openai' | 'anthropic';
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
-  private readonly client: Anthropic;
-  private readonly hasAnthropicKey: boolean;
-  private readonly deepseek?: OpenAiCompatProvider;
-  private readonly openai?: OpenAiCompatProvider;
-  private readonly visionFallbackModelId: string;
-  private readonly deepseekBaseURL: string;
-  /** Cache de providers DeepSeek por-org, indexado pela própria chave. */
+  /** Cache de providers DeepSeek-compat, indexado por chave+baseURL. */
   private readonly deepseekByKey = new Map<string, OpenAiCompatProvider>();
   /** Cache de providers custom (OpenRouter/outros) por chave API. */
   private readonly customByKey = new Map<string, OpenAiCompatProvider>();
+  /** Cache de clientes Anthropic (visão), por chave. */
+  private readonly anthropicByKey = new Map<string, Anthropic>();
+  /** Cache de providers OpenAI (modelos gpt*), por chave+baseURL. */
+  private readonly openaiByKey = new Map<string, OpenAiCompatProvider>();
 
   constructor(
-    config: ConfigService,
     private readonly prisma: PrismaService,
-  ) {
-    const anthropicKey = config.get<string>('ANTHROPIC_API_KEY');
-    this.hasAnthropicKey = !!anthropicKey;
-    // timeout/maxRetries explícitos: sem eles o default do SDK é ~600s, e como
-    // a completion roda dentro de workers BullMQ, um provider lento/instável
-    // trava os slots de concorrência (e 429/5xx transitório vira fallback de
-    // desculpa pro cliente). 60s + 2 retries com backoff da própria SDK.
-    this.client = new Anthropic({
-      apiKey: anthropicKey ?? 'missing',
-      timeout: 60_000,
-      maxRetries: 2,
-    });
+    private readonly engineSettings: AiEngineSettingsService,
+  ) {}
 
-    this.deepseekBaseURL =
-      config.get<string>('DEEPSEEK_BASE_URL') || 'https://api.deepseek.com';
-
-    const deepseekKey = config.get<string>('DEEPSEEK_API_KEY');
-    if (deepseekKey) {
-      this.deepseek = this.buildDeepSeekProvider(deepseekKey);
-    }
-
-    const openaiKey = config.get<string>('OPENAI_API_KEY');
-    if (openaiKey) {
-      this.openai = new OpenAiCompatProvider(
-        { apiKey: openaiKey, label: 'openai' },
-        this.logger,
-      );
-    }
-
-    this.visionFallbackModelId =
-      config.get<string>('AI_VISION_FALLBACK_MODEL_ID') || 'claude-haiku-4-5';
-
-    if (!deepseekKey && !this.hasAnthropicKey && !openaiKey) {
-      this.logger.warn(
-        'Nenhuma chave de LLM em env (DEEPSEEK/ANTHROPIC/OPENAI) — usando apenas chaves por-organização (UI). Sem nenhuma das duas, agentes falham em runtime.',
-      );
-    }
-  }
-
-  private buildDeepSeekProvider(apiKey: string): OpenAiCompatProvider {
-    const cached = this.deepseekByKey.get(apiKey);
+  private buildDeepSeekProvider(
+    apiKey: string,
+    baseURL: string,
+  ): OpenAiCompatProvider {
+    const cacheKey = `${baseURL}::${apiKey}`;
+    const cached = this.deepseekByKey.get(cacheKey);
     if (cached) return cached;
     const provider = new OpenAiCompatProvider(
-      { apiKey, baseURL: this.deepseekBaseURL, label: 'deepseek' },
+      { apiKey, baseURL, label: 'deepseek' },
       this.logger,
     );
-    this.deepseekByKey.set(apiKey, provider);
+    this.deepseekByKey.set(cacheKey, provider);
     return provider;
   }
 
   /**
-   * Resolve o provider DeepSeek a usar: prioriza a chave configurada pela
-   * organização (UI), com fallback pra chave global de env. Retorna
-   * undefined se nenhuma chave existir.
+   * Cliente Anthropic (visão) da config global. timeout/maxRetries explícitos:
+   * sem eles o default do SDK é ~600s, e como a completion roda dentro de
+   * workers BullMQ, um provider lento trava os slots de concorrência.
+   */
+  private buildAnthropicClient(apiKey: string, baseURL?: string | null): Anthropic {
+    const cacheKey = `${baseURL ?? ''}::${apiKey}`;
+    const cached = this.anthropicByKey.get(cacheKey);
+    if (cached) return cached;
+    const client = new Anthropic({
+      apiKey,
+      // Gateways/proxies que falam Messages API entram por aqui; sem baseURL o
+      // SDK usa o endpoint oficial da Anthropic.
+      ...(baseURL ? { baseURL } : {}),
+      timeout: 60_000,
+      maxRetries: 2,
+    });
+    this.anthropicByKey.set(cacheKey, client);
+    return client;
+  }
+
+  private buildOpenAiProvider(
+    apiKey: string,
+    baseURL: string | null,
+  ): OpenAiCompatProvider {
+    const cacheKey = `${baseURL ?? ''}::${apiKey}`;
+    const cached = this.openaiByKey.get(cacheKey);
+    if (cached) return cached;
+    const provider = new OpenAiCompatProvider(
+      { apiKey, ...(baseURL ? { baseURL } : {}), label: 'openai' },
+      this.logger,
+    );
+    this.openaiByKey.set(cacheKey, provider);
+    return provider;
+  }
+
+  /**
+   * A org está no motor da AxChat (`axchatAiEnabled`)? Nesse modo o cliente não
+   * traz chave: ignoramos `deepseekApiKey` e os AiModelProvider dele e rodamos
+   * tudo nas chaves globais de env. Em caso de erro de leitura assume `true`
+   * (motor nosso) — é o default da coluna e o modo que sempre tem chave.
+   */
+  private async usesAxchatAi(organizationId?: string): Promise<boolean> {
+    if (!organizationId) return true;
+    try {
+      const org = await this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { axchatAiEnabled: true },
+      });
+      return org?.axchatAiEnabled ?? true;
+    } catch (err) {
+      this.logger.warn(
+        `Falha ao ler axchatAiEnabled da org ${organizationId}: ${(err as Error).message}`,
+      );
+      return true;
+    }
+  }
+
+  /**
+   * Resolve o provider de texto. Com `axchatAiEnabled` (IA AxChat) usa a config
+   * GLOBAL do Super Admin (base-URL + chave). Com IA própria, usa a chave da org
+   * — e só cai na global se ela ainda não tiver configurado a dela.
    */
   private async resolveDeepSeekProvider(
     organizationId?: string,
   ): Promise<OpenAiCompatProvider | undefined> {
-    if (organizationId) {
+    const global = (await this.engineSettings.getEffective()).text;
+
+    if (organizationId && !(await this.usesAxchatAi(organizationId))) {
       try {
         const org = await this.prisma.organization.findUnique({
           where: { id: organizationId },
           select: { deepseekApiKey: true },
         });
         const orgKey = org?.deepseekApiKey?.trim();
-        if (orgKey) return this.buildDeepSeekProvider(orgKey);
+        // Motor do cliente: chave dele, na base-URL global (mesmo endpoint
+        // DeepSeek). Quem quiser endpoint próprio cadastra um AiModelProvider.
+        if (orgKey) {
+          return this.buildDeepSeekProvider(
+            orgKey,
+            global.baseUrl ?? 'https://api.deepseek.com',
+          );
+        }
+        this.logger.warn(
+          `Org ${organizationId} está em "IA própria" mas não tem chave DeepSeek configurada — usando o motor global como fallback.`,
+        );
       } catch (err) {
         this.logger.warn(
           `Falha ao buscar chave DeepSeek da org ${organizationId}: ${(err as Error).message}`,
         );
       }
     }
-    return this.deepseek;
+
+    if (!global.apiKey) return undefined;
+    return this.buildDeepSeekProvider(
+      global.apiKey,
+      global.baseUrl ?? 'https://api.deepseek.com',
+    );
   }
 
   /**
-   * Busca um modelo customizado registrado pela organização (AiModelProvider)
-   * que tenha apiKey própria. Usa OpenAiCompatProvider para suportar
-   * OpenRouter, proxies, etc. Retorna undefined se não achar.
+   * Busca o motor que a organização plugou pra este `modelId` (AiModelProvider).
+   *
+   * O transporte vem do CATÁLOGO, não do que foi salvo: Anthropic fala Messages
+   * API (SDK próprio) e o resto fala o formato da OpenAI. Antes isso era sempre
+   * OpenAI-compat com `baseUrl` opcional — e um modelo Anthropic sem base-URL
+   * acabava mandando a chave `sk-ant-` pra api.openai.com, falhando sempre.
    */
-  private async resolveCustomProvider(
+  private async resolveOrgModel(
     organizationId: string,
     modelId: string,
-  ): Promise<OpenAiCompatProvider | undefined> {
+  ): Promise<
+    | { transport: 'openai-compat'; provider: OpenAiCompatProvider }
+    | { transport: 'anthropic'; client: Anthropic }
+    | undefined
+  > {
+    // Motor AxChat: modelo/chave próprios do cliente não valem — cai no
+    // roteamento padrão, que usa as chaves globais.
+    if (await this.usesAxchatAi(organizationId)) return undefined;
     try {
       const registered = await this.prisma.aiModelProvider.findUnique({
         where: { organizationId_modelId: { organizationId, modelId } },
       });
-      if (!registered || !registered.apiKey) return undefined;
+      if (!registered || !registered.apiKey || !registered.isActive) return undefined;
+
+      if (resolveTransport(registered.provider) === 'anthropic') {
+        return {
+          transport: 'anthropic',
+          // Sem base-URL salva vai pro endpoint oficial da Anthropic; com ela,
+          // vai pro gateway que o cliente informou.
+          client: this.buildAnthropicClient(
+            registered.apiKey,
+            resolveBaseUrl(registered.provider, registered.baseUrl),
+          ),
+        };
+      }
+
+      const baseURL = resolveBaseUrl(registered.provider, registered.baseUrl);
+      if (!baseURL) {
+        this.logger.warn(
+          `Modelo ${modelId} da org ${organizationId} (provider "${registered.provider}") não tem base-URL — ignorado pra não vazar a chave pro endpoint errado.`,
+        );
+        return undefined;
+      }
 
       const label = registered.provider;
-      const cachedKey = `${label}::${registered.apiKey}`;
+      const cachedKey = `${label}::${baseURL}::${registered.apiKey}`;
       const cached = this.customByKey.get(cachedKey);
-      if (cached) return cached;
+      if (cached) return { transport: 'openai-compat', provider: cached };
 
       const provider = new OpenAiCompatProvider(
-        {
-          apiKey: registered.apiKey,
-          baseURL: registered.baseUrl ?? undefined,
-          label,
-        },
+        { apiKey: registered.apiKey, baseURL, label },
         this.logger,
       );
       this.customByKey.set(cachedKey, provider);
-      return provider;
+      return { transport: 'openai-compat', provider };
     } catch (err) {
       this.logger.warn(
         `Falha ao buscar modelo customizado ${modelId} da org ${organizationId}: ${(err as Error).message}`,
@@ -170,16 +240,24 @@ export class LlmService {
    * caso de imagem em provider sem visão (DeepSeek) roteando pro Claude.
    */
   async complete(req: LlmCompletionRequest): Promise<LlmCompletionResponse> {
-    // 1. Tenta provider customizado registrado pela organização (OpenRouter, etc.)
+    // 1. Motor que a própria organização plugou (Anthropic, OpenAI, Google,
+    //    DeepSeek ou personalizado), com a chave dela.
     if (req.organizationId) {
-      const custom = await this.resolveCustomProvider(req.organizationId, req.modelId);
-      if (custom) {
-        // Provider customizado (DeepSeek, OpenRouter, etc.) —
-        // a maioria não suporta image_url. Remove imagens se houver.
+      const orgModel = await this.resolveOrgModel(req.organizationId, req.modelId);
+      if (orgModel?.transport === 'anthropic') {
+        // Claude tem visão nativa — aqui a imagem passa direto, sem stub.
+        return this.completeWithAnthropic(
+          this.normalizeModelId(req.modelId),
+          req,
+          orgModel.client,
+        );
+      }
+      if (orgModel?.transport === 'openai-compat') {
+        // A maioria dos endpoints compatíveis não aceita image_url.
         const safeReq = this.requestHasImage(req)
           ? this.stripImagesToStub(req)
           : req;
-        return custom.complete(safeReq, this.stripProviderPrefix(req.modelId));
+        return orgModel.provider.complete(safeReq, this.stripProviderPrefix(req.modelId));
       }
     }
 
@@ -187,37 +265,41 @@ export class LlmService {
 
     if (provider === 'deepseek') {
       if (this.requestHasImage(req)) {
-        if (this.hasAnthropicKey) {
+        const vision = (await this.engineSettings.getEffective()).vision;
+        if (vision.apiKey) {
+          const visionModel = vision.modelId ?? 'claude-haiku-4-5';
           this.logger.log(
-            `Imagem detectada — roteando esta chamada para o modelo de visão ${this.visionFallbackModelId}`,
+            `Imagem detectada — roteando esta chamada para o modelo de visão ${visionModel}`,
           );
-          return this.completeWithAnthropic(this.visionFallbackModelId, req);
+          return this.completeWithAnthropic(visionModel, req);
         }
         this.logger.warn(
-          'Imagem recebida mas ANTHROPIC_API_KEY não configurada — enviando stub textual ao DeepSeek',
+          'Imagem recebida mas o motor de visão não está configurado — enviando stub textual ao provider de texto',
         );
         req = this.stripImagesToStub(req);
       }
       const deepseek = await this.resolveDeepSeekProvider(req.organizationId);
       if (!deepseek) {
         throw new InternalServerErrorException(
-          'Chave DeepSeek não configurada — defina em Settings > IA (por organização) ou via DEEPSEEK_API_KEY.',
+          'Motor de texto sem chave — configure em Super Admin > Motor de IA (IA AxChat) ou em Settings > IA (motor próprio da organização).',
         );
       }
       return deepseek.complete(req, this.stripProviderPrefix(req.modelId));
     }
 
     if (provider === 'openai') {
-      if (!this.openai) {
+      const audio = (await this.engineSettings.getEffective()).audio;
+      if (!audio.apiKey) {
         throw new InternalServerErrorException(
-          'OPENAI_API_KEY não configurada — provider OpenAI indisponível',
+          'Chave OpenAI não configurada — configure em Super Admin > Motor de IA (bloco Áudio/OpenAI) ou via OPENAI_API_KEY.',
         );
       }
+      const openai = this.buildOpenAiProvider(audio.apiKey, audio.baseUrl);
       // GPT-3.5 e modelos mais antigos não suportam image_url — remove se for o caso
       const safeReq = this.requestHasImage(req)
         ? this.stripImagesToStub(req)
         : req;
-      return this.openai.complete(safeReq, this.stripProviderPrefix(req.modelId));
+      return openai.complete(safeReq, this.stripProviderPrefix(req.modelId));
     }
 
     return this.completeWithAnthropic(this.normalizeModelId(req.modelId), req);
@@ -271,9 +353,14 @@ export class LlmService {
     return { ...req, messages };
   }
 
+  /**
+   * `clientOverride` = motor Anthropic da própria organização (chave dela).
+   * Sem ele, usa o motor de visão global (config do Super Admin).
+   */
   private async completeWithAnthropic(
     modelId: string,
     req: LlmCompletionRequest,
+    clientOverride?: Anthropic,
   ): Promise<LlmCompletionResponse> {
     const { system, messages } = this.toAnthropicMessages(req.messages);
     const tools = req.tools
@@ -284,9 +371,20 @@ export class LlmService {
     // e a API retorna 400. Omitir quando o modelo for Opus 4.7+.
     const supportsTemperature = !this.isOpus47(modelId);
 
+    let client = clientOverride;
+    if (!client) {
+      const visionKey = (await this.engineSettings.getEffective()).vision.apiKey;
+      if (!visionKey) {
+        throw new InternalServerErrorException(
+          'Chave Anthropic não configurada — configure em Super Admin > Motor de IA (bloco Visão) ou via ANTHROPIC_API_KEY.',
+        );
+      }
+      client = this.buildAnthropicClient(visionKey);
+    }
+
     let response: Anthropic.Message;
     try {
-      response = await this.client.messages.create({
+      response = await client.messages.create({
         model: modelId,
         max_tokens: req.maxTokens ?? 2048,
         ...(supportsTemperature

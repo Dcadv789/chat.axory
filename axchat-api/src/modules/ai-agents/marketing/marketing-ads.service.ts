@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../database/prisma.service';
 import { brtNow, countConversions } from './meta-insights.util';
+import { MarketingBudgetService } from './marketing-budget.service';
 
 const GRAPH = 'https://graph.facebook.com/v25.0';
 
@@ -28,6 +29,7 @@ export class MarketingAdsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly budgetService: MarketingBudgetService,
   ) {}
 
   private async resolve(orgId: string, key: string): Promise<string | null> {
@@ -371,7 +373,16 @@ export class MarketingAdsService {
     }
 
     const currency = profile?.currency ?? 'BRL';
-    const monthlyBudget = profile?.monthlyAdBudgetCents != null ? profile.monthlyAdBudgetCents / 100 : null;
+    // Verba DO MÊS DE REFERÊNCIA, não a de hoje. Antes usava o valor único do
+    // perfil, então olhar um mês passado comparava o gasto daquele mês com a
+    // verba atual — e o pacing histórico saía errado toda vez que o teto mudava.
+    const resolvedBudget = await this.budgetService.resolveForMonth(
+      orgId,
+      refYear,
+      refMonth0 + 1,
+    );
+    const monthlyBudget =
+      resolvedBudget.amountCents != null ? resolvedBudget.amountCents / 100 : null;
     const maxDailyBudget = profile?.maxDailyBudgetCents != null ? profile.maxDailyBudgetCents / 100 : null;
 
     // Gasto do MÊS DE REFERÊNCIA (pra pacing). Se a janela de insights já é
@@ -425,6 +436,9 @@ export class MarketingAdsService {
       daysRemaining,
       currency,
       monthlyBudget,
+      /** Como a verba do mês foi obtida: definida, herdada ou valor legado. */
+      monthlyBudgetOrigin: resolvedBudget.origin,
+      monthlyBudgetInheritedFrom: resolvedBudget.inheritedFrom,
       maxDailyBudget,
       spentMonth,
       campaignsTotal,

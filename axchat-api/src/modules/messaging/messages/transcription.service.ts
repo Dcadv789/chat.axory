@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../database/prisma.service';
 import { ChannelAdapterRegistry } from '../../channel-hub/channel-adapter.registry';
 import { MediaResolverService } from './media-resolver.service';
+import { AiEngineSettingsService } from '../../ai-agents/llm/ai-engine-settings.service';
 import axios from 'axios';
 
 export interface TranscriptionResult {
@@ -35,6 +36,7 @@ export class TranscriptionService {
     private readonly config: ConfigService,
     private readonly adapterRegistry: ChannelAdapterRegistry,
     private readonly mediaResolver: MediaResolverService,
+    private readonly engineSettings: AiEngineSettingsService,
   ) {}
 
   async transcribe(
@@ -66,12 +68,17 @@ export class TranscriptionService {
       return metadata.transcription as TranscriptionResult;
     }
 
-    const apiKey = this.config.get<string>('OPENAI_API_KEY');
+    // Credencial do bloco "Áudio/OpenAI" do Super Admin (cai pro env se não
+    // tiver sido definida na UI).
+    const engine = (await this.engineSettings.getEffective()).audio;
+    const apiKey = engine.apiKey;
     if (!apiKey) {
       throw new BadRequestException(
-        'OPENAI_API_KEY not configured on the server',
+        'Chave OpenAI não configurada — defina em Super Admin > Motor de IA (bloco Áudio) ou via OPENAI_API_KEY.',
       );
     }
+    const apiUrl = `${(engine.baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, '')}/audio/transcriptions`;
+    const model = engine.modelId ?? TranscriptionService.MODEL;
 
     const audio = await this.downloadAudio(message);
     if (audio.buffer.byteLength > TranscriptionService.MAX_BYTES) {
@@ -89,7 +96,7 @@ export class TranscriptionService {
       type: audio.mimeType || 'audio/mpeg',
     });
     formData.append('file', blob, audio.filename);
-    formData.append('model', TranscriptionService.MODEL);
+    formData.append('model', model);
     formData.append('response_format', 'verbose_json');
     // Portuguese bias by default — Whisper auto-detects, this just nudges.
     formData.append(
@@ -99,7 +106,7 @@ export class TranscriptionService {
 
     let response;
     try {
-      response = await axios.post(TranscriptionService.API_URL, formData, {
+      response = await axios.post(apiUrl, formData, {
         headers: { Authorization: `Bearer ${apiKey}` },
         timeout: 120_000,
         maxContentLength: Infinity,

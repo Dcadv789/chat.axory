@@ -29,8 +29,10 @@ export class ThreadsOAuthController {
     const webBase = (process.env.CORS_ORIGIN || 'http://localhost:3000')
       .split(',')[0]
       .trim();
-    const dest = (params: string) =>
-      `${webBase}/dashboard/settings/channels?${params}`;
+    // `/settings/channels` — sem `/dashboard`: o route group `(dashboard)` do
+    // Next NÃO entra na URL, então o caminho antigo dava 404 logo depois de
+    // conectar (o canal era criado, mas o dono via página de erro).
+    const dest = (params: string) => `${webBase}/settings/channels?${params}`;
 
     if (error) {
       this.logger.warn(`Threads OAuth error: ${error} — ${errorDescription}`);

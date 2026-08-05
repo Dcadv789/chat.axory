@@ -9,8 +9,9 @@ import {
 import {
   Activity, Clock, Target, CheckCircle2, TrendingUp, TrendingDown, Minus,
   Bot, Tag as TagIcon, MessageCircle, CalendarClock,
-  Star, RotateCcw, ShieldCheck,
+  Star, RotateCcw, ShieldCheck, LayoutDashboard,
 } from 'lucide-react';
+import { PageHeader } from '@/components/layout/page-header';
 import { dashboardService, type SparklinePoint } from '@/features/dashboard/services/dashboard.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { Heatmap } from '@/features/dashboard/components/Heatmap';
@@ -191,13 +192,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
-        <h1 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Dashboard</h1>
-        <p className="text-xs text-zinc-500">Últimos 30 dias</p>
-      </header>
-
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+    <PageHeader icon={LayoutDashboard} title="Dashboard" subtitle="Últimos 30 dias">
       <div className="w-full min-w-0">
 
       {/* HERO KPIs */}
@@ -417,8 +412,7 @@ export default function DashboardPage() {
         </ChartCard>
       </div>
       </div>
-      </div>
-    </div>
+    </PageHeader>
   );
 }
 

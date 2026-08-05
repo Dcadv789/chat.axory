@@ -6,7 +6,7 @@ import { Plus, Trash2, Pencil, GripVertical, MessageSquareDiff } from 'lucide-re
 import { toast } from 'sonner';
 import { quickRepliesService, type QuickReply } from '@/features/settings/services/quick-replies.service';
 
-export default function SettingsQuickRepliesPage() {
+export function QuickRepliesManager() {
   const queryClient = useQueryClient();
   const [newShortcut, setNewShortcut] = useState('');
   const [newTitle, setNewTitle] = useState('');
@@ -77,9 +77,9 @@ export default function SettingsQuickRepliesPage() {
   return (
     <div>
       {/* Create form */}
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
+      <div className="rounded-lg bg-zinc-50 p-4 dark:bg-white/5">
         <h3 className="mb-3 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Novo atalho</h3>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mb-1">Atalho</label>
             <input
@@ -87,7 +87,7 @@ export default function SettingsQuickRepliesPage() {
               onChange={(e) => setNewShortcut(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               placeholder="Ex: saudacao"
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
             />
             <p className="mt-0.5 text-[10px] text-zinc-400">Digite / + este atalho no chat</p>
           </div>
@@ -97,17 +97,8 @@ export default function SettingsQuickRepliesPage() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Ex: Saudação padrão"
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
             />
-          </div>
-          <div className="flex items-end">
-            <button
-              onClick={handleCreate}
-              disabled={!newShortcut.trim() || !newContent.trim()}
-              className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              <Plus className="h-4 w-4" /> Criar atalho
-            </button>
           </div>
         </div>
         <div className="mt-3">
@@ -117,8 +108,17 @@ export default function SettingsQuickRepliesPage() {
             onChange={(e) => setNewContent(e.target.value)}
             placeholder="Olá! Tudo bem? Em que posso ajudar?"
             rows={3}
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
           />
+        </div>
+        <div className="mt-3 flex justify-end">
+          <button
+            onClick={handleCreate}
+            disabled={!newShortcut.trim() || !newContent.trim()}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" /> Criar atalho
+          </button>
         </div>
       </div>
 
@@ -126,7 +126,7 @@ export default function SettingsQuickRepliesPage() {
       <div className="mt-6 space-y-2">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-lg border bg-zinc-50 dark:border-white/10 dark:bg-black" />
+            <div key={i} className="h-16 animate-pulse rounded-lg border bg-zinc-100 dark:border-white/10 dark:bg-white/5" />
           ))
         ) : !replies?.length ? (
           <div className="flex flex-col items-center py-12 text-center">
@@ -136,7 +136,7 @@ export default function SettingsQuickRepliesPage() {
           </div>
         ) : (
           replies.map((r) => (
-            <div key={r.id} className="rounded-lg border border-zinc-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black">
+            <div key={r.id} className="rounded-lg border border-zinc-100 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
               {editingId === r.id ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -145,7 +145,7 @@ export default function SettingsQuickRepliesPage() {
                       <input
                         value={editShortcut}
                         onChange={(e) => setEditShortcut(e.target.value)}
-                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
+                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
                       />
                     </div>
                     <div>
@@ -153,7 +153,7 @@ export default function SettingsQuickRepliesPage() {
                       <input
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
-                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
+                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
                       />
                     </div>
                     <div className="flex items-end gap-1">
@@ -167,7 +167,7 @@ export default function SettingsQuickRepliesPage() {
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
                       rows={2}
-                      className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
                     />
                   </div>
                 </div>

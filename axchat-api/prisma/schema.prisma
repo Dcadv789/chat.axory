@@ -197,6 +197,10 @@ model Organization {
   /// sem distribuir entre setores. Quando false, o orquestrador escolhe o setor
   /// e usa o padrão só como fallback. Default false.
   routeAllToDefaultSector Boolean @default(false) @map("route_all_to_default_sector")
+  /// Quantas mensagens anteriores da conversa entram no prompt do agente.
+  /// Default 50 — a operação é de atendimento rápido, então janela curta é
+  /// suficiente e mantém custo/latência baixos. Configurável em Settings > IA.
+  aiHistoryWindow      Int     @default(50) @map("ai_history_window")
   aiMonthlyTokenCap    Int?    @map("ai_monthly_token_cap")
   monthlyConversationLimit Int? @map("monthly_conversation_limit")
   /// Cap de tokens de IA do MARKETING no mês, SEPARADO do cap de atendimento.
@@ -210,8 +214,16 @@ model Organization {
   /// Fluxo 1:1 privado, com tarefas/notas/lembretes/agenda. Quando false,
   /// o cliente nem vê o menu.
   assistantEnabled     Boolean @default(false) @map("assistant_enabled")
+  /// Motor de IA da org, controlado pelo Super Admin.
+  /// true  = "IA AxChat": roda no NOSSO motor (chaves globais de env). O cliente
+  ///         não configura chave nenhuma — a UI de chave/modelo próprio some e o
+  ///         backend ignora `deepseekApiKey` e os AiModelProvider da org.
+  /// false = "IA própria": o cliente traz o motor dele (chave DeepSeek e/ou
+  ///         modelos custom registrados em AiModelProvider).
+  axchatAiEnabled      Boolean @default(true) @map("axchat_ai_enabled")
   /// Chave de API do DeepSeek por organização (definida pela UI em
   /// Settings > IA). NULL = usa o fallback global DEEPSEEK_API_KEY da env.
+  /// Só tem efeito quando `axchatAiEnabled` = false.
   deepseekApiKey       String? @map("deepseek_api_key") @db.Text
   /// Notas livres do negócio injetadas no system prompt de TODOS os
   /// agentes da org. Use pra info que muda com frequência e que vale
@@ -271,6 +283,7 @@ model Organization {
   organizationSecrets OrganizationSecret[]
   agentCrons         AgentCron[]
   marketingProfile     MarketingProfile?
+  marketingMonthlyBudgets MarketingMonthlyBudget[]
   marketingMediaAssets MarketingMediaAsset[]
   marketingAnalyses    MarketingAnalysis[]
   marketingActivities  MarketingActivity[]
@@ -1429,6 +1442,9 @@ model MarketingProfile {
   guidelines         String? @db.Text // regras/limites (o que pode e não pode)
 
   // Regras de verba para anúncios.
+  /// Verba mensal LEGADA (valor único). Continua valendo como fallback para
+  /// meses anteriores ao primeiro registro de `MarketingMonthlyBudget` — que é
+  /// onde a verba passou a ser definida mês a mês.
   monthlyAdBudgetCents Int?    @map("monthly_ad_budget_cents") // teto mensal total de mídia
   maxDailyBudgetCents  Int?    @map("max_daily_budget_cents") // teto por campanha/dia
   currency             String  @default("BRL")
@@ -1446,6 +1462,37 @@ model MarketingProfile {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("marketing_profiles")
+}
+
+/// Verba de mídia POR MÊS. Substitui o valor único do MarketingProfile, que
+/// obrigava a redigitar todo mês e fazia o pacing de meses passados ser
+/// calculado contra a verba de hoje (histórico errado).
+///
+/// Resolução de um mês sem registro próprio: vale o registro mais RECENTE que
+/// seja <= àquele mês (herança pra frente). Assim, definir a verba de abril não
+/// reescreve o passado, e quem não mexe todo mês continua coberto. Se não
+/// houver nenhum registro anterior, cai no `MarketingProfile.monthlyAdBudgetCents`.
+model MarketingMonthlyBudget {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+
+  /// Ano com 4 dígitos e mês de 1 a 12 (não 0-11) — a chave é lida por humano
+  /// em query e log, então guardamos no formato natural.
+  year  Int
+  month Int
+
+  amountCents Int     @map("amount_cents")
+  note        String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, year, month], name: "uq_marketing_budget_month")
+  /// Ordenado por (ano, mês) porque a resolução sempre busca "o mais recente <= X".
+  @@index([organizationId, year, month], name: "idx_marketing_budget_lookup")
+  @@map("marketing_monthly_budgets")
 }
 
 enum MarketingMediaKind {
@@ -2291,6 +2338,42 @@ model AutomationRun {
   @@index([traceId], name: "idx_run_trace")
   @@index([status, startedAt(sort: Desc)], name: "idx_run_status_time")
   @@map("automation_runs")
+}
+
+/// Entradas do RAG — memória de longo prazo que resgata o que saiu da janela
+/// de histórico.
+///
+/// O embedding fica como `Float[]` (double precision[] nativo do Postgres) e a
+/// similaridade de cosseno é calculada na aplicação. A alternativa seria
+/// pgvector, mas a extensão NÃO existe na imagem do Postgres em uso — e trocar
+/// a imagem mexeria no banco compartilhado com o Axdeal. Na escala deste
+/// produto o cálculo em memória é irrelevante: a busca filtra por
+/// agente/contato antes, então varre dezenas ou centenas de vetores, não a
+/// tabela inteira. Se um dia virar milhões, troca-se só o VectorStoreService.
+model AiVectorEntry {
+  id String @id
+
+  /// 'message' | 'fact' | 'memory_summary'
+  ownerType String @map("owner_type")
+  /// FK no domínio de origem (Message.id, etc). Sem constraint de propósito:
+  /// apagar a origem não pode derrubar a indexação em cascata no meio de um run.
+  ownerId   String @map("owner_id")
+
+  conversationId String? @map("conversation_id")
+  agentId        String? @map("agent_id")
+  contactId      String? @map("contact_id")
+
+  /// Texto original — é o que volta na busca e entra no prompt.
+  content   String  @db.Text
+  embedding Float[]
+  metadata  Json    @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([agentId, contactId], name: "idx_vector_agent_contact")
+  @@index([conversationId], name: "idx_vector_conversation")
+  @@index([ownerType, ownerId], name: "idx_vector_owner")
+  @@map("ai_vector_entries")
 }
 
 model PlatformSetting {

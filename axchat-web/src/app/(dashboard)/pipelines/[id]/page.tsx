@@ -1,16 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, KanbanSquare, Settings } from 'lucide-react';
+import { KanbanSquare, Settings } from 'lucide-react';
 import { pipelinesService } from '@/features/pipelines/services/pipelines.service';
 import { KanbanBoard } from '@/features/pipelines/components/kanban-board';
 import { StagesDialog } from '@/features/pipelines/components/stages-dialog';
+import { PageHeader } from '@/components/layout/page-header';
 
 export default function PipelineBoardPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const pipelineId = params?.id;
   const [stagesOpen, setStagesOpen] = useState(false);
 
@@ -23,24 +23,13 @@ export default function PipelineBoardPage() {
   if (!pipelineId) return null;
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
-        <button
-          onClick={() => router.push('/pipelines')}
-          className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-white/10 dark:hover:text-zinc-100"
-          aria-label="Voltar"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <KanbanSquare className="h-5 w-5 shrink-0 text-primary" />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-            {board?.pipeline?.name ?? 'Pipeline'}
-          </h1>
-          <p className="text-xs text-zinc-500">
-            {board?.pipeline?.description || 'Quadro kanban do pipeline'}
-          </p>
-        </div>
+    <PageHeader
+      icon={KanbanSquare}
+      title={board?.pipeline?.name ?? 'Pipeline'}
+      subtitle={board?.pipeline?.description || 'Quadro kanban do pipeline'}
+      breadcrumb={[{ label: 'Pipelines', href: '/pipelines' }]}
+      contentClassName="flex min-h-0 flex-1 flex-col px-4 pt-3"
+      actions={
         <button
           onClick={() => setStagesOpen(true)}
           disabled={!board}
@@ -49,8 +38,10 @@ export default function PipelineBoardPage() {
           <Settings className="h-3.5 w-3.5" />
           Configurar stages
         </button>
-      </header>
-      <div className="flex-1 overflow-hidden pt-3">
+      }
+    >
+      {/* Board ocupa o resto da altura; -mx-4 pra ir de ponta a ponta (kanban rola na horizontal) */}
+      <div className="-mx-4 min-h-0 flex-1 overflow-hidden">
         <KanbanBoard pipelineId={pipelineId} />
       </div>
 
@@ -63,6 +54,6 @@ export default function PipelineBoardPage() {
           onSaved={() => setStagesOpen(false)}
         />
       )}
-    </div>
+    </PageHeader>
   );
 }

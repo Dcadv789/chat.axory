@@ -1,32 +1,43 @@
 # Como funciona a memória dos agentes de IA
 
 Explicação em linguagem simples de como **qualquer** agente do AxChat lembra das
-coisas — vale pros agentes de atendimento, de marketing e (em breve) pro
-assistente pessoal. No fim tem uma nota sobre o que muda pro assistente pessoal.
+coisas — vale pros agentes de atendimento, de marketing e pro assistente
+pessoal. No fim tem uma nota sobre o que muda pro assistente pessoal.
 
-> TL;DR: existem **3 camadas de memória** trabalhando juntas — bloco de notas
-> (curto prazo), ficha do contato (longo prazo) e busca semântica (RAG). Tudo é
-> **privado por contato e por organização** — nada vaza entre clientes ou entre
-> empresas.
+> TL;DR: existem **3 camadas de memória** trabalhando juntas — as mensagens
+> recentes da conversa (curto prazo), a ficha do contato (longo prazo) e a busca
+> semântica (RAG). Tudo é **privado por contato e por organização** — nada vaza
+> entre clientes ou entre empresas.
 
 ---
 
 ## As 3 camadas
 
-### 1. Bloco de notas — memória de curto prazo (as mensagens recentes)
-**O que é:** as últimas mensagens da conversa, mantidas "à mão" pro agente não
-precisar reler o histórico inteiro do banco a cada resposta.
+### 1. Mensagens recentes — memória de curto prazo
+**O que é:** as últimas mensagens da conversa, lidas direto do banco a cada vez
+que o agente vai responder.
 
-- Fica guardada no **Redis** (memória rápida), com a chave da conversa.
-- Guarda as últimas **~100 mensagens**, e o agente normalmente lê as **~30** mais
-  recentes a cada vez que vai responder.
-- **Expira em 7 dias** sem atividade. Conversa ativa nunca expira (o prazo se
-  renova a cada mensagem nova).
-- É um **cache**: se não estiver no Redis, o sistema busca no banco (Postgres) e
-  recoloca no Redis.
+- Vem do **Postgres**, numa consulta única por resposta. **Não há cache.**
+- Quantas mensagens: configurável por empresa em **Configurações › IA**, no campo
+  *"Histórico que o agente lê"*. **Padrão: 50** (faixa aceita: 5 a 200).
+- Não há corte por tokens nem sumarização: se a janela é 50, entram as 50 mais
+  recentes, ponto.
 
-**Analogia:** o post-it que você deixa na mesa com o assunto do momento. Some
-sozinho depois de um tempo parado.
+**Por que sem cache?** Já foi medido: a consulta executa em **0,34 ms** no
+Postgres (índice por conversa + data), contra **2 a 15 segundos** da chamada ao
+modelo de IA. A leitura do histórico é ~0,05% do tempo de uma resposta. Um cache
+economizaria meio milissegundo e traria em troca o problema de invalidação — toda
+mensagem nova, edição ou exclusão teria que limpar o cache, e errar um desses
+caminhos faz o agente responder com histórico defasado. Não compensa.
+
+**O que NÃO entra nessa janela:**
+- **Notas internas** — são gravadas como mensagens de saída, então sem filtro
+  virariam falas do próprio agente, e ele poderia repetir pro cliente algo escrito
+  só pra equipe.
+- **Mensagens apagadas** ("excluir para todos") — o que o operador apagou o agente
+  não lê.
+
+**Analogia:** reler as últimas páginas da conversa antes de responder.
 
 ### 2. Ficha do contato — memória de longo prazo (fatos + resumo)
 **O que é:** o que o agente **aprendeu** sobre aquela pessoa, de forma permanente.
@@ -56,19 +67,34 @@ sozinho depois de um tempo parado.
 **carrega a ficha** daquele (agente + contato) e **injeta o resumo + os fatos no
 começo do prompt** — então o agente "já chega sabendo" quem é a pessoa.
 
+É esta camada que sobrevive quando a conversa passa da janela de mensagens
+recentes: o detalhe some, mas o aprendizado fica.
+
 **Analogia:** a ficha de cadastro que você vai preenchendo sobre o cliente.
 Permanente, e você relê toda vez antes de falar com ele.
 
-### 3. Busca semântica — RAG (quando o post-it não basta)
-**O que é:** uma busca por **significado** em conversas antigas, pra recuperar
-contexto que já saiu da janela das 30 mensagens recentes.
+### 3. Busca semântica — RAG (quando as mensagens recentes não bastam)
+**O que é:** uma busca por **significado** no histórico, pra recuperar contexto
+que já saiu da janela de mensagens recentes.
 
-- Cada mensagem relevante do cliente vira um **vetor** (embedding, via OpenAI) e
-  é guardada no Postgres (extensão pgvector).
-- Quando precisa, o sistema transforma a pergunta atual em vetor e busca as
-  passagens **mais parecidas** (por similaridade), trazendo de volta o que for
-  relevante — mesmo de semanas atrás.
-- Também roda em segundo plano, depois de cada resposta.
+- Cada mensagem indexada vira um **vetor** (embedding, via OpenAI) guardado na
+  tabela `ai_vector_entries`.
+- Quando o agente vai responder, a mensagem atual vira vetor e o sistema busca as
+  passagens **mais parecidas**, trazendo de volta o que for relevante — inclusive
+  de **conversas anteriores do mesmo contato**, não só da conversa atual.
+- A indexação roda em segundo plano (fila `rag-indexer`), depois de cada resposta.
+
+**Detalhe de implementação:** a similaridade de cosseno é calculada **na
+aplicação**, não no banco. A extensão `pgvector` não está disponível no Postgres
+em uso, e trocar a imagem afetaria o banco compartilhado com o Axdeal. Como a
+busca sempre filtra por agente e contato antes de calcular, o conjunto avaliado é
+de dezenas de vetores — irrelevante em custo. Se algum escopo passar de ~10 mil
+vetores, vale migrar pra pgvector; só o `VectorStoreService` muda.
+
+**Pré-requisito operacional:** o RAG depende da **chave OpenAI** configurada em
+**Super Admin › Motor de IA** (bloco *Áudio/OpenAI*). Sem ela a indexação não
+gera embedding e o índice fica vazio — a busca não encontra nada, e o agente
+segue funcionando com as outras duas camadas.
 
 **Analogia:** o "Ctrl+F inteligente" do histórico — acha pelo assunto, não pela
 palavra exata.
@@ -78,8 +104,9 @@ palavra exata.
 ## O ciclo completo, do começo ao fim
 
 1. Chega uma mensagem do cliente.
-2. O agente **carrega a ficha** (longo prazo) daquele contato e **as ~30 últimas
-   mensagens** (curto prazo); se precisar, busca trechos antigos por **RAG**.
+2. O agente carrega a **ficha** (longo prazo) daquele contato e as **N últimas
+   mensagens** da conversa (padrão 50); em paralelo, busca trechos antigos por
+   **RAG**.
 3. Tudo isso entra no prompt → o agente responde já com contexto.
 4. Depois de responder, em segundo plano: o **Haiku atualiza a ficha** (novos
    fatos/resumo) e o **RAG indexa** a mensagem nova.
@@ -98,14 +125,19 @@ palavra exata.
 
 ## Limites e limpeza (estado atual — pontos de atenção)
 
-- **Curto prazo:** limitado a ~100 mensagens e 7 dias. Se autolimpa.
+- **Curto prazo:** a janela é o limite. Fora dela, o detalhe só volta pela ficha
+  ou pelo RAG. Em canais que **não rotacionam conversa** (Telegram, Instagram — só
+  o WhatsApp Official fecha por janela de 24h), a conversa acumula
+  indefinidamente, então a janela é atingida com facilidade.
 - **Longo prazo (ficha):** **não tem limite nem expiração hoje** — os fatos
-  crescem indefinidamente. Há limpeza **manual** (operador zera a ficha de um
-  contato). *Melhoria futura sugerida: um teto de fatos por ficha / poda dos de
-  baixa confiança.*
-- **RAG:** sem expiração; dá pra apagar entradas pontualmente.
-- Não há corte por "tokens" — as mensagens enviadas ao Haiku são truncadas em
-  ~500 caracteres cada pra controlar custo.
+  crescem indefinidamente e vão inteiros no prompt a cada resposta. Há limpeza
+  **manual** (operador zera a ficha de um contato). *Melhoria pendente: teto de
+  fatos por ficha e poda dos de baixa confiança.*
+- **RAG:** sem expiração; dá pra apagar entradas pontualmente. O índice se
+  constrói **daqui pra frente** — mensagens anteriores à ativação só entram
+  rodando o backfill (`npm run rag:backfill`).
+- Não há corte por "tokens" em nenhuma camada. As mensagens enviadas ao Haiku são
+  truncadas em ~500 caracteres cada pra controlar custo.
 
 ---
 
@@ -116,7 +148,7 @@ O assistente pessoal usa **a mesma máquina de memória**, mas com uma diferenç
 pessoal o "contato" é o **próprio dono**. Então a ficha de longo prazo vira a
 memória que o assistente tem **sobre você** — suas preferências, rotina, projetos,
 como você gosta que ele te lembre das coisas — e ela cresce ao longo do tempo,
-privada só pra você. As tarefas/notas/lembretes que vamos criar são dados
-**estruturados** próprios (tabelas dedicadas), separados dessa memória "aprendida"
-— um complementa o outro: a ficha guarda *quem você é e como trabalha*; as tabelas
-guardam *o que tem pra fazer e quando lembrar*.
+privada só pra você. As tarefas/notas/lembretes são dados **estruturados**
+próprios (tabelas dedicadas), separados dessa memória "aprendida" — um complementa
+o outro: a ficha guarda *quem você é e como trabalha*; as tabelas guardam *o que
+tem pra fazer e quando lembrar*.

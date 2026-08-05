@@ -10,7 +10,7 @@ const CONTACT_INCLUDE = {
     orderBy: { createdAt: 'desc' as const },
     take: 20,
   },
-  _count: { select: { conversations: true } },
+  _count: { select: { conversations: true, channels: true } },
 };
 
 @Injectable()
@@ -22,7 +22,7 @@ export class ContactsRepository {
     search: string | undefined,
     skip: number,
     take: number,
-    filters?: { tagId?: string; campaign?: string },
+    filters?: { tagId?: string; campaign?: string; source?: string },
   ) {
     const where: Prisma.ContactWhereInput = { organizationId, deletedAt: null };
 
@@ -38,6 +38,9 @@ export class ContactsRepository {
     }
     if (filters?.campaign) {
       where.campaign = filters.campaign;
+    }
+    if (filters?.source) {
+      where.source = filters.source;
     }
 
     const [contacts, total] = await this.prisma.$transaction([
@@ -101,6 +104,17 @@ export class ContactsRepository {
       orderBy: { campaign: 'asc' },
     });
     return rows.map((r) => r.campaign!).filter(Boolean);
+  }
+
+  /** Origens (source) distintas já usadas na org (pro filtro). */
+  async listSources(organizationId: string): Promise<string[]> {
+    const rows = await this.prisma.contact.findMany({
+      where: { organizationId, deletedAt: null, source: { not: null } },
+      select: { source: true },
+      distinct: ['source'],
+      orderBy: { source: 'asc' },
+    });
+    return rows.map((r) => r.source!).filter(Boolean);
   }
 
   /**

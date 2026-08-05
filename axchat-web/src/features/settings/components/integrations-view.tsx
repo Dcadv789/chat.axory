@@ -237,21 +237,11 @@ export function IntegrationsView() {
 
   return (
     <div className="space-y-6">
-      <div className="max-w-3xl">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-          Integrações de Marketing
-        </h2>
-        <p className="mt-1 text-sm text-zinc-500">
-          Cada organização preenche suas credenciais e IDs aqui uma vez. Depois
-          disso os agentes de marketing operam de forma autônoma — eles puxam
-          tokens e IDs automaticamente, sem precisar perguntar a ninguém.
-        </p>
-      </div>
-
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-zinc-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Carregando…
+        <div className="space-y-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-40 animate-pulse rounded-xl bg-zinc-100 dark:bg-white/5" />
+          ))}
         </div>
       ) : (
         <div className="space-y-6">

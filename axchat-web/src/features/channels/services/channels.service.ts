@@ -70,6 +70,11 @@ export interface CoexistenceConfig {
   instagramEnabled?: boolean;
   /** true quando o app do Threads (id + secret) está configurado. */
   threadsEnabled?: boolean;
+  /**
+   * true quando o app do **Login do Instagram** (id + secret) está configurado.
+   * Fluxo em que o dono entra com a conta do próprio Instagram, sem Página do FB.
+   */
+  instagramLoginEnabled?: boolean;
 }
 
 export interface ThreadsCarouselItem {
@@ -201,6 +206,27 @@ export const channelsService = {
     const { data } = await api.post<{ data: Record<string, unknown> }>(
       '/channels/instagram/facebook-login/debug',
       { name: 'debug', ...payload },
+    );
+    return data.data ?? (data as any);
+  },
+
+  /**
+   * URL de autorização do **Login do Instagram** (o navegador é redirecionado
+   * pra ela). Não exige Página do Facebook — o dono entra direto com a conta
+   * do Instagram. O retorno cai no callback público do backend.
+   */
+  async getInstagramLoginAuthUrl(params: {
+    name: string;
+    visibility?: ChannelVisibility;
+  }): Promise<{ url: string }> {
+    const { data } = await api.get<{ data: { url: string } }>(
+      '/channels/instagram-login/oauth/url',
+      {
+        params: {
+          name: params.name,
+          ...(params.visibility ? { visibility: params.visibility } : {}),
+        },
+      },
     );
     return data.data ?? (data as any);
   },

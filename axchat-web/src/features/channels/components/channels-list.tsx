@@ -39,23 +39,23 @@ export function ChannelsList() {
 
   return (
     <div className="flex w-full items-start gap-4">
-      {/* Left sidebar: list — alinhado com a nav de cima (sem margem extra) */}
-      <div className="flex w-72 shrink-0 flex-col border-r border-zinc-200 pr-4 dark:border-white/10">
-        <div className="pb-3">
+      {/* Left sidebar: card com a lista (fundo branco/preto absoluto) */}
+      <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-white/10 dark:bg-black">
+        <div className="border-b border-zinc-200 p-3 dark:border-white/10">
           <button
             onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
             Novo Canal
           </button>
         </div>
 
-        <div className="max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin">
+        <div className="max-h-[calc(100vh-280px)] overflow-y-auto scrollbar-thin p-2">
           {isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-16 animate-pulse rounded-lg bg-zinc-50 dark:bg-black" />
+                <div key={i} className="h-16 animate-pulse rounded-lg bg-zinc-100 dark:bg-white/5" />
               ))}
             </div>
           ) : !channels?.length ? (
@@ -84,7 +84,7 @@ export function ChannelsList() {
                     className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors ${
                       isSelected
                         ? 'bg-primary/[0.06] text-primary dark:bg-primary/10'
-                        : 'text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/10'
+                        : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10'
                     }`}
                   >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200/60 bg-white dark:border-white/10 dark:bg-black">

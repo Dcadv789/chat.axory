@@ -341,9 +341,13 @@ export class InboundMessageProcessor extends WorkerHost {
       if (webhookEventId) {
         await this.webhookEvents.markFailed(webhookEventId, err.message);
       }
-      // Release the claim so retries can try again — next attempt re-acquires.
+      // Devolve a claim pra que a retentativa consiga reivindicar de novo.
+      // Antes chamava `markProcessed`, que REESCREVE a chave em vez de apagar —
+      // o retry caía em `claimProcessing = false`, a mensagem era descartada
+      // como duplicata e o webhook ainda era marcado PROCESSED. Ou seja:
+      // qualquer falha transitória virava perda definitiva e silenciosa.
       await this.idempotency
-        .markProcessed(message.externalMessageId, channelId)
+        .releaseClaim(message.externalMessageId, channelId)
         .catch(() => undefined);
       throw err;
     }

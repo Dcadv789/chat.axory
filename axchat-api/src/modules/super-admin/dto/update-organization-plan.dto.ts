@@ -17,6 +17,11 @@ export class UpdateOrganizationPlanDto {
   @IsOptional()
   marketingEnabled?: boolean;
 
+  /** true = IA AxChat (nosso motor); false = o cliente configura o motor dele. */
+  @IsBoolean()
+  @IsOptional()
+  axchatAiEnabled?: boolean;
+
   @IsInt()
   @Min(0)
   @IsOptional()

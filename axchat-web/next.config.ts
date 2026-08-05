@@ -21,12 +21,19 @@ const nextConfig: NextConfig = {
     ];
   },
   async redirects() {
+    // Abas que foram consolidadas em outras telas. Feito no config (camada de
+    // roteamento) em vez de páginas com redirect() — evita renderizar um Server
+    // Component que só redireciona (que quebrava a medição de performance do dev).
     return [
-      {
-        source: '/settings',
-        destination: '/settings/channels',
-        permanent: false,
-      },
+      { source: '/settings', destination: '/settings/general', permanent: false },
+      { source: '/settings/members', destination: '/settings/general', permanent: false },
+      { source: '/settings/sectors', destination: '/settings/general', permanent: false },
+      { source: '/settings/tags', destination: '/settings/general', permanent: false },
+      { source: '/settings/notifications', destination: '/settings/general', permanent: false },
+      { source: '/settings/quick-replies', destination: '/settings/general', permanent: false },
+      { source: '/settings/whatsapp-templates', destination: '/settings/channels', permanent: false },
+      { source: '/settings/api-keys', destination: '/settings/secrets', permanent: false },
+      { source: '/contacts', destination: '/settings/contacts', permanent: false },
     ];
   },
 };

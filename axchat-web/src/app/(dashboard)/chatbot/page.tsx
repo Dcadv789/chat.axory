@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { Plus, Bot, MoreVertical, Trash2, Power, PowerOff } from 'lucide-react';
+import { Plus, Bot, Trash2, Power, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/layout/page-header';
 import { chatbotService, type ChatbotFlow } from '@/features/chatbot/services/chatbot.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
 
@@ -59,26 +60,19 @@ export default function ChatbotPage() {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4 dark:border-white/10 dark:bg-black">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 shrink-0 text-primary" />
-            <div>
-              <h1 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">Chatbot</h1>
-              <p className="text-xs text-zinc-500">Crie e gerencie fluxos de atendimento automático</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Novo Fluxo
-          </button>
-        </div>
-      </header>
-
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+    <PageHeader
+      icon={Bot}
+      title="Chatbot"
+      subtitle="Crie e gerencie fluxos de atendimento automático"
+      actions={
+        <button
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+        >
+          <Plus className="h-4 w-4" /> Novo Fluxo
+        </button>
+      }
+    >
       {showCreate && (
         <div className="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
           <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Nome do fluxo</p>
@@ -167,7 +161,6 @@ export default function ChatbotPage() {
           </div>
         )}
       </div>
-      </div>
-    </div>
+    </PageHeader>
   );
 }

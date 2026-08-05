@@ -12,7 +12,7 @@ export class ContactsService {
     search: string | undefined,
     page: number,
     limit: number,
-    filters?: { tagId?: string; campaign?: string },
+    filters?: { tagId?: string; campaign?: string; source?: string },
   ) {
     const skip = (page - 1) * limit;
     const { contacts, total } = await this.repository.findByOrg(
@@ -73,6 +73,10 @@ export class ContactsService {
 
   async listCampaigns(organizationId: string) {
     return { campaigns: await this.repository.listCampaigns(organizationId) };
+  }
+
+  async listSources(organizationId: string) {
+    return { sources: await this.repository.listSources(organizationId) };
   }
 
   /**

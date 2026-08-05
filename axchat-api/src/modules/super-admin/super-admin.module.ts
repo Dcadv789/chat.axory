@@ -5,6 +5,7 @@ import type { SignOptions } from 'jsonwebtoken';
 import { ToolsModule } from '../ai-agents/tools/tools.module';
 import { AiAgentsModule } from '../ai-agents/ai-agents.module';
 import { PersonalAssistantModule } from '../ai-agents/personal-assistant/personal-assistant.module';
+import { LlmModule } from '../ai-agents/llm/llm.module';
 import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminService } from './super-admin.service';
 
@@ -22,6 +23,8 @@ import { SuperAdminService } from './super-admin.service';
     ToolsModule,
     AiAgentsModule,
     PersonalAssistantModule,
+    // Config global do motor de IA (aba "Motor de IA" do Super Admin).
+    LlmModule,
   ],
   controllers: [SuperAdminController],
   providers: [SuperAdminService],

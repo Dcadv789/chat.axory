@@ -13,7 +13,9 @@ import { UpdateOrganizationPlanDto } from './dto/update-organization-plan.dto';
 import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
 import { UpdateMetaCoexistenceDto } from './dto/update-meta-coexistence.dto';
 import { CloneAgentsDto } from './dto/clone-agents.dto';
+import { UpdateAiEngineDto, TestAiEngineDto } from './dto/update-ai-engine.dto';
 import { SuperAdminService } from './super-admin.service';
+import { AiEngineSettingsService } from '../ai-agents/llm/ai-engine-settings.service';
 import type { AiAgentSector } from '@prisma/client';
 
 @ApiTags('Super Admin')
@@ -24,6 +26,7 @@ export class SuperAdminController {
   constructor(
     private readonly service: SuperAdminService,
     private readonly toolRegistry: ToolRegistry,
+    private readonly engineSettings: AiEngineSettingsService,
   ) {}
 
   @Get('overview')
@@ -49,6 +52,37 @@ export class SuperAdminController {
   })
   updateMetaCoexistence(@Body() dto: UpdateMetaCoexistenceDto) {
     return this.service.updateMetaCoexistence(dto);
+  }
+
+  // ─── Motor de IA (IA AxChat) ─────────────────────────
+
+  @Get('ai-engine')
+  @ApiOperation({
+    summary:
+      'Get the global AI engine config (text/vision/audio). API keys are never returned — only a masked preview and where each value comes from (ui/env).',
+  })
+  getAiEngine() {
+    return this.engineSettings.getForAdmin();
+  }
+
+  @Patch('ai-engine')
+  @ApiOperation({
+    summary:
+      'Update the global AI engine config. Empty string clears the override and falls back to env.',
+  })
+  updateAiEngine(
+    @CurrentUser('id') actorId: string,
+    @Body() dto: UpdateAiEngineDto,
+  ) {
+    return this.service.updateAiEngine(actorId, dto);
+  }
+
+  @Post('ai-engine/test')
+  @ApiOperation({
+    summary: 'Test the saved credentials against the real provider.',
+  })
+  testAiEngine(@Body() dto: TestAiEngineDto) {
+    return this.engineSettings.testConnection(dto.kind);
   }
 
   @Get('organizations')
