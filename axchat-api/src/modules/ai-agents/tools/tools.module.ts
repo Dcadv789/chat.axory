@@ -20,6 +20,7 @@ import { AgendarReuniaoTool } from './builtin/agendar-reuniao.tool';
 import { GenerateMarketingImageTool } from './builtin/generate-marketing-image.tool';
 import { GetMarketingProfileTool } from './builtin/get-marketing-profile.tool';
 import { RecordMarketingAnalysisTool } from './builtin/record-marketing-analysis.tool';
+import { MarketingCredentialsService } from '../marketing/marketing-credentials.service';
 import { CaptureInstagramMetricsTool } from './builtin/capture-instagram-metrics.tool';
 import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.tool';
 import { GetBudgetPacingTool } from './builtin/get-budget-pacing.tool';
@@ -102,6 +103,10 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     GenerateMarketingImageTool,
     GetMarketingProfileTool,
     RecordMarketingAnalysisTool,
+    // As tools de marketing resolvem a conta padrão da empresa por aqui. Este
+    // provider PRECISA estar neste módulo: registrá-lo só no AiAgentsModule
+    // compila, mas o Nest não resolve a injeção e a API não sobe.
+    MarketingCredentialsService,
     CaptureInstagramMetricsTool,
     CaptureMetaAdsMetricsTool,
     GetBudgetPacingTool,
