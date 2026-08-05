@@ -5,6 +5,7 @@ import { Loader2, AlertTriangle, Bug, Copy } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/icons';
 import { channelsService, type CoexistenceConfig } from '../services/channels.service';
 import { extractFbAuthCode } from '../utils/fb-auth-code';
+import { assertFbApp, ensureFbSdk } from '../utils/fb-sdk';
 
 declare global {
   interface Window {
@@ -66,36 +67,18 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
   useEffect(() => {
     if (!enabled || !igAppId) return;
 
-    if (window.FB) {
-      setSdkReady(true);
-      return;
-    }
-
-    window.fbAsyncInit = () => {
-      window.FB.init({
-        appId: igAppId,
-        autoLogAppEvents: true,
-        xfbml: false,
-        version: 'v25.0',
-      });
-      setSdkReady(true);
-    };
-
-    if (!document.getElementById(FB_SDK_ID)) {
-      const script = document.createElement('script');
-      script.id = FB_SDK_ID;
-      script.src = FB_SDK_SRC;
-      script.async = true;
-      script.defer = true;
-      script.crossOrigin = 'anonymous';
-      document.body.appendChild(script);
-    }
+    // Instagram e WhatsApp usam apps Meta DIFERENTES e o SDK é global: sem isto,
+    // quem carregasse primeiro definia o app da outra tela.
+    ensureFbSdk(igAppId, () => setSdkReady(true));
   }, [enabled, igAppId]);
 
   // `debug=true` → não cria canal; chama o endpoint de debug e mostra o JSON cru.
   const launch = useCallback(
     (debug = false) => {
       if (!window.FB || !configId) return;
+      // Reafirma o app IMEDIATAMENTE antes do login: entre carregar o SDK e o
+      // clique, a tela do WhatsApp pode ter reinicializado com o app dela.
+      assertFbApp(igAppId ?? '');
       setError(null);
       setDebugData(null);
       setLaunching(true);

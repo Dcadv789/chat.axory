@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Loader2, QrCode, AlertTriangle } from 'lucide-react';
 import { channelsService, type CoexistenceConfig } from '../services/channels.service';
 import { extractFbAuthCode } from '../utils/fb-auth-code';
+import { assertFbApp, ensureFbSdk } from '../utils/fb-sdk';
 
 declare global {
   interface Window {
@@ -84,30 +85,10 @@ export function CoexistenceConnect({
   useEffect(() => {
     if (!enabled || !config?.appId) return;
 
-    if (window.FB) {
-      setSdkReady(true);
-      return;
-    }
-
-    window.fbAsyncInit = () => {
-      window.FB.init({
-        appId: config.appId,
-        autoLogAppEvents: true,
-        xfbml: false,
-        version: 'v25.0',
-      });
-      setSdkReady(true);
-    };
-
-    if (!document.getElementById(FB_SDK_ID)) {
-      const script = document.createElement('script');
-      script.id = FB_SDK_ID;
-      script.src = FB_SDK_SRC;
-      script.async = true;
-      script.defer = true;
-      script.crossOrigin = 'anonymous';
-      document.body.appendChild(script);
-    }
+    // O SDK é global e guarda UM appId por página. WhatsApp e Instagram usam
+    // apps Meta diferentes, então quem carregasse primeiro definia o app da
+    // outra tela — e o login saía com app de um e config_id de outro.
+    ensureFbSdk(config.appId, () => setSdkReady(true));
   }, [enabled, config?.appId]);
 
   // Captura phone_number_id / waba_id emitidos pelo popup via postMessage.
@@ -160,6 +141,9 @@ export function CoexistenceConnect({
 
   const launch = useCallback(() => {
     if (!window.FB || !launchConfigId) return;
+    // Reafirma o app IMEDIATAMENTE antes do login: entre carregar o SDK e o
+    // clique, a tela do Instagram pode ter reinicializado com o app dela.
+    assertFbApp(config?.appId ?? '');
     setError(null);
     setLaunching(true);
     sessionInfoRef.current = {};
