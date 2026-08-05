@@ -1045,6 +1045,12 @@ export class ChannelsService {
           appSecret: igAppSecret,
           apiVersion: 'v25.0',
           graphApi: 'facebook',
+          // Token de USUÁRIO do login (diferente do token da Página acima).
+          // Guardado porque é com ele que se descobre/renova a conta de
+          // anúncios: sem isso, quando a captura falha não sobra nada pra
+          // diagnosticar nem pra tentar de novo — era preciso refazer o login
+          // inteiro só pra olhar os escopos.
+          userAccessToken: userToken,
           ...(igConfig.pageAccessToken ? { pageAccessToken: igConfig.pageAccessToken } : {}),
           ...(igConfig.fbPageId ? { fbPageId: igConfig.fbPageId } : {}),
           ...(igConfig.igUsername ? { igUsername: igConfig.igUsername } : {}),
