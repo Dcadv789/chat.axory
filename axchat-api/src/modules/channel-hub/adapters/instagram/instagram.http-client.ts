@@ -800,6 +800,33 @@ export class InstagramHttpClient {
    * na descoberta de Páginas. Sem ele, o dono seleciona a conta de anúncios no
    * popup e mesmo assim recebe "nenhuma conta liberada".
    */
+  /**
+   * Escopos realmente presentes no token, com os alvos concedidos. É o que
+   * permite dizer se faltou PERMISSÃO ou faltou SELEÇÃO de conta — antes as
+   * duas situações produziam a mesma mensagem genérica.
+   */
+  async describeToken(
+    userToken: string,
+    apiVersion = 'v25.0',
+  ): Promise<{ scopes: string[]; granular: Record<string, string[]> }> {
+    try {
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${apiVersion}/debug_token`,
+        {
+          params: { input_token: userToken, access_token: userToken },
+          timeout: 20000,
+        },
+      );
+      const granular: Record<string, string[]> = {};
+      for (const g of data?.data?.granular_scopes ?? []) {
+        if (g?.scope) granular[g.scope] = Array.isArray(g.target_ids) ? g.target_ids : [];
+      }
+      return { scopes: data?.data?.scopes ?? [], granular };
+    } catch {
+      return { scopes: [], granular: {} };
+    }
+  }
+
   async getFirstAdAccount(
     userToken: string,
     apiVersion = 'v25.0',

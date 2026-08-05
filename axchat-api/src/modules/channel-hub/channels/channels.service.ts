@@ -38,6 +38,17 @@ import {
   type ChannelAccess,
 } from '../../iam/channel-access/channel-access.service';
 
+/**
+ * Resultado da captura das credenciais de anúncio no login do Instagram.
+ * `diagnostic` só vem quando falha — carrega os escopos REAIS do token, pra
+ * mensagem na tela dizer o que houve em vez de presumir falta de permissão.
+ */
+interface AdsCaptureResult {
+  adsConnected: boolean;
+  adAccountId?: string;
+  diagnostic?: { scopes: string[]; temAds: boolean };
+}
+
 @Injectable()
 export class ChannelsService {
   private readonly logger = new Logger(ChannelsService.name);
@@ -1050,7 +1061,7 @@ export class ChannelsService {
     // Aguardamos (em vez do antigo fire-and-forget) pra poder DIZER na resposta
     // se os anúncios entraram. O try/catch garante que uma falha aqui não
     // derruba o canal, que é o que o fire-and-forget protegia.
-    let ads: { adsConnected: boolean; adAccountId?: string } = { adsConnected: false };
+    let ads: AdsCaptureResult = { adsConnected: false };
     try {
       ads = await this.persistInstagramOrgSecrets(organizationId, {
         igBusinessId: igConfig.igBusinessId,
@@ -1069,8 +1080,12 @@ export class ChannelsService {
           ? { connected: true as const, adAccountId: ads.adAccountId }
           : {
               connected: false as const,
-              reason:
-                'Nenhuma conta de anúncios foi liberada neste login. As mensagens funcionam normalmente, mas o módulo de Anúncios fica sem credencial. Peça ao Super Admin para incluir as permissões de anúncios (ads_management/ads_read e business_management) na configuração de Login do Facebook, e reconecte.',
+              // A mensagem MUDA conforme o que o token realmente traz: presumir
+              // "faltou permissão" mandava o dono mexer numa configuração que
+              // já estava certa.
+              reason: ads.diagnostic?.temAds
+                ? `A permissão de anúncios FOI concedida (${ads.diagnostic.scopes.join(', ')}), mas nenhuma conta de anúncios veio junto. No popup da Meta, verifique se alguma conta de anúncios ficou realmente marcada — e se o portfólio de negócios tem alguma conta acessível. As mensagens já funcionam.`
+                : `Nenhuma conta de anúncios foi liberada neste login. Escopos que vieram: [${ads.diagnostic?.scopes.join(', ') || 'nenhum'}]. As mensagens funcionam normalmente, mas o módulo de Anúncios fica sem credencial — a configuração de Login do Facebook precisa conceder ads_management ou ads_read.`,
             },
       },
     };
@@ -1086,7 +1101,7 @@ export class ChannelsService {
   private async persistInstagramOrgSecrets(
     organizationId: string,
     data: { igBusinessId: string; accessToken: string; fbPageId?: string; userToken: string },
-  ): Promise<{ adsConnected: boolean; adAccountId?: string }> {
+  ): Promise<AdsCaptureResult> {
     const upsert = async (key: string, value: string) => {
       if (!value) return;
       await this.prisma.organizationSecret.upsert({
@@ -1116,10 +1131,18 @@ export class ChannelsService {
         );
         return { adsConnected: true, adAccountId: adAccount };
       }
+      // Não achou. Antes de reportar, descobrimos POR QUE — a mensagem anterior
+      // era um texto fixo que presumia falta de permissão, mesmo quando a
+      // permissão estava lá e o problema era outro.
+      const info = await this.instagramHttpClient.describeToken(data.userToken);
+      const temAds =
+        info.scopes.includes('ads_management') || info.scopes.includes('ads_read');
       this.logger.warn(
-        `Instagram FLB: nenhuma conta de anúncios acessível (org ${organizationId}). ` +
-          `A configuração de Facebook Login precisa incluir ads_management/ads_read.`,
+        `Instagram FLB: sem conta de anúncios (org ${organizationId}). ` +
+          `Escopos do token: [${info.scopes.join(', ')}]. ` +
+          `Alvos: ${JSON.stringify(info.granular)}`,
       );
+      return { adsConnected: false, diagnostic: { scopes: info.scopes, temAds } };
     } catch (err: any) {
       this.logger.warn(`Instagram FLB: não achei ad account: ${err?.message ?? err}`);
     }
