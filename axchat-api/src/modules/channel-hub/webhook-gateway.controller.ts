@@ -91,12 +91,20 @@ export class WebhookGatewayController {
     }
 
     // 3. For each resolved channel: validate signature, parse scoped events, enqueue.
+    // Segredos atuais da plataforma entram como candidatos ao lado da cópia do
+    // canal: trocar o App Secret em Integrações não pode deixar canais antigos
+    // rejeitando webhook pra sempre (ver getPlatformAppSecrets).
+    const platformSecrets = await this.channelsService
+      .getPlatformAppSecrets(channelType)
+      .catch(() => [] as string[]);
+
     for (const channel of matchedChannels) {
       const isValid = adapter.validateWebhook(
         headers,
         rawBody,
         channel.webhookSecret || undefined,
         channel,
+        platformSecrets,
       );
       if (!isValid) {
         this.logger.warn(
@@ -111,7 +119,7 @@ export class WebhookGatewayController {
             id
               ? this.webhookEvents.markFailed(
                   id,
-                  'Assinatura inválida (x-hub-signature-256): o App Secret configurado no canal não confere com o do app na Meta.',
+                  'Assinatura inválida (x-hub-signature-256): nenhum App Secret conhecido (o do canal nem os de Integrações) confere com o do app na Meta.',
                 )
               : null,
           )

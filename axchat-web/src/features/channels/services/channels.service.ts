@@ -16,6 +16,13 @@ export interface WebhookDiagnosticsEvent {
 
 export interface WebhookDiagnostics {
   configuredIds: string[];
+  /** Estado atual da inscrição na Meta (só Instagram). */
+  subscription?: {
+    active: boolean;
+    fields: string[];
+    node: string;
+    error?: string;
+  };
   totalReceived: number;
   events: WebhookDiagnosticsEvent[];
 }

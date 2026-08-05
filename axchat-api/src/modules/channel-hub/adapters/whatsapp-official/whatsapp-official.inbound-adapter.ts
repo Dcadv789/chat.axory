@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Channel, ChannelType } from '@prisma/client';
-import * as crypto from 'crypto';
+import { verifyMetaSignature } from '../meta-signature';
 import {
   InboundChannelPort,
   ChannelLocator,
@@ -60,31 +60,19 @@ export class WhatsAppOfficialInboundAdapter implements InboundChannelPort {
     rawBody: Buffer,
     _webhookSecret?: string,
     channel?: Channel,
+    platformSecrets?: string[],
   ): boolean {
     const appSecret = (channel?.config as Record<string, any> | undefined)
       ?.appSecret;
-    if (!appSecret) {
+    const secrets = [appSecret, ...(platformSecrets ?? [])];
+    if (!secrets.some((s) => !!s)) {
       this.logger.warn(
         `WA Official channel ${channel?.id} missing config.appSecret — rejecting webhook`,
       );
       return false;
     }
 
-    const signature = headers['x-hub-signature-256'];
-    if (!signature) return false;
-
-    const expected =
-      'sha256=' +
-      crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
-
-    try {
-      return crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expected),
-      );
-    } catch {
-      return false;
-    }
+    return verifyMetaSignature(headers, rawBody, secrets);
   }
 
   parseWebhook(payload: unknown, channel?: Channel): WebhookParseResult {

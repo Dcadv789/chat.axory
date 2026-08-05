@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Copy, Check, Loader2, Save, Trash2, Power, PowerOff,
@@ -959,22 +959,11 @@ function ConfigTab({
 function WebhookDiagnostics({ channelId }: { channelId: string }) {
   const [loading, setLoading] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
-  const [subscribedAt, setSubscribedAt] = useState<string | null>(null);
   const [data, setData] = useState<Awaited<
     ReturnType<typeof channelsService.webhookDiagnostics>
   > | null>(null);
 
-  // A inscrição vive na Meta, não no nosso banco — então lembramos localmente
-  // quando foi feita, pra não sugerir ao operador que clique de novo.
-  useEffect(() => {
-    try {
-      setSubscribedAt(localStorage.getItem(`ig-subscribed:${channelId}`));
-    } catch {
-      setSubscribedAt(null);
-    }
-  }, [channelId]);
-
-  const run = async () => {
+  const run = useCallback(async () => {
     setLoading(true);
     try {
       setData(await channelsService.webhookDiagnostics(channelId));
@@ -983,7 +972,14 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [channelId]);
+
+  // Carrega ao abrir só pra saber se o recebimento já está ligado. A inscrição
+  // vive na Meta e pode ser desfeita por fora (reconexão do canal, permissão
+  // revogada), então perguntamos a ela em vez de lembrar que clicamos no botão.
+  useEffect(() => {
+    void run();
+  }, [run]);
 
   const subscribe = async () => {
     setSubscribing(true);
@@ -998,8 +994,11 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
       toast.error('Falha ao inscrever o app nos webhooks.');
     } finally {
       setSubscribing(false);
+      void run(); // reflete o estado real, não o que achamos que aconteceu
     }
   };
+
+  const subscription = data?.subscription;
 
   return (
     <div className="rounded-lg border border-zinc-200 p-4 dark:border-white/10">
@@ -1014,7 +1013,7 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          {subscribedAt ? (
+          {subscription?.active ? (
             <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
               <div className="leading-tight">
@@ -1022,7 +1021,7 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
                   Recebimento ativado
                 </p>
                 <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                  em {new Date(subscribedAt).toLocaleString('pt-BR')}
+                  {subscription.fields.join(', ')}
                 </p>
               </div>
               <button

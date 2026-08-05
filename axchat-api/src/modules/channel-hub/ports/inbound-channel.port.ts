@@ -37,11 +37,17 @@ export interface InboundChannelPort {
    */
   matchesChannel(channel: Channel, locator: ChannelLocator): boolean;
 
+  /**
+   * `platformSecrets` traz os App Secrets ATUAIS do PlatformSetting. O canal
+   * guarda uma cópia de quando foi conectado, que fica velha se o Super Admin
+   * trocar a chave — sem estes candidatos, todo webhook passa a ser rejeitado.
+   */
   validateWebhook(
     headers: Record<string, string>,
     rawBody: Buffer,
     webhookSecret?: string,
     channel?: Channel,
+    platformSecrets?: string[],
   ): boolean;
 
   /**

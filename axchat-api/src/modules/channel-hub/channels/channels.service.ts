@@ -319,6 +319,26 @@ export class ChannelsService {
     };
   }
 
+  /**
+   * App Secrets ATUAIS da plataforma que podem ter assinado um webhook deste
+   * tipo de canal, pra validar o `x-hub-signature-256`.
+   *
+   * O canal guarda uma cópia do segredo de quando foi conectado. Se o Super
+   * Admin troca a chave em Integrações — rotação, ou migração pra outro app
+   * Meta — essa cópia fica velha e o canal passa a rejeitar todo webhook, sem
+   * nenhum sinal na tela. Foi o que derrubou o recebimento de DMs do Instagram.
+   */
+  async getPlatformAppSecrets(channelType: ChannelType): Promise<string[]> {
+    const cfg = await this.loadMetaCoexistenceConfig();
+    const secrets =
+      channelType === ChannelType.INSTAGRAM
+        ? // O app do Instagram pode ser próprio OU herdado do WhatsApp (o mesmo
+          // Meta app com FLB serve pros dois), então o do WhatsApp entra também.
+          [cfg.instagramAppSecret, cfg.instagramLoginAppSecret, cfg.appSecret]
+        : [cfg.appSecret];
+    return secrets.filter((s) => !!s);
+  }
+
   /** URL de callback do OAuth do Login do Instagram (registrada no app). */
   private instagramLoginRedirectUri(): string {
     const base = (process.env.APP_URL || 'http://localhost:3001').replace(/\/$/, '');
@@ -1327,8 +1347,24 @@ export class ChannelsService {
       return [...kinds];
     };
 
+    // Estado REAL da inscrição na Meta. É o que responde "o recebimento está
+    // ligado?" — a inscrição vive lá, não aqui, e some se o canal for
+    // reconectado ou a permissão revogada. Não derruba o diagnóstico se falhar.
+    const subscription =
+      channel.type === ChannelType.INSTAGRAM
+        ? await this.instagramHttpClient
+            .getSubscription(channel as any)
+            .catch((err) => ({
+              active: false,
+              fields: [] as string[],
+              node: 'page',
+              error: err?.message ?? 'falha ao consultar',
+            }))
+        : undefined;
+
     return {
       configuredIds,
+      subscription,
       totalReceived: events.length,
       events: events.map((e) => {
         const entryIds = extractEntryIds(e.rawPayload);

@@ -149,6 +149,51 @@ export class InstagramHttpClient {
     }
   }
 
+  /**
+   * Lê o estado ATUAL da inscrição em webhooks na Meta — só leitura.
+   *
+   * É a única fonte de verdade sobre "o recebimento está ligado?": a inscrição
+   * vive na Meta, não no nosso banco, e pode ser desfeita por fora (reconexão
+   * do canal, permissão revogada, app trocado). Guardar um "ativei em tal dia"
+   * do nosso lado mentiria em todos esses casos.
+   */
+  async getSubscription(
+    channel: Channel,
+  ): Promise<{ active: boolean; fields: string[]; node: string; error?: string }> {
+    const cfg = this.getConfig(channel);
+    const config = channel.config as Record<string, any>;
+    const pageId = config?.fbPageId ? String(config.fbPageId).trim() : undefined;
+
+    try {
+      if (cfg.graphApi === 'instagram') {
+        if (!cfg.igBusinessId) return { active: false, fields: [], node: 'ig' };
+        const { data } = await this.createClient(channel).get(
+          `/${cfg.igBusinessId}/subscribed_apps`,
+        );
+        const fields: string[] = data?.data?.[0]?.subscribed_fields ?? [];
+        return { active: fields.includes('messages'), fields, node: 'ig' };
+      }
+
+      if (!pageId) return { active: false, fields: [], node: 'page' };
+      const pageToken = config?.pageAccessToken || cfg.accessToken;
+      const { data } = await axios.get(
+        `https://graph.facebook.com/${cfg.apiVersion}/${pageId}/subscribed_apps`,
+        { params: { access_token: pageToken }, timeout: 15000 },
+      );
+      // A Página lista TODOS os apps inscritos; só o nosso interessa, mas o
+      // token é do nosso app, então a lista já vem escopada a ele.
+      const fields: string[] = data?.data?.[0]?.subscribed_fields ?? [];
+      return { active: fields.includes('messages'), fields, node: 'page' };
+    } catch (err: any) {
+      return {
+        active: false,
+        fields: [],
+        node: pageId ? 'page' : 'ig',
+        error: err?.response?.data?.error?.message ?? err?.message ?? 'falha ao consultar',
+      };
+    }
+  }
+
   async getMe(channel: Channel): Promise<any> {
     const cfg = this.getConfig(channel);
     const client = this.createClient(channel);

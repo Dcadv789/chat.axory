@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Channel, ChannelType } from '@prisma/client';
-import * as crypto from 'crypto';
 import {
   InboundChannelPort,
   ChannelLocator,
 } from '../../ports/inbound-channel.port';
+import { verifyMetaSignature } from '../meta-signature';
 import { WebhookParseResult, VerificationResponse } from '../../ports/types';
 import { InstagramMessageMapper } from './instagram.message-mapper';
 
@@ -46,32 +46,21 @@ export class InstagramInboundAdapter implements InboundChannelPort {
     rawBody: Buffer,
     _webhookSecret?: string,
     channel?: Channel,
+    platformSecrets?: string[],
   ): boolean {
     const appSecret = (channel?.config as Record<string, any> | undefined)?.appSecret;
-    // Sem appSecret NÃO dá pra validar a origem — rejeita (paridade com o
+    const secrets = [appSecret, ...(platformSecrets ?? [])];
+    // Sem nenhum segredo NÃO dá pra validar a origem — rejeita (paridade com o
     // WhatsApp Official). Aceitar qualquer POST permitiria injetar mensagens
     // inbound forjadas conhecendo só o IG business id (que não é segredo).
-    if (!appSecret) {
+    if (!secrets.some((s) => !!s)) {
       this.logger.error(
-        `Instagram webhook rejeitado: canal ${channel?.id ?? '?'} sem appSecret configurado. Configure o appSecret do app Meta no canal pra validar a assinatura.`,
+        `Instagram webhook rejeitado: canal ${channel?.id ?? '?'} sem appSecret configurado. Configure o App Secret do app Meta em Integrações pra validar a assinatura.`,
       );
       return false;
     }
 
-    const signature = headers['x-hub-signature-256'];
-    if (!signature) return false;
-
-    const expected = 'sha256=' +
-      crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
-
-    try {
-      return crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expected),
-      );
-    } catch {
-      return false;
-    }
+    return verifyMetaSignature(headers, rawBody, secrets);
   }
 
   parseWebhook(payload: unknown, channel?: Channel): WebhookParseResult {
