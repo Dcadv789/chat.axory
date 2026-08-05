@@ -15,6 +15,7 @@ import { channelAccessService } from '../../settings/services/channel-access.ser
 import { membersService } from '../../settings/services/members.service';
 import { aiAgentsService } from '../../ai-agents/services/ai-agents.service';
 import { useChannelSync } from '../hooks/use-channel-sync';
+import { useInstagramLogin } from '../hooks/use-instagram-login';
 import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
 
 const channelTypeMap: Record<string, { label: string; icon: React.ElementType }> = {
@@ -951,7 +952,67 @@ function ConfigTab({
         </div>
       </div>
 
-      {channel.type === 'INSTAGRAM' && <WebhookDiagnostics channelId={channel.id} />}
+      {channel.type === 'INSTAGRAM' && (
+        <>
+          <InstagramReconnect channelId={channel.id} />
+          <WebhookDiagnostics channelId={channel.id} />
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Refaz o login da Meta pro canal que já existe. Token expira, é revogado ou
+ * fica apontando pra Página errada — e até aqui o único conserto era criar
+ * outro canal, deixando as conversas antigas para trás.
+ */
+function InstagramReconnect({ channelId }: { channelId: string }) {
+  const queryClient = useQueryClient();
+  const { login, enabled, sdkReady } = useInstagramLogin();
+  const [running, setRunning] = useState(false);
+
+  const reconnect = async () => {
+    setRunning(true);
+    try {
+      const code = await login();
+      await channelsService.reconnectInstagram(channelId, code);
+      toast.success('Credenciais atualizadas. O canal voltou a falar com a Meta.');
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Não foi possível reconectar o canal.',
+      );
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  if (!enabled) return null;
+
+  return (
+    <div className="rounded-lg border border-zinc-200 p-4 dark:border-white/10">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            Conexão com a Meta
+          </p>
+          <p className="text-[11px] text-zinc-500">
+            Refaz o login e grava as credenciais novas neste canal — as conversas
+            e os contatos continuam aqui. Use quando o token expirar ou você
+            trocar as permissões na Meta.
+          </p>
+        </div>
+        <button
+          onClick={reconnect}
+          disabled={running || !sdkReady}
+          title="Abre o popup da Meta e atualiza as credenciais deste canal"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${running ? 'animate-spin' : ''}`} />
+          {running ? 'Reconectando…' : 'Reconectar'}
+        </button>
+      </div>
     </div>
   );
 }
@@ -1070,7 +1131,9 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
               <div>
                 <strong>O token deste canal não é mais aceito pela Meta.</strong>{' '}
                 As mensagens continuam chegando, mas não conseguimos buscar o
-                nome e a foto de quem envia, nem responder. Reconecte o canal.
+                nome e a foto de quem envia, nem responder. Use{' '}
+                <strong>Reconectar</strong>, logo acima, pra renovar as
+                credenciais sem perder as conversas.
                 {data.token.error && (
                   <p className="mt-1 text-[11px] opacity-80">
                     Meta respondeu: “{data.token.error}”

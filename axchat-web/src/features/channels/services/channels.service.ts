@@ -176,6 +176,15 @@ export const channelsService = {
     return data.data ?? (data as any);
   },
 
+  /** Refaz o login da Meta e grava as credenciais novas no canal existente. */
+  async reconnectInstagram(id: string, code: string): Promise<Channel> {
+    const { data } = await api.post<{ data: Channel }>(
+      `/channels/${id}/instagram/reconnect`,
+      { code },
+    );
+    return data.data ?? (data as any);
+  },
+
   async instagramSubscribe(
     id: string,
   ): Promise<{ ok: boolean; error?: string }> {

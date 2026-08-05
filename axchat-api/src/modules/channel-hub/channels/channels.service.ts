@@ -914,10 +914,35 @@ export class ChannelsService {
     );
   }
 
+  /**
+   * Refaz o login da Meta pra um canal que JÁ existe e grava as credenciais
+   * novas por cima. É o conserto pra token expirado ou trocado: sem isso, o
+   * único caminho era criar outro canal — que a trava de duplicidade agora
+   * recusa, e que deixaria as conversas antigas para trás.
+   */
+  async reconnectInstagramFromFacebookLogin(
+    organizationId: string,
+    channelId: string,
+    dto: InstagramFacebookLoginDto,
+  ) {
+    const atual = await this.findOne(channelId, organizationId);
+    if (atual.type !== ChannelType.INSTAGRAM) {
+      throw new BadRequestException('Este canal não é do Instagram.');
+    }
+    return this.createFromInstagramFacebookLogin(
+      organizationId,
+      dto,
+      undefined,
+      atual,
+    );
+  }
+
   async createFromInstagramFacebookLogin(
     organizationId: string,
     dto: InstagramFacebookLoginDto,
     creator?: { userOrganizationId: string; role: OrgRole },
+    /** Quando presente, ATUALIZA este canal em vez de criar um novo. */
+    reconectando?: { id: string; config: any },
   ) {
     const {
       appId,
@@ -1092,7 +1117,56 @@ export class ChannelsService {
       );
     }
 
-    // 3) Cria o canal (o create() dispara o subscribed_apps da Página → DMs,
+    // 3) Reconexão: grava as credenciais novas no canal existente. Só depois de
+    //    conferir que o login trouxe a MESMA conta — trocar o igBusinessId por
+    //    baixo repontaria o canal (e o histórico de conversas dele) pra outro
+    //    perfil, sem ninguém perceber.
+    if (reconectando) {
+      const antes = String(reconectando.config?.igBusinessId ?? '');
+      if (antes && antes !== String(igConfig.igBusinessId)) {
+        throw new BadRequestException(
+          `Este login é de outra conta do Instagram (${igConfig.igUsername ? '@' + igConfig.igUsername : igConfig.igBusinessId}). ` +
+            'Reconectar serve pra renovar as credenciais da mesma conta — pra usar outra, crie um canal novo.',
+        );
+      }
+      const atualizado = await this.prisma.channel.update({
+        where: { id: reconectando.id },
+        data: {
+          isActive: true,
+          config: {
+            ...reconectando.config,
+            accessToken: igConfig.accessToken,
+            igBusinessId: igConfig.igBusinessId,
+            appSecret: igAppSecret,
+            userAccessToken: userToken,
+            ...(igConfig.pageAccessToken
+              ? { pageAccessToken: igConfig.pageAccessToken }
+              : {}),
+            ...(igConfig.fbPageId ? { fbPageId: igConfig.fbPageId } : {}),
+            ...(igConfig.igUsername ? { igUsername: igConfig.igUsername } : {}),
+            ...(igConfig.fbPageName ? { fbPageName: igConfig.fbPageName } : {}),
+          },
+        },
+      });
+      // Reinscreve os webhooks: o token mudou, e a inscrição antiga pode ter
+      // ficado pra trás junto com ele.
+      await this.instagramHttpClient
+        .subscribeApp(atualizado)
+        .catch((err) =>
+          this.logger.warn(`Reconexão: subscribeApp falhou — ${err?.message ?? err}`),
+        );
+      await this.persistInstagramOrgSecrets(organizationId, {
+        igBusinessId: igConfig.igBusinessId,
+        accessToken: igConfig.accessToken,
+        fbPageId: igConfig.fbPageId,
+        userToken,
+      }).catch((err) =>
+        this.logger.warn(`Reconexão: persistInstagramOrgSecrets falhou — ${err?.message ?? err}`),
+      );
+      return atualizado;
+    }
+
+    // 4) Cria o canal (o create() dispara o subscribed_apps da Página → DMs,
     //    quando há Página; sem Página, os endpoints usam o token de usuário).
     await this.assertInstagramAccountFree(igConfig.igBusinessId, organizationId);
     //    IMPORTANTE: o appSecret do canal é o do app do INSTAGRAM (igAppSecret),

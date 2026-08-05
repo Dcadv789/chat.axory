@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Loader2, AlertTriangle, Bug, Copy } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/icons';
-import { channelsService, type CoexistenceConfig } from '../services/channels.service';
-import { extractFbAuthCode } from '../utils/fb-auth-code';
-import { assertFbApp, ensureFbSdk } from '../utils/fb-sdk';
+import { channelsService } from '../services/channels.service';
+import { useInstagramLogin } from '../hooks/use-instagram-login';
 
 declare global {
   interface Window {
@@ -33,114 +32,54 @@ interface InstagramConnectProps {
  * credenciais do nosso app Meta, válidas pra plataforma toda.
  */
 export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramConnectProps) {
-  const [config, setConfig] = useState<CoexistenceConfig | null>(null);
-  const [loadingConfig, setLoadingConfig] = useState(true);
-  const [sdkReady, setSdkReady] = useState(false);
+  // O popup em si mora no hook — a tela de reconectar usa o mesmo. Duas cópias
+  // do FB.login foi como o app do WhatsApp e o do Instagram se atropelaram.
+  const { login, enabled, sdkReady, loadingConfig, igAppId, configId } =
+    useInstagramLogin();
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [debugData, setDebugData] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    channelsService
-      .getCoexistenceConfig()
-      .then((cfg) => {
-        if (active) setConfig(cfg);
-      })
-      .catch(() => {
-        if (active) setConfig({ appId: '', configId: '', enabled: false });
-      })
-      .finally(() => {
-        if (active) setLoadingConfig(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const enabled = !!config?.instagramEnabled;
-  const configId = config?.instagramConfigId;
-  // App do Instagram (dedicado ou herdado do WhatsApp).
-  const igAppId = config?.instagramAppId || config?.appId;
-
-  // Carrega o SDK do Facebook uma única vez (após ter o appId).
-  useEffect(() => {
-    if (!enabled || !igAppId) return;
-
-    // Instagram e WhatsApp usam apps Meta DIFERENTES e o SDK é global: sem isto,
-    // quem carregasse primeiro definia o app da outra tela.
-    ensureFbSdk(igAppId, () => setSdkReady(true));
-  }, [enabled, igAppId]);
-
   // `debug=true` → não cria canal; chama o endpoint de debug e mostra o JSON cru.
   const launch = useCallback(
     (debug = false) => {
-      if (!window.FB || !configId) return;
-      // Reafirma o app IMEDIATAMENTE antes do login: entre carregar o SDK e o
-      // clique, a tela do WhatsApp pode ter reinicializado com o app dela.
-      assertFbApp(igAppId ?? '');
       setError(null);
       setDebugData(null);
       setLaunching(true);
 
-      // O SDK do Facebook rejeita callbacks `async` — mantemos síncrono e
-      // disparamos o trabalho assíncrono por dentro.
-      window.FB.login(
-        (response: any) => {
-          const code = extractFbAuthCode(response);
-          if (!code) {
-            // A resposta da Meta era DESCARTADA aqui, e o dono via só uma
-            // mensagem genérica — sem nada pra diagnosticar. O objeto costuma
-            // trazer `status` ('unknown' = popup fechado/bloqueado,
-            // 'not_authorized' = usuário recusou) e, quando há falha de
-            // configuração do app, um bloco de erro com o motivo real.
-            const status = response?.status ? ` (status: ${response.status})` : '';
-            setError(
-              `Não foi possível obter o código de autorização da Meta${status}. Abra os detalhes abaixo e envie ao suporte.`,
-            );
-            setDebugData(
-              JSON.stringify(
-                {
-                  respostaDaMeta: response ?? null,
-                  appIdUsado: igAppId,
-                  configIdUsado: configId,
-                  origem: typeof window !== 'undefined' ? window.location.origin : null,
-                },
-                null,
-                2,
-              ),
-            );
-            setLaunching(false);
-            return;
+      void (async () => {
+        try {
+          const code = await login();
+          if (debug) {
+            const raw = await channelsService.debugInstagramFacebookLogin({ code });
+            setDebugData(JSON.stringify(raw, null, 2));
+          } else {
+            await onConnect({ code });
           }
-          void (async () => {
-            try {
-              if (debug) {
-                const raw = await channelsService.debugInstagramFacebookLogin({ code });
-                setDebugData(JSON.stringify(raw, null, 2));
-              } else {
-                await onConnect({ code });
-              }
-            } catch (err) {
-              setError(err instanceof Error ? err.message : 'Falha ao processar.');
-            } finally {
-              setLaunching(false);
-            }
-          })();
-        },
-        {
-          config_id: configId,
-          response_type: 'code',
-          override_default_response_type: true,
-          // Permissão recusada uma vez fica "grudada": a Meta NÃO pergunta de
-          // novo nas próximas tentativas e devolve a sessão antiga, com os
-          // mesmos escopos negados. `rerequest` força a tela de consentimento a
-          // pedir outra vez o que foi recusado.
-          auth_type: 'rerequest',
-        },
-      );
+        } catch (err) {
+          setError(
+            err instanceof Error ? err.message : 'Falha ao processar.',
+          );
+          // Sem estes dados o dono via só uma mensagem genérica e não havia o
+          // que mandar pro suporte.
+          setDebugData(
+            JSON.stringify(
+              {
+                erro: err instanceof Error ? err.message : String(err),
+                appIdUsado: igAppId,
+                configIdUsado: configId,
+                origem: typeof window !== 'undefined' ? window.location.origin : null,
+              },
+              null,
+              2,
+            ),
+          );
+        } finally {
+          setLaunching(false);
+        }
+      })();
     },
-    [onConnect, configId],
+    [onConnect, login, igAppId, configId],
   );
 
   if (loadingConfig) {

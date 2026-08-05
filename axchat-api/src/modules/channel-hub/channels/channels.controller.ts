@@ -235,6 +235,19 @@ export class ChannelsController {
     return this.service.instagramSubscribe(id, orgId);
   }
 
+  @Post(':id/instagram/reconnect')
+  @ApiOperation({
+    summary:
+      'Refaz o login da Meta pra um canal Instagram existente e grava as credenciais novas por cima (conserta token expirado sem perder as conversas).',
+  })
+  reconnectInstagram(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: InstagramFacebookLoginDto,
+  ) {
+    return this.service.reconnectInstagramFromFacebookLogin(orgId, id, dto);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get channel by ID' })
   findOne(
