@@ -788,24 +788,97 @@ export class InstagramHttpClient {
    * Retorna o id SEM o prefixo "act_" (formato que o módulo de marketing usa).
    * Best-effort: null se o token não tiver ads_management/ads_read ou não houver.
    */
+  /**
+   * Conta de anúncios do login. Tenta, em ordem:
+   *   1. `/me/adaccounts` — funciona com token clássico;
+   *   2. `granular_scopes` do token (via `/debug_token`) — é onde o Facebook
+   *      Login for Business registra a conta que o dono SELECIONOU no popup;
+   *   3. `/me/businesses` → contas do portfólio.
+   *
+   * O passo 2 existe porque token business-scoped do FLB frequentemente não
+   * responde às edges `/me/*` — foi exatamente o que aconteceu com `/me/accounts`
+   * na descoberta de Páginas. Sem ele, o dono seleciona a conta de anúncios no
+   * popup e mesmo assim recebe "nenhuma conta liberada".
+   */
   async getFirstAdAccount(
     userToken: string,
     apiVersion = 'v25.0',
   ): Promise<string | null> {
+    const base = `https://graph.facebook.com/${apiVersion}`;
+    const clean = (v: string) => String(v || '').replace(/^act_/, '') || null;
+
+    // 1) Caminho clássico.
     try {
-      const { data } = await axios.get(
-        `https://graph.facebook.com/${apiVersion}/me/adaccounts`,
-        { params: { fields: 'id,account_id,name', limit: 1, access_token: userToken }, timeout: 20000 },
-      );
+      const { data } = await axios.get(`${base}/me/adaccounts`, {
+        params: { fields: 'id,account_id,name', limit: 1, access_token: userToken },
+        timeout: 20000,
+      });
       const first = Array.isArray(data?.data) ? data.data[0] : null;
-      if (!first) return null;
-      return first.account_id
-        ? String(first.account_id)
-        : String(first.id || '').replace(/^act_/, '') || null;
+      if (first) return first.account_id ? String(first.account_id) : clean(first.id);
+      this.logger.warn('getFirstAdAccount: /me/adaccounts vazio — tentando granular_scopes.');
     } catch (err: any) {
-      this.logger.warn(`getFirstAdAccount falhou: ${err?.response?.data?.error?.message || err.message}`);
-      return null;
+      this.logger.warn(
+        `getFirstAdAccount: /me/adaccounts falhou (${err?.response?.data?.error?.message || err.message}) — tentando granular_scopes.`,
+      );
     }
+
+    // 2) O que o dono escolheu no popup fica aqui.
+    try {
+      const { data } = await axios.get(`${base}/debug_token`, {
+        params: { input_token: userToken, access_token: userToken },
+        timeout: 20000,
+      });
+      const granular: any[] = data?.data?.granular_scopes ?? [];
+      const scopes: string[] = data?.data?.scopes ?? [];
+      const hit = granular.find(
+        (s) => s?.scope === 'ads_management' || s?.scope === 'ads_read',
+      );
+      const target = Array.isArray(hit?.target_ids) ? hit.target_ids[0] : null;
+      if (target) {
+        this.logger.log(`getFirstAdAccount: conta ${target} obtida dos granular_scopes.`);
+        return clean(target);
+      }
+      // Diagnóstico: sem isto, "nenhuma conta liberada" não diz se faltou a
+      // permissão ou se ela veio sem conta selecionada.
+      this.logger.warn(
+        `getFirstAdAccount: sem conta nos granular_scopes. Escopos do token: [${scopes.join(', ')}].`,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `getFirstAdAccount: debug_token falhou: ${err?.response?.data?.error?.message || err.message}`,
+      );
+    }
+
+    // 3) Última tentativa: pelo portfólio de negócios.
+    try {
+      const { data } = await axios.get(`${base}/me/businesses`, {
+        params: { fields: 'id', limit: 10, access_token: userToken },
+        timeout: 20000,
+      });
+      for (const biz of data?.data ?? []) {
+        for (const edge of ['owned_ad_accounts', 'client_ad_accounts']) {
+          try {
+            const { data: accs } = await axios.get(`${base}/${biz.id}/${edge}`, {
+              params: { fields: 'id,account_id', limit: 1, access_token: userToken },
+              timeout: 20000,
+            });
+            const first = Array.isArray(accs?.data) ? accs.data[0] : null;
+            if (first) {
+              this.logger.log(`getFirstAdAccount: conta obtida via ${edge} do portfólio ${biz.id}.`);
+              return first.account_id ? String(first.account_id) : clean(first.id);
+            }
+          } catch {
+            /* portfólio sem acesso a essa edge — segue */
+          }
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `getFirstAdAccount: /me/businesses falhou: ${err?.response?.data?.error?.message || err.message}`,
+      );
+    }
+
+    return null;
   }
 
   private wrapGraphError(err: any, context: string): Error {
