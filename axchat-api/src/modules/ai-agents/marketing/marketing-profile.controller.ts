@@ -13,6 +13,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { MarketingProfileService } from './marketing-profile.service';
 import { MarketingAdsService } from './marketing-ads.service';
+import { MarketingCredentialsService } from './marketing-credentials.service';
 import { MarketingPublishService } from './marketing-publish.service';
 import { MarketingBudgetService } from './marketing-budget.service';
 import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
@@ -32,6 +33,7 @@ export class MarketingProfileController {
     private readonly ads: MarketingAdsService,
     private readonly publish: MarketingPublishService,
     private readonly budgetService: MarketingBudgetService,
+    private readonly credentials: MarketingCredentialsService,
   ) {}
 
   // ─── Publicação direta (dono) ──────────────────────────────
@@ -41,7 +43,13 @@ export class MarketingProfileController {
   @ApiOperation({ summary: 'Publica um post no Instagram (imagem ou vídeo/Reels + legenda)' })
   publishInstagram(
     @CurrentOrg('id') orgId: string,
-    @Body() body: { caption?: string; imageUrl?: string; videoUrl?: string },
+    @Body()
+    body: {
+      caption?: string;
+      imageUrl?: string;
+      videoUrl?: string;
+      channelId?: string;
+    },
   ) {
     return this.publish.publishInstagram(orgId, body);
   }
@@ -69,6 +77,17 @@ export class MarketingProfileController {
 
   // ─── Gestão de anúncios (Meta Ads) — ação direta do dono ───
 
+  /**
+   * `channelId` (opcional em todas as rotas abaixo) escolhe de QUAL conta de
+   * Instagram o painel está falando. Sem ele valem as credenciais da
+   * organização — o comportamento de sempre, e o certo pra quem só tem uma.
+   */
+  @Get('accounts')
+  @ApiOperation({ summary: 'Contas de Instagram disponíveis para o marketing' })
+  async marketingAccounts(@CurrentOrg('id') orgId: string) {
+    return { accounts: await this.credentials.listAccounts(orgId) };
+  }
+
   @Get('overview')
   @ApiOperation({ summary: 'Resumo do painel: pacing de verba + insights da conta' })
   overview(
@@ -76,14 +95,24 @@ export class MarketingProfileController {
     @Query('since') since?: string,
     @Query('until') until?: string,
     @Query('all') all?: string,
+    @Query('channelId') channelId?: string,
   ) {
-    return this.ads.overview(orgId, since, until, all === '1' || all === 'true');
+    return this.ads.overview(
+      orgId,
+      since,
+      until,
+      all === '1' || all === 'true',
+      channelId,
+    );
   }
 
   @Get('ads/campaigns')
   @ApiOperation({ summary: 'Lista campanhas de anúncio (Meta Ads) ao vivo' })
-  listCampaigns(@CurrentOrg('id') orgId: string) {
-    return this.ads.listCampaigns(orgId);
+  listCampaigns(
+    @CurrentOrg('id') orgId: string,
+    @Query('channelId') channelId?: string,
+  ) {
+    return this.ads.listCampaigns(orgId, channelId);
   }
 
   @Post('ads/campaigns/:id/status')
@@ -92,22 +121,30 @@ export class MarketingProfileController {
   setCampaignStatus(
     @CurrentOrg('id') orgId: string,
     @Param('id') id: string,
-    @Body() body: { status: 'ACTIVE' | 'PAUSED' },
+    @Body() body: { status: 'ACTIVE' | 'PAUSED'; channelId?: string },
   ) {
-    return this.ads.setCampaignStatus(orgId, id, body.status);
+    return this.ads.setCampaignStatus(orgId, id, body.status, body.channelId);
   }
 
   @Delete('ads/campaigns/:id')
   @Roles(OrgRole.OWNER, OrgRole.ADMIN)
   @ApiOperation({ summary: 'Exclui uma campanha' })
-  deleteCampaign(@CurrentOrg('id') orgId: string, @Param('id') id: string) {
-    return this.ads.deleteCampaign(orgId, id);
+  deleteCampaign(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Query('channelId') channelId?: string,
+  ) {
+    return this.ads.deleteCampaign(orgId, id, channelId);
   }
 
   @Get('ads/campaigns/:id/adsets')
   @ApiOperation({ summary: 'Lista os conjuntos de anúncios de uma campanha' })
-  listAdSets(@CurrentOrg('id') orgId: string, @Param('id') id: string) {
-    return this.ads.listAdSets(orgId, id);
+  listAdSets(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Query('channelId') channelId?: string,
+  ) {
+    return this.ads.listAdSets(orgId, id, channelId);
   }
 
   @Post('ads/campaigns/:id/budget')
@@ -116,15 +153,23 @@ export class MarketingProfileController {
   setCampaignBudget(
     @CurrentOrg('id') orgId: string,
     @Param('id') id: string,
-    @Body() body: { dailyBudgetCents: number },
+    @Body() body: { dailyBudgetCents: number; channelId?: string },
   ) {
-    return this.ads.setCampaignBudget(orgId, id, body.dailyBudgetCents);
+    return this.ads.setCampaignBudget(
+      orgId,
+      id,
+      body.dailyBudgetCents,
+      body.channelId,
+    );
   }
 
   @Get('instagram/posts')
   @ApiOperation({ summary: 'Posts recentes do Instagram (com miniatura)' })
-  instagramPosts(@CurrentOrg('id') orgId: string) {
-    return this.ads.listInstagramPosts(orgId);
+  instagramPosts(
+    @CurrentOrg('id') orgId: string,
+    @Query('channelId') channelId?: string,
+  ) {
+    return this.ads.listInstagramPosts(orgId, channelId);
   }
 
   @Get('profile')

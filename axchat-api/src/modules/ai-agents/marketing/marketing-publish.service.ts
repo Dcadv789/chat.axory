@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../database/prisma.service';
+import { MarketingCredentialsService } from './marketing-credentials.service';
 import {
   ThreadsHttpClient,
   ThreadsPublishInput,
@@ -21,6 +22,7 @@ export class MarketingPublishService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly threads: ThreadsHttpClient,
+    private readonly credentials: MarketingCredentialsService,
   ) {}
 
   private async resolve(orgId: string, key: string): Promise<string | null> {
@@ -60,17 +62,18 @@ export class MarketingPublishService {
    */
   async publishInstagram(
     orgId: string,
-    input: { caption?: string; imageUrl?: string; videoUrl?: string },
+    input: {
+      caption?: string;
+      imageUrl?: string;
+      videoUrl?: string;
+      /** Conta escolhida no painel; sem ela vale a da organização. */
+      channelId?: string;
+    },
   ): Promise<{ ok: true; mediaId: string }> {
-    const [igUserId, token] = await Promise.all([
-      this.resolve(orgId, 'IG_USER_ID'),
-      this.resolve(orgId, 'IG_ACCESS_TOKEN'),
-    ]);
-    if (!igUserId || !token) {
-      throw new BadRequestException(
-        'Instagram não conectado. Conecte um canal Instagram (Login Facebook) ou configure IG_USER_ID/IG_ACCESS_TOKEN em Integrações.',
-      );
-    }
+    const { igUserId, token } = await this.credentials.instagram(
+      orgId,
+      input.channelId,
+    );
     if (!input.imageUrl && !input.videoUrl) {
       throw new BadRequestException('Um post do Instagram precisa de uma imagem ou vídeo.');
     }

@@ -194,42 +194,84 @@ export const marketingService = {
     return data?.data ?? data;
   },
 
-  async overview(since?: string, until?: string, all?: boolean): Promise<MarketingOverview> {
-    const params = all ? { all: 1 } : since && until ? { since, until } : undefined;
-    const { data } = await api.get('/marketing/overview', { params });
+  /**
+   * `channelId` diz de QUAL conta de Instagram o painel está falando. Antes as
+   * credenciais eram uma só por empresa e a última conexão sobrescrevia as
+   * outras — conectar um segundo perfil roubava o marketing do primeiro, em
+   * silêncio. Omitir mantém o comportamento antigo (credenciais da empresa).
+   */
+  async listAccounts(): Promise<{ accounts: MarketingAccount[] }> {
+    const { data } = await api.get('/marketing/accounts');
+    return data?.data ?? data;
+  },
+
+  async overview(
+    since?: string,
+    until?: string,
+    all?: boolean,
+    channelId?: string,
+  ): Promise<MarketingOverview> {
+    const base = all ? { all: 1 } : since && until ? { since, until } : {};
+    const { data } = await api.get('/marketing/overview', {
+      params: { ...base, ...(channelId ? { channelId } : {}) },
+    });
     return data?.data ?? data;
   },
 
   // ─── Gestão de anúncios (Meta Ads ao vivo) ───
-  async listCampaigns(): Promise<{ campaigns: AdCampaign[] }> {
-    const { data } = await api.get('/marketing/ads/campaigns');
+  async listCampaigns(channelId?: string): Promise<{ campaigns: AdCampaign[] }> {
+    const { data } = await api.get('/marketing/ads/campaigns', {
+      params: channelId ? { channelId } : undefined,
+    });
     return data?.data ?? data;
   },
 
-  async setCampaignStatus(id: string, status: 'ACTIVE' | 'PAUSED'): Promise<void> {
-    await api.post(`/marketing/ads/campaigns/${id}/status`, { status });
+  async setCampaignStatus(
+    id: string,
+    status: 'ACTIVE' | 'PAUSED',
+    channelId?: string,
+  ): Promise<void> {
+    await api.post(`/marketing/ads/campaigns/${id}/status`, { status, channelId });
   },
 
-  async deleteCampaign(id: string): Promise<void> {
-    await api.delete(`/marketing/ads/campaigns/${id}`);
+  async deleteCampaign(id: string, channelId?: string): Promise<void> {
+    await api.delete(`/marketing/ads/campaigns/${id}`, {
+      params: channelId ? { channelId } : undefined,
+    });
   },
 
-  async listAdSets(id: string): Promise<{ adsets: AdSet[] }> {
-    const { data } = await api.get(`/marketing/ads/campaigns/${id}/adsets`);
+  async listAdSets(id: string, channelId?: string): Promise<{ adsets: AdSet[] }> {
+    const { data } = await api.get(`/marketing/ads/campaigns/${id}/adsets`, {
+      params: channelId ? { channelId } : undefined,
+    });
     return data?.data ?? data;
   },
 
-  async setCampaignBudget(id: string, dailyBudgetCents: number): Promise<void> {
-    await api.post(`/marketing/ads/campaigns/${id}/budget`, { dailyBudgetCents });
+  async setCampaignBudget(
+    id: string,
+    dailyBudgetCents: number,
+    channelId?: string,
+  ): Promise<void> {
+    await api.post(`/marketing/ads/campaigns/${id}/budget`, {
+      dailyBudgetCents,
+      channelId,
+    });
   },
 
-  async instagramPosts(): Promise<{ posts: InstagramPost[] }> {
-    const { data } = await api.get('/marketing/instagram/posts');
+  async instagramPosts(channelId?: string): Promise<{ posts: InstagramPost[] }> {
+    const { data } = await api.get('/marketing/instagram/posts', {
+      params: channelId ? { channelId } : undefined,
+    });
     return data?.data ?? data;
   },
 
   // ─── Publicação ───
-  async publishInstagram(input: { caption?: string; imageUrl?: string; videoUrl?: string }): Promise<{ mediaId: string }> {
+  async publishInstagram(input: {
+    caption?: string;
+    imageUrl?: string;
+    videoUrl?: string;
+    channelId?: string;
+  }): Promise<{ mediaId: string }> {
     const { data } = await api.post('/marketing/instagram/publish', input);
     return data?.data ?? data;
   },
@@ -269,6 +311,15 @@ export interface AdCampaign {
   objective: string | null;
   dailyBudgetCents: number | null;
   lifetimeBudgetCents: number | null;
+}
+
+export interface MarketingAccount {
+  channelId: string;
+  name: string;
+  igUsername?: string;
+  igUserId?: string;
+  /** Sem conta de anúncios vinculada, só publicação e métricas de post. */
+  hasAds: boolean;
 }
 
 export interface MarketingOverview {

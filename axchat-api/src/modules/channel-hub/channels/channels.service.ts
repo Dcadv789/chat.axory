@@ -1164,6 +1164,7 @@ export class ChannelsService {
         accessToken: igConfig.accessToken,
         fbPageId: igConfig.fbPageId,
         userToken,
+        channelId: atualizado.id,
       }).catch((err) =>
         this.logger.warn(`Reconexão: persistInstagramOrgSecrets falhou — ${err?.message ?? err}`),
       );
@@ -1216,6 +1217,7 @@ export class ChannelsService {
         accessToken: igConfig.accessToken,
         fbPageId: igConfig.fbPageId,
         userToken,
+        channelId: channel.id,
       });
     } catch (err: any) {
       this.logger.warn(`persistInstagramOrgSecrets falhou: ${err?.message ?? err}`);
@@ -1248,8 +1250,31 @@ export class ChannelsService {
    */
   private async persistInstagramOrgSecrets(
     organizationId: string,
-    data: { igBusinessId: string; accessToken: string; fbPageId?: string; userToken: string },
+    data: {
+      igBusinessId: string;
+      accessToken: string;
+      fbPageId?: string;
+      userToken: string;
+      /**
+       * Canal que originou a conexão. As credenciais também são gravadas nele
+       * pra que o marketing possa agir por conta: os secrets da org são um só
+       * por empresa e a última conexão sobrescreve as anteriores.
+       */
+      channelId?: string;
+    },
   ): Promise<AdsCaptureResult> {
+    const marcarNoCanal = async (campos: Record<string, string>) => {
+      if (!data.channelId) return;
+      const canal = await this.prisma.channel.findUnique({
+        where: { id: data.channelId },
+        select: { config: true },
+      });
+      if (!canal) return;
+      await this.prisma.channel.update({
+        where: { id: data.channelId },
+        data: { config: { ...(canal.config as object), ...campos } },
+      });
+    };
     const upsert = async (key: string, value: string) => {
       if (!value) return;
       await this.prisma.organizationSecret.upsert({
@@ -1274,6 +1299,10 @@ export class ChannelsService {
       if (adAccount) {
         await upsert('META_AD_ACCOUNT_ID', adAccount);
         await upsert('META_ADS_ACCESS_TOKEN', data.userToken);
+        await marcarNoCanal({
+          adAccountId: adAccount,
+          adsAccessToken: data.userToken,
+        });
         this.logger.log(
           `Instagram FLB: anúncios conectados (org ${organizationId}, conta ${adAccount}).`,
         );

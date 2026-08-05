@@ -40,6 +40,7 @@ import { IsCronExpressionConstraint } from './crons/dto/create-agent-cron.dto';
 import { MarketingProfileController } from './marketing/marketing-profile.controller';
 import { MarketingProfileService } from './marketing/marketing-profile.service';
 import { MarketingAdsService } from './marketing/marketing-ads.service';
+import { MarketingCredentialsService } from './marketing/marketing-credentials.service';
 import { MarketingBudgetService } from './marketing/marketing-budget.service';
 import { MarketingProvisioningService } from './marketing/marketing-provisioning.service';
 import { MarketingPublishService } from './marketing/marketing-publish.service';
@@ -87,6 +88,7 @@ import { MarketingPublishService } from './marketing/marketing-publish.service';
     IsCronExpressionConstraint,
     MarketingProfileService,
     MarketingAdsService,
+    MarketingCredentialsService,
     MarketingBudgetService,
     MarketingProvisioningService,
     MarketingPublishService,

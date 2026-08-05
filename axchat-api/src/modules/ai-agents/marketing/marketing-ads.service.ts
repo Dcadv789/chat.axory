@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../database/prisma.service';
 import { brtNow, countConversions } from './meta-insights.util';
 import { MarketingBudgetService } from './marketing-budget.service';
+import { MarketingCredentialsService } from './marketing-credentials.service';
 
 const GRAPH = 'https://graph.facebook.com/v25.0';
 
@@ -30,6 +31,7 @@ export class MarketingAdsService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly budgetService: MarketingBudgetService,
+    private readonly credentialsService: MarketingCredentialsService,
   ) {}
 
   private async resolve(orgId: string, key: string): Promise<string | null> {
@@ -40,25 +42,26 @@ export class MarketingAdsService {
     return secret?.value ?? this.config.get<string>(key) ?? null;
   }
 
-  private async credentials(orgId: string): Promise<{ acct: string; token: string }> {
-    const [adAccountId, token] = await Promise.all([
-      this.resolve(orgId, 'META_AD_ACCOUNT_ID'),
-      this.resolve(orgId, 'META_ADS_ACCESS_TOKEN'),
-    ]);
-    if (!adAccountId || !token) {
-      throw new BadRequestException(
-        'Faltam credenciais do Meta Ads (META_AD_ACCOUNT_ID / META_ADS_ACCESS_TOKEN). Configure em Configurações → Integrações.',
-      );
-    }
-    return { acct: adAccountId.replace(/^act_/, ''), token };
+  /**
+   * `channelId` escolhe a conta; sem ele valem as credenciais da organização
+   * (comportamento antigo, e o certo pra quem só tem uma conta).
+   */
+  private async credentials(
+    orgId: string,
+    channelId?: string,
+  ): Promise<{ acct: string; token: string }> {
+    return this.credentialsService.ads(orgId, channelId);
   }
 
   private num(v: any): number | null {
     return v === undefined || v === null || v === '' ? null : Number(v);
   }
 
-  async listCampaigns(orgId: string): Promise<{ campaigns: AdCampaign[] }> {
-    const { acct, token } = await this.credentials(orgId);
+  async listCampaigns(
+    orgId: string,
+    channelId?: string,
+  ): Promise<{ campaigns: AdCampaign[] }> {
+    const { acct, token } = await this.credentials(orgId, channelId);
     const fields =
       'name,status,effective_status,objective,daily_budget,lifetime_budget';
     let url =
@@ -93,8 +96,12 @@ export class MarketingAdsService {
   }
 
   /** Ad sets de uma campanha (nome, status, orçamento, objetivo de otimização). */
-  async listAdSets(orgId: string, campaignId: string): Promise<{ adsets: any[] }> {
-    const { token } = await this.credentials(orgId);
+  async listAdSets(
+    orgId: string,
+    campaignId: string,
+    channelId?: string,
+  ): Promise<{ adsets: any[] }> {
+    const { token } = await this.credentials(orgId, channelId);
     const fields = 'name,status,effective_status,daily_budget,lifetime_budget,optimization_goal';
     const res = await fetch(
       `${GRAPH}/${encodeURIComponent(campaignId)}/adsets?fields=${fields}&limit=100&access_token=${encodeURIComponent(token)}`,
@@ -122,11 +129,12 @@ export class MarketingAdsService {
     orgId: string,
     campaignId: string,
     dailyBudgetCents: number,
+    channelId?: string,
   ): Promise<{ ok: boolean }> {
     if (!Number.isFinite(dailyBudgetCents) || dailyBudgetCents <= 0) {
       throw new BadRequestException('Orçamento diário inválido.');
     }
-    const { token } = await this.credentials(orgId);
+    const { token } = await this.credentials(orgId, channelId);
     const res = await fetch(`${GRAPH}/${encodeURIComponent(campaignId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -147,16 +155,14 @@ export class MarketingAdsService {
   }
 
   /** Posts recentes do Instagram (com miniatura) via IG Graph API. */
-  async listInstagramPosts(orgId: string): Promise<{ posts: any[] }> {
-    const [igUserId, token] = await Promise.all([
-      this.resolve(orgId, 'IG_USER_ID'),
-      this.resolve(orgId, 'IG_ACCESS_TOKEN'),
-    ]);
-    if (!igUserId || !token) {
-      throw new BadRequestException(
-        'Faltam IG_USER_ID e/ou IG_ACCESS_TOKEN. Configure em Configurações → Integrações.',
-      );
-    }
+  async listInstagramPosts(
+    orgId: string,
+    channelId?: string,
+  ): Promise<{ posts: any[] }> {
+    const { igUserId, token } = await this.credentialsService.instagram(
+      orgId,
+      channelId,
+    );
     const fields =
       'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count';
     const res = await fetch(
@@ -186,11 +192,12 @@ export class MarketingAdsService {
     orgId: string,
     campaignId: string,
     status: 'ACTIVE' | 'PAUSED',
+    channelId?: string,
   ): Promise<{ ok: boolean }> {
     if (status !== 'ACTIVE' && status !== 'PAUSED') {
       throw new BadRequestException('status deve ser ACTIVE ou PAUSED.');
     }
-    const { token } = await this.credentials(orgId);
+    const { token } = await this.credentials(orgId, channelId);
     const res = await fetch(
       `${GRAPH}/${encodeURIComponent(campaignId)}`,
       {
@@ -214,7 +221,13 @@ export class MarketingAdsService {
    * Resumo do painel: pacing de verba do mês + insights agregados da conta +
    * contagem de campanhas. Tolerante a falhas (devolve o que conseguir).
    */
-  async overview(orgId: string, since?: string, until?: string, all = false): Promise<Record<string, unknown>> {
+  async overview(
+    orgId: string,
+    since?: string,
+    until?: string,
+    all = false,
+    channelId?: string,
+  ): Promise<Record<string, unknown>> {
     const profile = await this.prisma.marketingProfile.findUnique({
       where: { organizationId: orgId },
       select: {
@@ -270,10 +283,11 @@ export class MarketingAdsService {
       ? 'date_preset=maximum'
       : `time_range=${encodeURIComponent(JSON.stringify({ since: insightsSince, until: insightsUntil }))}`;
 
-    const [adAccountId, token] = await Promise.all([
-      this.resolve(orgId, 'META_AD_ACCOUNT_ID'),
-      this.resolve(orgId, 'META_ADS_ACCESS_TOKEN'),
-    ]);
+    // Aqui a ausência de credencial NÃO é erro: o resumo mostra o pacing de
+    // verba mesmo sem anúncios conectados, e avisa mais abaixo.
+    const { adAccountId, adsToken: token } = await this.credentialsService
+      .resolve(orgId, channelId)
+      .catch(() => ({ adAccountId: undefined, adsToken: undefined }));
 
     // Insights agregados da conta no período.
     let insights: Record<string, number | null> = {
@@ -450,8 +464,12 @@ export class MarketingAdsService {
     };
   }
 
-  async deleteCampaign(orgId: string, campaignId: string): Promise<{ ok: boolean }> {
-    const { token } = await this.credentials(orgId);
+  async deleteCampaign(
+    orgId: string,
+    campaignId: string,
+    channelId?: string,
+  ): Promise<{ ok: boolean }> {
+    const { token } = await this.credentials(orgId, channelId);
     const res = await fetch(
       `${GRAPH}/${encodeURIComponent(campaignId)}?access_token=${encodeURIComponent(token)}`,
       { method: 'DELETE', signal: AbortSignal.timeout(15_000) },

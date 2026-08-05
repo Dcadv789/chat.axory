@@ -22,6 +22,10 @@ import {
   type InstagramPost,
   type MarketingOverview,
 } from '@/features/marketing/services/marketing.service';
+import {
+  MarketingAccountProvider,
+  useMarketingAccount,
+} from '../hooks/use-marketing-account';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RangeCalendar, toISODate, type DateRange } from '@/features/marketing/components/range-calendar';
@@ -57,6 +61,49 @@ function defaultRange(): DateRange {
 }
 
 export function MarketingPanel() {
+  return (
+    <MarketingAccountProvider>
+      <MarketingPanelInner />
+    </MarketingAccountProvider>
+  );
+}
+
+/**
+ * Seletor da conta sobre a qual o painel age. Só aparece com mais de uma conta
+ * conectada — com uma só ele seria ruído, e o comportamento é o de sempre.
+ */
+function AccountPicker() {
+  const { accounts, channelId, setChannelId, current } = useMarketingAccount();
+  if (accounts.length < 2) return null;
+  return (
+    <div className="flex items-center gap-2">
+      <Instagram className="h-4 w-4 shrink-0 text-zinc-400" />
+      <select
+        value={channelId ?? ''}
+        onChange={(e) => setChannelId(e.target.value || undefined)}
+        title="Conta do Instagram sobre a qual este painel age"
+        className="rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:border-white/10 dark:bg-black dark:text-zinc-200"
+      >
+        {accounts.map((a) => (
+          <option key={a.channelId} value={a.channelId}>
+            {a.igUsername ? `@${a.igUsername}` : a.name}
+            {a.hasAds ? '' : ' (sem anúncios)'}
+          </option>
+        ))}
+      </select>
+      {current && !current.hasAds && (
+        <span
+          title="Esta conta não tem conta de anúncios vinculada. Reconecte o canal concedendo as permissões de Anúncios."
+          className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+        >
+          sem anúncios
+        </span>
+      )}
+    </div>
+  );
+}
+
+function MarketingPanelInner() {
   const [tab, setTab] = useState<Tab>('resumo');
   // range = null → "todo o período" (sem filtro de data).
   const [range, setRange] = useState<DateRange | null>(defaultRange);
@@ -134,13 +181,17 @@ export function MarketingPanel() {
           </div>
         </nav>
 
-        {/* Filtro de período (calendário) — vale pra Resumo e Métricas */}
-        {(tab === 'resumo' || tab === 'admetrics' || tab === 'metrics') && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-zinc-500">Período:</span>
-            <RangeCalendar value={range} onChange={setRange} onClear={() => setRange(null)} />
-          </div>
-        )}
+        {/* Conta + período. A conta vale pra TODAS as abas, então fica fora do
+            condicional do calendário. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <AccountPicker />
+          {(tab === 'resumo' || tab === 'admetrics' || tab === 'metrics') && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-zinc-500">Período:</span>
+              <RangeCalendar value={range} onChange={setRange} onClear={() => setRange(null)} />
+            </div>
+          )}
+        </div>
 
         {tab === 'resumo' && <ResumoTab since={since} until={until} all={all} rangeKey={rangeKey} />}
         {tab === 'gestao' && <GestaoTab />}
@@ -255,9 +306,10 @@ const fmtDec = (n: number | null | undefined, suffix = '') =>
   n == null ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
 
 function ResumoTab({ since, until, all, rangeKey }: { since: string; until: string; all: boolean; rangeKey: string }) {
+  const { channelId } = useMarketingAccount();
   const { data: ov, isLoading } = useQuery({
-    queryKey: ['marketing-overview', rangeKey],
-    queryFn: () => marketingService.overview(since, until, all),
+    queryKey: ['marketing-overview', rangeKey, channelId],
+    queryFn: () => marketingService.overview(since, until, all, channelId),
     refetchInterval: 60000,
   });
   const { data: adMetrics } = useQuery({
@@ -488,10 +540,11 @@ function aggregateSpendByDay(rows: AdMetricRow[]): { day: string; spend: number 
 // ─── Gestão de anúncios (ao vivo) ──────────────────────────────
 
 function GestaoTab() {
+  const { channelId } = useMarketingAccount();
   const qc = useQueryClient();
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['marketing-ad-campaigns'],
-    queryFn: () => marketingService.listCampaigns(),
+    queryKey: ['marketing-ad-campaigns', channelId],
+    queryFn: () => marketingService.listCampaigns(channelId),
     refetchInterval: 30000,
   });
   const [busy, setBusy] = useState<string | null>(null);
@@ -501,13 +554,14 @@ function GestaoTab() {
   const [toDelete, setToDelete] = useState<AdCampaign | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['marketing-ad-campaigns'] });
+  const invalidate = () =>
+    qc.invalidateQueries({ queryKey: ['marketing-ad-campaigns', channelId] });
 
   const toggle = async (c: AdCampaign) => {
     const next = c.effectiveStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
     setBusy(c.id);
     try {
-      await marketingService.setCampaignStatus(c.id, next);
+      await marketingService.setCampaignStatus(c.id, next, channelId);
       toast.success(next === 'ACTIVE' ? 'Campanha ativada' : 'Campanha pausada');
       invalidate();
     } catch (err: any) {
@@ -521,7 +575,7 @@ function GestaoTab() {
     if (!toDelete) return;
     setDeleting(true);
     try {
-      await marketingService.deleteCampaign(toDelete.id);
+      await marketingService.deleteCampaign(toDelete.id, channelId);
       toast.success('Campanha excluída');
       setToDelete(null);
       invalidate();
@@ -696,9 +750,10 @@ function GestaoTab() {
 // ─── Detalhe de campanha (drawer) ──────────────────────────────
 
 function CampaignDetailDrawer({ campaign, onClose, onChanged }: { campaign: AdCampaign; onClose: () => void; onChanged: () => void }) {
+  const { channelId } = useMarketingAccount();
   const { data: adsets, isLoading: loadingAdsets, isError: adsetsError } = useQuery({
-    queryKey: ['marketing-adsets', campaign.id],
-    queryFn: () => marketingService.listAdSets(campaign.id),
+    queryKey: ['marketing-adsets', campaign.id, channelId],
+    queryFn: () => marketingService.listAdSets(campaign.id, channelId),
   });
   const until90 = toISODate(new Date());
   const since90 = toISODate(new Date(Date.now() - 89 * 86400000));
@@ -723,7 +778,11 @@ function CampaignDetailDrawer({ campaign, onClose, onChanged }: { campaign: AdCa
     }
     setSaving(true);
     try {
-      await marketingService.setCampaignBudget(campaign.id, Math.round(reais * 100));
+      await marketingService.setCampaignBudget(
+        campaign.id,
+        Math.round(reais * 100),
+        channelId,
+      );
       toast.success('Orçamento atualizado');
       setEditing(false);
       onChanged();
@@ -1093,9 +1152,10 @@ function MetricsTab({
 // ─── Posts do Instagram ────────────────────────────────────────
 
 function InstagramPostsTab() {
+  const { channelId } = useMarketingAccount();
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['marketing-instagram-posts'],
-    queryFn: () => marketingService.instagramPosts(),
+    queryKey: ['marketing-instagram-posts', channelId],
+    queryFn: () => marketingService.instagramPosts(channelId),
     refetchInterval: 60000,
   });
 
@@ -1265,6 +1325,7 @@ function PublicarTab() {
 }
 
 function PublishInstagramForm() {
+  const { channelId } = useMarketingAccount();
   const [caption, setCaption] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -1276,6 +1337,7 @@ function PublishInstagramForm() {
     setPublishing(true);
     try {
       const res = await marketingService.publishInstagram({
+        channelId,
         caption: caption.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined,
         videoUrl: videoUrl.trim() || undefined,
