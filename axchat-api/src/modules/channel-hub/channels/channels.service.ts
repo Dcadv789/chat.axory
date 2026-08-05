@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   HttpException,
   Logger,
 } from '@nestjs/common';
@@ -339,6 +340,46 @@ export class ChannelsService {
     return secrets.filter((s) => !!s);
   }
 
+  /**
+   * Impede que duas contas de canal reivindiquem a MESMA conta do Instagram.
+   *
+   * O webhook da Meta só traz o id da conta IG — não traz organização. O
+   * roteamento então casa pelo `igBusinessId` e fica com o primeiro canal ativo
+   * que bater. Com duplicatas, a DM cai num canal arbitrário; e se a duplicata
+   * for de OUTRA org, ela passa a receber as mensagens da primeira. Foi o que
+   * aconteceu com @axorycapital, reivindicada por 5 canais em 2 orgs.
+   */
+  private async assertInstagramAccountFree(
+    igBusinessId: string,
+    organizationId: string,
+  ): Promise<void> {
+    if (!igBusinessId) return;
+
+    const existente = await this.prisma.channel.findFirst({
+      where: {
+        type: ChannelType.INSTAGRAM,
+        deletedAt: null,
+        isActive: true,
+        config: { path: ['igBusinessId'], equals: igBusinessId },
+      },
+      select: { name: true, organizationId: true },
+    });
+    if (!existente) return;
+
+    if (existente.organizationId !== organizationId) {
+      throw new ConflictException(
+        'Esta conta do Instagram já está conectada em OUTRA empresa da plataforma. ' +
+          'Como o webhook da Meta não diz a qual empresa a mensagem pertence, conectar de novo ' +
+          'faria as DMs caírem no canal errado. Desconecte lá antes de conectar aqui.',
+      );
+    }
+    throw new ConflictException(
+      `Esta conta do Instagram já está conectada no canal "${existente.name}". ` +
+        'Use esse canal em vez de criar outro — dois canais na mesma conta fazem as DMs ' +
+        'caírem num deles de forma imprevisível.',
+    );
+  }
+
   /** URL de callback do OAuth do Login do Instagram (registrada no app). */
   private instagramLoginRedirectUri(): string {
     const base = (process.env.APP_URL || 'http://localhost:3001').replace(/\/$/, '');
@@ -537,6 +578,8 @@ export class ChannelsService {
         `Instagram Login: perfil não carregado (${err?.message ?? err}) — canal criado assim mesmo.`,
       );
     }
+
+    await this.assertInstagramAccountFree(igUserId, parsed.o);
 
     return this.create(
       parsed.o,
@@ -1051,6 +1094,7 @@ export class ChannelsService {
 
     // 3) Cria o canal (o create() dispara o subscribed_apps da Página → DMs,
     //    quando há Página; sem Página, os endpoints usam o token de usuário).
+    await this.assertInstagramAccountFree(igConfig.igBusinessId, organizationId);
     //    IMPORTANTE: o appSecret do canal é o do app do INSTAGRAM (igAppSecret),
     //    pois é ele que assina os webhooks — usar o do WhatsApp faz a validação
     //    HMAC rejeitar todas as mensagens.
