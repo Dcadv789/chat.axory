@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Loader2, AlertTriangle, Bug, Copy } from 'lucide-react';
 import { InstagramIcon } from '@/components/ui/icons';
 import { channelsService, type CoexistenceConfig } from '../services/channels.service';
+import { extractFbAuthCode } from '../utils/fb-auth-code';
 
 declare global {
   interface Window {
@@ -103,7 +104,7 @@ export function InstagramConnect({ name, onConnect, isSubmitting }: InstagramCon
       // disparamos o trabalho assíncrono por dentro.
       window.FB.login(
         (response: any) => {
-          const code = response?.authResponse?.code;
+          const code = extractFbAuthCode(response);
           if (!code) {
             // A resposta da Meta era DESCARTADA aqui, e o dono via só uma
             // mensagem genérica — sem nada pra diagnosticar. O objeto costuma

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Loader2, QrCode, AlertTriangle } from 'lucide-react';
 import { channelsService, type CoexistenceConfig } from '../services/channels.service';
+import { extractFbAuthCode } from '../utils/fb-auth-code';
 
 declare global {
   interface Window {
@@ -168,7 +169,10 @@ export function CoexistenceConnect({
     // o trabalho assíncrono por dentro.
     window.FB.login(
       (response: any) => {
-        const code = response?.authResponse?.code;
+        // Mesmo caso do Instagram: o SDK pode entregar o code dentro do
+        // `signedRequest` em vez de `authResponse.code` — e aí um login que deu
+        // certo era reportado como falha.
+        const code = extractFbAuthCode(response);
         if (!code) {
           setError('Não foi possível obter o código de autorização da Meta.');
           setLaunching(false);
