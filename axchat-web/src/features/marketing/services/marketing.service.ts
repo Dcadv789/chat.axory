@@ -340,6 +340,20 @@ export const marketingService = {
     });
   },
 
+  /**
+   * Sobe a mídia pro nosso MinIO e devolve a URL pública. A Meta baixa a
+   * imagem por essa URL na hora de publicar, então ela precisa ser acessível
+   * sem autenticação — quem garante isso é o bucket, no backend.
+   */
+  async uploadPostMedia(file: File): Promise<{ url: string; tipo: 'imagem' | 'video' }> {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await api.post('/marketing/uploads/post-media', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data?.data ?? data;
+  },
+
   // ─── Publicação ───
   async publishInstagram(input: {
     caption?: string;

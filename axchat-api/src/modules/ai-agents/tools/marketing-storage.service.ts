@@ -1,6 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  HeadBucketCommand,
+  CreateBucketCommand,
+  PutBucketPolicyCommand,
+} from '@aws-sdk/client-s3';
+
+/**
+ * Bucket das mídias que vão para posts do Instagram/Threads.
+ *
+ * Separado do bucket geral de marketing porque tem regra diferente: a Meta
+ * BAIXA a imagem pela URL na hora de publicar ("we cURL your image"), então
+ * tudo aqui precisa ser público de leitura. Misturar com material interno
+ * seria expor coisa que não deveria ser pública.
+ */
+export const POSTS_BUCKET = 'imagens-posts-axchat';
 
 export interface StoredObject {
   url: string;
@@ -69,11 +85,14 @@ export class MarketingStorageService {
     buffer: Buffer;
     key: string; // ex: "<tenant>/abc.png"
     contentType: string;
+    /** Sem isso vai pro bucket padrão do marketing. */
+    bucket?: string;
   }): Promise<StoredObject> {
     if (!this.client) throw new Error('MinIO não configurado');
+    const bucket = args.bucket || this.bucket;
     await this.client.send(
       new PutObjectCommand({
-        Bucket: this.bucket,
+        Bucket: bucket,
         Key: args.key,
         Body: args.buffer,
         ContentType: args.contentType,
@@ -81,9 +100,59 @@ export class MarketingStorageService {
       }),
     );
     return {
-      url: `${this.endpoint}/${this.bucket}/${args.key}`,
+      url: `${this.endpoint}/${bucket}/${args.key}`,
       key: args.key,
-      bucket: this.bucket,
+      bucket,
     };
+  }
+
+  /**
+   * Garante que o bucket existe e que dá pra LER sem credencial.
+   *
+   * A política pública é o ponto crítico: a Meta baixa a imagem pela URL na
+   * hora de publicar. Só `ACL: public-read` no objeto não basta — o MinIO
+   * ignora ACL por padrão e responde 403, e o post falha com uma mensagem que
+   * não explica nada. A política de bucket é o que o MinIO respeita.
+   *
+   * Idempotente: roda a cada upload e não faz nada se já estiver tudo certo.
+   */
+  async ensurePublicBucket(bucket: string): Promise<void> {
+    if (!this.client) throw new Error('MinIO não configurado');
+
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: bucket }));
+      return; // já existe — política foi aplicada na criação
+    } catch {
+      /* não existe (ou sem permissão de head): tenta criar abaixo */
+    }
+
+    try {
+      await this.client.send(new CreateBucketCommand({ Bucket: bucket }));
+      this.logger.log(`Bucket "${bucket}" criado no MinIO.`);
+    } catch (err: any) {
+      // Corrida entre duas instâncias criando ao mesmo tempo — tudo bem.
+      const nome = err?.name ?? '';
+      if (!/BucketAlreadyOwnedByYou|BucketAlreadyExists/.test(nome)) {
+        throw err;
+      }
+    }
+
+    await this.client.send(
+      new PutBucketPolicyCommand({
+        Bucket: bucket,
+        Policy: JSON.stringify({
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Effect: 'Allow',
+              Principal: { AWS: ['*'] },
+              Action: ['s3:GetObject'],
+              Resource: [`arn:aws:s3:::${bucket}/*`],
+            },
+          ],
+        }),
+      }),
+    );
+    this.logger.log(`Bucket "${bucket}" liberado para leitura pública.`);
   }
 }

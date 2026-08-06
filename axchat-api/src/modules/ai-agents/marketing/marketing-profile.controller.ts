@@ -8,13 +8,22 @@ import {
   Put,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
 import { MarketingProfileService } from './marketing-profile.service';
 import { MarketingAdsService } from './marketing-ads.service';
 import { MarketingCredentialsService } from './marketing-credentials.service';
 import { MarketingPublishService } from './marketing-publish.service';
+import { MarketingUploadService } from './marketing-upload.service';
 import { MarketingBudgetService } from './marketing-budget.service';
 import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
 import { SetMonthlyBudgetDto } from './dto/set-monthly-budget.dto';
@@ -34,9 +43,29 @@ export class MarketingProfileController {
     private readonly publish: MarketingPublishService,
     private readonly budgetService: MarketingBudgetService,
     private readonly credentials: MarketingCredentialsService,
+    private readonly uploads: MarketingUploadService,
   ) {}
 
   // ─── Publicação direta (dono) ──────────────────────────────
+
+  @Post('uploads/post-media')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 100 * 1024 * 1024 } }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Envia imagem/vídeo pro bucket público e devolve a URL do post',
+  })
+  uploadPostMedia(
+    @CurrentOrg('id') orgId: string,
+    // Tipagem estrutural igual à do upload de áudio: os tipos do multer não
+    // estão instalados e `Express.Multer.File` não resolve.
+    @UploadedFile()
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+  ) {
+    return this.uploads.uploadPostMedia(orgId, file);
+  }
 
   @Post('instagram/publish')
   @Roles(OrgRole.OWNER, OrgRole.ADMIN)

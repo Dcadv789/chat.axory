@@ -134,6 +134,12 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     HttpToolExecutorService,
     SqlToolExecutorService,
   ],
-  exports: [ToolRegistry, HttpToolExecutorService, SqlToolExecutorService],
+  exports: [
+    ToolRegistry,
+    HttpToolExecutorService,
+    SqlToolExecutorService,
+    // O upload de mídia de post (painel de Marketing) usa o mesmo MinIO.
+    MarketingStorageService,
+  ],
 })
 export class ToolsModule {}

@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
   LayoutDashboard, TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
-  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon, Search, ChevronDown,
+  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon, Search, ChevronDown, Upload,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -1669,6 +1669,68 @@ function PublicarTab() {
   );
 }
 
+/**
+ * Botão de upload que devolve a URL pública.
+ *
+ * O usuário comum não tem URL pública de nada — ele tem o arquivo. Sem isto o
+ * campo de URL só servia pra quem já hospedava imagem em algum lugar.
+ */
+function UploadMidia({
+  onPronto,
+  label = 'Enviar arquivo',
+}: {
+  onPronto: (url: string) => void;
+  label?: string;
+}) {
+  const [enviando, setEnviando] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const escolher = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+    setEnviando(true);
+    try {
+      const { url } = await marketingService.uploadPostMedia(arquivo);
+      onPronto(url);
+      toast.success('Arquivo enviado.');
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ?? 'Não foi possível enviar o arquivo.',
+      );
+    } finally {
+      setEnviando(false);
+      // Permite reenviar o MESMO arquivo depois de um erro: sem limpar, o
+      // input não dispara change de novo pro mesmo nome.
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,video/mp4,video/quicktime"
+        onChange={escolher}
+        className="hidden"
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={enviando}
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+      >
+        {enviando ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Upload className="h-3.5 w-3.5" />
+        )}
+        {enviando ? 'Enviando…' : label}
+      </button>
+    </>
+  );
+}
+
 function PublishInstagramForm() {
   const { channelId } = useMarketingAccount();
   const [formato, setFormato] = useState<'unico' | 'carrossel'>('unico');
@@ -1746,10 +1808,22 @@ function PublishInstagramForm() {
       {formato === 'unico' ? (
         <>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            O Instagram exige mídia: informe a URL pública de uma <strong>imagem</strong> (feed) ou de um <strong>vídeo</strong> (Reels).
+            O Instagram exige mídia. <strong>Envie o arquivo</strong> do seu
+            computador ou cole a URL, se já tiver uma. Imagem precisa ser{' '}
+            <strong>JPEG</strong> — é o único formato que a Meta aceita.
           </p>
-          <PubUrlField label="URL da imagem" value={imageUrl} onChange={setImageUrl} placeholder="https://… (JPG/PNG público)" icon={ImageIcon} disabled={!!videoUrl.trim()} />
-          <PubUrlField label="URL do vídeo (Reels)" value={videoUrl} onChange={setVideoUrl} placeholder="https://… (MP4 público)" icon={Play} disabled={!!imageUrl.trim()} />
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <PubUrlField label="Imagem" value={imageUrl} onChange={setImageUrl} placeholder="https://… ou envie o arquivo" icon={ImageIcon} disabled={!!videoUrl.trim()} />
+            </div>
+            <UploadMidia onPronto={(url) => { setImageUrl(url); setVideoUrl(''); }} />
+          </div>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <PubUrlField label="Vídeo (Reels)" value={videoUrl} onChange={setVideoUrl} placeholder="https://… ou envie o arquivo" icon={Play} disabled={!!imageUrl.trim()} />
+            </div>
+            <UploadMidia onPronto={(url) => { setVideoUrl(url); setImageUrl(''); }} />
+          </div>
           {imageUrl.trim() && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={imageUrl} alt="prévia" className="max-h-64 rounded-lg border border-zinc-200 object-contain dark:border-white/10" onError={(e) => (e.currentTarget.style.display = 'none')} />
@@ -1773,9 +1847,10 @@ function PublishInstagramForm() {
                 <input
                   value={url}
                   onChange={(e) => trocarItem(i, e.target.value)}
-                  placeholder="https://… (JPG público ou MP4)"
+                  placeholder="https://… ou envie o arquivo"
                   className="h-9 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm outline-none placeholder:text-zinc-400 focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
                 />
+                <UploadMidia onPronto={(url) => trocarItem(i, url)} label="Enviar" />
                 {url.trim() && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

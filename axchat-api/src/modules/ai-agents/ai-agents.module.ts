@@ -44,6 +44,7 @@ import { MarketingCredentialsService } from './marketing/marketing-credentials.s
 import { MarketingBudgetService } from './marketing/marketing-budget.service';
 import { MarketingProvisioningService } from './marketing/marketing-provisioning.service';
 import { MarketingPublishService } from './marketing/marketing-publish.service';
+import { MarketingUploadService } from './marketing/marketing-upload.service';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { MarketingPublishService } from './marketing/marketing-publish.service';
     MarketingBudgetService,
     MarketingProvisioningService,
     MarketingPublishService,
+    MarketingUploadService,
   ],
   exports: [AiAgentRunnerService, AgentRouterService, MarketingProvisioningService],
 })
