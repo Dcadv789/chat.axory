@@ -30,6 +30,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RangeCalendar, toISODate, type DateRange } from '@/features/marketing/components/range-calendar';
+import { channelsService } from '@/features/channels/services/channels.service';
 import { ThreadsPanel } from './threads-panel';
 import { CommentsPanel } from './comments-panel';
 
@@ -1227,6 +1228,22 @@ function InstagramPostsTab() {
     refetchInterval: 60000,
   });
 
+  /**
+   * `instagram_manage_contents` é exigida pelo DELETE de mídia, mas NÃO consta
+   * entre as permissões concedíveis pelo Facebook Login for Business — não
+   * aparece nem na configuração do login. Então excluir simplesmente não
+   * funciona no nosso fluxo, e o certo é dizer isso em vez de oferecer um
+   * botão que sempre volta com "(#10) Insufficient permissions".
+   */
+  const { data: escopos } = useQuery({
+    queryKey: ['instagram-token-scopes', channelId],
+    queryFn: () => channelsService.instagramTokenScopes(channelId!),
+    enabled: !!channelId,
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+  });
+  const podeExcluir = escopos?.scopes.includes('instagram_manage_contents') ?? false;
+
   const todos = data?.posts ?? [];
 
   /**
@@ -1391,6 +1408,7 @@ function InstagramPostsTab() {
       <PostDialog
         post={aberto}
         numero={aberto ? numeroPorId.get(aberto.id) : undefined}
+        podeExcluir={podeExcluir}
         onClose={() => setAberto(null)}
         onExcluir={(p) => {
           setAberto(null);
@@ -1426,11 +1444,13 @@ function InstagramPostsTab() {
 function PostDialog({
   post,
   numero,
+  podeExcluir,
   onClose,
   onExcluir,
 }: {
   post: InstagramPost | null;
   numero?: number;
+  podeExcluir: boolean;
   onClose: () => void;
   onExcluir: (p: InstagramPost) => void;
 }) {
@@ -1528,13 +1548,22 @@ function PostDialog({
                 >
                   <ExternalLink className="h-3.5 w-3.5" /> Abrir no Instagram
                 </a>
-                <button
-                  type="button"
-                  onClick={() => onExcluir(post)}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Excluir
-                </button>
+                {podeExcluir ? (
+                  <button
+                    type="button"
+                    onClick={() => onExcluir(post)}
+                    className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Excluir
+                  </button>
+                ) : (
+                  <span
+                    title="A Meta não concede a permissão de excluir mídia (instagram_manage_contents) pelo Facebook Login — ela nem aparece na configuração. Exclua pelo app do Instagram."
+                    className="ml-auto inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-zinc-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Excluir pelo Instagram
+                  </span>
+                )}
               </div>
             </div>
           </motion.div>
