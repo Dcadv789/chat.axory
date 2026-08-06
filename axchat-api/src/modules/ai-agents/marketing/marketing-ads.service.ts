@@ -189,6 +189,36 @@ export class MarketingAdsService {
   }
 
   /**
+   * Exclui um post publicado. **Irreversível.**
+   *
+   * Exige `instagram_manage_contents` além do `instagram_basic`, e só funciona
+   * no fluxo de Facebook Login (é o nosso). A Meta não permite excluir item
+   * isolado de carrossel — só o álbum inteiro, pelo id do container.
+   */
+  async deleteInstagramPost(
+    orgId: string,
+    mediaId: string,
+    channelId?: string,
+  ): Promise<{ ok: true }> {
+    const { token } = await this.credentialsService.instagram(orgId, channelId);
+    const res = await fetch(
+      `${GRAPH}/${encodeURIComponent(mediaId)}?access_token=${encodeURIComponent(token)}`,
+      { method: 'DELETE', signal: AbortSignal.timeout(20_000) },
+    );
+    const json: any = await res.json().catch(() => ({}));
+    if (!res.ok || json?.error) {
+      const erro = json?.error;
+      // A Meta devolve um texto pronto pro usuário quando o tipo de mídia não
+      // dá pra excluir (anúncio, item solto de carrossel). Ele explica melhor
+      // do que qualquer mensagem nossa.
+      const detalhe =
+        erro?.error_user_msg ?? erro?.message ?? `HTTP ${res.status}`;
+      throw new BadRequestException(`Instagram: ${detalhe}`);
+    }
+    return { ok: true };
+  }
+
+  /**
    * Comentários de um post, já com as respostas aninhadas.
    *
    * As respostas vêm junto de propósito: é assim que o dono vê a automação

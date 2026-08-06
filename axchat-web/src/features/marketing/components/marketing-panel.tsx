@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
   LayoutDashboard, TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
-  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon,
+  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon, Search,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -1199,23 +1199,78 @@ function MetricsTab({
 
 function InstagramPostsTab() {
   const { channelId } = useMarketingAccount();
+  const queryClient = useQueryClient();
+  const [busca, setBusca] = useState('');
+  const [paraExcluir, setParaExcluir] = useState<InstagramPost | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['marketing-instagram-posts', channelId],
     queryFn: () => marketingService.instagramPosts(channelId),
     refetchInterval: 60000,
   });
 
+  const termo = busca.trim().toLowerCase();
+  const posts = (data?.posts ?? []).filter((p) =>
+    termo ? (p.caption ?? '').toLowerCase().includes(termo) : true,
+  );
+
+  const excluir = async () => {
+    if (!paraExcluir) return;
+    setExcluindo(true);
+    try {
+      await marketingService.deleteInstagramPost(paraExcluir.id, channelId);
+      toast.success('Post excluído do Instagram.');
+      setParaExcluir(null);
+      await queryClient.invalidateQueries({
+        queryKey: ['marketing-instagram-posts', channelId],
+      });
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ?? 'Não foi possível excluir o post.',
+      );
+    } finally {
+      setExcluindo(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-zinc-500">Seus posts recentes no Instagram (feed). Clique para abrir no Instagram.</p>
+      {/* Barra de filtro — atualizar + busca por legenda. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-2.5 shadow-sm dark:border-white/10 dark:bg-black">
         <button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} /> Atualizar
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+          Atualizar
         </button>
+
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar na legenda dos posts…"
+            className="w-full rounded-md border border-zinc-200 bg-white py-1.5 pl-8 pr-8 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+          />
+          {busca && (
+            <button
+              onClick={() => setBusca('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+              title="Limpar"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <span className="shrink-0 text-[11px] text-zinc-500">
+          {termo
+            ? `${posts.length} de ${data?.posts.length ?? 0} post(s)`
+            : `${data?.posts.length ?? 0} post(s)`}
+        </span>
       </div>
 
       {isLoading ? (
@@ -1224,19 +1279,20 @@ function InstagramPostsTab() {
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
           {(error as any)?.response?.data?.message ?? 'Erro ao carregar posts. Verifique IG_USER_ID / IG_ACCESS_TOKEN em Integrações.'}
         </div>
-      ) : (data?.posts.length ?? 0) === 0 ? (
+      ) : posts.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-5 py-10 text-center dark:border-white/10 dark:bg-black">
-          <p className="text-sm text-zinc-400">Nenhum post encontrado na conta do Instagram.</p>
+          <p className="text-sm text-zinc-400">
+            {termo
+              ? `Nenhum post com "${busca}" na legenda.`
+              : 'Nenhum post encontrado na conta do Instagram.'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {data!.posts.map((post) => (
-            <a
+          {posts.map((post, i) => (
+            <div
               key={post.id}
-              href={post.permalink ?? '#'}
-              target="_blank"
-              rel="noreferrer"
-              className="group overflow-hidden rounded-xl border border-zinc-200 bg-white transition-shadow hover:shadow-md dark:border-white/10 dark:bg-black"
+              className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition-shadow hover:shadow-md dark:border-white/10 dark:bg-black"
             >
               <div className="relative aspect-square bg-zinc-100 dark:bg-white/5">
                 {post.thumbnailUrl ? (
@@ -1247,14 +1303,16 @@ function InstagramPostsTab() {
                     <Instagram className="h-8 w-8" />
                   </div>
                 )}
-                <span className="absolute right-1.5 top-1.5 rounded bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100">
-                  <ExternalLink className="h-3 w-3" />
+                {/* Número do post: referência rápida pra falar "o #3" com a equipe. */}
+                <span className="absolute left-1.5 top-1.5 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white">
+                  #{i + 1}
                 </span>
                 {post.mediaType === 'VIDEO' && (
-                  <span className="absolute left-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white">VÍDEO</span>
+                  <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white">VÍDEO</span>
                 )}
               </div>
-              <div className="p-2.5">
+
+              <div className="flex flex-1 flex-col p-2.5">
                 <p className="line-clamp-2 h-8 text-[11px] text-zinc-600 dark:text-zinc-400">
                   {post.caption ? post.caption.replace(/\s+/g, ' ').trim() : <span className="text-zinc-300">Sem legenda</span>}
                 </p>
@@ -1265,11 +1323,47 @@ function InstagramPostsTab() {
                     <span className="ml-auto text-[10px] text-zinc-400">{new Date(post.timestamp).toLocaleDateString('pt-BR')}</span>
                   )}
                 </div>
+
+                {/* Ações do post. */}
+                <div className="mt-2 flex items-center gap-1 border-t border-zinc-100 pt-2 dark:border-white/5">
+                  <a
+                    href={post.permalink ?? '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Abrir no Instagram"
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 hover:text-primary dark:hover:bg-white/5"
+                  >
+                    <ExternalLink className="h-3 w-3" /> Abrir
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setParaExcluir(post)}
+                    title="Excluir do Instagram (não tem volta)"
+                    className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                  >
+                    <Trash2 className="h-3 w-3" /> Excluir
+                  </button>
+                </div>
               </div>
-            </a>
+            </div>
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!paraExcluir}
+        title="Excluir este post do Instagram?"
+        description={
+          paraExcluir
+            ? `O post some do perfil para todo mundo e não dá para desfazer — nem por aqui, nem pelo app do Instagram. Curtidas e comentários vão junto.\n\nLegenda: "${(paraExcluir.caption ?? 'sem legenda').slice(0, 120)}"`
+            : ''
+        }
+        confirmLabel="Excluir post"
+        variant="danger"
+        loading={excluindo}
+        onConfirm={excluir}
+        onCancel={() => setParaExcluir(null)}
+      />
     </div>
   );
 }

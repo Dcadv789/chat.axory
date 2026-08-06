@@ -274,6 +274,12 @@ export const marketingService = {
     return data?.data ?? data;
   },
 
+  async deleteInstagramPost(mediaId: string, channelId?: string): Promise<void> {
+    await api.delete(`/marketing/instagram/posts/${mediaId}`, {
+      params: channelId ? { channelId } : undefined,
+    });
+  },
+
   // ─── Comentários ───
   async instagramComments(
     mediaId: string,

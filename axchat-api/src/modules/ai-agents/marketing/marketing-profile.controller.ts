@@ -186,6 +186,17 @@ export class MarketingProfileController {
     return this.ads.listInstagramPosts(orgId, channelId);
   }
 
+  @Delete('instagram/posts/:id')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Exclui um post do Instagram (irreversível)' })
+  deleteInstagramPost(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Query('channelId') channelId?: string,
+  ) {
+    return this.ads.deleteInstagramPost(orgId, id, channelId);
+  }
+
   @Get('instagram/comments')
   @ApiOperation({ summary: 'Comentários de um post, com as respostas' })
   instagramComments(
