@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
@@ -1197,10 +1198,24 @@ function MetricsTab({
 
 // ─── Posts do Instagram ────────────────────────────────────────
 
+type OrdemPosts = 'recentes' | 'antigos' | 'comentarios' | 'curtidas';
+
+const ORDEM_LABELS: Record<OrdemPosts, string> = {
+  recentes: 'Mais recentes primeiro',
+  antigos: 'Mais antigos primeiro',
+  comentarios: 'Mais comentados',
+  curtidas: 'Mais curtidos',
+};
+
+/** Post sem data vai pro fim em vez de virar NaN e bagunçar a ordenação. */
+const tempo = (iso: string | null) => (iso ? new Date(iso).getTime() : 0);
+
 function InstagramPostsTab() {
   const { channelId } = useMarketingAccount();
   const queryClient = useQueryClient();
   const [busca, setBusca] = useState('');
+  const [ordem, setOrdem] = useState<OrdemPosts>('recentes');
+  const [aberto, setAberto] = useState<InstagramPost | null>(null);
   const [paraExcluir, setParaExcluir] = useState<InstagramPost | null>(null);
   const [excluindo, setExcluindo] = useState(false);
 
@@ -1210,10 +1225,35 @@ function InstagramPostsTab() {
     refetchInterval: 60000,
   });
 
+  const todos = data?.posts ?? [];
+
+  /**
+   * Numeração cronológica: o post MAIS ANTIGO é o #1, como na contagem que a
+   * pessoa faz de cabeça ("meu primeiro post"). Fica separada da ordenação da
+   * tela de propósito — trocar o filtro reordena a exibição, mas o #7 continua
+   * sendo o #7.
+   */
+  const numeroPorId = useMemo(() => {
+    const mapa = new Map<string, number>();
+    [...todos]
+      .sort((a, b) => tempo(a.timestamp) - tempo(b.timestamp))
+      .forEach((p, i) => mapa.set(p.id, i + 1));
+    return mapa;
+  }, [todos]);
+
   const termo = busca.trim().toLowerCase();
-  const posts = (data?.posts ?? []).filter((p) =>
-    termo ? (p.caption ?? '').toLowerCase().includes(termo) : true,
-  );
+  const posts = useMemo(() => {
+    const filtrados = todos.filter((p) =>
+      termo ? (p.caption ?? '').toLowerCase().includes(termo) : true,
+    );
+    const ordenadores: Record<OrdemPosts, (a: InstagramPost, b: InstagramPost) => number> = {
+      recentes: (a, b) => tempo(b.timestamp) - tempo(a.timestamp),
+      antigos: (a, b) => tempo(a.timestamp) - tempo(b.timestamp),
+      comentarios: (a, b) => (b.comments ?? 0) - (a.comments ?? 0),
+      curtidas: (a, b) => (b.likes ?? 0) - (a.likes ?? 0),
+    };
+    return [...filtrados].sort(ordenadores[ordem]);
+  }, [todos, termo, ordem]);
 
   const excluir = async () => {
     if (!paraExcluir) return;
@@ -1266,10 +1306,22 @@ function InstagramPostsTab() {
           )}
         </div>
 
+        <select
+          value={ordem}
+          onChange={(e) => setOrdem(e.target.value as OrdemPosts)}
+          className="shrink-0 rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-700 outline-none focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-200"
+        >
+          {(Object.keys(ORDEM_LABELS) as OrdemPosts[]).map((o) => (
+            <option key={o} value={o}>
+              {ORDEM_LABELS[o]}
+            </option>
+          ))}
+        </select>
+
         <span className="shrink-0 text-[11px] text-zinc-500">
           {termo
-            ? `${posts.length} de ${data?.posts.length ?? 0} post(s)`
-            : `${data?.posts.length ?? 0} post(s)`}
+            ? `${posts.length} de ${todos.length} post(s)`
+            : `${todos.length} post(s)`}
         </span>
       </div>
 
@@ -1288,11 +1340,14 @@ function InstagramPostsTab() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {posts.map((post, i) => (
-            <div
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+          {posts.map((post) => (
+            <button
               key={post.id}
-              className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition-shadow hover:shadow-md dark:border-white/10 dark:bg-black"
+              type="button"
+              onClick={() => setAberto(post)}
+              title="Ver post"
+              className="group overflow-hidden rounded-lg border border-zinc-200 bg-white text-left transition-shadow hover:shadow-md dark:border-white/10 dark:bg-black"
             >
               <div className="relative aspect-square bg-zinc-100 dark:bg-white/5">
                 {post.thumbnailUrl ? (
@@ -1300,55 +1355,39 @@ function InstagramPostsTab() {
                   <img src={post.thumbnailUrl} alt={post.caption ?? 'post'} className="h-full w-full object-cover" loading="lazy" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-zinc-300">
-                    <Instagram className="h-8 w-8" />
+                    <Instagram className="h-6 w-6" />
                   </div>
                 )}
-                {/* Número do post: referência rápida pra falar "o #3" com a equipe. */}
-                <span className="absolute left-1.5 top-1.5 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white">
-                  #{i + 1}
+                {/* #1 = post mais antigo. O número não muda quando você troca
+                    a ordenação — serve pra combinar "olha o #7" com a equipe. */}
+                <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  #{numeroPorId.get(post.id) ?? '?'}
                 </span>
                 {post.mediaType === 'VIDEO' && (
-                  <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-medium text-white">VÍDEO</span>
+                  <span className="absolute right-1 top-1 rounded bg-black/60 px-1 py-0.5 text-[8px] font-medium text-white">VÍDEO</span>
                 )}
               </div>
 
-              <div className="flex flex-1 flex-col p-2.5">
-                <p className="line-clamp-2 h-8 text-[11px] text-zinc-600 dark:text-zinc-400">
-                  {post.caption ? post.caption.replace(/\s+/g, ' ').trim() : <span className="text-zinc-300">Sem legenda</span>}
-                </p>
-                <div className="mt-1.5 flex items-center gap-3 text-[11px] text-zinc-500">
-                  <span className="inline-flex items-center gap-1"><Heart className="h-3 w-3" /> {post.likes ?? 0}</span>
-                  <span className="inline-flex items-center gap-1"><MessageCircle className="h-3 w-3" /> {post.comments ?? 0}</span>
-                  {post.timestamp && (
-                    <span className="ml-auto text-[10px] text-zinc-400">{new Date(post.timestamp).toLocaleDateString('pt-BR')}</span>
-                  )}
-                </div>
-
-                {/* Ações do post. */}
-                <div className="mt-2 flex items-center gap-1 border-t border-zinc-100 pt-2 dark:border-white/5">
-                  <a
-                    href={post.permalink ?? '#'}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Abrir no Instagram"
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-100 hover:text-primary dark:hover:bg-white/5"
-                  >
-                    <ExternalLink className="h-3 w-3" /> Abrir
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => setParaExcluir(post)}
-                    title="Excluir do Instagram (não tem volta)"
-                    className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
-                  >
-                    <Trash2 className="h-3 w-3" /> Excluir
-                  </button>
+              <div className="px-1.5 py-1">
+                <div className="flex items-center gap-2 text-[10px] text-zinc-500">
+                  <span className="inline-flex items-center gap-0.5"><Heart className="h-2.5 w-2.5" /> {post.likes ?? 0}</span>
+                  <span className="inline-flex items-center gap-0.5"><MessageCircle className="h-2.5 w-2.5" /> {post.comments ?? 0}</span>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
+
+      <PostDialog
+        post={aberto}
+        numero={aberto ? numeroPorId.get(aberto.id) : undefined}
+        onClose={() => setAberto(null)}
+        onExcluir={(p) => {
+          setAberto(null);
+          setParaExcluir(p);
+        }}
+      />
 
       <ConfirmDialog
         open={!!paraExcluir}
@@ -1365,6 +1404,134 @@ function InstagramPostsTab() {
         onCancel={() => setParaExcluir(null)}
       />
     </div>
+  );
+}
+
+/**
+ * Post em tamanho grande, com legenda inteira e as ações.
+ *
+ * O card da grade ficou pequeno de propósito (cabe muito mais na tela); é aqui
+ * que dá pra ler a legenda e decidir. "Abrir" leva pro Instagram de verdade —
+ * o que o modal mostra é a miniatura da API, não o post renderizado.
+ */
+function PostDialog({
+  post,
+  numero,
+  onClose,
+  onExcluir,
+}: {
+  post: InstagramPost | null;
+  numero?: number;
+  onClose: () => void;
+  onExcluir: (p: InstagramPost) => void;
+}) {
+  useEffect(() => {
+    if (!post) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = anterior;
+    };
+  }, [post, onClose]);
+
+  return (
+    <AnimatePresence>
+      {post && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          onClick={onClose}
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            transition={{ duration: 0.18, ease: [0.21, 0.47, 0.32, 0.98] }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0d0e12] sm:flex-row"
+          >
+            <div className="relative flex max-h-[45vh] items-center justify-center bg-zinc-100 dark:bg-white/5 sm:max-h-none sm:w-1/2">
+              {post.thumbnailUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={post.thumbnailUrl}
+                  alt={post.caption ?? 'post'}
+                  className="max-h-full w-full object-contain"
+                />
+              ) : (
+                <div className="flex aspect-square w-full items-center justify-center text-zinc-300">
+                  <Instagram className="h-12 w-12" />
+                </div>
+              )}
+              {numero !== undefined && (
+                <span className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-0.5 text-xs font-semibold text-white">
+                  #{numero}
+                </span>
+              )}
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs text-zinc-500">
+                  {post.mediaType && <span className="font-medium">{post.mediaType}</span>}
+                  {post.timestamp && (
+                    <span>{new Date(post.timestamp).toLocaleString('pt-BR')}</span>
+                  )}
+                </div>
+                <button
+                  onClick={onClose}
+                  className="shrink-0 rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-white/5 dark:hover:text-zinc-100"
+                  title="Fechar"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <p className="mt-3 flex-1 overflow-y-auto whitespace-pre-wrap text-sm text-zinc-700 scrollbar-thin dark:text-zinc-300">
+                {post.caption || (
+                  <span className="italic text-zinc-400">Sem legenda</span>
+                )}
+              </p>
+
+              <div className="mt-3 flex items-center gap-4 border-t border-zinc-100 pt-3 text-sm text-zinc-600 dark:border-white/5 dark:text-zinc-400">
+                <span className="inline-flex items-center gap-1.5">
+                  <Heart className="h-4 w-4" /> {post.likes ?? 0}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <MessageCircle className="h-4 w-4" /> {post.comments ?? 0}
+                </span>
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                <a
+                  href={post.permalink ?? '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Abrir no Instagram
+                </a>
+                <button
+                  type="button"
+                  onClick={() => onExcluir(post)}
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
