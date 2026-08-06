@@ -155,26 +155,62 @@ export class MarketingAdsService {
   }
 
   /** Posts recentes do Instagram (com miniatura) via IG Graph API. */
+  /**
+   * Traz os posts do perfil e guarda no banco.
+   *
+   * Pagina até o fim de propósito: com uma página só de 30, a numeração
+   * cronológica da tela dançava (os antigos caíam da janela e todo mundo
+   * mudava de número) e o filtro de busca só via o pedacinho carregado.
+   *
+   * O teto é por tenant (`postsSyncLimit`); NULL significa sem limite. O
+   * `MAX_PAGINAS` existe só como trava de segurança contra loop de paginação —
+   * não é limite de produto.
+   */
   async listInstagramPosts(
     orgId: string,
     channelId?: string,
-  ): Promise<{ posts: any[] }> {
+  ): Promise<{ posts: any[]; syncedAt: string | null; total: number }> {
     const { igUserId, token } = await this.credentialsService.instagram(
       orgId,
       channelId,
     );
+
+    const perfil = await this.prisma.marketingProfile.findUnique({
+      where: { organizationId: orgId },
+      select: { postsSyncLimit: true },
+    });
+    const teto =
+      typeof perfil?.postsSyncLimit === 'number' && perfil.postsSyncLimit > 0
+        ? perfil.postsSyncLimit
+        : null;
+
     const fields =
       'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count';
-    const res = await fetch(
-      `${GRAPH}/${encodeURIComponent(igUserId)}/media?fields=${fields}&limit=30&access_token=${encodeURIComponent(token)}`,
-      { signal: AbortSignal.timeout(15_000) },
-    );
-    const json: any = await res.json();
-    if (!res.ok) {
-      throw new BadRequestException(`Instagram: ${json?.error?.message ?? `HTTP ${res.status}`}`);
+    let url =
+      `${GRAPH}/${encodeURIComponent(igUserId)}/media` +
+      `?fields=${fields}&limit=100&access_token=${encodeURIComponent(token)}`;
+
+    const MAX_PAGINAS = 100; // trava contra loop, não limite de produto
+    const crus: any[] = [];
+
+    for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+      const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+      const json: any = await res.json();
+      if (!res.ok) {
+        throw new BadRequestException(
+          `Instagram: ${json?.error?.message ?? `HTTP ${res.status}`}`,
+        );
+      }
+      const data: any[] = Array.isArray(json?.data) ? json.data : [];
+      crus.push(...data);
+
+      if (teto && crus.length >= teto) break;
+      const proxima = json?.paging?.next;
+      if (!proxima || data.length === 0) break;
+      url = proxima;
     }
-    const data: any[] = Array.isArray(json?.data) ? json.data : [];
-    const posts = data.map((m) => ({
+
+    const posts = (teto ? crus.slice(0, teto) : crus).map((m) => ({
       id: String(m.id),
       caption: m.caption ?? null,
       mediaType: m.media_type ?? null,
@@ -185,7 +221,60 @@ export class MarketingAdsService {
       likes: this.num(m.like_count),
       comments: this.num(m.comments_count),
     }));
-    return { posts };
+
+    const syncedAt = await this.persistirPosts(orgId, channelId, posts);
+    return { posts, syncedAt, total: posts.length };
+  }
+
+  /**
+   * Grava/atualiza os posts e remove do cache os que sumiram do perfil
+   * (excluídos por aqui ou pelo app). Sem essa limpeza, um post excluído
+   * continuaria aparecendo na tela pra sempre.
+   *
+   * A gravação é best-effort: se o banco falhar, a tela ainda mostra o que
+   * veio da Meta em vez de quebrar.
+   */
+  private async persistirPosts(
+    orgId: string,
+    channelId: string | undefined,
+    posts: Array<Record<string, any>>,
+  ): Promise<string | null> {
+    const agora = new Date();
+    try {
+      for (const p of posts) {
+        const dados = {
+          channelId: channelId ?? null,
+          caption: p.caption,
+          mediaType: p.mediaType,
+          thumbnailUrl: p.thumbnailUrl,
+          permalink: p.permalink,
+          timestamp: p.timestamp ? new Date(p.timestamp) : null,
+          likes: p.likes,
+          comments: p.comments,
+          syncedAt: agora,
+        };
+        await this.prisma.instagramPostCache.upsert({
+          where: {
+            uq_ig_post_cache: { organizationId: orgId, mediaId: p.id },
+          },
+          create: { organizationId: orgId, mediaId: p.id, ...dados },
+          update: dados,
+        });
+      }
+      // Só limpa quando a sincronização trouxe algo: um retorno vazio pode ser
+      // erro transitório da Meta, e apagar o cache inteiro seria pior.
+      if (posts.length > 0) {
+        await this.prisma.instagramPostCache.deleteMany({
+          where: { organizationId: orgId, syncedAt: { lt: agora } },
+        });
+      }
+      return agora.toISOString();
+    } catch (err: any) {
+      this.logger.warn(
+        `Falha ao guardar os posts do Instagram da org ${orgId}: ${err?.message ?? err}`,
+      );
+      return null;
+    }
   }
 
   /**

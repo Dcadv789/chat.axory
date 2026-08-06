@@ -96,6 +96,9 @@ export class MarketingProfileService {
       maxDailyBudgetCents: dto.maxDailyBudgetCents ?? null,
       currency: dto.currency || 'BRL',
       externalRulesSkill: dto.externalRulesSkill ?? null,
+      // null explícito = "sem limite". Por isso `?? null` em vez de omitir:
+      // limpar o campo tem que voltar pro padrão, não manter o valor antigo.
+      postsSyncLimit: dto.postsSyncLimit ?? null,
       ...(dto.analysisWindow ? { analysisWindow: dto.analysisWindow } : {}),
     };
     return this.prisma.marketingProfile.upsert({

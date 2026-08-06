@@ -295,6 +295,7 @@ model Organization {
   personalReminders    PersonalReminder[]
   personalEvents       PersonalCalendarEvent[]
   instagramHiddenComments InstagramHiddenComment[]
+  instagramPostCache      InstagramPostCache[]
 
   @@map("organizations")
 }
@@ -1488,6 +1489,11 @@ model MarketingProfile {
   /// que é justamente o que fazia um perfil novo roubar o marketing do antigo.
   defaultChannelId String? @map("default_channel_id")
 
+  /// Teto de posts do Instagram por sincronização. NULL = SEM LIMITE (padrão):
+  /// traz o perfil inteiro, paginando até acabar. Contas com milhares de posts
+  /// podem querer limitar pra não gastar cota da Graph API à toa.
+  postsSyncLimit Int? @map("posts_sync_limit")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -1495,6 +1501,35 @@ model MarketingProfile {
   defaultChannel Channel?     @relation(fields: [defaultChannelId], references: [id], onDelete: SetNull)
 
   @@map("marketing_profiles")
+}
+
+/// Cópia local dos posts do Instagram.
+///
+/// A listagem vinha direto da Graph API a cada abertura de tela: lenta, gastava
+/// cota e a numeração cronológica dançava conforme a janela de paginação. Aqui
+/// o perfil inteiro fica guardado, e o `syncedAt` diz quando foi a última vez.
+model InstagramPostCache {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  channelId      String? @map("channel_id")
+  mediaId        String  @map("media_id")
+
+  caption      String?   @db.Text
+  mediaType    String?   @map("media_type")
+  thumbnailUrl String?   @map("thumbnail_url") @db.Text
+  permalink    String?   @db.Text
+  timestamp    DateTime?
+  likes        Int?
+  comments     Int?
+
+  syncedAt  DateTime @default(now()) @map("synced_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, mediaId], name: "uq_ig_post_cache")
+  @@index([organizationId, timestamp], name: "idx_ig_post_cache_time")
+  @@map("instagram_post_cache")
 }
 
 /// Verba de mídia POR MÊS. Substitui o valor único do MarketingProfile, que

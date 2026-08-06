@@ -13,6 +13,8 @@ export interface MarketingProfile {
   currency: string;
   externalRulesSkill: string | null;
   analysisWindow: string | null;
+  /** null = sem limite: a sincronização traz o perfil inteiro. */
+  postsSyncLimit: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -28,6 +30,7 @@ export interface UpsertMarketingProfileInput {
   currency?: string;
   externalRulesSkill?: string;
   analysisWindow?: string;
+  postsSyncLimit?: number | null;
 }
 
 /**
@@ -267,7 +270,9 @@ export const marketingService = {
     });
   },
 
-  async instagramPosts(channelId?: string): Promise<{ posts: InstagramPost[] }> {
+  async instagramPosts(
+    channelId?: string,
+  ): Promise<{ posts: InstagramPost[]; syncedAt?: string | null; total?: number }> {
     const { data } = await api.get('/marketing/instagram/posts', {
       params: channelId ? { channelId } : undefined,
     });

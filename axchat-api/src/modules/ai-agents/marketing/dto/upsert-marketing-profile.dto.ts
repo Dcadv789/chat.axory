@@ -5,6 +5,7 @@ import {
   Min,
   MaxLength,
   IsIn,
+  Max,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -81,4 +82,16 @@ export class UpsertMarketingProfileDto {
   @IsOptional()
   @IsIn(ANALYSIS_WINDOWS as unknown as string[])
   analysisWindow?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Teto de posts do Instagram por sincronização. Vazio/null = sem limite (traz o perfil inteiro).',
+    minimum: 1,
+    maximum: 10000,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(10000)
+  postsSyncLimit?: number | null;
 }

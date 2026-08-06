@@ -53,6 +53,7 @@ export default function MarketingRulesPage() {
     maxDailyBudget: '',
     externalRulesSkill: '',
     analysisWindow: 'LAST_MONTH',
+    postsSyncLimit: '',
   });
   const [saving, setSaving] = useState(false);
   const [openingCrew, setOpeningCrew] = useState(false);
@@ -165,6 +166,8 @@ export default function MarketingRulesPage() {
         maxDailyBudget: toReais(profile.maxDailyBudgetCents),
         externalRulesSkill: profile.externalRulesSkill ?? '',
         analysisWindow: profile.analysisWindow ?? 'LAST_MONTH',
+        postsSyncLimit:
+          profile.postsSyncLimit != null ? String(profile.postsSyncLimit) : '',
       });
     }
   }, [profile]);
@@ -184,6 +187,12 @@ export default function MarketingRulesPage() {
         maxDailyBudgetCents: toCents(form.maxDailyBudget),
         externalRulesSkill: form.externalRulesSkill.trim() || undefined,
         analysisWindow: form.analysisWindow || undefined,
+        // Campo vazio significa SEM LIMITE — precisa ir como null explícito,
+        // senão o backend manteria o valor anterior e limpar não funcionaria.
+        postsSyncLimit: (() => {
+          const n = parseInt(form.postsSyncLimit.replace(/\D/g, ''), 10);
+          return Number.isFinite(n) && n > 0 ? n : null;
+        })(),
       };
       await marketingService.upsertProfile(payload);
       toast.success('Regras salvas!');
@@ -382,6 +391,21 @@ export default function MarketingRulesPage() {
                 <option value="LAST_6_MONTHS">Últimos 6 meses</option>
                 <option value="LAST_YEAR">Último ano (12 meses)</option>
               </select>
+            </Field>
+
+            <Field
+              n={9}
+              label="Limite de posts sincronizados (opcional)"
+              hint="Quantos posts do Instagram trazer a cada atualização, dos mais recentes para os mais antigos. Deixe VAZIO para trazer o perfil inteiro (padrão). Só vale a pena limitar em contas com milhares de posts, para economizar cota da API da Meta."
+            >
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.postsSyncLimit}
+                onChange={set('postsSyncLimit')}
+                className={inputCls}
+                placeholder="Vazio = sem limite (ex: 100)"
+              />
             </Field>
           </Card>
 

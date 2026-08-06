@@ -1359,8 +1359,9 @@ function InstagramPostsTab() {
                   </div>
                 )}
                 {/* #1 = post mais antigo. O número não muda quando você troca
-                    a ordenação — serve pra combinar "olha o #7" com a equipe. */}
-                <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    a ordenação — serve pra combinar "olha o #7" com a equipe.
+                    Fica sobre a imagem pra crescer sem empurrar a miniatura. */}
+                <span className="absolute left-1 top-1 rounded-md bg-black/75 px-2 py-0.5 text-sm font-bold leading-tight text-white">
                   #{numeroPorId.get(post.id) ?? '?'}
                 </span>
                 {post.mediaType === 'VIDEO' && (
@@ -1368,10 +1369,10 @@ function InstagramPostsTab() {
                 )}
               </div>
 
-              <div className="px-1.5 py-1">
-                <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-                  <span className="inline-flex items-center gap-0.5"><Heart className="h-2.5 w-2.5" /> {post.likes ?? 0}</span>
-                  <span className="inline-flex items-center gap-0.5"><MessageCircle className="h-2.5 w-2.5" /> {post.comments ?? 0}</span>
+              <div className="px-1.5 py-1.5">
+                <div className="flex items-center gap-3 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                  <span className="inline-flex items-center gap-1"><Heart className="h-4 w-4" /> {post.likes ?? 0}</span>
+                  <span className="inline-flex items-center gap-1"><MessageCircle className="h-4 w-4" /> {post.comments ?? 0}</span>
                 </div>
               </div>
             </button>
