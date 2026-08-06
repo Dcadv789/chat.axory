@@ -214,6 +214,17 @@ export class ChannelsController {
     return this.service.threadsInsights(id, orgId, mediaId);
   }
 
+  @Get(':id/instagram/token-scopes')
+  @ApiOperation({
+    summary: 'Escopos REAIS do token do canal (debug_token) e o que falta',
+  })
+  instagramTokenScopes(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+  ) {
+    return this.service.instagramTokenScopes(id, orgId);
+  }
+
   @Post(':id/instagram/comment-reply')
   @ApiOperation({ summary: 'Responde publicamente um comentário do Instagram' })
   instagramCommentReply(

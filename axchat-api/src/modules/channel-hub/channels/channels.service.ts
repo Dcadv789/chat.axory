@@ -668,6 +668,76 @@ export class ChannelsService {
   }
 
   /**
+   * O que o token deste canal REALMENTE consegue fazer.
+   *
+   * Permissão marcada como ativa no caso de uso não significa nada se o token
+   * não a carrega: o token guarda os escopos concedidos no login, e a
+   * configuração do Facebook Login é um retrato do que existia quando foi
+   * criada. Foi assim que a exclusão de post morreu com "(#10) Insufficient
+   * permissions" mesmo com a permissão aparecendo ativa no painel.
+   *
+   * Aqui a fonte é o `debug_token`: o que ele lista é o que o token tem.
+   */
+  async instagramTokenScopes(channelId: string, organizationId: string) {
+    const canal = await this.findOne(channelId, organizationId);
+    if (canal.type !== ChannelType.INSTAGRAM) {
+      throw new BadRequestException('Canal não é do tipo Instagram.');
+    }
+    const config = (canal.config ?? {}) as Record<string, any>;
+    const token = String(
+      config.userAccessToken || config.accessToken || config.pageAccessToken || '',
+    ).trim();
+    if (!token) {
+      throw new BadRequestException('Canal sem token — reconecte.');
+    }
+
+    const cfgMeta = await this.loadMetaCoexistenceConfig();
+    const appId = config.appId || cfgMeta.instagramAppId || cfgMeta.appId;
+    const appSecret =
+      config.appSecret || cfgMeta.instagramAppSecret || cfgMeta.appSecret;
+    if (!appId || !appSecret) {
+      throw new BadRequestException(
+        'App da Meta não configurado em Integrações — sem isso não dá pra inspecionar o token.',
+      );
+    }
+
+    const { scopes } = await this.instagramHttpClient.inspectTokenGranularScopes(
+      token,
+      String(appId),
+      String(appSecret),
+      config.apiVersion || 'v25.0',
+    );
+
+    // O que cada função do AxChat precisa. A tela usa isto pra dizer o que
+    // para de funcionar, em vez de despejar uma lista de escopos crus.
+    const necessarias: Array<{ escopo: string; para: string }> = [
+      { escopo: 'instagram_basic', para: 'Ver a conta e listar posts' },
+      { escopo: 'instagram_manage_messages', para: 'Receber e responder DMs' },
+      { escopo: 'instagram_manage_comments', para: 'Responder e moderar comentários' },
+      { escopo: 'instagram_manage_insights', para: 'Métricas dos posts' },
+      { escopo: 'instagram_content_publish', para: 'Publicar posts' },
+      { escopo: 'instagram_manage_contents', para: 'Excluir posts' },
+      { escopo: 'pages_show_list', para: 'Listar as Páginas na conexão' },
+      { escopo: 'pages_read_engagement', para: 'Ler dados da Página' },
+      { escopo: 'pages_manage_metadata', para: 'Assinar o webhook' },
+      { escopo: 'pages_messaging', para: 'Enviar DM pela Página' },
+      { escopo: 'ads_management', para: 'Pausar/ativar campanhas' },
+      { escopo: 'ads_read', para: 'Ler métricas de anúncios' },
+    ];
+
+    return {
+      scopes,
+      permissoes: necessarias.map((n) => ({
+        ...n,
+        concedida: scopes.includes(n.escopo),
+      })),
+      faltando: necessarias
+        .filter((n) => !scopes.includes(n.escopo))
+        .map((n) => n.escopo),
+    };
+  }
+
+  /**
    * Callback de DESAUTORIZAÇÃO da Meta. Chega quando a pessoa remove o AxChat
    * nas configurações do Threads/Instagram — a Meta invalida o token na hora.
    *

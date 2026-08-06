@@ -18,7 +18,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Channel } from '../services/channels.service';
+import type { Channel, InstagramTokenScopes } from '../services/channels.service';
 import { channelsService } from '../services/channels.service';
 import { useChannelSync } from '../hooks/use-channel-sync';
 import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
@@ -40,9 +40,30 @@ export function ChannelCard({ channel, onUpdate }: ChannelCardProps) {
   const [isTesting, setIsTesting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [permissoes, setPermissoes] = useState<InstagramTokenScopes | null>(null);
+  const [carregandoPermissoes, setCarregandoPermissoes] = useState(false);
   const meta = channelTypeMap[channel.type] || { label: channel.type, icon: MessageSquare, color: 'bg-gray-500' };
   const Icon = meta.icon;
   const sync = useChannelSync({ channelId: channel.id, channelType: channel.type });
+
+  /**
+   * Mostra o que o token REALMENTE consegue fazer. Permissão marcada como
+   * ativa no painel da Meta não vale nada se o token não a carrega — ele
+   * guarda os escopos do momento do login, e configuração de Login do
+   * Facebook é um retrato do que existia quando foi criada.
+   */
+  const handlePermissoes = async () => {
+    setCarregandoPermissoes(true);
+    try {
+      setPermissoes(await channelsService.instagramTokenScopes(channel.id));
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ?? 'Não foi possível ler as permissões.',
+      );
+    } finally {
+      setCarregandoPermissoes(false);
+    }
+  };
 
   const handleTest = async () => {
     setIsTesting(true);
@@ -219,7 +240,68 @@ export function ChannelCard({ channel, onUpdate }: ChannelCardProps) {
           </div>
         )}
 
+        {permissoes && (
+          <div className="mt-3 rounded-lg border border-zinc-200 p-3 dark:border-white/10">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                O que este token pode fazer
+              </p>
+              <button
+                onClick={() => setPermissoes(null)}
+                className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                title="Fechar"
+              >
+                <XCircle className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <ul className="space-y-1">
+              {permissoes.permissoes.map((p) => (
+                <li key={p.escopo} className="flex items-start gap-1.5 text-xs">
+                  {p.concedida ? (
+                    <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" />
+                  ) : (
+                    <XCircle className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
+                  )}
+                  <span
+                    className={
+                      p.concedida
+                        ? 'text-zinc-600 dark:text-zinc-400'
+                        : 'font-medium text-red-600 dark:text-red-400'
+                    }
+                  >
+                    {p.para}
+                    <span className="ml-1 font-mono text-[10px] text-zinc-400">
+                      {p.escopo}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {permissoes.faltando.length > 0 && (
+              <p className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-zinc-500 dark:border-white/5 dark:text-zinc-400">
+                O que está em vermelho não funciona. Adicione a permissão na
+                configuração de Login do Facebook e <strong>reconecte o canal</strong> —
+                o token só ganha permissão numa conexão nova.
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {channel.type === 'INSTAGRAM' && (
+            <button
+              onClick={handlePermissoes}
+              disabled={carregandoPermissoes}
+              className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 px-2.5 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            >
+              {carregandoPermissoes ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Lock className="h-3 w-3" />
+              )}
+              Permissões
+            </button>
+          )}
           <button
             onClick={handleTest}
             disabled={isTesting}

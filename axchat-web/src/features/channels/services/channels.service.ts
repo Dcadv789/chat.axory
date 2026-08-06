@@ -102,6 +102,12 @@ export interface ThreadsPublishPayload {
   children?: ThreadsCarouselItem[];
 }
 
+export interface InstagramTokenScopes {
+  scopes: string[];
+  permissoes: Array<{ escopo: string; para: string; concedida: boolean }>;
+  faltando: string[];
+}
+
 export interface ThreadsPost {
   id: string;
   text?: string;
@@ -196,6 +202,18 @@ export const channelsService = {
   async getById(id: string): Promise<Channel> {
     const { data } = await api.get<{ data: Channel }>(`/channels/${id}`);
     return data.data;
+  },
+
+  /**
+   * O que o token do canal REALMENTE consegue fazer, direto do debug_token.
+   * Permissão "ativa" no painel da Meta não significa nada se o token não a
+   * carrega — ele guarda os escopos do momento do login.
+   */
+  async instagramTokenScopes(id: string): Promise<InstagramTokenScopes> {
+    const { data } = await api.get<{ data: InstagramTokenScopes }>(
+      `/channels/${id}/instagram/token-scopes`,
+    );
+    return data.data ?? (data as any);
   },
 
   async webhookDiagnostics(id: string): Promise<WebhookDiagnostics> {
