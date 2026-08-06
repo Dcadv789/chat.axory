@@ -188,6 +188,113 @@ export class MarketingAdsService {
     return { posts };
   }
 
+  /**
+   * Comentários de um post, já com as respostas aninhadas.
+   *
+   * As respostas vêm junto de propósito: é assim que o dono vê a automação
+   * agindo — a resposta publicada por ela aparece embaixo do comentário, do
+   * mesmo jeito que apareceria se um humano tivesse respondido.
+   */
+  async listInstagramComments(
+    orgId: string,
+    mediaId: string,
+    channelId?: string,
+  ): Promise<{ comments: any[] }> {
+    const { token } = await this.credentialsService.instagram(orgId, channelId);
+    const fields =
+      'id,text,username,timestamp,like_count,hidden,replies{id,text,username,timestamp,hidden}';
+    const res = await fetch(
+      `${GRAPH}/${encodeURIComponent(mediaId)}/comments?fields=${fields}&limit=50&access_token=${encodeURIComponent(token)}`,
+      { signal: AbortSignal.timeout(15_000) },
+    );
+    const json: any = await res.json();
+    if (!res.ok) {
+      throw new BadRequestException(
+        `Instagram: ${json?.error?.message ?? `HTTP ${res.status}`}`,
+      );
+    }
+    const data: any[] = Array.isArray(json?.data) ? json.data : [];
+    const comments = data.map((c) => ({
+      id: String(c.id),
+      text: c.text ?? null,
+      username: c.username ?? null,
+      timestamp: c.timestamp ?? null,
+      likes: this.num(c.like_count),
+      hidden: c.hidden === true,
+      replies: Array.isArray(c.replies?.data)
+        ? c.replies.data.map((r: any) => ({
+            id: String(r.id),
+            text: r.text ?? null,
+            username: r.username ?? null,
+            timestamp: r.timestamp ?? null,
+            hidden: r.hidden === true,
+          }))
+        : [],
+    }));
+    return { comments };
+  }
+
+  /** Responde publicamente um comentário. */
+  async replyInstagramComment(
+    orgId: string,
+    commentId: string,
+    message: string,
+    channelId?: string,
+  ): Promise<{ ok: true; replyId: string }> {
+    const texto = (message ?? '').trim();
+    if (!texto) throw new BadRequestException('Escreva a resposta.');
+    if (texto.length > 2200) {
+      throw new BadRequestException(
+        'O Instagram limita comentários a 2200 caracteres.',
+      );
+    }
+    const { token } = await this.credentialsService.instagram(orgId, channelId);
+    const params = new URLSearchParams({ message: texto, access_token: token });
+    const res = await fetch(
+      `${GRAPH}/${encodeURIComponent(commentId)}/replies`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+        signal: AbortSignal.timeout(20_000),
+      },
+    );
+    const json: any = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.id) {
+      throw new BadRequestException(
+        `Instagram: ${json?.error?.message ?? `HTTP ${res.status}`}`,
+      );
+    }
+    return { ok: true, replyId: String(json.id) };
+  }
+
+  /** Oculta/reexibe um comentário (moderação). */
+  async hideInstagramComment(
+    orgId: string,
+    commentId: string,
+    hide: boolean,
+    channelId?: string,
+  ): Promise<{ ok: true }> {
+    const { token } = await this.credentialsService.instagram(orgId, channelId);
+    const params = new URLSearchParams({
+      hide: String(hide),
+      access_token: token,
+    });
+    const res = await fetch(`${GRAPH}/${encodeURIComponent(commentId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const json: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new BadRequestException(
+        `Instagram: ${json?.error?.message ?? `HTTP ${res.status}`}`,
+      );
+    }
+    return { ok: true };
+  }
+
   async setCampaignStatus(
     orgId: string,
     campaignId: string,

@@ -30,8 +30,9 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RangeCalendar, toISODate, type DateRange } from '@/features/marketing/components/range-calendar';
 import { ThreadsPanel } from './threads-panel';
+import { CommentsPanel } from './comments-panel';
 
-type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'posts' | 'publicar' | 'threads' | 'activity';
+type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'posts' | 'comentarios' | 'publicar' | 'threads' | 'activity';
 
 const WINDOW_LABELS: Record<string, string> = {
   LAST_MONTH: 'último mês',
@@ -184,6 +185,7 @@ function MarketingPanelInner() {
     { id: 'admetrics', icon: BarChart3, label: 'Métricas dos anúncios', subtitle: 'Desempenho por campanha ao longo do tempo' },
     { id: 'metrics', icon: BarChart3, label: 'Métricas dos posts', subtitle: 'Engajamento dos posts do Instagram' },
     { id: 'posts', icon: Instagram, label: 'Posts do Instagram', subtitle: 'Seus posts recentes com miniatura e engajamento' },
+    { id: 'comentarios', icon: MessageCircle, label: 'Comentários', subtitle: 'Veja e responda os comentários de cada post — e acompanhe a automação agindo' },
     { id: 'publicar', icon: PenSquare, label: 'Publicar', subtitle: 'Crie e publique posts no Instagram e no Threads' },
     { id: 'threads', icon: AtSign, label: 'Threads', subtitle: 'Respostas, moderação e desempenho dos seus posts do Threads' },
     { id: 'activity', icon: Activity, label: 'Atividade da crew', subtitle: 'Análises e ações registradas pelos agentes' },
@@ -253,6 +255,7 @@ function MarketingPanelInner() {
               />
         )}
         {tab === 'posts' && <InstagramPostsTab />}
+        {tab === 'comentarios' && <CommentsPanel />}
         {tab === 'publicar' && <PublicarTab />}
         {tab === 'threads' && <ThreadsPanel />}
         {tab === 'activity' && (

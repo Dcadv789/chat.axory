@@ -274,6 +274,40 @@ export const marketingService = {
     return data?.data ?? data;
   },
 
+  // ─── Comentários ───
+  async instagramComments(
+    mediaId: string,
+    channelId?: string,
+  ): Promise<{ comments: InstagramComment[] }> {
+    const { data } = await api.get('/marketing/instagram/comments', {
+      params: { mediaId, ...(channelId ? { channelId } : {}) },
+    });
+    return data?.data ?? data;
+  },
+
+  async replyInstagramComment(
+    commentId: string,
+    message: string,
+    channelId?: string,
+  ): Promise<{ ok: true; replyId: string }> {
+    const { data } = await api.post(
+      `/marketing/instagram/comments/${commentId}/reply`,
+      { message, channelId },
+    );
+    return data?.data ?? data;
+  },
+
+  async hideInstagramComment(
+    commentId: string,
+    hide: boolean,
+    channelId?: string,
+  ): Promise<void> {
+    await api.post(`/marketing/instagram/comments/${commentId}/hide`, {
+      hide,
+      channelId,
+    });
+  },
+
   // ─── Publicação ───
   async publishInstagram(input: {
     caption?: string;
@@ -310,6 +344,25 @@ export interface InstagramPost {
   timestamp: string | null;
   likes: number | null;
   comments: number | null;
+}
+
+export interface InstagramCommentReply {
+  id: string;
+  text: string | null;
+  username: string | null;
+  timestamp: string | null;
+  hidden: boolean;
+}
+
+export interface InstagramComment {
+  id: string;
+  text: string | null;
+  username: string | null;
+  timestamp: string | null;
+  likes: number | null;
+  hidden: boolean;
+  /** Respostas já publicadas — é onde a resposta da automação aparece. */
+  replies: InstagramCommentReply[];
 }
 
 export interface AdCampaign {

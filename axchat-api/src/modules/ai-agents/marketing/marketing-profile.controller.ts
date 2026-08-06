@@ -186,6 +186,43 @@ export class MarketingProfileController {
     return this.ads.listInstagramPosts(orgId, channelId);
   }
 
+  @Get('instagram/comments')
+  @ApiOperation({ summary: 'Comentários de um post, com as respostas' })
+  instagramComments(
+    @CurrentOrg('id') orgId: string,
+    @Query('mediaId') mediaId: string,
+    @Query('channelId') channelId?: string,
+  ) {
+    return this.ads.listInstagramComments(orgId, mediaId, channelId);
+  }
+
+  @Post('instagram/comments/:id/reply')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Responde publicamente um comentário do Instagram' })
+  replyInstagramComment(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Body() body: { message: string; channelId?: string },
+  ) {
+    return this.ads.replyInstagramComment(
+      orgId,
+      id,
+      body.message,
+      body.channelId,
+    );
+  }
+
+  @Post('instagram/comments/:id/hide')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Oculta ou reexibe um comentário' })
+  hideInstagramComment(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Body() body: { hide: boolean; channelId?: string },
+  ) {
+    return this.ads.hideInstagramComment(orgId, id, body.hide, body.channelId);
+  }
+
   @Get('profile')
   @ApiOperation({ summary: 'Regras de marketing da organização' })
   getProfile(@CurrentOrg('id') orgId: string) {
