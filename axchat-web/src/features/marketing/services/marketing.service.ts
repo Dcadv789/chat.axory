@@ -345,7 +345,9 @@ export const marketingService = {
    * imagem por essa URL na hora de publicar, então ela precisa ser acessível
    * sem autenticação — quem garante isso é o bucket, no backend.
    */
-  async uploadPostMedia(file: File): Promise<{ url: string; tipo: 'imagem' | 'video' }> {
+  async uploadPostMedia(
+    file: File,
+  ): Promise<{ url: string; urlOriginal: string; tipo: 'imagem' | 'video' }> {
     const form = new FormData();
     form.append('file', file);
     const { data } = await api.post('/marketing/uploads/post-media', form, {

@@ -1710,7 +1710,7 @@ function UploadMidia({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,video/mp4,video/quicktime"
+        accept="image/*,video/mp4,video/quicktime"
         onChange={escolher}
         className="hidden"
       />
@@ -1809,8 +1809,9 @@ function PublishInstagramForm() {
         <>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             O Instagram exige mídia. <strong>Envie o arquivo</strong> do seu
-            computador ou cole a URL, se já tiver uma. Imagem precisa ser{' '}
-            <strong>JPEG</strong> — é o único formato que a Meta aceita.
+            computador ou cole a URL, se já tiver uma. Pode mandar PNG, WEBP ou
+            foto do celular — convertemos para o formato que a Meta aceita e já
+            redimensionamos.
           </p>
           <div className="flex items-end gap-2">
             <div className="flex-1">
