@@ -87,10 +87,36 @@ export class InstagramInboundAdapter implements InboundChannelPort {
         ) {
           continue;
         }
-        const messagingEvents = entry?.messaging || [];
+        // `standby` carrega as mesmas mensagens de `messaging` quando OUTRO app
+        // tem o controle da thread (protocolo de handover). Sem ler daqui, toda
+        // mensagem recebida nesse estado sumia sem deixar rastro.
+        const messagingEvents = [
+          ...(entry?.messaging || []),
+          ...(entry?.standby || []),
+        ];
         for (const event of messagingEvents) {
           if (event.message) {
             const normalized = this.mapper.normalizeInbound(event);
+            if (normalized) {
+              result.messages.push(normalized);
+            }
+          }
+          // Origem da conversa. Vem sozinho numa thread existente, ou junto do
+          // primeiro `message` numa conversa nova — por isso é checado à parte.
+          if (event.referral) {
+            const normalized = this.mapper.normalizeReferral(event);
+            if (normalized) {
+              result.messages.push(normalized);
+            }
+          }
+          if (event.postback) {
+            const normalized = this.mapper.normalizePostback(event);
+            if (normalized) {
+              result.messages.push(normalized);
+            }
+          }
+          if (event.reaction) {
+            const normalized = this.mapper.normalizeReaction(event);
             if (normalized) {
               result.messages.push(normalized);
             }

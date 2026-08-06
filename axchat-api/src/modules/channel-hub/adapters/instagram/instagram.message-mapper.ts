@@ -122,6 +122,105 @@ export class InstagramMessageMapper {
     };
   }
 
+  /**
+   * Clique em botão / ice breaker / quick reply (`messaging_postbacks`). O que
+   * o cliente tocou não chega como `message` — sem tratar isso, o toque some e
+   * a conversa trava esperando um texto que nunca vem.
+   */
+  normalizePostback(messaging: Record<string, any>): NormalizedInboundMessage | null {
+    const senderId = messaging.sender?.id;
+    const postback = messaging.postback;
+    if (!senderId || !postback) return null;
+
+    const title = postback.title ? String(postback.title) : '';
+    const payload = postback.payload ? String(postback.payload) : undefined;
+
+    return {
+      externalMessageId: postback.mid
+        ? String(postback.mid)
+        : `ig-postback:${senderId}:${messaging.timestamp}`,
+      externalContactId: String(senderId),
+      channelType: ChannelType.INSTAGRAM,
+      timestamp: new Date(messaging.timestamp),
+      type: MessageContentType.INTERACTIVE,
+      content: {
+        text: title,
+        interactive: { type: 'postback', buttonId: payload },
+      },
+      rawPayload: messaging,
+    };
+  }
+
+  /**
+   * Origem da conversa (`messaging_referral`): anúncio Click-to-Instagram-DM,
+   * link ig.me ou story. É a atribuição de campanha — sem isso a crew de
+   * marketing não sabe qual anúncio trouxe o lead.
+   *
+   * Só vem sozinho quando a thread JÁ existe; numa conversa nova o referral
+   * chega grudado no primeiro `message` (campo `referral` no mesmo evento).
+   */
+  normalizeReferral(messaging: Record<string, any>): NormalizedInboundMessage | null {
+    const senderId = messaging.sender?.id;
+    const referral = messaging.referral;
+    if (!senderId || !referral) return null;
+
+    const ads = referral.ads_context_data;
+    const source = referral.source ? String(referral.source) : 'DESCONHECIDA';
+    const descricao = ads?.ad_title
+      ? `anúncio "${ads.ad_title}"`
+      : referral.ref
+        ? `referência "${referral.ref}"`
+        : `origem ${source}`;
+
+    const result: NormalizedInboundMessage = {
+      externalMessageId: `ig-referral:${senderId}:${messaging.timestamp}`,
+      externalContactId: String(senderId),
+      channelType: ChannelType.INSTAGRAM,
+      timestamp: new Date(messaging.timestamp),
+      type: MessageContentType.SYSTEM,
+      content: { text: `[Cliente chegou por ${descricao} — origem ${source}]` },
+      rawPayload: messaging,
+    };
+
+    // Reaproveita o mesmo formato de contexto de anúncio já usado no reply_to,
+    // pra quem consome não precisar aprender uma segunda forma.
+    if (ads?.ad_title || referral.ad_id) {
+      result.replyTo = {
+        ad: {
+          id: referral.ad_id ? String(referral.ad_id) : undefined,
+          title: ads?.ad_title,
+        },
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Reação (curtida) numa DM. `unreact` é ignorado — o AxChat não guarda
+   * histórico de reação removida, então registrar só a retirada confundiria.
+   */
+  normalizeReaction(messaging: Record<string, any>): NormalizedInboundMessage | null {
+    const senderId = messaging.sender?.id;
+    const reaction = messaging.reaction;
+    if (!senderId || !reaction?.mid) return null;
+    if (reaction.action && reaction.action !== 'react') return null;
+
+    const emoji = reaction.emoji ? String(reaction.emoji) : '❤️';
+
+    return {
+      externalMessageId: `ig-reaction:${reaction.mid}:${messaging.timestamp}`,
+      externalContactId: String(senderId),
+      channelType: ChannelType.INSTAGRAM,
+      timestamp: new Date(messaging.timestamp),
+      type: MessageContentType.REACTION,
+      content: {
+        reaction: { emoji, targetMessageId: String(reaction.mid) },
+      },
+      rawPayload: messaging,
+    };
+  }
+
   normalizeStatus(messaging: Record<string, any>): StatusUpdate | null {
     const delivery = messaging.delivery;
     if (!delivery?.mids?.length) return null;
@@ -152,8 +251,6 @@ export class InstagramMessageMapper {
     message: NormalizedOutboundMessage,
     contactExternalId: string,
   ): Record<string, any> {
-    const base = { recipient: { id: contactExternalId } };
-
     // Instagram Messenger Platform NÃO permite reply nativo em DM
     // (api só aceita reply em comentários/stories de outro fluxo).
     // Fallback: prefixa a mensagem com um quote textual mostrando o
@@ -162,6 +259,8 @@ export class InstagramMessageMapper {
     const quotePrefix = buildIgQuotePrefix(message.replyTo);
     const applyQuoteToText = (text: string): string =>
       quotePrefix ? `${quotePrefix}${text}` : text;
+
+    const base = { recipient: { id: contactExternalId }, ...this.sendWindowFields(message) };
 
     switch (message.type) {
       case MessageContentType.TEXT:
@@ -227,6 +326,35 @@ export class InstagramMessageMapper {
           message: { text: applyQuoteToText(message.content.text || '') },
         };
     }
+  }
+
+  /** Janela padrão da Meta pra responder livremente: 24h da última msg do cliente. */
+  private static readonly STANDARD_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+  /**
+   * Decide `messaging_type` (obrigatório na Send API) e, quando cabível, a tag
+   * HUMAN_AGENT — a única forma de responder entre 24h e 7 dias.
+   *
+   * A política da Meta é explícita: HUMAN_AGENT é "Disallowed" para mensagem
+   * automática. Por isso a IA nunca recebe a tag — se ela tentar responder
+   * fora das 24h, o envio falha na Meta, que é o comportamento correto e não
+   * um bug nosso. Marcar automático como humano arriscaria a conta do cliente
+   * perder o direito de enviar mensagens.
+   */
+  private sendWindowFields(
+    message: NormalizedOutboundMessage,
+  ): Record<string, string> {
+    const janela = message.sendWindow;
+    const desde = janela?.lastInboundAt
+      ? Date.now() - new Date(janela.lastInboundAt).getTime()
+      : null;
+    const foraDaJanela =
+      desde !== null && desde > InstagramMessageMapper.STANDARD_WINDOW_MS;
+
+    if (foraDaJanela && janela?.fromHumanAgent) {
+      return { messaging_type: 'MESSAGE_TAG', tag: 'HUMAN_AGENT' };
+    }
+    return { messaging_type: 'RESPONSE' };
   }
 
   private resolveContentType(msg: Record<string, any>): MessageContentType {

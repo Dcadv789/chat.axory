@@ -112,6 +112,21 @@ export interface NormalizedOutboundMessage {
     /** Nome de quem enviou a msg citada — Instagram fallback. */
     senderName?: string;
   };
+  /**
+   * Contexto da janela de envio (Instagram/Messenger). A Meta só aceita
+   * resposta livre dentro de 24h da última mensagem do cliente. Passadas as
+   * 24h, apenas um ATENDENTE HUMANO pode responder, e só com a tag
+   * HUMAN_AGENT (limite de 7 dias) — a política proíbe expressamente usar a
+   * tag em mensagem automática.
+   *
+   * Sem isso preenchido o mapper assume o caminho conservador (RESPONSE).
+   */
+  sendWindow?: {
+    /** Quando o contato mandou a última mensagem. */
+    lastInboundAt?: Date;
+    /** true = enviado por pessoa; false/ausente = gerado por IA. */
+    fromHumanAgent?: boolean;
+  };
 }
 
 export interface StatusUpdate {
