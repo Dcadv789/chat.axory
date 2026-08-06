@@ -905,6 +905,24 @@ function ActionParams({
           onChange={(e) => onParamChange('body', e.target.value)}
         />
       );
+    case 'reply_instagram_comment':
+      return (
+        <div className="space-y-1">
+          <textarea
+            placeholder="Resposta pública no post. Ex: {{usuario}} te chamamos no direct!"
+            className={inputCls}
+            rows={3}
+            maxLength={2200}
+            value={(action.params.body as string) ?? ''}
+            onChange={(e) => onParamChange('body', e.target.value)}
+          />
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            Vai <strong>público</strong>, embaixo do post. Variáveis:{' '}
+            <code>{'{{usuario}}'}</code> (@ de quem comentou) e{' '}
+            <code>{'{{comentario}}'}</code> (texto do comentário).
+          </p>
+        </div>
+      );
   }
 }
 
@@ -920,6 +938,7 @@ function defaultActionParams(type: ActionType): Record<string, unknown> {
     case 'assign_user':
       return { userId: '' };
     case 'send_message':
+    case 'reply_instagram_comment':
       return { body: '' };
   }
 }
@@ -939,6 +958,7 @@ function isActionConfigured(action: ActionDefinition): boolean {
     case 'assign_user':
       return !!action.params.userId;
     case 'send_message':
+    case 'reply_instagram_comment':
       return (
         typeof action.params.body === 'string' &&
         (action.params.body as string).trim().length > 0

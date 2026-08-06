@@ -12,6 +12,7 @@ export const TRIGGER_LABELS: Record<AutomationTrigger, string> = {
   TAG_ADDED: 'Tag adicionada',
   TAG_REMOVED: 'Tag removida',
   MESSAGE_RECEIVED: 'Mensagem recebida',
+  INSTAGRAM_COMMENT: 'Comentário no Instagram',
   CONVERSATION_STATUS_CHANGED: 'Status da conversa mudou',
   CONVERSATION_ASSIGNED: 'Conversa atribuída',
 };
@@ -19,7 +20,9 @@ export const TRIGGER_LABELS: Record<AutomationTrigger, string> = {
 export const TRIGGER_DESCRIPTIONS: Record<AutomationTrigger, string> = {
   TAG_ADDED: 'Quando uma tag for aplicada a uma conversa ou contato',
   TAG_REMOVED: 'Quando uma tag for removida de uma conversa ou contato',
-  MESSAGE_RECEIVED: 'Quando uma mensagem for recebida de um cliente',
+  MESSAGE_RECEIVED: 'Quando uma mensagem for recebida de um cliente (DM, não comentário)',
+  INSTAGRAM_COMMENT:
+    'Quando alguém comentar num post ou reel do seu Instagram',
   CONVERSATION_STATUS_CHANGED:
     'Quando o status de uma conversa mudar (ex: PENDING → OPEN)',
   CONVERSATION_ASSIGNED:
@@ -33,6 +36,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   move_pipeline_stage: 'Mover entre estágios do pipeline',
   assign_user: 'Atribuir a um usuário',
   send_message: 'Enviar mensagem',
+  reply_instagram_comment: 'Responder o comentário (público)',
 };
 
 export const OPERATOR_LABELS: Record<ConditionOperator, string> = {
@@ -59,14 +63,19 @@ export const FIELD_LABELS: Record<string, string> = {
   toStatus: 'Novo status',
   fromAssigneeId: 'Atribuído anterior',
   toAssigneeId: 'Novo atribuído',
+  authorUsername: 'Usuário que comentou',
+  mediaId: 'Post (media ID)',
+  isReply: 'É resposta a outro comentário',
 };
 
 export function operatorsForField(field: string): ConditionOperator[] {
   // Boolean-like fields skip the value-comparison operators.
-  if (field === 'hasAttachment' || field === 'target') {
+  if (field === 'hasAttachment' || field === 'target' || field === 'isReply') {
     return ['equals', 'not_equals'];
   }
-  if (field === 'body') {
+  // authorUsername entra aqui junto com body: filtrar comentário por "contém"
+  // é o caso de uso real ("quem falar 'preço'"), não igualdade exata.
+  if (field === 'body' || field === 'authorUsername') {
     return ['contains', 'not_contains', 'equals', 'is_set', 'is_not_set'];
   }
   return [

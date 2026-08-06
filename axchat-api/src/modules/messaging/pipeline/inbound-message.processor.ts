@@ -217,21 +217,44 @@ export class InboundMessageProcessor extends WorkerHost {
               message.type === 'VIDEO' ||
               message.type === 'DOCUMENT' ||
               message.type === 'STICKER';
-            await this.outbox.enqueue(
-              tx,
-              AutomationTrigger.MESSAGE_RECEIVED,
-              {
-                organizationId,
-                contactId,
-                conversationId,
-                channelId,
-                messageId: result.message.id,
-                body,
-                type: String(message.type),
-                hasAttachment,
-                isFromCustomer: true,
-              },
-            );
+            // Comentário do Instagram tem gatilho PRÓPRIO. Antes ele entrava
+            // como MESSAGE_RECEIVED igual a uma DM, então toda automação de
+            // "mensagem recebida" pegava comentário junto sem ninguém notar.
+            if (message.comment) {
+              await this.outbox.enqueue(
+                tx,
+                AutomationTrigger.INSTAGRAM_COMMENT,
+                {
+                  organizationId,
+                  contactId,
+                  conversationId,
+                  channelId,
+                  messageId: result.message.id,
+                  commentId: message.comment.commentId,
+                  mediaId: message.comment.mediaId ?? null,
+                  authorUsername: message.comment.username ?? null,
+                  authorIgsid: message.comment.authorIgsid,
+                  body: message.comment.text ?? null,
+                  isReply: !!message.comment.parentId,
+                },
+              );
+            } else {
+              await this.outbox.enqueue(
+                tx,
+                AutomationTrigger.MESSAGE_RECEIVED,
+                {
+                  organizationId,
+                  contactId,
+                  conversationId,
+                  channelId,
+                  messageId: result.message.id,
+                  body,
+                  type: String(message.type),
+                  hasAttachment,
+                  isFromCustomer: true,
+                },
+              );
+            }
           }
           return result;
         },
@@ -487,12 +510,18 @@ export class InboundMessageProcessor extends WorkerHost {
       return;
     }
 
-    // Comentário do Instagram → roteia direto pra crew de marketing, num fluxo
-    // ISOLADO do pipeline de DM/atendimento (sem router/debounce). Não toca no
-    // caminho normal de mensagem de cliente.
+    // Comentário do Instagram NÃO é da IA. Ele já foi publicado no outbox
+    // como gatilho INSTAGRAM_COMMENT e quem decide o que fazer são as
+    // automações — determinístico, auditável e configurável pelo dono.
+    //
+    // Antes daqui saía uma chamada direta pra crew de marketing, que respondia
+    // sozinha e na hora. Com automações capazes de responder também, os dois
+    // caminhos publicariam resposta no mesmo comentário.
     const comment = (triggerMessage.metadata as any)?.comment;
     if (comment) {
-      await this.handleInstagramComment(conversation, triggerMessage);
+      this.logger.debug(
+        `Comentário ${comment.commentId}: tratado por automação, IA não atua.`,
+      );
       return;
     }
 

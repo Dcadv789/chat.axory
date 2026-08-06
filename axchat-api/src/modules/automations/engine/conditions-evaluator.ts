@@ -79,6 +79,19 @@ export const FIELDS_BY_TRIGGER: Record<
     contactId: (p) => p.contactId,
     conversationId: (p) => p.conversationId,
   },
+  [AutomationTrigger.INSTAGRAM_COMMENT]: {
+    // `body` é o texto CRU do comentário — sem a linha de contexto que a UI
+    // acrescenta —, senão "contém" casaria com os ids injetados.
+    body: (p) => (p as any).body,
+    authorUsername: (p) => (p as any).authorUsername,
+    mediaId: (p) => (p as any).mediaId,
+    // Permite regra do tipo "só comentário de 1º nível", pra automação não
+    // responder à própria thread de respostas.
+    isReply: (p) => (p as any).isReply,
+    channelId: (p) => p.channelId,
+    contactId: (p) => p.contactId,
+    conversationId: (p) => p.conversationId,
+  },
   [AutomationTrigger.CONVERSATION_STATUS_CHANGED]: {
     fromStatus: (p) => (p as any).fromStatus,
     toStatus: (p) => (p as any).toStatus,

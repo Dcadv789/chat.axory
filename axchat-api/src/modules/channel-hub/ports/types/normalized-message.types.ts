@@ -88,6 +88,12 @@ export interface NormalizedInboundMessage {
     authorIgsid: string;
     username?: string;
     parentId?: string;
+    /**
+     * Texto cru do comentário. `content.text` leva a linha de contexto com os
+     * ids colada no fim (pra o agente saber como agir); as automações precisam
+     * do texto limpo pra casar condição de "contém".
+     */
+    text?: string;
   };
   rawPayload: unknown;
 }

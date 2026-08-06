@@ -2204,6 +2204,11 @@ enum AutomationTrigger {
   TAG_ADDED
   TAG_REMOVED
   MESSAGE_RECEIVED
+  /// Comentário num post/reel do Instagram. Separado de MESSAGE_RECEIVED de
+  /// propósito: comentário é público e tem ação própria (responder no post), e
+  /// sem gatilho separado toda automação de "mensagem recebida" pegava
+  /// comentário junto com DM sem ninguém perceber.
+  INSTAGRAM_COMMENT
   CONVERSATION_STATUS_CHANGED
   CONVERSATION_ASSIGNED
   MANUAL_TRIGGER

@@ -117,6 +117,7 @@ export class InstagramMessageMapper {
         authorIgsid: String(fromId),
         username,
         parentId: value?.parent_id ? String(value.parent_id) : undefined,
+        text: text || undefined,
       },
       rawPayload: value,
     };

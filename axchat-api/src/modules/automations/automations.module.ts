@@ -16,6 +16,8 @@ import { AddToPipelineHandler } from './actions/handlers/add-to-pipeline.handler
 import { MovePipelineStageHandler } from './actions/handlers/move-pipeline-stage.handler';
 import { AssignUserHandler } from './actions/handlers/assign-user.handler';
 import { SendMessageHandler } from './actions/handlers/send-message.handler';
+import { ReplyInstagramCommentHandler } from './actions/handlers/reply-instagram-comment.handler';
+import { InstagramModule } from '../channel-hub/adapters/instagram/instagram.module';
 import { AutomationsService } from './automations.service';
 import { AutomationsController } from './automations.controller';
 import { AutomationsRunsController } from './automations-runs.controller';
@@ -27,6 +29,9 @@ import { AUTOMATION_QUEUE } from './automations.constants';
   imports: [
     PrismaModule,
     RealtimeModule,
+    // reply_instagram_comment fala direto com a Graph API. InstagramModule é
+    // folha (só adapters), então não fecha ciclo com o channel-hub.
+    InstagramModule,
     BullModule.registerQueue(
       { name: AUTOMATION_QUEUE },
       // send_message uses the existing outbound queue. Registering it
@@ -52,6 +57,7 @@ import { AUTOMATION_QUEUE } from './automations.constants';
     MovePipelineStageHandler,
     AssignUserHandler,
     SendMessageHandler,
+    ReplyInstagramCommentHandler,
     ActionRegistryService,
   ],
   exports: [OutboxService, KillSwitchService],

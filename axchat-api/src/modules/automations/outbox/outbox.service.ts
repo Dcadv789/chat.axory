@@ -132,6 +132,13 @@ export class OutboxService {
         // messageId is unique in our DB — perfect dedup key.
         return `MESSAGE_RECEIVED:${p.messageId}`;
       }
+      case AutomationTrigger.INSTAGRAM_COMMENT: {
+        const p = payload as TriggerToPayload[typeof AutomationTrigger.INSTAGRAM_COMMENT];
+        // Meta's comment id is stable across webhook re-deliveries — and Meta
+        // does retry. Without dedup, a retry would post the same public reply
+        // twice on the customer's post.
+        return `INSTAGRAM_COMMENT:${p.commentId}`;
+      }
       case AutomationTrigger.CONVERSATION_STATUS_CHANGED: {
         const p = payload as TriggerToPayload[typeof AutomationTrigger.CONVERSATION_STATUS_CHANGED];
         // Two real, sequential status changes need to fire as distinct

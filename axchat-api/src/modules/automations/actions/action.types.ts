@@ -12,6 +12,8 @@ export const ACTION_TYPES = [
   'move_pipeline_stage',
   'assign_user',
   'send_message',
+  // Responde PUBLICAMENTE no post. Só funciona no gatilho INSTAGRAM_COMMENT.
+  'reply_instagram_comment',
 ] as const;
 
 export type ActionType = (typeof ACTION_TYPES)[number];

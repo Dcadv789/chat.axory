@@ -48,6 +48,28 @@ export interface MessageReceivedPayload extends BaseEventPayload {
   isFromCustomer: true; // INBOUND only — outbound never enters this trigger
 }
 
+/**
+ * Comentário recebido num post/reel do Instagram.
+ *
+ * Carrega os ids acionáveis: `commentId` pra responder no próprio post e
+ * `authorIgsid` pra mandar DM. Conversa e contato vêm preenchidos — o autor do
+ * comentário vira contato como qualquer outro.
+ */
+export interface InstagramCommentPayload extends BaseEventPayload {
+  conversationId: string;
+  channelId: string;
+  messageId: string;
+  commentId: string;
+  mediaId: string | null;
+  /** @username do autor, quando a Meta manda. */
+  authorUsername: string | null;
+  authorIgsid: string;
+  /** Texto do comentário, cru — sem a linha de contexto que a UI acrescenta. */
+  body: string | null;
+  /** true quando é resposta a outro comentário, não um comentário de 1º nível. */
+  isReply: boolean;
+}
+
 export interface ConversationStatusChangedPayload extends BaseEventPayload {
   conversationId: string;
   channelId: string;
@@ -66,6 +88,7 @@ export type AutomationEventPayload =
   | TagAddedPayload
   | TagRemovedPayload
   | MessageReceivedPayload
+  | InstagramCommentPayload
   | ConversationStatusChangedPayload
   | ConversationAssignedPayload;
 
@@ -75,6 +98,7 @@ export type TriggerToPayload = {
   [AutomationTrigger.TAG_ADDED]: TagAddedPayload;
   [AutomationTrigger.TAG_REMOVED]: TagRemovedPayload;
   [AutomationTrigger.MESSAGE_RECEIVED]: MessageReceivedPayload;
+  [AutomationTrigger.INSTAGRAM_COMMENT]: InstagramCommentPayload;
   [AutomationTrigger.CONVERSATION_STATUS_CHANGED]: ConversationStatusChangedPayload;
   [AutomationTrigger.CONVERSATION_ASSIGNED]: ConversationAssignedPayload;
   [AutomationTrigger.MANUAL_TRIGGER]: ManualTriggerPayload;

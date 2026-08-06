@@ -4,6 +4,7 @@ export type AutomationTrigger =
   | 'TAG_ADDED'
   | 'TAG_REMOVED'
   | 'MESSAGE_RECEIVED'
+  | 'INSTAGRAM_COMMENT'
   | 'CONVERSATION_STATUS_CHANGED'
   | 'CONVERSATION_ASSIGNED';
 
@@ -29,7 +30,8 @@ export type ActionType =
   | 'add_to_pipeline'
   | 'move_pipeline_stage'
   | 'assign_user'
-  | 'send_message';
+  | 'send_message'
+  | 'reply_instagram_comment';
 
 export interface ConditionRule {
   field: string;
