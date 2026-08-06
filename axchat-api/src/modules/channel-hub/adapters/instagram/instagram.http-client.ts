@@ -294,6 +294,30 @@ export class InstagramHttpClient {
     }
   }
 
+  /**
+   * Responde PUBLICAMENTE um comentário (`POST /{comment-id}/replies`).
+   *
+   * Até aqui só a crew de marketing conseguia responder comentário, via skill
+   * HTTP — um atendente humano não tinha por onde. O id do comentário chega no
+   * webhook e fica em `Message.metadata.comment.commentId`.
+   */
+  async replyToComment(
+    channel: Channel,
+    commentId: string,
+    message: string,
+  ): Promise<{ id: string }> {
+    try {
+      const { data } = await this.createClient(channel).post(
+        `/${commentId}/replies`,
+        null,
+        { params: { message } },
+      );
+      return data;
+    } catch (err: any) {
+      throw this.wrapGraphError(err, 'replyToComment');
+    }
+  }
+
   async listConversations(
     channel: Channel,
     cursor?: string,

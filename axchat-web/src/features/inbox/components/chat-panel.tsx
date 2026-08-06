@@ -17,6 +17,7 @@ import { quickRepliesService } from '@/features/settings/services/quick-replies.
 import { getEngagementWindowStatus } from '../utils/inbox-errors';
 import { ConversationHeader } from './conversation-header';
 import { StoryReplyCard } from './story-reply-card';
+import { CommentReplyCard } from './comment-reply-card';
 import { AudioMessagePlayer } from './audio-message-player';
 import {
   MediaImage,
@@ -1092,6 +1093,15 @@ export function ChatPanel({
                       {msg.metadata?.replyTo?.story && (
                         <StoryReplyCard
                           story={msg.metadata.replyTo.story}
+                          isOutbound={isOutbound}
+                        />
+                      )}
+                      {/* Comentário do Instagram: responder aqui publica no
+                          post. A caixa normal manda DM, que é outra coisa. */}
+                      {msg.metadata?.comment && (
+                        <CommentReplyCard
+                          comment={msg.metadata.comment}
+                          channelId={conversation.channel.id}
                           isOutbound={isOutbound}
                         />
                       )}

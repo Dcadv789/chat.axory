@@ -104,9 +104,22 @@ export interface TranscriptionResult {
   transcribedAt: string;
 }
 
+/**
+ * Presente quando a mensagem é um COMENTÁRIO do Instagram (não DM). Carrega os
+ * ids que a UI precisa pra responder publicamente.
+ */
+export interface CommentContext {
+  commentId: string;
+  mediaId?: string;
+  authorIgsid: string;
+  username?: string;
+  parentId?: string;
+}
+
 export interface MessageMetadata {
   isEcho?: boolean;
   replyTo?: ReplyContext | null;
+  comment?: CommentContext | null;
   transcription?: TranscriptionResult | null;
   rawPayload?: any;
   [key: string]: any;

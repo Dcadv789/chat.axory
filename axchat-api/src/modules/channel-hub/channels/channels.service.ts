@@ -666,6 +666,13 @@ export class ChannelsService {
     return this.threadsHttpClient.publish(channel, input);
   }
 
+  /** Posts já publicados na conta do Threads. */
+  async threadsPosts(channelId: string, organizationId: string) {
+    const channel = await this.assertThreads(channelId, organizationId);
+    const posts = await this.threadsHttpClient.listPosts(channel);
+    return { posts };
+  }
+
   /** Lista as respostas de um post do Threads. */
   async threadsReplies(channelId: string, organizationId: string, mediaId: string) {
     const channel = await this.assertThreads(channelId, organizationId);
@@ -706,6 +713,24 @@ export class ChannelsService {
       ? await this.threadsHttpClient.getMediaInsights(channel, mediaId)
       : await this.threadsHttpClient.getUserInsights(channel);
     return { insights: data };
+  }
+
+  /**
+   * Responde publicamente um comentário do Instagram. O `commentId` vem do
+   * webhook e fica guardado em `Message.metadata.comment.commentId` — a UI do
+   * inbox passa esse id de volta pra cá.
+   */
+  async instagramReplyToComment(
+    channelId: string,
+    organizationId: string,
+    commentId: string,
+    message: string,
+  ) {
+    const channel = await this.findOne(channelId, organizationId);
+    if (channel.type !== ChannelType.INSTAGRAM) {
+      throw new BadRequestException('Canal não é do tipo Instagram.');
+    }
+    return this.instagramHttpClient.replyToComment(channel, commentId, message);
   }
 
   private async assertThreads(channelId: string, organizationId: string) {

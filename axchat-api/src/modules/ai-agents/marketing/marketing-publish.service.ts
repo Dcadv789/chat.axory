@@ -78,6 +78,12 @@ export class MarketingPublishService {
       throw new BadRequestException('Um post do Instagram precisa de uma imagem ou vídeo.');
     }
 
+    // A Meta limita 100 posts publicados por API a cada 24h por conta. Estourar
+    // devolve um erro genérico no media_publish, depois do container já criado —
+    // com agente publicando sozinho, isso vira falha sem explicação. Checar antes
+    // custa uma chamada e devolve uma mensagem que o dono entende.
+    await this.assertPublishingQuota(igUserId, token);
+
     // 1) Cria o container.
     const params = new URLSearchParams();
     if (input.caption) params.set('caption', input.caption);
@@ -112,6 +118,37 @@ export class MarketingPublishService {
     await this.logActivity(orgId, 'INSTAGRAM', `Post publicado no Instagram`, String(pub.id));
     this.logger.log(`Instagram post publicado: ${pub.id} (org ${orgId})`);
     return { ok: true, mediaId: String(pub.id) };
+  }
+
+  /**
+   * Consulta a cota de publicação da conta (`/content_publishing_limit`) e
+   * barra antes de gastar upload. Se a consulta em si falhar, segue em frente:
+   * não vale bloquear uma publicação legítima por causa de um check auxiliar.
+   */
+  private async assertPublishingQuota(igUserId: string, token: string): Promise<void> {
+    let usados: number | undefined;
+    let total: number | undefined;
+    try {
+      const res = await fetch(
+        `${GRAPH}/${encodeURIComponent(igUserId)}/content_publishing_limit` +
+          `?fields=quota_usage,config&access_token=${encodeURIComponent(token)}`,
+        { signal: AbortSignal.timeout(10_000) },
+      );
+      if (!res.ok) return;
+      const json: any = await res.json();
+      const linha = json?.data?.[0];
+      usados = linha?.quota_usage;
+      total = linha?.config?.quota_total;
+    } catch {
+      return; // check é best-effort
+    }
+
+    if (typeof usados === 'number' && typeof total === 'number' && usados >= total) {
+      throw new BadRequestException(
+        `Limite de publicação do Instagram atingido: ${usados}/${total} posts nas últimas 24h. ` +
+          'A Meta libera conforme os posts antigos saem da janela — tente mais tarde.',
+      );
+    }
   }
 
   private async igFetch(url: string, params: URLSearchParams, ctx: string): Promise<any> {

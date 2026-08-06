@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { MessageStatus } from '@prisma/client';
+import { ChannelType, MessageDirection, MessageStatus } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { ChannelAdapterRegistry } from '../../channel-hub/channel-adapter.registry';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
@@ -42,6 +42,15 @@ export class OutboundMessageProcessor extends WorkerHost {
     // Só mexe no objeto em memória que vai pro provider — o texto persistido
     // no banco/inbox continua limpo (a bolha já mostra o nome pra equipe).
     await this.applySenderSignature({ messageId, message });
+
+    // Instagram: passadas 24h da última msg do cliente, só atendente humano
+    // responde, e só com a tag HUMAN_AGENT. Sem isso, toda resposta tardia
+    // do inbox era recusada pela Meta.
+    await this.applyInstagramSendWindow({
+      messageId,
+      channelType: channel.type,
+      message,
+    });
 
     // Humanize: if this message was sent by an AI agent, simulate typing
     // delay proportional to text length before actually sending. Customers
@@ -261,6 +270,49 @@ export class OutboundMessageProcessor extends WorkerHost {
    * For a 12-char "opa, beleza!" → ~1.2s. For a 100-char message → ~3.7s.
    * Caps at 6s so the customer never feels the bot froze.
    */
+  /**
+   * Monta o contexto de janela pro Instagram: quando o contato falou pela
+   * última vez e se quem está respondendo é gente.
+   *
+   * `fromHumanAgent` exige `senderId` preenchido — ou seja, um usuário real do
+   * AxChat. Mensagem de IA (aiAgentId) e disparo automático (sem sender) ficam
+   * de fora de propósito: a política da Meta proíbe a tag HUMAN_AGENT em
+   * conteúdo automatizado, e abusar disso custa o direito de enviar mensagem.
+   */
+  private async applyInstagramSendWindow(args: {
+    messageId: string;
+    channelType: ChannelType;
+    message: NormalizedOutboundMessage;
+  }): Promise<void> {
+    if (args.channelType !== ChannelType.INSTAGRAM) return;
+    try {
+      const row = await this.prisma.message.findUnique({
+        where: { id: args.messageId },
+        select: { metadata: true, conversationId: true, senderId: true },
+      });
+      if (!row?.conversationId) return;
+
+      const ultimaDoCliente = await this.prisma.message.findFirst({
+        where: {
+          conversationId: row.conversationId,
+          direction: MessageDirection.INBOUND,
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      });
+
+      const daIa = !!(row.metadata as any)?.aiAgentId;
+      args.message.sendWindow = {
+        lastInboundAt: ultimaDoCliente?.createdAt,
+        fromHumanAgent: !!row.senderId && !daIa,
+      };
+    } catch (err: any) {
+      // Nunca bloquear o envio por causa disso — sem sendWindow o mapper cai
+      // no caminho conservador (RESPONSE).
+      this.logger.warn(`IG send window failed: ${err?.message ?? err}`);
+    }
+  }
+
   private async simulateTypingIfAiMessage(args: {
     messageId: string;
     channel: { id: string; type: any };
