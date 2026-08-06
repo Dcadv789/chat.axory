@@ -35,6 +35,7 @@ import {
   verifyThreadsState,
 } from '../adapters/threads/threads-oauth-state.util';
 import { InstagramLoginHttpClient } from '../adapters/instagram/instagram-login.http-client';
+import { parseMetaSignedRequest } from '../adapters/meta-signed-request';
 import { ChannelSyncOrchestrator } from '../sync/channel-sync.orchestrator';
 import { syncNotSupportedMessage } from '../sync/sync-messages.util';
 import {
@@ -664,6 +665,83 @@ export class ChannelsService {
   ) {
     const channel = await this.assertThreads(channelId, organizationId);
     return this.threadsHttpClient.publish(channel, input);
+  }
+
+  /**
+   * Callback de DESAUTORIZAÇÃO da Meta. Chega quando a pessoa remove o AxChat
+   * nas configurações do Threads/Instagram — a Meta invalida o token na hora.
+   *
+   * Sem isso o canal continuava "ativo" na tela e só falhava na próxima
+   * chamada, com erro de token que ninguém sabia interpretar. Aqui ele é
+   * desligado com o motivo à vista.
+   *
+   * É rota pública (redirect/POST da Meta, sem Bearer): a confiança vem do
+   * `signed_request` assinado com o App Secret.
+   */
+  async handleDeauthorize(
+    provider: 'threads' | 'instagram',
+    signedRequest: string | undefined,
+  ): Promise<{ ok: boolean }> {
+    const cfg = await this.loadMetaCoexistenceConfig();
+    const secrets =
+      provider === 'threads'
+        ? [cfg.threadsAppSecret]
+        : [cfg.instagramLoginAppSecret, cfg.instagramAppSecret, cfg.appSecret];
+
+    const payload = parseMetaSignedRequest(signedRequest, secrets);
+    if (!payload?.user_id) {
+      this.logger.warn(
+        `Deauthorize (${provider}) recusado: signed_request ausente ou com assinatura inválida.`,
+      );
+      // 200 mesmo assim: a Meta reenfileira em caso de erro, e não queremos
+      // ficar recebendo retry de uma chamada que nunca vai validar.
+      return { ok: false };
+    }
+
+    const userId = String(payload.user_id);
+    const tipo =
+      provider === 'threads' ? ChannelType.THREADS : ChannelType.INSTAGRAM;
+    const candidatos = await this.prisma.channel.findMany({
+      where: { type: tipo, deletedAt: null, isActive: true },
+    });
+
+    const canal = candidatos.find((c) => {
+      const conf = (c.config ?? {}) as Record<string, any>;
+      const ids = [
+        conf.threadsUserId,
+        conf.igUserId,
+        conf.igBusinessId,
+        conf.fbPageId,
+      ]
+        .filter(Boolean)
+        .map(String);
+      return ids.includes(userId);
+    });
+
+    if (!canal) {
+      this.logger.warn(
+        `Deauthorize (${provider}): nenhum canal ativo com user_id ${userId}.`,
+      );
+      return { ok: false };
+    }
+
+    await this.prisma.channel.update({
+      where: { id: canal.id },
+      data: {
+        isActive: false,
+        config: {
+          ...((canal.config ?? {}) as Record<string, any>),
+          disconnectedAt: new Date().toISOString(),
+          disconnectedReason:
+            'O acesso foi removido nas configurações da conta. Reconecte o canal para voltar a operar.',
+        },
+      },
+    });
+
+    this.logger.log(
+      `Canal ${canal.id} (${provider}) desativado: acesso revogado pelo dono da conta.`,
+    );
+    return { ok: true };
   }
 
   /** Posts já publicados na conta do Threads. */

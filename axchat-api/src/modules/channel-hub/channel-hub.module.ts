@@ -35,6 +35,13 @@ import { WebhookEventsService } from './webhook-events.service';
 import { WebhookThrottleGuard } from './webhook-throttle.guard';
 import { WhatsappTemplatesController } from './templates/whatsapp-template.controller';
 import { WhatsappTemplateService } from './templates/whatsapp-template.service';
+import { DeauthorizeController } from './channels/deauthorize.controller';
+import { ChannelTokenRefreshService } from './channels/channel-token-refresh.service';
+import {
+  CHANNEL_TOKEN_QUEUE,
+  ChannelTokenCronService,
+  ChannelTokenProcessor,
+} from './channels/channel-token.queue';
 
 @Module({
   imports: [
@@ -47,6 +54,7 @@ import { WhatsappTemplateService } from './templates/whatsapp-template.service';
       { name: 'conversation-router' },
       { name: 'sla-timers' },
       { name: CHANNEL_SYNC_QUEUE },
+      { name: CHANNEL_TOKEN_QUEUE },
     ),
     ZappfyModule,
     WhatsAppOfficialModule,
@@ -61,6 +69,7 @@ import { WhatsappTemplateService } from './templates/whatsapp-template.service';
     ChannelsController,
     ThreadsOAuthController,
     InstagramLoginOAuthController,
+    DeauthorizeController,
     WhatsappTemplatesController,
   ],
   providers: [
@@ -74,6 +83,9 @@ import { WhatsappTemplateService } from './templates/whatsapp-template.service';
     WebhookEventsService,
     WebhookThrottleGuard,
     WhatsappTemplateService,
+    ChannelTokenRefreshService,
+    ChannelTokenCronService,
+    ChannelTokenProcessor,
   ],
   exports: [
     ChannelAdapterRegistry,
