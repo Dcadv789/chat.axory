@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
   LayoutDashboard, TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
-  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon, Search,
+  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon, Search, ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -202,7 +202,9 @@ function MarketingPanelInner() {
       breadcrumb={[{ label: 'Marketing', href: '/marketing' }]}
       contentClassName="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-thin px-4 py-3"
     >
-      <div className="flex flex-col gap-5">
+      {/* gap-3 igual ao espaçamento interno das abas: assim a distância da
+          navegação até a barra de filtro é a mesma da barra até o conteúdo. */}
+      <div className="flex flex-col gap-3">
         {/* Tabs em pílula — igual ao Configurações */}
         <nav className="w-full shrink-0 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
           <div className="flex flex-wrap gap-2">
@@ -1276,49 +1278,55 @@ function InstagramPostsTab() {
 
   return (
     <div className="space-y-3">
-      {/* Barra de filtro — atualizar + busca por legenda. */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-2.5 shadow-sm dark:border-white/10 dark:bg-black">
+      {/* Barra de filtro. Altura e padding iguais aos da navegação (p-3 + h-10)
+          pra as duas parecerem a mesma peça, empilhadas. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
         <button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
           Atualizar
         </button>
 
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+        <div className="relative h-10 min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar na legenda dos posts…"
-            className="w-full rounded-md border border-zinc-200 bg-white py-1.5 pl-8 pr-8 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+            className="h-10 w-full rounded-md border border-zinc-200 bg-white pl-9 pr-9 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
           />
           {busca && (
             <button
               onClick={() => setBusca('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
               title="Limpar"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        <select
-          value={ordem}
-          onChange={(e) => setOrdem(e.target.value as OrdemPosts)}
-          className="shrink-0 rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-700 outline-none focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-200"
-        >
-          {(Object.keys(ORDEM_LABELS) as OrdemPosts[]).map((o) => (
-            <option key={o} value={o}>
-              {ORDEM_LABELS[o]}
-            </option>
-          ))}
-        </select>
+        {/* appearance-none + seta própria: a seta nativa do select desalinha
+            quando a altura é fixada, e cada navegador desenha de um jeito. */}
+        <div className="relative h-10 shrink-0">
+          <select
+            value={ordem}
+            onChange={(e) => setOrdem(e.target.value as OrdemPosts)}
+            className="h-10 w-full appearance-none rounded-md border border-zinc-200 bg-white pl-3 pr-9 text-sm text-zinc-700 outline-none focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-200"
+          >
+            {(Object.keys(ORDEM_LABELS) as OrdemPosts[]).map((o) => (
+              <option key={o} value={o}>
+                {ORDEM_LABELS[o]}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+        </div>
 
-        <span className="shrink-0 text-[11px] text-zinc-500">
+        <span className="shrink-0 px-1 text-xs text-zinc-500">
           {termo
             ? `${posts.length} de ${todos.length} post(s)`
             : `${todos.length} post(s)`}

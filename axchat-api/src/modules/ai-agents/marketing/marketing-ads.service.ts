@@ -297,9 +297,24 @@ export class MarketingAdsService {
     const json: any = await res.json().catch(() => ({}));
     if (!res.ok || json?.error) {
       const erro = json?.error;
-      // A Meta devolve um texto pronto pro usuário quando o tipo de mídia não
-      // dá pra excluir (anúncio, item solto de carrossel). Ele explica melhor
-      // do que qualquer mensagem nossa.
+
+      // #10 aqui é quase sempre a mesma história: o token foi emitido antes de
+      // `instagram_manage_contents` existir na configuração do login, e
+      // permissão nova não entra em token velho. "Insufficient permissions"
+      // sozinho não diz isso pra ninguém.
+      if (Number(erro?.code) === 10) {
+        throw new BadRequestException(
+          'O Instagram recusou a exclusão por falta da permissão ' +
+            '"instagram_manage_contents" no token desta conta. Adicione-a na ' +
+            'configuração do Facebook Login (Super Admin → Integrações → ' +
+            'Instagram Config ID) e reconecte o canal em Configurações → ' +
+            'Canais — o token só ganha a permissão numa conexão nova.',
+        );
+      }
+
+      // Nos demais casos a Meta devolve um texto pronto pro usuário (tipo de
+      // mídia não suportado: anúncio, item solto de carrossel). Ele explica
+      // melhor do que qualquer mensagem nossa.
       const detalhe =
         erro?.error_user_msg ?? erro?.message ?? `HTTP ${res.status}`;
       throw new BadRequestException(`Instagram: ${detalhe}`);
