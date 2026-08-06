@@ -231,6 +231,35 @@ export class MarketingAdsService {
           }))
         : [],
     }));
+
+    // A Meta NÃO devolve comentário oculto nesta listagem. Sem juntar os que
+    // guardamos ao ocultar, ele sumiria da tela e não haveria como reexibir.
+    const ocultos = await this.prisma.instagramHiddenComment.findMany({
+      where: { organizationId: orgId, mediaId },
+      orderBy: { hiddenAt: 'desc' },
+    });
+    const jaListados = new Set(comments.map((c) => c.id));
+    for (const o of ocultos) {
+      if (jaListados.has(o.commentId)) continue;
+      const snap = (o.snapshot ?? {}) as Record<string, any>;
+      comments.push({
+        id: o.commentId,
+        text: snap.text ?? null,
+        username: snap.username ?? null,
+        timestamp: snap.timestamp ?? null,
+        likes: snap.likes ?? null,
+        hidden: true,
+        replies: [],
+      });
+    }
+
+    // Mais novo primeiro; sem data vai pro fim.
+    comments.sort((a, b) => {
+      const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      return tb - ta;
+    });
+
     return { comments };
   }
 
@@ -268,12 +297,19 @@ export class MarketingAdsService {
     return { ok: true, replyId: String(json.id) };
   }
 
-  /** Oculta/reexibe um comentário (moderação). */
+  /**
+   * Oculta/reexibe um comentário.
+   *
+   * Ao ocultar guardamos uma cópia: a Meta some com ele na listagem, então
+   * sem isso o comentário desapareceria da tela e ninguém conseguiria
+   * reexibir — nem quem clicou por engano.
+   */
   async hideInstagramComment(
     orgId: string,
     commentId: string,
     hide: boolean,
     channelId?: string,
+    snapshot?: { mediaId?: string; text?: string; username?: string; timestamp?: string; likes?: number },
   ): Promise<{ ok: true }> {
     const { token } = await this.credentialsService.instagram(orgId, channelId);
     const params = new URLSearchParams({
@@ -292,6 +328,64 @@ export class MarketingAdsService {
         `Instagram: ${json?.error?.message ?? `HTTP ${res.status}`}`,
       );
     }
+
+    if (hide && snapshot?.mediaId) {
+      await this.prisma.instagramHiddenComment.upsert({
+        where: {
+          uq_ig_hidden_comment: { organizationId: orgId, commentId },
+        },
+        create: {
+          organizationId: orgId,
+          channelId: channelId ?? null,
+          mediaId: snapshot.mediaId,
+          commentId,
+          snapshot: {
+            text: snapshot.text ?? null,
+            username: snapshot.username ?? null,
+            timestamp: snapshot.timestamp ?? null,
+            likes: snapshot.likes ?? null,
+          },
+        },
+        update: { hiddenAt: new Date() },
+      });
+    } else if (!hide) {
+      // Reexibido: a Meta volta a devolvê-lo na listagem, então a cópia local
+      // vira duplicata. Sai.
+      await this.prisma.instagramHiddenComment
+        .deleteMany({ where: { organizationId: orgId, commentId } })
+        .catch(() => undefined);
+    }
+
+    return { ok: true };
+  }
+
+  /**
+   * Exclui um comentário. **Irreversível** — some do Instagram pra todo mundo,
+   * inclusive pra quem escreveu.
+   *
+   * A Meta só permite quem é dono do post excluir, mesmo que o autor do
+   * comentário seja outra pessoa.
+   */
+  async deleteInstagramComment(
+    orgId: string,
+    commentId: string,
+    channelId?: string,
+  ): Promise<{ ok: true }> {
+    const { token } = await this.credentialsService.instagram(orgId, channelId);
+    const res = await fetch(
+      `${GRAPH}/${encodeURIComponent(commentId)}?access_token=${encodeURIComponent(token)}`,
+      { method: 'DELETE', signal: AbortSignal.timeout(20_000) },
+    );
+    const json: any = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new BadRequestException(
+        `Instagram: ${json?.error?.message ?? `HTTP ${res.status}`}`,
+      );
+    }
+    // Se estava na lista de ocultos, não faz mais sentido guardar.
+    await this.prisma.instagramHiddenComment
+      .deleteMany({ where: { organizationId: orgId, commentId } })
+      .catch(() => undefined);
     return { ok: true };
   }
 

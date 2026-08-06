@@ -294,8 +294,34 @@ model Organization {
   personalNotes        PersonalNote[]
   personalReminders    PersonalReminder[]
   personalEvents       PersonalCalendarEvent[]
+  instagramHiddenComments InstagramHiddenComment[]
 
   @@map("organizations")
+}
+
+/// Comentário do Instagram que ocultamos pela moderação.
+///
+/// A Graph API NÃO devolve comentário oculto em `GET /{media-id}/comments` —
+/// ele simplesmente some da listagem. Sem guardar uma cópia aqui, quem oculta
+/// (inclusive sem querer) perde o comentário de vista e não tem como reexibir
+/// pelo AxChat.
+model InstagramHiddenComment {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  channelId      String?  @map("channel_id")
+  mediaId        String   @map("media_id")
+  commentId      String   @map("comment_id")
+  /// Cópia do comentário no instante em que foi ocultado (texto, autor, data).
+  /// É o que a tela mostra, já que a Meta não devolve mais.
+  snapshot       Json
+  hiddenAt       DateTime @default(now()) @map("hidden_at")
+  hiddenBy       String?  @map("hidden_by")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, commentId], name: "uq_ig_hidden_comment")
+  @@index([organizationId, mediaId], name: "idx_ig_hidden_media")
+  @@map("instagram_hidden_comments")
 }
 
 model AgentSector {

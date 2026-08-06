@@ -12,7 +12,9 @@ import {
   Send,
   Bot,
   Heart,
+  Trash2,
 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { toast } from 'sonner';
 import {
   marketingService,
@@ -139,6 +141,8 @@ function ListaComentarios({
   const [respondendo, setRespondendo] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [paraExcluir, setParaExcluir] = useState<InstagramComment | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['instagram-comments', channelId, post.id],
@@ -181,13 +185,45 @@ function ListaComentarios({
         comentario.id,
         ocultando,
         channelId,
+        // A cópia só importa ao ocultar — é ela que mantém o comentário na
+        // tela depois que a Meta para de devolvê-lo.
+        ocultando
+          ? {
+              mediaId: post.id,
+              text: comentario.text,
+              username: comentario.username,
+              timestamp: comentario.timestamp,
+              likes: comentario.likes,
+            }
+          : undefined,
       );
-      toast.success(ocultando ? 'Comentário ocultado.' : 'Comentário reexibido.');
+      toast.success(
+        ocultando
+          ? 'Comentário ocultado. Ele continua aqui, esmaecido — dá pra reexibir.'
+          : 'Comentário reexibido no Instagram.',
+      );
       await recarregar();
     } catch (err: any) {
       toast.error(
         err?.response?.data?.message ?? 'Não foi possível moderar o comentário.',
       );
+    }
+  }
+
+  async function excluir() {
+    if (!paraExcluir) return;
+    setExcluindo(true);
+    try {
+      await marketingService.deleteInstagramComment(paraExcluir.id, channelId);
+      toast.success('Comentário excluído do Instagram.');
+      setParaExcluir(null);
+      await recarregar();
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ?? 'Não foi possível excluir o comentário.',
+      );
+    } finally {
+      setExcluindo(false);
     }
   }
 
@@ -231,7 +267,7 @@ function ListaComentarios({
               key={c.id}
               className={`rounded-lg border px-3 py-2.5 ${
                 c.hidden
-                  ? 'border-zinc-200 bg-zinc-50 opacity-60 dark:border-white/10 dark:bg-white/5'
+                  ? 'border-amber-300 bg-amber-50/60 dark:border-amber-900/50 dark:bg-amber-950/20'
                   : 'border-zinc-200 dark:border-white/10'
               }`}
             >
@@ -240,8 +276,8 @@ function ListaComentarios({
                   <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
                     @{c.username ?? 'desconhecido'}
                     {c.hidden && (
-                      <span className="ml-1.5 font-normal text-zinc-400">
-                        · oculto
+                      <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                        oculto no Instagram
                       </span>
                     )}
                     {c.timestamp && (
@@ -268,7 +304,11 @@ function ListaComentarios({
                   <button
                     type="button"
                     onClick={() => ocultar(c)}
-                    title={c.hidden ? 'Reexibir' : 'Ocultar'}
+                    title={
+                      c.hidden
+                        ? 'Reexibir no Instagram'
+                        : 'Ocultar no Instagram (dá pra desfazer)'
+                    }
                     className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-white/5 dark:hover:text-zinc-100"
                   >
                     {c.hidden ? (
@@ -276,6 +316,14 @@ function ListaComentarios({
                     ) : (
                       <EyeOff className="h-3.5 w-3.5" />
                     )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setParaExcluir(c)}
+                    title="Excluir do Instagram (não tem volta)"
+                    className="rounded-md p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
@@ -345,6 +393,21 @@ function ListaComentarios({
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={!!paraExcluir}
+        title="Excluir comentário?"
+        description={
+          paraExcluir
+            ? `"${paraExcluir.text ?? ''}" de @${paraExcluir.username ?? 'desconhecido'} some do Instagram para todo mundo, inclusive para quem escreveu. Não dá para desfazer — se quiser apenas tirar da vista, use "ocultar".`
+            : ''
+        }
+        confirmLabel="Excluir"
+        variant="danger"
+        loading={excluindo}
+        onConfirm={excluir}
+        onCancel={() => setParaExcluir(null)}
+      />
     </div>
   );
 }

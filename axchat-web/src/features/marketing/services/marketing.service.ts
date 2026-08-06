@@ -297,14 +297,35 @@ export const marketingService = {
     return data?.data ?? data;
   },
 
+  /**
+   * Ao ocultar, manda junto a cópia do comentário: a Meta para de devolvê-lo
+   * na listagem, e é essa cópia que mantém ele visível (esmaecido) na tela.
+   */
   async hideInstagramComment(
     commentId: string,
     hide: boolean,
     channelId?: string,
+    snapshot?: {
+      mediaId?: string;
+      text?: string | null;
+      username?: string | null;
+      timestamp?: string | null;
+      likes?: number | null;
+    },
   ): Promise<void> {
     await api.post(`/marketing/instagram/comments/${commentId}/hide`, {
       hide,
       channelId,
+      ...snapshot,
+    });
+  },
+
+  async deleteInstagramComment(
+    commentId: string,
+    channelId?: string,
+  ): Promise<void> {
+    await api.delete(`/marketing/instagram/comments/${commentId}`, {
+      params: channelId ? { channelId } : undefined,
     });
   },
 

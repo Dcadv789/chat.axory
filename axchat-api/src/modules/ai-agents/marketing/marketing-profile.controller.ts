@@ -218,9 +218,37 @@ export class MarketingProfileController {
   hideInstagramComment(
     @CurrentOrg('id') orgId: string,
     @Param('id') id: string,
-    @Body() body: { hide: boolean; channelId?: string },
+    @Body()
+    body: {
+      hide: boolean;
+      channelId?: string;
+      // Cópia do comentário: a Meta não devolve os ocultos na listagem, então
+      // guardamos o que a tela precisa pra continuar mostrando e reexibir.
+      mediaId?: string;
+      text?: string;
+      username?: string;
+      timestamp?: string;
+      likes?: number;
+    },
   ) {
-    return this.ads.hideInstagramComment(orgId, id, body.hide, body.channelId);
+    return this.ads.hideInstagramComment(orgId, id, body.hide, body.channelId, {
+      mediaId: body.mediaId,
+      text: body.text,
+      username: body.username,
+      timestamp: body.timestamp,
+      likes: body.likes,
+    });
+  }
+
+  @Delete('instagram/comments/:id')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Exclui um comentário (irreversível)' })
+  deleteInstagramComment(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Query('channelId') channelId?: string,
+  ) {
+    return this.ads.deleteInstagramComment(orgId, id, channelId);
   }
 
   @Get('profile')
