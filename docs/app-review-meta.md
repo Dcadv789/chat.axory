@@ -40,6 +40,32 @@ pra colar no painel.
 `pages_read_engagement` é **pré-requisito de `ads_management`** e do content
 publish — não é opcional, mesmo parecendo.
 
+## Excluir post pela API: não dá (e por quê)
+
+`instagram_manage_contents` **não deve ser pedida** na submissão. Verificado em
+três fontes:
+
+1. **Changelog do Instagram Platform (03/12/2025)** — lançou
+   `DELETE /{ig_media_id}` exigindo a permissão nova `instagram_manage_contents`.
+2. **Referência do IG Media** — *"This api only supports Instagram API with
+   Facebook login only"*. Instagram Login não exclui.
+3. **Tabela "Supported permissions" do Facebook Login for Business** — lista as
+   permissões de Instagram que o FLB consegue pedir:
+   `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`,
+   `instagram_manage_insights`, `instagram_manage_messages`,
+   `instagram_shopping_tag_products`. **`instagram_manage_contents` não está lá.**
+
+Resultado: o endpoint só aceita Facebook Login, e o Facebook Login não sabe
+pedir a permissão que ele exige. Lacuna da Meta, não configuração errada — por
+isso a permissão aparece no App Review mas não nas opções do login.
+
+Na prática: a tela consulta os escopos reais do token e troca o botão por
+"Excluir pelo Instagram", desabilitado. O endpoint continua implementado; no dia
+em que a Meta adicionar a permissão ao FLB, basta reconectar o canal e o botão
+volta sozinho.
+
+Não repetir: criar configuração nova de login **não** resolve, já foi tentado.
+
 ## Textos de "uso permitido"
 
 Em inglês de propósito: os revisores são globais e a doc recomenda inglês.
