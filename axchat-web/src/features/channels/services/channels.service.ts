@@ -102,6 +102,35 @@ export interface ThreadsPublishPayload {
   children?: ThreadsCarouselItem[];
 }
 
+export interface ThreadsPost {
+  id: string;
+  text?: string;
+  media_type?: string;
+  media_url?: string;
+  permalink?: string;
+  timestamp?: string;
+  is_quote_post?: boolean;
+}
+
+export interface ThreadsReply {
+  id: string;
+  text?: string;
+  username?: string;
+  permalink?: string;
+  timestamp?: string;
+  has_replies?: boolean;
+  /** `HIDDEN` quando já foi ocultada pela moderação. */
+  hide_status?: string;
+}
+
+export interface ThreadsInsight {
+  name: string;
+  title?: string;
+  description?: string;
+  values?: Array<{ value: number }>;
+  total_value?: { value: number };
+}
+
 export interface InstagramFacebookLoginPayload {
   name: string;
   code: string;
@@ -286,6 +315,73 @@ export const channelsService = {
     const { data } = await api.post<{ data: { id: string } }>(
       `/channels/${channelId}/threads/publish`,
       payload,
+    );
+    return data.data;
+  },
+
+  async threadsPosts(channelId: string): Promise<{ posts: ThreadsPost[] }> {
+    const { data } = await api.get<{ data: { posts: ThreadsPost[] } }>(
+      `/channels/${channelId}/threads/posts`,
+    );
+    return data.data;
+  },
+
+  async threadsReplies(
+    channelId: string,
+    mediaId: string,
+  ): Promise<{ replies: ThreadsReply[] }> {
+    const { data } = await api.get<{ data: { replies: ThreadsReply[] } }>(
+      `/channels/${channelId}/threads/replies`,
+      { params: { mediaId } },
+    );
+    return data.data;
+  },
+
+  async threadsReply(
+    channelId: string,
+    replyToId: string,
+    text: string,
+  ): Promise<{ id: string }> {
+    const { data } = await api.post<{ data: { id: string } }>(
+      `/channels/${channelId}/threads/reply`,
+      { replyToId, text },
+    );
+    return data.data;
+  },
+
+  async threadsHideReply(
+    channelId: string,
+    replyId: string,
+    hide: boolean,
+  ): Promise<unknown> {
+    const { data } = await api.post(
+      `/channels/${channelId}/threads/hide-reply`,
+      { replyId, hide },
+    );
+    return data;
+  },
+
+  /** Sem `mediaId` devolve os insights do perfil inteiro. */
+  async threadsInsights(
+    channelId: string,
+    mediaId?: string,
+  ): Promise<{ insights: ThreadsInsight[] }> {
+    const { data } = await api.get<{ data: { insights: ThreadsInsight[] } }>(
+      `/channels/${channelId}/threads/insights`,
+      { params: mediaId ? { mediaId } : {} },
+    );
+    return data.data;
+  },
+
+  /** Responde publicamente um comentário do Instagram (`commentId` vem do webhook). */
+  async instagramCommentReply(
+    channelId: string,
+    commentId: string,
+    message: string,
+  ): Promise<{ id: string }> {
+    const { data } = await api.post<{ data: { id: string } }>(
+      `/channels/${channelId}/instagram/comment-reply`,
+      { commentId, message },
     );
     return data.data;
   },

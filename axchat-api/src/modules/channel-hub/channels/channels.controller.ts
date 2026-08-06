@@ -26,6 +26,7 @@ import {
   ThreadsReplyDto,
   ThreadsHideReplyDto,
 } from './dto/threads.dto';
+import { InstagramCommentReplyDto } from './dto/instagram-comment-reply.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 import { CurrentChannelAccess, CurrentOrg, Roles } from '../../../common/decorators';
 import type { ChannelAccess } from '../../iam/channel-access/channel-access.service';
@@ -167,6 +168,12 @@ export class ChannelsController {
     return this.service.threadsPublish(id, orgId, dto);
   }
 
+  @Get(':id/threads/posts')
+  @ApiOperation({ summary: 'Lista os posts já publicados na conta do Threads' })
+  threadsPosts(@Param('id') id: string, @CurrentOrg('id') orgId: string) {
+    return this.service.threadsPosts(id, orgId);
+  }
+
   @Get(':id/threads/replies')
   @ApiOperation({ summary: 'Lista as respostas de um post do Threads' })
   threadsReplies(
@@ -205,6 +212,21 @@ export class ChannelsController {
     @Query('mediaId') mediaId?: string,
   ) {
     return this.service.threadsInsights(id, orgId, mediaId);
+  }
+
+  @Post(':id/instagram/comment-reply')
+  @ApiOperation({ summary: 'Responde publicamente um comentário do Instagram' })
+  instagramCommentReply(
+    @Param('id') id: string,
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: InstagramCommentReplyDto,
+  ) {
+    return this.service.instagramReplyToComment(
+      id,
+      orgId,
+      dto.commentId,
+      dto.message,
+    );
   }
 
   @Get()

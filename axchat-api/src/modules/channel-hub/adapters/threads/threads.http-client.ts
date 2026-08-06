@@ -296,6 +296,29 @@ export class ThreadsHttpClient {
     }
   }
 
+  // ─── Posts publicados ────────────────────────────────
+
+  /**
+   * Posts já publicados pela conta. É o que a UI usa pra deixar o dono
+   * escolher um post antes de ver as respostas ou os insights dele.
+   */
+  async listPosts(channel: Channel, limit = 25): Promise<any[]> {
+    const cfg = this.getConfig(channel);
+    const client = this.createClient(channel);
+    try {
+      const { data } = await client.get(`/${cfg.threadsUserId}/threads`, {
+        params: {
+          fields:
+            'id,text,media_type,media_url,permalink,timestamp,is_quote_post',
+          limit,
+        },
+      });
+      return data?.data ?? [];
+    } catch (err: any) {
+      throw this.wrapError(err, 'listPosts');
+    }
+  }
+
   // ─── Respostas ───────────────────────────────────────
 
   /** Respostas de um post (1º nível). */
