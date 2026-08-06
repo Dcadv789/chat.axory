@@ -40,7 +40,9 @@ export class MarketingProfileController {
 
   @Post('instagram/publish')
   @Roles(OrgRole.OWNER, OrgRole.ADMIN)
-  @ApiOperation({ summary: 'Publica um post no Instagram (imagem ou vídeo/Reels + legenda)' })
+  @ApiOperation({
+    summary: 'Publica no Instagram: imagem, vídeo/Reels ou carrossel (2 a 10)',
+  })
   publishInstagram(
     @CurrentOrg('id') orgId: string,
     @Body()
@@ -48,6 +50,7 @@ export class MarketingProfileController {
       caption?: string;
       imageUrl?: string;
       videoUrl?: string;
+      carouselUrls?: string[];
       channelId?: string;
     },
   ) {

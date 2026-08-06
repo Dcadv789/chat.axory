@@ -345,6 +345,8 @@ export const marketingService = {
     caption?: string;
     imageUrl?: string;
     videoUrl?: string;
+    /** 2 a 10 URLs — publica como carrossel, na ordem informada. */
+    carouselUrls?: string[];
     channelId?: string;
   }): Promise<{ mediaId: string }> {
     const { data } = await api.post('/marketing/instagram/publish', input);

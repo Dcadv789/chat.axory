@@ -66,6 +66,8 @@ export class MarketingPublishService {
       caption?: string;
       imageUrl?: string;
       videoUrl?: string;
+      /** 2 a 10 URLs (imagem e/ou vídeo) — publica como carrossel. */
+      carouselUrls?: string[];
       /** Conta escolhida no painel; sem ela vale a da organização. */
       channelId?: string;
     },
@@ -74,6 +76,14 @@ export class MarketingPublishService {
       orgId,
       input.channelId,
     );
+
+    const itens = (input.carouselUrls ?? [])
+      .map((u) => u.trim())
+      .filter(Boolean);
+    if (itens.length > 0) {
+      return this.publishCarousel(orgId, igUserId, token, itens, input.caption);
+    }
+
     if (!input.imageUrl && !input.videoUrl) {
       throw new BadRequestException('Um post do Instagram precisa de uma imagem ou vídeo.');
     }
@@ -149,6 +159,97 @@ export class MarketingPublishService {
           'A Meta libera conforme os posts antigos saem da janela — tente mais tarde.',
       );
     }
+  }
+
+  /**
+   * Carrossel: 3 passos. Um container por item (`is_carousel_item=true`), um
+   * container CAROUSEL agrupando os ids, e a publicação.
+   *
+   * Vídeo dentro do carrossel processa de forma assíncrona igual ao Reels, e o
+   * container do carrossel só aceita filhos prontos — por isso cada vídeo
+   * espera o FINISHED antes de seguir.
+   */
+  private async publishCarousel(
+    orgId: string,
+    igUserId: string,
+    token: string,
+    urls: string[],
+    caption?: string,
+  ): Promise<{ ok: true; mediaId: string }> {
+    if (urls.length < 2 || urls.length > 10) {
+      throw new BadRequestException(
+        `Um carrossel do Instagram tem de 2 a 10 itens — você mandou ${urls.length}.`,
+      );
+    }
+    await this.assertPublishingQuota(igUserId, token);
+
+    // 1) Um container por item.
+    const filhos: string[] = [];
+    for (const [i, url] of urls.entries()) {
+      const ehVideo = /\.(mp4|mov|m4v)(\?|$)/i.test(url);
+      const params = new URLSearchParams();
+      params.set('is_carousel_item', 'true');
+      if (ehVideo) {
+        params.set('media_type', 'VIDEO');
+        params.set('video_url', url);
+      } else {
+        params.set('image_url', url);
+      }
+      params.set('access_token', token);
+
+      const item = await this.igFetch(
+        `${GRAPH}/${igUserId}/media`,
+        params,
+        `criar item ${i + 1} do carrossel`,
+      );
+      if (!item?.id) {
+        throw new BadRequestException(
+          `Instagram não retornou o container do item ${i + 1}.`,
+        );
+      }
+      if (ehVideo) await this.waitInstagramReady(String(item.id), token);
+      filhos.push(String(item.id));
+    }
+
+    // 2) Container do carrossel.
+    const carrossel = new URLSearchParams();
+    carrossel.set('media_type', 'CAROUSEL');
+    carrossel.set('children', filhos.join(','));
+    if (caption) carrossel.set('caption', caption);
+    carrossel.set('access_token', token);
+
+    const container = await this.igFetch(
+      `${GRAPH}/${igUserId}/media`,
+      carrossel,
+      'criar o carrossel',
+    );
+    if (!container?.id) {
+      throw new BadRequestException('Instagram não retornou o carrossel.');
+    }
+
+    // 3) Publica.
+    const pub = await this.igFetch(
+      `${GRAPH}/${igUserId}/media_publish`,
+      new URLSearchParams({
+        creation_id: String(container.id),
+        access_token: token,
+      }),
+      'publicar o carrossel',
+    );
+    if (!pub?.id) {
+      throw new BadRequestException('Instagram não confirmou a publicação.');
+    }
+
+    await this.logActivity(
+      orgId,
+      'INSTAGRAM',
+      `Carrossel publicado (${filhos.length} itens)`,
+      String(pub.id),
+    );
+    this.logger.log(
+      `Instagram carrossel publicado: ${pub.id} (${filhos.length} itens, org ${orgId})`,
+    );
+    return { ok: true, mediaId: String(pub.id) };
   }
 
   private async igFetch(url: string, params: URLSearchParams, ctx: string): Promise<any> {

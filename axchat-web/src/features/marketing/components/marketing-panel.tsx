@@ -1671,12 +1671,20 @@ function PublicarTab() {
 
 function PublishInstagramForm() {
   const { channelId } = useMarketingAccount();
+  const [formato, setFormato] = useState<'unico' | 'carrossel'>('unico');
   const [caption, setCaption] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  // Começa com dois campos porque carrossel exige no mínimo dois itens.
+  const [itens, setItens] = useState<string[]>(['', '']);
   const [publishing, setPublishing] = useState(false);
 
-  const canPublish = !!(imageUrl.trim() || videoUrl.trim()) && !publishing;
+  const preenchidos = itens.map((u) => u.trim()).filter(Boolean);
+  const canPublish = publishing
+    ? false
+    : formato === 'unico'
+      ? !!(imageUrl.trim() || videoUrl.trim())
+      : preenchidos.length >= 2;
 
   const submit = async () => {
     setPublishing(true);
@@ -1684,34 +1692,134 @@ function PublishInstagramForm() {
       const res = await marketingService.publishInstagram({
         channelId,
         caption: caption.trim() || undefined,
-        imageUrl: imageUrl.trim() || undefined,
-        videoUrl: videoUrl.trim() || undefined,
+        ...(formato === 'carrossel'
+          ? { carouselUrls: preenchidos }
+          : {
+              imageUrl: imageUrl.trim() || undefined,
+              videoUrl: videoUrl.trim() || undefined,
+            }),
       });
-      toast.success(`Publicado no Instagram! (id ${res.mediaId})`);
-      setCaption(''); setImageUrl(''); setVideoUrl('');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Falha ao publicar no Instagram');
+      toast.success(
+        formato === 'carrossel'
+          ? `Carrossel publicado! (${preenchidos.length} itens)`
+          : `Publicado no Instagram! (id ${res.mediaId})`,
+      );
+      setCaption(''); setImageUrl(''); setVideoUrl(''); setItens(['', '']);
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ??
+          (err instanceof Error ? err.message : 'Falha ao publicar no Instagram'),
+      );
     } finally {
       setPublishing(false);
     }
   };
+
+  const trocarItem = (i: number, valor: string) =>
+    setItens((atual) => atual.map((u, idx) => (idx === i ? valor : u)));
 
   return (
     <div className="max-w-2xl space-y-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
       <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
         <Instagram className="h-4 w-4 text-pink-500" /> Novo post no Instagram
       </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        O Instagram exige mídia: informe a URL pública de uma <strong>imagem</strong> (feed) ou de um <strong>vídeo</strong> (Reels). A legenda é opcional.
-      </p>
+
+      <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-white/5">
+        {(['unico', 'carrossel'] as const).map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFormato(f)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              formato === f
+                ? 'bg-white text-zinc-900 shadow-sm dark:bg-black dark:text-zinc-100'
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+            }`}
+          >
+            {f === 'unico' ? 'Post único' : 'Carrossel'}
+          </button>
+        ))}
+      </div>
+
       <PubTextArea label="Legenda" value={caption} onChange={setCaption} placeholder="Escreva a legenda… hashtags e quebras de linha são suportadas." rows={5} />
-      <PubUrlField label="URL da imagem" value={imageUrl} onChange={setImageUrl} placeholder="https://… (JPG/PNG público)" icon={ImageIcon} disabled={!!videoUrl.trim()} />
-      <PubUrlField label="URL do vídeo (Reels)" value={videoUrl} onChange={setVideoUrl} placeholder="https://… (MP4 público)" icon={Play} disabled={!!imageUrl.trim()} />
-      {imageUrl.trim() && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={imageUrl} alt="prévia" className="max-h-64 rounded-lg border border-zinc-200 object-contain dark:border-white/10" onError={(e) => (e.currentTarget.style.display = 'none')} />
+
+      {formato === 'unico' ? (
+        <>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            O Instagram exige mídia: informe a URL pública de uma <strong>imagem</strong> (feed) ou de um <strong>vídeo</strong> (Reels).
+          </p>
+          <PubUrlField label="URL da imagem" value={imageUrl} onChange={setImageUrl} placeholder="https://… (JPG/PNG público)" icon={ImageIcon} disabled={!!videoUrl.trim()} />
+          <PubUrlField label="URL do vídeo (Reels)" value={videoUrl} onChange={setVideoUrl} placeholder="https://… (MP4 público)" icon={Play} disabled={!!imageUrl.trim()} />
+          {imageUrl.trim() && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={imageUrl} alt="prévia" className="max-h-64 rounded-lg border border-zinc-200 object-contain dark:border-white/10" onError={(e) => (e.currentTarget.style.display = 'none')} />
+          )}
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            De <strong>2 a 10</strong> itens, imagens e vídeos misturados — a ordem aqui
+            é a ordem no post. Um detalhe da Meta que pega todo mundo:{' '}
+            <strong>todas as imagens são cortadas no formato da primeira</strong> (1:1 por
+            padrão), então comece pela que define o enquadramento.
+          </p>
+
+          <div className="space-y-2">
+            {itens.map((url, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="w-5 shrink-0 text-center text-xs font-semibold text-zinc-400">
+                  {i + 1}
+                </span>
+                <input
+                  value={url}
+                  onChange={(e) => trocarItem(i, e.target.value)}
+                  placeholder="https://… (JPG público ou MP4)"
+                  className="h-9 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-sm outline-none placeholder:text-zinc-400 focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+                />
+                {url.trim() && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={url}
+                    alt=""
+                    className="h-9 w-9 shrink-0 rounded object-cover"
+                    onError={(e) => (e.currentTarget.style.visibility = 'hidden')}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setItens((a) => a.filter((_, idx) => idx !== i))}
+                  disabled={itens.length <= 2}
+                  title={itens.length <= 2 ? 'Carrossel precisa de ao menos 2 itens' : 'Remover'}
+                  className="shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-red-950/30"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setItens((a) => [...a, ''])}
+              disabled={itens.length >= 10}
+              className="rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+            >
+              + Adicionar item
+            </button>
+            <span className="text-[11px] text-zinc-500">
+              {preenchidos.length}/10 preenchido(s)
+            </span>
+          </div>
+        </>
       )}
-      <PubButton onClick={submit} disabled={!canPublish} loading={publishing} label="Publicar no Instagram" />
+
+      <PubButton
+        onClick={submit}
+        disabled={!canPublish}
+        loading={publishing}
+        label={formato === 'carrossel' ? 'Publicar carrossel' : 'Publicar no Instagram'}
+      />
     </div>
   );
 }
