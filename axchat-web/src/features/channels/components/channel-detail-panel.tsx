@@ -16,13 +16,14 @@ import { membersService } from '../../settings/services/members.service';
 import { aiAgentsService } from '../../ai-agents/services/ai-agents.service';
 import { useChannelSync } from '../hooks/use-channel-sync';
 import { useInstagramLogin } from '../hooks/use-instagram-login';
-import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
+import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon, ThreadsIcon } from '@/components/ui/icons';
 
 const channelTypeMap: Record<string, { label: string; icon: React.ElementType }> = {
   WHATSAPP_ZAPPFY: { label: 'WhatsApp (Zappfy)', icon: ZappfyIcon },
   WHATSAPP_OFFICIAL: { label: 'WhatsApp Official', icon: MetaIcon },
   INSTAGRAM: { label: 'Instagram', icon: InstagramIcon },
   TELEGRAM: { label: 'Telegram', icon: TelegramIcon },
+  THREADS: { label: 'Threads', icon: ThreadsIcon },
 };
 
 const inputCls =
@@ -958,6 +959,8 @@ function ConfigTab({
           <WebhookDiagnostics channelId={channel.id} />
         </>
       )}
+
+      {channel.type === 'THREADS' && <ThreadsReconnect channel={channel} />}
     </div>
   );
 }
@@ -1011,6 +1014,83 @@ function InstagramReconnect({ channelId }: { channelId: string }) {
         >
           <RefreshCw className={`h-3.5 w-3.5 ${running ? 'animate-spin' : ''}`} />
           {running ? 'Reconectando…' : 'Reconectar'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Refaz o login do Threads no canal que já existe.
+ *
+ * Diferente do Instagram, o Threads não abre popup: é um redirect do navegador
+ * pra threads.net e volta pelo callback. Por isso aqui a gente pede a URL ao
+ * backend e navega — o `state` assinado carrega o id do canal, então o retorno
+ * atualiza as credenciais em vez de criar um canal novo.
+ *
+ * Sem este botão, a única forma de renovar o token (ou de pegar um escopo novo,
+ * como o `threads_delete`) era excluir o canal e conectar outro.
+ */
+function ThreadsReconnect({ channel }: { channel: Channel }) {
+  const [running, setRunning] = useState(false);
+
+  const escopos = (channel.config?.scopes ?? []) as string[];
+  const podeExcluirPosts = escopos.includes('threads_delete');
+  const expiraEm = channel.config?.tokenExpiresAt as string | undefined;
+
+  const reconnect = async () => {
+    setRunning(true);
+    try {
+      const { url } = await channelsService.threadsReconnectUrl(channel.id);
+      window.location.href = url;
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Não foi possível reconectar o canal.',
+      );
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-zinc-200 p-4 dark:border-white/10">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            Conexão com o Threads
+          </p>
+          <p className="text-[11px] text-zinc-500">
+            Refaz o login e grava as credenciais novas neste canal — os posts e o
+            histórico continuam aqui. Use quando o token expirar ou quando você
+            adicionar uma permissão nova no painel da Meta.
+          </p>
+          {expiraEm && (
+            <p className="mt-1 text-[11px] text-zinc-400">
+              Token expira em{' '}
+              {new Date(expiraEm).toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+              })}
+              .
+            </p>
+          )}
+          {/* Escopo entra no token só na conexão: um canal conectado antes de
+              `threads_delete` existir não exclui post, e isso precisa estar
+              dito aqui — é justamente onde se resolve. */}
+          {!podeExcluirPosts && (
+            <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+              Este canal não pode excluir posts. Reconecte para habilitar.
+            </p>
+          )}
+        </div>
+        <button
+          onClick={reconnect}
+          disabled={running}
+          title="Abre a autorização do Threads e atualiza as credenciais deste canal"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${running ? 'animate-spin' : ''}`} />
+          {running ? 'Redirecionando…' : 'Reconectar'}
         </button>
       </div>
     </div>

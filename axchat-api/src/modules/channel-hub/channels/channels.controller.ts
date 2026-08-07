@@ -174,6 +174,22 @@ export class ChannelsController {
     return this.service.threadsPosts(id, orgId);
   }
 
+  @Get(':id/threads/oauth/reconnect-url')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'URL de autorização pra RECONECTAR um canal do Threads (troca as credenciais no canal existente, sem criar outro).',
+  })
+  getThreadsReconnectUrl(
+    @Param('id') id: string,
+    @CurrentOrg() org: { id: string; userOrganizationId: string; userRole: OrgRole },
+  ) {
+    return this.service.getThreadsReconnectUrl(id, org.id, {
+      userOrganizationId: org.userOrganizationId,
+      role: org.userRole,
+    });
+  }
+
   @Delete(':id/threads/posts/:mediaId')
   @ApiOperation({ summary: 'Exclui um post do Threads (irreversível)' })
   threadsDeletePost(

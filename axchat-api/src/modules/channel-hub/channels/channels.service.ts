@@ -471,6 +471,8 @@ export class ChannelsService {
     creator: { userOrganizationId: string; role: OrgRole },
     name: string,
     visibility?: 'ORG' | 'PRIVATE',
+    /** Reconexão: id do canal a atualizar, em vez de criar um novo. */
+    channelId?: string,
   ): Promise<{ url: string; redirectUri: string; threadsAppId: string }> {
     const { threadsAppId, threadsAppSecret } =
       await this.loadMetaCoexistenceConfig();
@@ -488,6 +490,7 @@ export class ChannelsService {
       r: creator.role,
       n: name.trim(),
       v: visibility,
+      ...(channelId ? { c: channelId } : {}),
       exp: Date.now() + 10 * 60 * 1000, // 10 min
     });
     const redirectUri = this.threadsRedirectUri();
@@ -658,24 +661,73 @@ export class ChannelsService {
       );
     }
 
-    // 3) Cria o canal. Threads não tem inbound — só guarda credencial + user.
+    const credenciais = {
+      accessToken: long.accessToken,
+      threadsUserId,
+      apiVersion: 'v1.0',
+      tokenExpiresAt: new Date(Date.now() + long.expiresIn * 1000).toISOString(),
+      // Escopos pedidos NESTA conexão. Sem registrar, a tela não teria como
+      // saber que um canal antigo não pode excluir post — o botão apareceria e
+      // só falharia no clique, que foi exatamente o problema do botão de
+      // excluir do Instagram.
+      scopes: THREADS_SCOPE_LIST,
+      ...(username ? { username } : {}),
+    };
+
+    // 3a) RECONEXÃO: troca as credenciais do canal que já existe. Sem isto, a
+    //     única forma de renovar o token — ou de pegar um escopo novo, como o
+    //     threads_delete — era excluir o canal e criar outro.
+    if (parsed.c) {
+      const existente = await this.prisma.channel.findFirst({
+        where: {
+          id: parsed.c,
+          organizationId: parsed.o,
+          type: ChannelType.THREADS,
+          deletedAt: null,
+        },
+      });
+      if (!existente) {
+        throw new BadRequestException('Canal do Threads não encontrado.');
+      }
+      return this.prisma.channel.update({
+        where: { id: existente.id },
+        data: {
+          config: {
+            ...((existente.config as Record<string, any>) ?? {}),
+            ...credenciais,
+          },
+          isActive: true,
+        },
+      });
+    }
+
+    // 3b) Conexão nova. Threads não tem inbound — só guarda credencial + user.
     return this.create(parsed.o, {
       type: ChannelType.THREADS,
       name: parsed.n,
-      config: {
-        accessToken: long.accessToken,
-        threadsUserId,
-        apiVersion: 'v1.0',
-        tokenExpiresAt: new Date(Date.now() + long.expiresIn * 1000).toISOString(),
-        // Escopos pedidos NESTA conexão. Sem registrar, a tela não teria como
-        // saber que um canal antigo não pode excluir post — o botão apareceria
-        // e só falharia no clique, que foi exatamente o problema do botão de
-        // excluir do Instagram.
-        scopes: THREADS_SCOPE_LIST,
-        ...(username ? { username } : {}),
-      },
+      config: credenciais,
       ...(parsed.v ? { visibility: parsed.v } : {}),
     }, { userOrganizationId: parsed.u, role: parsed.r as OrgRole });
+  }
+
+  /**
+   * URL de autorização pra RECONECTAR um canal do Threads. Mesma janela da
+   * conexão, mas o `state` carrega o id do canal — o callback atualiza em vez
+   * de criar. O canal precisa existir e ser da org antes de assinar o state.
+   */
+  async getThreadsReconnectUrl(
+    channelId: string,
+    organizationId: string,
+    creator: { userOrganizationId: string; role: OrgRole },
+  ): Promise<{ url: string; redirectUri: string; threadsAppId: string }> {
+    const canal = await this.assertThreads(channelId, organizationId);
+    return this.getThreadsAuthUrl(
+      organizationId,
+      creator,
+      canal.name,
+      canal.visibility as 'ORG' | 'PRIVATE',
+      canal.id,
+    );
   }
 
   /** Exclui um post do Threads. Irreversível. */

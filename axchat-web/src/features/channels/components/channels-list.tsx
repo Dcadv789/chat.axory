@@ -7,7 +7,7 @@ import { channelsService } from '../services/channels.service';
 import { CreateChannelDialog } from './create-channel-dialog';
 import { ChannelDetailPanel } from './channel-detail-panel';
 import { useOrgId } from '@/hooks/use-org-query-key';
-import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
+import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon, ThreadsIcon } from '@/components/ui/icons';
 import type { Channel } from '../services/channels.service';
 
 const channelIcons: Record<string, React.ElementType> = {
@@ -15,6 +15,7 @@ const channelIcons: Record<string, React.ElementType> = {
   WHATSAPP_OFFICIAL: MetaIcon,
   INSTAGRAM: InstagramIcon,
   TELEGRAM: TelegramIcon,
+  THREADS: ThreadsIcon,
 };
 
 const channelTypeLabel: Record<string, string> = {
@@ -22,6 +23,7 @@ const channelTypeLabel: Record<string, string> = {
   WHATSAPP_OFFICIAL: 'WhatsApp Official',
   INSTAGRAM: 'Instagram',
   TELEGRAM: 'Telegram',
+  THREADS: 'Threads',
 };
 
 export function ChannelsList() {

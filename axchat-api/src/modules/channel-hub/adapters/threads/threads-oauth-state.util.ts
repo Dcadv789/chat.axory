@@ -12,6 +12,15 @@ export interface ThreadsOAuthState {
   r: string; // role do criador
   n: string; // nome do canal
   v?: 'ORG' | 'PRIVATE'; // visibilidade
+  /**
+   * Canal existente a ATUALIZAR. Presente = reconexão (troca as credenciais no
+   * canal que já está lá); ausente = conexão nova (cria canal).
+   *
+   * Vai dentro do state assinado porque o callback do Threads chega sem sessão
+   * — mandar o id na query seria deixar qualquer um reescrever o token de um
+   * canal alheio.
+   */
+  c?: string; // channelId (reconexão)
   exp: number; // epoch ms de expiração
 }
 

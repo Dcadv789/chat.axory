@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import type { Channel, InstagramTokenScopes } from '../services/channels.service';
 import { channelsService } from '../services/channels.service';
 import { useChannelSync } from '../hooks/use-channel-sync';
-import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
+import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon, ThreadsIcon } from '@/components/ui/icons';
 import { EditChannelDialog } from './edit-channel-dialog';
 
 const channelTypeMap: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -29,6 +29,7 @@ const channelTypeMap: Record<string, { label: string; icon: React.ElementType; c
   WHATSAPP_OFFICIAL: { label: 'WhatsApp Official', icon: MetaIcon, color: 'bg-zinc-50 dark:bg-zinc-800' },
   INSTAGRAM: { label: 'Instagram', icon: InstagramIcon, color: 'bg-zinc-50 dark:bg-zinc-800' },
   TELEGRAM: { label: 'Telegram', icon: TelegramIcon, color: 'bg-sky-50 dark:bg-sky-950/40' },
+  THREADS: { label: 'Threads', icon: ThreadsIcon, color: 'bg-zinc-50 dark:bg-zinc-800' },
 };
 
 interface ChannelCardProps {

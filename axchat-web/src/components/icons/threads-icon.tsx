@@ -1,19 +1,16 @@
 import type { SVGProps } from 'react';
 
 /**
- * Glifo do Threads.
+ * Glifo do Threads em cor única (herda `currentColor`), pro uso dentro de
+ * menus e botões — onde o disco preto do ícone de canal ficaria pesado.
  *
  * O lucide não tem esse ícone, e o `AtSign` que estava no lugar é a arroba
- * genérica — a mesma usada para "menção" nas notificações. Duas coisas
- * diferentes com o mesmo desenho.
+ * genérica, a mesma de "menção" nas notificações.
  *
- * Assina como os ícones do lucide (`className`, `currentColor`), então entra em
- * qualquer lugar que espera `LucideIcon` sem adaptação.
+ * A versão com o disco da marca, usada na lista de canais, é a `ThreadsIcon`
+ * de `@/components/ui/icons` — mesma família dos outros ícones de canal.
  */
-export function ThreadsIcon({
-  className,
-  ...props
-}: SVGProps<SVGSVGElement>) {
+export function ThreadsIcon({ className, ...props }: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 24 24"

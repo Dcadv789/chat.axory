@@ -346,6 +346,18 @@ export const channelsService = {
     return data.data;
   },
 
+  /**
+   * URL pra RECONECTAR o canal do Threads. O fluxo do Threads é redirect (não
+   * popup como o do Instagram), então o front navega o browser pra essa URL e
+   * o callback volta atualizando o canal — sem criar outro.
+   */
+  async threadsReconnectUrl(channelId: string): Promise<{ url: string }> {
+    const { data } = await api.get(
+      `/channels/${channelId}/threads/oauth/reconnect-url`,
+    );
+    return data?.data ?? data;
+  },
+
   /** Exclui um post do Threads. Irreversível. */
   async threadsDeletePost(
     channelId: string,
