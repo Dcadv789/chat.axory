@@ -133,6 +133,16 @@ export class UpdateOrganizationDto {
   @IsString({ each: true })
   allowedUrlDomains?: string[] | null;
 
+  // ─── Automações ─────────────────────────────────────────────────
+
+  @ApiPropertyOptional({
+    description:
+      'Liga o motor de automações para esta empresa. Desligado (padrão), as regras ficam salvas mas nenhum evento é executado. Existe ainda a chave global AUTOMATIONS_ENABLED da plataforma: se ela estiver desligada, isto aqui não tem efeito.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  automationsEnabled?: boolean;
+
   // ─── Watchdog settings ──────────────────────────────────────────
 
   @ApiPropertyOptional({

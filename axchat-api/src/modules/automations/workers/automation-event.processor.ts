@@ -35,6 +35,17 @@ export class AutomationEventProcessor extends WorkerHost {
       return;
     }
 
+    // Checagem por empresa. Fica aqui, e não no poller, porque o poller não
+    // consulta o payload — e é aqui que temos o organizationId sem uma query
+    // a mais.
+    if (
+      job.data.organizationId &&
+      !(await this.killSwitch.isEnabledForOrg(job.data.organizationId))
+    ) {
+      await this.markProcessed(outboxEventId, 'org_automations_disabled');
+      return;
+    }
+
     try {
       await this.executor.execute(job.data);
       await this.markProcessed(outboxEventId, null);

@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import {
   Building2, CreditCard, Users, Check, Loader2, Megaphone, Sparkles,
   CalendarClock, Hash, Crown, Shield, User as UserIcon, Trash2, UserPlus,
-  Network, Tags as TagsIcon, Bell, Zap,
+  Network, Tags as TagsIcon, Bell, Zap, Workflow,
 } from 'lucide-react';
 import { organizationService, type BillingStatus } from '@/features/settings/services/organization.service';
 import { membersService, type Member } from '@/features/settings/services/members.service';
@@ -115,6 +115,31 @@ export default function SettingsGeneralPage() {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ─── Motor de automações ────────────────────────────────────────
+  // Salva na hora: é um interruptor, não um formulário. O estado local
+  // segura o valor enquanto o PATCH está no ar pra chave não "pular" de volta.
+  const [automationsOn, setAutomationsOn] = useState(false);
+  const [savingAutomations, setSavingAutomations] = useState(false);
+  useEffect(() => {
+    if (org) setAutomationsOn(org.automationsEnabled);
+  }, [org?.automationsEnabled]);
+
+  const handleToggleAutomations = async (value: boolean) => {
+    setAutomationsOn(value);
+    setSavingAutomations(true);
+    try {
+      await organizationService.update({ automationsEnabled: value });
+      queryClient.invalidateQueries({ queryKey: ['organization', 'current'] });
+      queryClient.invalidateQueries({ queryKey: ['automations-engine'] });
+      toast.success(value ? 'Automações ligadas' : 'Automações desligadas');
+    } catch (err) {
+      setAutomationsOn(!value);
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setSavingAutomations(false);
     }
   };
 
@@ -283,6 +308,47 @@ export default function SettingsGeneralPage() {
               </p>
             </div>
           )}
+        </SectionCard>
+
+        {/* Automações — a chave que faz as regras da página /automations rodarem */}
+        <SectionCard
+          icon={Workflow}
+          title="Automações"
+          subtitle="Regras que reagem sozinhas a eventos do atendimento"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                {automationsOn ? 'Motor ligado' : 'Motor desligado'}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                {automationsOn
+                  ? 'Suas automações ativas rodam quando o evento acontece.'
+                  : 'As automações continuam salvas, mas nenhuma vai rodar até você ligar aqui.'}
+              </p>
+            </div>
+            {isAdmin ? (
+              <button
+                onClick={() => handleToggleAutomations(!automationsOn)}
+                disabled={savingAutomations || loadingOrg}
+                type="button"
+                aria-label={automationsOn ? 'Desligar automações' : 'Ligar automações'}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                  automationsOn ? 'bg-primary' : 'bg-zinc-300 dark:bg-zinc-700'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                    automationsOn ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            ) : (
+              <span className="shrink-0 text-xs text-zinc-400">
+                {automationsOn ? 'Ligado' : 'Desligado'}
+              </span>
+            )}
+          </div>
         </SectionCard>
 
         {/* Setores — meia largura, na coluna esquerda */}

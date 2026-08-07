@@ -31,6 +31,8 @@ export interface CurrentOrganization {
   billingProfile: BillingProfile | null;
   marketingEnabled: boolean;
   assistantEnabled: boolean;
+  /** Motor de automações ligado pra esta empresa. */
+  automationsEnabled: boolean;
   trialEndsAt: string | null;
   currentPeriodEndsAt: string | null;
   createdAt: string;
@@ -42,7 +44,10 @@ export const organizationService = {
     return data.data ?? data;
   },
 
-  async update(input: { name?: string }): Promise<CurrentOrganization> {
+  async update(input: {
+    name?: string;
+    automationsEnabled?: boolean;
+  }): Promise<CurrentOrganization> {
     const { data } = await api.patch('/organizations/current', input);
     return data.data ?? data;
   },

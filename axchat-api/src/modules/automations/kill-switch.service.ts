@@ -1,21 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../database/prisma.service';
 
-// Single kill switch for the entire automation engine. When OFF:
-//   • OutboxPoller still drains events but marks them PROCESSED with a
-//     `killed_by_switch` note (no jobs enqueued, no actions executed).
-//   • The worker also self-checks before doing any work — defense in depth
-//     in case a stale BullMQ job arrives during a partial deploy.
+// Dois níveis, de propósito:
 //
-// Operate this via the `AUTOMATIONS_ENABLED` env var. Default is FALSE
-// in this PR — by design, deploying this PR to prod has zero behavior
-// change. Subsequent PRs gate rollout per workspace via DB flags.
+//   • `AUTOMATIONS_ENABLED` (env) — botão de pânico da PLATAFORMA. Desligado,
+//     o OutboxPoller drena os eventos marcando PROCESSED com `killed_by_switch`
+//     (nenhum job enfileirado, nenhuma ação executada) e o worker se
+//     autoverifica, pra job antigo do BullMQ não escapar num deploy parcial.
+//     Use isto ANTES de qualquer resposta a incidente.
+//
+//   • `organization.automationsEnabled` (banco) — decisão de PRODUTO do dono.
+//     Uma empresa pode usar automação e a vizinha não. Nasce desligado:
+//     automação que dispara sem ninguém ter ligado publica coisa no Instagram
+//     do cliente sem aviso.
 @Injectable()
 export class KillSwitchService {
   private readonly logger = new Logger(KillSwitchService.name);
   private readonly enabled: boolean;
 
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     const raw = config.get<string>('AUTOMATIONS_ENABLED', 'false');
     this.enabled = raw === 'true' || raw === '1';
     this.logger.log(
@@ -23,7 +30,18 @@ export class KillSwitchService {
     );
   }
 
+  /** Chave global da plataforma. */
   isEnabled(): boolean {
     return this.enabled;
+  }
+
+  /** Global ligada E a empresa habilitada. */
+  async isEnabledForOrg(organizationId: string): Promise<boolean> {
+    if (!this.enabled) return false;
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { automationsEnabled: true },
+    });
+    return org?.automationsEnabled === true;
   }
 }

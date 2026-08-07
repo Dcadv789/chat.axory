@@ -1,11 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Activity, Pause, Play, Zap } from 'lucide-react';
+import {
+  Plus, Pencil, Trash2, Activity, Pause, Play, Zap, AlertTriangle,
+  ArrowRight,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Automation,
+  AutomationEngineStatus,
   automationsService,
 } from '@/features/automations/services/automations.service';
 import {
@@ -30,6 +35,11 @@ export default function AutomationsPage() {
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ['automations'],
     queryFn: automationsService.list,
+  });
+
+  const { data: engine } = useQuery({
+    queryKey: ['automations-engine'],
+    queryFn: automationsService.engine,
   });
 
   const toggleMutation = useMutation({
@@ -69,6 +79,8 @@ export default function AutomationsPage() {
         </button>
       }
     >
+      {engine && !engine.ativo && <EngineOffBanner engine={engine} />}
+
       <div>
         {isLoading && (
           <div className="text-sm text-zinc-500 dark:text-zinc-400">Carregando…</div>
@@ -117,6 +129,39 @@ export default function AutomationsPage() {
         />
       )}
     </PageHeader>
+  );
+}
+
+/**
+ * Aviso de motor desligado. Só aparece quando as automações NÃO vão rodar —
+ * sem ele, a pessoa cria a regra, testa, e não acontece nada nem aparece log
+ * (o evento é descartado antes de virar execução).
+ */
+function EngineOffBanner({ engine }: { engine: AutomationEngineStatus }) {
+  const daPlataforma = !engine.plataforma;
+
+  return (
+    <div className="mb-3 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+          As automações não estão rodando
+        </p>
+        <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300/90">
+          {daPlataforma
+            ? 'O motor de automações está desligado na plataforma. Suas regras ficam salvas, mas nenhuma será executada até o suporte da Axory religar.'
+            : 'O motor de automações está desligado para esta empresa. Suas regras ficam salvas, mas nenhuma será executada até você ligar em Configurações.'}
+        </p>
+      </div>
+      {!daPlataforma && (
+        <Link
+          href="/settings/general"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+        >
+          Ligar automações <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      )}
+    </div>
   );
 }
 

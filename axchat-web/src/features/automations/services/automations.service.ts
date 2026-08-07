@@ -133,7 +133,22 @@ export interface CreateAutomationPayload {
 
 export type UpdateAutomationPayload = Partial<CreateAutomationPayload>;
 
+/**
+ * Motor ligado ou não. `empresa` é a chave do dono (Configurações → Geral);
+ * `plataforma` é a nossa chave de emergência — quando ela está desligada,
+ * ligar na tela não adianta.
+ */
+export interface AutomationEngineStatus {
+  ativo: boolean;
+  plataforma: boolean;
+  empresa: boolean;
+}
+
 export const automationsService = {
+  async engine(): Promise<AutomationEngineStatus> {
+    const { data } = await api.get('/automations/engine');
+    return data?.data ?? data;
+  },
   async list(): Promise<Automation[]> {
     const { data } = await api.get('/automations');
     return data?.data ?? data;

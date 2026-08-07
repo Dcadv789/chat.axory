@@ -79,6 +79,14 @@ export class AutomationsController {
     return this.service.getMeta();
   }
 
+  @Get('engine')
+  @ApiOperation({
+    summary: 'Se o motor de automações está ligado para esta empresa',
+  })
+  engineStatus(@CurrentOrg('id') orgId: string) {
+    return this.service.engineStatus(orgId);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List automations' })
   list(@CurrentOrg('id') orgId: string) {

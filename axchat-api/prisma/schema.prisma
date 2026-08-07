@@ -210,6 +210,11 @@ model Organization {
   /// Add-on vendável: habilita o módulo de Marketing (agentes/menu próprios).
   /// Controlado pelo Super Admin. Quando false, o cliente nem vê o menu.
   marketingEnabled     Boolean @default(false) @map("marketing_enabled")
+  /// Motor de automações desta empresa. Independente do AUTOMATIONS_ENABLED
+  /// global (que é a chave de emergência da plataforma): aqui é o dono que
+  /// decide se as regras dele rodam. Nasce desligado — automação que dispara
+  /// sem ninguém ter ligado é a pior surpresa possível.
+  automationsEnabled   Boolean @default(false) @map("automations_enabled")
   /// Add-on vendável: habilita a IA de Assistente Pessoal (do dono/gestor).
   /// Fluxo 1:1 privado, com tarefas/notas/lembretes/agenda. Quando false,
   /// o cliente nem vê o menu.

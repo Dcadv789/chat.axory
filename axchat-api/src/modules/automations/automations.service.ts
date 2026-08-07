@@ -12,6 +12,7 @@ import { ActionRegistryService } from './actions/action-registry.service';
 import { ACTION_TYPES } from './actions/action.types';
 import { FIELDS_BY_TRIGGER } from './engine/conditions-evaluator';
 import { AutomationEventPayload } from './automations.types';
+import { KillSwitchService } from './kill-switch.service';
 
 const MAX_AUTOMATIONS_PER_ORG = 100;
 
@@ -22,7 +23,27 @@ export class AutomationsService {
     private readonly validator: AutomationsValidator,
     private readonly evaluator: ConditionsEvaluator,
     private readonly registry: ActionRegistryService,
+    private readonly killSwitch: KillSwitchService,
   ) {}
+
+  /**
+   * Estado do motor pra esta empresa. A tela usa isto pra avisar que as regras
+   * não vão rodar — sem o aviso, a pessoa cria a automação, testa, nada
+   * acontece e não sobra nem log pra explicar: o evento é descartado antes de
+   * virar execução.
+   *
+   * `plataforma: false` é a nossa chave de emergência — aí não adianta o dono
+   * ligar na tela dele, então a mensagem precisa ser outra.
+   */
+  async engineStatus(organizationId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { automationsEnabled: true },
+    });
+    const plataforma = this.killSwitch.isEnabled();
+    const empresa = org?.automationsEnabled === true;
+    return { ativo: plataforma && empresa, plataforma, empresa };
+  }
 
   // ─── CRUD ────────────────────────────────────────────────────────
 
