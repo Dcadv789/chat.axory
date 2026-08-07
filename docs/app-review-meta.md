@@ -224,7 +224,24 @@ AxChat — the moderation counterpart to reading them.
 ### threads_manage_insights
 We read GET /{media-id}/insights and GET /{threads-user-id}/threads_insights to
 show the business how their own Threads content performed, next to their
-Instagram metrics.
+Instagram metrics. Profile insights are requested with a since/until range
+chosen by the business owner in the UI; without a range the API returns only two
+days.
+
+### threads_delete
+Business owners remove their own Threads posts from AxChat, in the same list
+where they publish and moderate them — typically to take down a post with a
+typo, outdated pricing or an offer that ended. We call
+DELETE /{threads-media-id} only for media owned by the connected account, only
+when the owner explicitly confirms it in a dialog that states the action cannot
+be undone. AI agents never delete content: deletion is available only to users
+with the OWNER or ADMIN role, from a manual click.
+
+### public_profile
+Granted by default with Facebook Login. We use it only to show the name of the
+person who is signed in while they connect their business accounts, so it is
+clear which identity is being used to authorize the connection. We do not store
+or process it beyond the session.
 
 ### public_profile
 Sem campo de texto — só marcar a conformidade.
@@ -248,3 +265,125 @@ configurado pelo dono, está dentro da política.
 5. **Só então** virar Live. A doc é explícita: em Live o app só consegue pedir
    permissão **aprovada**, e isso vale inclusive pra quem tem papel no app —
    virar Live antes da aprovação quebra o app até pra nós.
+
+## Roteiro dos screencasts
+
+Sete gravações cobrem as vinte permissões. A Meta pede um vídeo por permissão,
+mas o mesmo arquivo pode ser enviado em mais de uma — o que ela avalia é se o
+revisor consegue **reproduzir** o que viu. Por isso cada roteiro começa no
+login: sem ver de onde a tela saiu, o revisor não sabe que é o nosso app.
+
+Regras que valem pros sete:
+
+- Grave em **inglês** (fala ou legenda). Revisor é global.
+- Comece **deslogado**, faça login no AxChat e navegue com o mouse até a tela.
+  Nada de abrir a URL direto — parece tela avulsa.
+- **Não use o Graph API Explorer.** A Meta quer o app usando a permissão.
+- Deixe a resposta aparecer na tela: o post publicado, o comentário respondido,
+  o número que mudou. Ação sem resultado visível conta como não demonstrada.
+- Sem cortes no meio de uma ação.
+
+### Vídeo 1 — Conectar Instagram
+Cobre: `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`,
+`instagram_basic`
+
+1. Login no AxChat.
+2. Configurações → Canais → **Novo Canal** → Instagram.
+3. Popup do Facebook Login: mostre a **lista de Páginas** aparecendo
+   (`pages_show_list`) e escolha a Página ligada ao Instagram.
+4. Volte ao AxChat com o canal criado — mostre o nome da Página e da conta IG
+   (`pages_read_engagement`).
+5. Abra o canal → bloco **Diagnóstico de webhook** → "Recebimento ativado" com
+   os campos inscritos (`pages_manage_metadata`).
+6. Gestão de Marketing → **Conta**: foto, @, bio, seguidores, publicações
+   (`instagram_basic`).
+
+### Vídeo 2 — Publicar no Instagram
+Cobre: `instagram_content_publish`
+
+1. Login → Gestão de Marketing → Conteúdo → **Publicar**.
+2. Aba Instagram, formato **Post único**: envie uma imagem do computador,
+   escreva a legenda, clique em **Publicar no Instagram**.
+3. Mostre a confirmação e vá em **Posts do Instagram** — o post novo na grade.
+4. Volte e mostre o formato **Carrossel** com 2 itens (não precisa publicar de
+   novo; mostrar que existe já cobre o fluxo).
+5. Mostre o botão **Agendar**, escolha data/hora e confirme — o chip aparece no
+   calendário ao lado.
+
+### Vídeo 3 — Comentários do Instagram
+Cobre: `instagram_manage_comments`
+
+1. Login → Gestão de Marketing → Conteúdo → **Comentários**.
+2. Escolha um post com comentários na coluna da esquerda.
+3. **Responder**: clique no ícone de resposta, escreva, publique — mostre a
+   resposta aparecendo aninhada.
+4. **Ocultar**: oculte um comentário; ele fica com o selo âmbar "oculto no
+   Instagram". Reexiba em seguida.
+5. **Excluir**: exclua um comentário de teste, confirmando no diálogo.
+
+### Vídeo 4 — Métricas do Instagram
+Cobre: `instagram_manage_insights`
+
+1. Login → Gestão de Marketing → Conteúdo → **Métricas dos posts**.
+2. Ajuste o período na barra de filtro.
+3. Mostre a tabela: alcance, curtidas, comentários, salvos, compartilhamentos,
+   interações e taxa de engajamento — e o gráfico por dia.
+
+### Vídeo 5 — Inbox, DM e Human Agent
+Cobre: `instagram_manage_messages`, `pages_messaging`, **Human Agent**
+
+1. Login → **Inbox**.
+2. Mande uma DM de outra conta pro perfil e mostre ela **chegando** na lista.
+3. Responda pelo inbox e mostre a mensagem entregue no Instagram
+   (`instagram_manage_messages` + `pages_messaging`).
+4. Para **Human Agent**: abra uma conversa cuja última mensagem do cliente tem
+   **mais de 24h** (a data aparece na tela). Responda como atendente logado.
+5. Narre, porque é o ponto que a Meta avalia: *"this reply is written by a
+   human agent signed in to AxChat, more than 24 hours after the customer's
+   last message, so it is sent with the HUMAN_AGENT tag. Automated and
+   AI-generated messages never use this tag."*
+
+### Vídeo 6 — Anúncios
+Cobre: `ads_read`, `ads_management`, `Marketing API Access Tier`
+
+1. Login → Gestão de Marketing → **Anúncios**.
+2. **Resumo**: verba do mês, gasto, impressões, alcance, cliques, CTR, CPC
+   (`ads_read`).
+3. **Gestão de anúncios**: a tabela de campanhas ao vivo.
+4. **Pause** uma campanha e mostre o status mudando; ative de novo
+   (`ads_management`).
+5. Abra o detalhe da campanha e **edite o orçamento diário**.
+6. **Métricas dos anúncios**: série por campanha ao longo do tempo.
+
+### Vídeo 7 — Threads
+Cobre: `threads_basic`, `threads_content_publish`, `threads_read_replies`,
+`threads_manage_replies`, `threads_manage_insights`, `threads_delete`
+
+Pré-requisito: um post publicado no Threads **com pelo menos uma resposta de
+outra conta**. Sem isso os passos 4 e 5 ficam vazios.
+
+1. Login → Configurações → Canais → Novo Canal → **Threads** → autorize →
+   volte com o canal criado (`threads_basic`).
+2. Gestão de Marketing → Conteúdo → Publicar → aba **Threads** → escreva e
+   publique (`threads_content_publish`).
+3. Aba **Threads** → **Retorno geral**: visualizações, curtidas, respostas,
+   reposts, citações, seguidores e o gráfico por dia
+   (`threads_manage_insights`).
+4. Escolha o post → as **respostas** aparecem (`threads_read_replies`).
+5. **Responda** uma resposta e depois **oculte** outra
+   (`threads_manage_replies`).
+6. Mostre o bloco **Desempenho** do post (`threads_manage_insights`).
+7. **Exclua** um post de teste pela lixeira, confirmando no diálogo
+   (`threads_delete`).
+
+### Sem screencast
+`public_profile` pede só o Data Use Checkup — não tem vídeo.
+
+## O que falta pra submeter (checklist)
+
+- [ ] Publicar 1 post no Threads e conseguir 1 resposta de outra conta
+- [ ] Colar os 20 textos de uso permitido
+- [ ] `pages_messaging`: indicar a Página de teste (passo `test_page`)
+- [ ] Gravar os 7 vídeos
+- [ ] **Data Use Checkup** — uma vez pro app inteiro, não por permissão
+- [ ] Conferir no PAINEL quais `api_precheck` faltam (o MCP atrasa)
