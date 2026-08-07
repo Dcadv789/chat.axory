@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { AiAgentMode, AiAgentTrigger, AiFinalAction } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
+import { ToolRegistry } from '../tools/tool-registry.service';
 import { assertWithinPlanLimit } from '../../../common/plan-limits';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
@@ -12,7 +13,10 @@ import { AssignAgentChannelDto } from './dto/assign-channel.dto';
 
 @Injectable()
 export class AgentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly toolRegistry: ToolRegistry,
+  ) {}
 
   async create(organizationId: string, dto: CreateAgentDto) {
     // Enforcement do limite do plano (settings.maxAgents). Só conta agentes
@@ -90,6 +94,74 @@ export class AgentsService {
         },
       },
     });
+  }
+
+  /**
+   * Ficha de capacidades: tudo que ESTE agente consegue fazer, num lugar só.
+   *
+   * Até aqui a resposta estava partida em três: as skills viviam dentro do
+   * diálogo de edição, as builtin só apareciam no super-admin, e a aba "por
+   * agente" mostrava o que ele JÁ usou — histórico, não catálogo. Quem estava
+   * desenhando o papel de um agente não tinha como saber o que ele alcança.
+   *
+   * O corte principal não é leitura/escrita, é "roda sozinho" versus "pede
+   * aprovação": é essa a pergunta de quem decide quanta autonomia dar.
+   */
+  async capabilities(organizationId: string, id: string) {
+    const agente = await this.prisma.aiAgent.findFirst({
+      where: { id, organizationId, deletedAt: null },
+      select: { id: true, name: true, kind: true, sector: true, description: true },
+    });
+    if (!agente) throw new NotFoundException('Agente não encontrado.');
+
+    const vinculos = await this.prisma.aiAgentSkill.findMany({
+      where: { agentId: id },
+      select: {
+        requiresApproval: true,
+        skill: {
+          select: {
+            name: true,
+            description: true,
+            category: true,
+            source: true,
+            httpMethod: true,
+          },
+        },
+      },
+    });
+
+    const skills = vinculos
+      .filter((v) => !!v.skill)
+      .map((v) => ({
+        nome: v.skill.name,
+        descricao: v.skill.description,
+        categoria: v.skill.category,
+        origem: v.skill.source,
+        // GET é leitura; POST/PUT/PATCH/DELETE mexem em algo lá fora. SQL aqui
+        // é sempre consulta (as tools SQL são somente leitura por construção).
+        escreve: !!v.skill.httpMethod && v.skill.httpMethod.toUpperCase() !== 'GET',
+        pedeAprovacao: v.requiresApproval,
+      }));
+
+    const builtin = this.toolRegistry
+      .listBuiltinForAgent(agente.kind, agente.id, agente.sector ?? undefined)
+      .map((t: { name: string; description: string; disponivel: boolean }) => ({
+        nome: t.name,
+        descricao: t.description,
+        disponivel: t.disponivel,
+      }));
+
+    return {
+      agente,
+      skills,
+      builtin,
+      resumo: {
+        skillsTotal: skills.length,
+        skillsComAprovacao: skills.filter((s) => s.pedeAprovacao).length,
+        builtinDisponiveis: builtin.filter((b: { disponivel: boolean }) => b.disponivel).length,
+        builtinTotal: builtin.length,
+      },
+    };
   }
 
   async findOne(organizationId: string, id: string) {

@@ -24,6 +24,7 @@ import {
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { CreateAgentDialog } from './create-agent-dialog';
 import { EditAgentDialog } from './edit-agent-dialog';
+import { AgentCapabilitiesDrawer } from './agent-capabilities-drawer';
 import { AgentNode, type AgentNodeData } from './agent-node';
 
 const NODE_WIDTH = 320;
@@ -86,6 +87,7 @@ function layoutOrganogram(agents: AiAgent[]): {
         // overwritten by AgentsList with real handlers
         onClick: () => {},
         onToggleActive: () => {},
+        onVerCapacidades: () => {},
       },
       draggable: true,
     };
@@ -120,6 +122,7 @@ export function AgentsList({
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<AiAgent | null>(null);
+  const [vendoCapacidades, setVendoCapacidades] = useState<AiAgent | null>(null);
   const [deptFilter, setDeptFilter] = useState<string | null>(null);
 
   const { data: agents, isLoading } = useQuery({
@@ -168,6 +171,7 @@ export function AgentsList({
           ...n.data,
           onClick: setEditing,
           onToggleActive: handleToggleActive,
+          onVerCapacidades: setVendoCapacidades,
         },
       })),
       edges: out.edges,
@@ -289,6 +293,11 @@ export function AgentsList({
         onCreated={refresh}
         defaultSector={agentSector}
       />
+      <AgentCapabilitiesDrawer
+        agentId={vendoCapacidades?.id ?? null}
+        onClose={() => setVendoCapacidades(null)}
+      />
+
       <EditAgentDialog
         agent={editing}
         onClose={() => setEditing(null)}

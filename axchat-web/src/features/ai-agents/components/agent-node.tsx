@@ -13,6 +13,7 @@ export type AgentNodeData = {
   agent: AiAgent;
   onClick: (agent: AiAgent) => void;
   onToggleActive: (agent: AiAgent) => void;
+  onVerCapacidades: (agent: AiAgent) => void;
 } & Record<string, unknown>;
 
 /**
@@ -21,7 +22,7 @@ export type AgentNodeData = {
  * Flow connection handles top/bottom and a department-tinted ring/badge.
  */
 function AgentNodeBase({ data }: { data: AgentNodeData }) {
-  const { agent, onClick, onToggleActive } = data;
+  const { agent, onClick, onToggleActive, onVerCapacidades } = data;
   const isOrchestrator = agent.kind === 'ORCHESTRATOR';
   const dept = agent.department && DEPARTMENT_COLORS[agent.department];
 
@@ -80,6 +81,18 @@ function AgentNodeBase({ data }: { data: AgentNodeData }) {
               )}
             </div>
           </div>
+          {/* Clicar no cartão ABRE A EDIÇÃO. Quem só quer entender o agente não
+              deveria cair num formulário — por isso a ficha tem porta própria. */}
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onVerCapacidades(agent);
+            }}
+            title="Ver o que este agente consegue fazer"
+            className="inline-flex flex-shrink-0 cursor-pointer items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20"
+          >
+            <Sparkles className="h-3 w-3" /> O que faz
+          </span>
           <span
             onClick={(e) => {
               e.stopPropagation();

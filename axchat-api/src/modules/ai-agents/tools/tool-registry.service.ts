@@ -281,6 +281,28 @@ export class ToolRegistry {
   }
 
   /**
+   * Todas as builtin, marcando quais ESTE agente consegue chamar.
+   *
+   * Reusa exatamente os três filtros do dispatch (kind, allowlist, setor) em
+   * vez de reimplementar a regra — assim a ficha mostra o que o agente de fato
+   * pode fazer, e não uma segunda versão da verdade que diverge com o tempo.
+   *
+   * Devolve também as indisponíveis, porque saber o que o agente NÃO alcança é
+   * metade da resposta pra quem está desenhando o papel dele.
+   */
+  listBuiltinForAgent(
+    kind: AiAgentKind,
+    agentId: string,
+    sector?: AiAgentSector,
+  ): Array<{ name: string; description: string; disponivel: boolean }> {
+    return [...this.tools.values()].map((t) => ({
+      name: t.name,
+      description: t.description,
+      disponivel: this.isAllowedForAgent(t.name, kind, agentId, sector),
+    }));
+  }
+
+  /**
    * Returns ALL built-in tools (not custom DB tools).
    * Used by the frontend to display which built-in tools exist.
    */

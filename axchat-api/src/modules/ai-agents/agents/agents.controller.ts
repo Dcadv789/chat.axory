@@ -111,6 +111,15 @@ export class AgentsController {
     return this.service.watchdogStats(orgId, this.parseSector(sector));
   }
 
+  @Get(':id/capabilities')
+  @ApiOperation({
+    summary:
+      'Ficha do agente: tudo que ele consegue fazer (builtin + skills), com o que roda sozinho e o que pede aprovação.',
+  })
+  capabilities(@CurrentOrg('id') orgId: string, @Param('id') id: string) {
+    return this.service.capabilities(orgId, id);
+  }
+
   @Get(':id/skills')
   @ApiOperation({
     summary: 'List skills attached to this agent (with requiresApproval flag)',

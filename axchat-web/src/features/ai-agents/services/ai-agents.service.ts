@@ -151,6 +151,12 @@ export const aiAgentsService = {
     return data.data ?? data;
   },
 
+  /** Ficha do agente: tudo que ele consegue fazer, com explicação de cada item. */
+  async capabilities(id: string): Promise<AgentCapabilities> {
+    const { data } = await api.get(`/ai-agents/${id}/capabilities`);
+    return data?.data ?? data;
+  },
+
   async remove(id: string): Promise<void> {
     await api.delete(`/ai-agents/${id}`);
   },
@@ -478,3 +484,39 @@ export const CURATED_MODELS = [
     recommendedFor: 'orchestrator',
   },
 ] as const;
+
+/** Uma habilidade configurável (HTTP/SQL), com o que ela faz. */
+export interface CapabilitySkill {
+  nome: string;
+  descricao: string;
+  categoria: string | null;
+  origem: string;
+  /** Mexe em algo fora do AxChat (POST/PUT/PATCH/DELETE). */
+  escreve: boolean;
+  pedeAprovacao: boolean;
+}
+
+/** Ferramenta nativa. `disponivel` já considera papel, setor e allowlist. */
+export interface CapabilityBuiltin {
+  nome: string;
+  descricao: string;
+  disponivel: boolean;
+}
+
+export interface AgentCapabilities {
+  agente: {
+    id: string;
+    name: string;
+    kind: string;
+    sector: string | null;
+    description: string | null;
+  };
+  skills: CapabilitySkill[];
+  builtin: CapabilityBuiltin[];
+  resumo: {
+    skillsTotal: number;
+    skillsComAprovacao: number;
+    builtinDisponiveis: number;
+    builtinTotal: number;
+  };
+}
