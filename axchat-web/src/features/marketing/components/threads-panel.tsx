@@ -12,6 +12,7 @@ import {
   Loader2,
   Send,
 } from 'lucide-react';
+import { ThreadsIcon } from '@/components/icons/threads-icon';
 import { toast } from 'sonner';
 import {
   channelsService,
@@ -51,7 +52,7 @@ export function ThreadsPanel() {
   if (!canalThreads) {
     return (
       <div className="rounded-xl border border-zinc-200 bg-white p-6 text-center dark:border-white/10 dark:bg-black">
-        <AtSign className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-700" />
+        <ThreadsIcon className="mx-auto h-8 w-8 text-zinc-300 dark:text-zinc-700" />
         <p className="mt-3 text-sm font-medium text-zinc-800 dark:text-zinc-200">
           Nenhum canal do Threads conectado
         </p>
@@ -68,7 +69,7 @@ export function ThreadsPanel() {
     <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-          <AtSign className="h-4 w-4" /> Seus posts
+          <ThreadsIcon className="h-4 w-4" /> Seus posts
         </div>
 
         {carregandoPosts ? (

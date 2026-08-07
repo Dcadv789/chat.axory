@@ -641,13 +641,20 @@ export class ChannelsService {
       threadsAppSecret,
     );
 
-    // 2) Perfil (username) pra deixar o canal legível.
+    // 2) Perfil. O `id` vem do /me como STRING no JSON, então é a fonte
+    //    confiável do identificador — o `user_id` do token vem como número e
+    //    já chegou aqui arredondado uma vez. Se o /me falhar, cai no do token,
+    //    que hoje é extraído do texto cru e também está correto.
     let username: string | undefined;
+    let threadsUserId = short.userId;
     try {
       const me = await this.threadsHttpClient.getMe(long.accessToken);
       username = me.username;
-    } catch {
-      /* best-effort */
+      if (me.id) threadsUserId = me.id;
+    } catch (err: any) {
+      this.logger.warn(
+        `Threads: /me falhou ao conectar — usando o user_id do token. ${err?.message ?? err}`,
+      );
     }
 
     // 3) Cria o canal. Threads não tem inbound — só guarda credencial + user.
@@ -656,7 +663,7 @@ export class ChannelsService {
       name: parsed.n,
       config: {
         accessToken: long.accessToken,
-        threadsUserId: short.userId,
+        threadsUserId,
         apiVersion: 'v1.0',
         tokenExpiresAt: new Date(Date.now() + long.expiresIn * 1000).toISOString(),
         ...(username ? { username } : {}),

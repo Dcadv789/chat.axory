@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Loader2, AlertTriangle, AtSign } from 'lucide-react';
+import { ThreadsIcon } from '@/components/icons/threads-icon';
 import { toast } from 'sonner';
 import {
   channelsService,
@@ -98,7 +99,7 @@ export function ThreadsConnect({ name, visibility }: ThreadsConnectProps) {
         {redirecting ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <AtSign className="h-4 w-4" />
+          <ThreadsIcon className="h-4 w-4" />
         )}
         {redirecting ? 'Redirecionando...' : 'Conectar com o Threads'}
       </button>

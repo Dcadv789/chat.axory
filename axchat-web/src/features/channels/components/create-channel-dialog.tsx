@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Loader2, X, Copy, Check, HelpCircle, ChevronDown, MessageSquareText, AtSign } from 'lucide-react';
+import { ThreadsIcon } from '@/components/icons/threads-icon';
 import { channelsService, type ChannelType } from '../services/channels.service';
 import { aiAgentsService } from '@/features/ai-agents/services/ai-agents.service';
 import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
@@ -47,7 +48,7 @@ const channelTypes: { value: ChannelType; label: string; icon: React.ElementType
   {
     value: 'THREADS',
     label: 'Threads',
-    icon: AtSign,
+    icon: ThreadsIcon,
     color: 'bg-zinc-50 dark:bg-black',
     description: 'Publicar posts, gerenciar respostas e ver métricas — via login Meta',
   },

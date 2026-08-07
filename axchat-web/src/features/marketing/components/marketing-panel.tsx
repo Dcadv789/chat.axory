@@ -25,6 +25,7 @@ import {
   Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, Send, AtSign, ImageIcon, Search, ChevronDown, Upload, CalendarClock,
   type LucideIcon,
 } from 'lucide-react';
+import { ThreadsIcon } from '@/components/icons/threads-icon';
 import { PageHeader } from '@/components/layout/page-header';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -1932,7 +1933,7 @@ function PublicarTab() {
       <BarraDeFiltro>
         {([
           { id: 'instagram' as const, icon: Instagram, label: 'Instagram' },
-          { id: 'threads' as const, icon: AtSign, label: 'Threads' },
+          { id: 'threads' as const, icon: ThreadsIcon, label: 'Threads' },
         ]).map((r) => (
           <button
             key={r.id}
@@ -1954,7 +1955,11 @@ function PublicarTab() {
 
       {/* Formulário e calendário lado a lado: agendar sem ver o que já está
           marcado é como escrever agenda de olhos fechados. Empilha no mobile. */}
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
+      {/* O formulário para de crescer em 42rem (o max-w-2xl que ele já tinha) e
+          o calendário fica com TODO o resto da largura, colado nele. Antes o
+          calendário é que era limitado, então em tela larga sobrava um vão no
+          meio e ele parecia jogado na direita. */}
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,42rem)_minmax(0,1fr)]">
         <div className="min-w-0">
           {channel === 'instagram' ? (
             <PublishInstagramForm diaSugerido={diaSugerido} />
@@ -2249,7 +2254,7 @@ function PublishThreadsForm({ diaSugerido }: { diaSugerido?: Date | null }) {
   return (
     <div className="max-w-2xl space-y-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-black">
       <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
-        <AtSign className="h-4 w-4" /> Novo post no Threads
+        <ThreadsIcon className="h-4 w-4" /> Novo post no Threads
       </div>
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         No Threads o texto basta (até 500 caracteres). Imagem ou vídeo são opcionais — informe a URL pública.

@@ -3,6 +3,23 @@ import { Channel } from '@prisma/client';
 import axios, { AxiosInstance } from 'axios';
 
 const THREADS_AUTH = 'https://threads.net';
+
+/**
+ * Lê um id numérico do JSON CRU, sem passar por JSON.parse.
+ *
+ * IDs do Threads têm 17 dígitos e estouram o inteiro seguro do JavaScript
+ * (9.007.199.254.740.991). Parseados como número, perdem os últimos dígitos em
+ * silêncio — e o valor errado só aparece lá na frente, como "objeto não
+ * existe". Extrair do texto preserva os dígitos exatos.
+ */
+export function extrairIdNumericoCru(
+  json: string,
+  campo: string,
+): string | undefined {
+  // Aceita number cru ("user_id":123) e string ("user_id":"123").
+  const m = new RegExp(`"${campo}"\s*:\s*"?(\d+)"?`).exec(json);
+  return m?.[1];
+}
 const THREADS_GRAPH = 'https://graph.threads.net';
 const API_VERSION = 'v1.0';
 
@@ -103,18 +120,28 @@ export class ThreadsHttpClient {
         redirect_uri: redirectUri,
         code,
       });
-      const { data } = await axios.post(
+      // transformResponse desligado: o corpo tem que chegar como TEXTO.
+      // O `user_id` do Threads (ex.: 37554767000838073) passa de
+      // Number.MAX_SAFE_INTEGER, e o JSON.parse do axios o arredonda ANTES de
+      // qualquer String() — o id chegava no banco com os últimos dígitos
+      // trocados e toda chamada depois disso respondia "Object with ID ... does
+      // not exist". Aqui o número é isolado do texto cru, sem virar float.
+      const { data: bruto } = await axios.post<string>(
         `${THREADS_GRAPH}/oauth/access_token`,
         form.toString(),
         {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           timeout: 30000,
+          transformResponse: [(corpo: string) => corpo],
         },
       );
-      if (!data?.access_token || !data?.user_id) {
+      const texto = typeof bruto === 'string' ? bruto : JSON.stringify(bruto);
+      const userId = extrairIdNumericoCru(texto, 'user_id');
+      const parseado = JSON.parse(texto);
+      if (!parseado?.access_token || !userId) {
         throw new Error('Threads não retornou access_token/user_id');
       }
-      return { accessToken: String(data.access_token), userId: String(data.user_id) };
+      return { accessToken: String(parseado.access_token), userId };
     } catch (err: any) {
       throw this.wrapError(err, 'exchangeCodeForShortToken');
     }

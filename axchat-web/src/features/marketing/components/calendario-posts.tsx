@@ -16,6 +16,7 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react';
+import { ThreadsIcon } from '@/components/icons/threads-icon';
 import { toast } from 'sonner';
 import {
   marketingService,
@@ -245,7 +246,7 @@ export function CalendarioPosts({
                     ? `${posts.length} post(s)`
                     : 'Agendar neste dia'
                 }
-                className={`flex h-[68px] flex-col items-stretch gap-1 rounded-md border p-1.5 text-left transition-colors ${
+                className={`flex h-[104px] flex-col items-stretch gap-1 rounded-md border p-1.5 text-left transition-colors ${
                   eHoje
                     ? 'border-primary/60 bg-primary/5'
                     : 'border-zinc-200 hover:bg-zinc-50 dark:border-white/10 dark:hover:bg-white/5'
@@ -260,17 +261,32 @@ export function CalendarioPosts({
                 >
                   {d.getDate()}
                 </span>
-                <span className="flex min-h-0 flex-1 flex-wrap content-start gap-0.5">
-                  {/* Até 4 pontos; o resto vira "+n" pra célula não crescer. */}
-                  {posts.slice(0, 4).map((p) => (
-                    <span
-                      key={p.id}
-                      className={`h-1.5 w-1.5 rounded-full ${STATUS_META[p.status].ponto}`}
-                    />
-                  ))}
-                  {posts.length > 4 && (
-                    <span className="text-[9px] leading-none text-zinc-400">
-                      +{posts.length - 4}
+
+                {/* O que foi agendado, direto na célula. Só a bolinha obrigava
+                    a clicar em cada dia pra descobrir o que tinha lá. */}
+                <span className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden">
+                  {posts.slice(0, 2).map((p) => {
+                    const meta = STATUS_META[p.status];
+                    const Rede = p.network === 'THREADS' ? ThreadsIcon : Instagram;
+                    return (
+                      <span
+                        key={p.id}
+                        title={p.caption ?? undefined}
+                        className={`flex items-center gap-1 rounded px-1 py-0.5 text-[10px] leading-tight ${meta.chip}`}
+                      >
+                        <Rede className="h-2.5 w-2.5 shrink-0 opacity-70" />
+                        <span className="shrink-0 font-medium tabular-nums">
+                          {hora(p.scheduledFor)}
+                        </span>
+                        <span className="truncate opacity-80">
+                          {p.caption?.trim() || 'sem legenda'}
+                        </span>
+                      </span>
+                    );
+                  })}
+                  {posts.length > 2 && (
+                    <span className="px-1 text-[10px] leading-tight text-zinc-400">
+                      +{posts.length - 2} outro(s)
                     </span>
                   )}
                 </span>
@@ -322,7 +338,7 @@ export function CalendarioPosts({
             <ul className="space-y-1.5">
               {postsDoDia.map((p) => {
                 const meta = STATUS_META[p.status];
-                const Icone = p.network === 'THREADS' ? AtSign : Instagram;
+                const Icone = p.network === 'THREADS' ? ThreadsIcon : Instagram;
                 return (
                   <li
                     key={p.id}

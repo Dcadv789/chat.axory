@@ -6,10 +6,18 @@ import {
   Megaphone,
   MessageCircle,
   PenSquare,
-  AtSign,
   UserCircle2,
   type LucideIcon,
 } from 'lucide-react';
+import { ThreadsIcon } from '@/components/icons/threads-icon';
+
+/**
+ * Ícone de menu. Aceita os do lucide E os nossos em SVG (Threads não existe no
+ * lucide), porque as duas famílias convivem na mesma lista.
+ */
+export type IconeDeMenu =
+  | LucideIcon
+  | ((props: { className?: string }) => React.ReactElement);
 
 export type MarketingTab =
   | 'resumo'
@@ -27,14 +35,14 @@ export type MarketingSection = 'resumo' | 'conteudo' | 'anuncios';
 
 export interface MarketingTabDef {
   id: MarketingTab;
-  icon: LucideIcon;
+  icon: IconeDeMenu;
   label: string;
   subtitle: string;
 }
 
 export interface MarketingSectionDef {
   id: MarketingSection;
-  icon: LucideIcon;
+  icon: IconeDeMenu;
   label: string;
   tabs: MarketingTabDef[];
 }
@@ -100,7 +108,7 @@ export const MARKETING_SECTIONS: MarketingSectionDef[] = [
       },
       {
         id: 'threads',
-        icon: AtSign,
+        icon: ThreadsIcon,
         label: 'Threads',
         subtitle:
           'Respostas, moderação e desempenho dos seus posts do Threads',
