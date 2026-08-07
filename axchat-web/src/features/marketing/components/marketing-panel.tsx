@@ -5,9 +5,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  MARKETING_TABS,
   MARKETING_TAB_PARAM,
-  isMarketingTab,
+  resolveMarketingTab,
   type MarketingTab,
 } from '../marketing-tabs';
 import {
@@ -162,8 +161,10 @@ function MarketingPanelInner() {
    * A aba mora na URL (`?aba=`). Sem isso a sidebar não teria pra onde apontar,
    * e recarregar a página jogava você de volta no Resumo.
    */
-  const param = searchParams.get(MARKETING_TAB_PARAM);
-  const tab: Tab = isMarketingTab(param) ? param : 'resumo';
+  const { tab: active, secao } = resolveMarketingTab(
+    searchParams.get(MARKETING_TAB_PARAM),
+  );
+  const tab = active.id;
   const setTab = (proxima: Tab) =>
     // replace: trocar de aba não é navegação, é filtro — o Voltar do navegador
     // deve sair do marketing, não desfazer dez cliques de aba.
@@ -202,8 +203,9 @@ function MarketingPanelInner() {
     refetchInterval: 30000,
   });
 
-  const TABS = MARKETING_TABS;
-  const active = TABS.find((t) => t.id === tab) ?? TABS[0];
+  // Só as abas da seção atual. A sidebar já escolheu a seção; mostrar as dez
+  // aqui devolveria o menu gigante que a divisão veio resolver.
+  const TABS = secao.tabs;
   const ActiveIcon = active.icon;
 
   return (
@@ -211,7 +213,10 @@ function MarketingPanelInner() {
       icon={ActiveIcon as LucideIcon}
       title={active.label}
       subtitle={active.subtitle}
-      breadcrumb={[{ label: 'Marketing', href: '/marketing' }]}
+      breadcrumb={[
+        { label: 'Gestão de Marketing', href: '/marketing' },
+        { label: secao.label, href: `/marketing?aba=${secao.tabs[0].id}` },
+      ]}
       contentClassName="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-thin px-4 py-3"
     >
       {/* gap-3 igual ao espaçamento interno das abas: assim a distância da
