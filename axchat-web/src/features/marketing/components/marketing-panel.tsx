@@ -2,11 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
-  LayoutDashboard, TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
-  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon, Search, ChevronDown, Upload, UserCircle2,
+  MARKETING_TABS,
+  MARKETING_TAB_PARAM,
+  isMarketingTab,
+  type MarketingTab,
+} from '../marketing-tabs';
+import {
+  Megaphone, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
+  TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
+  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, Send, AtSign, ImageIcon, Search, ChevronDown, Upload,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -34,7 +41,7 @@ import { channelsService } from '@/features/channels/services/channels.service';
 import { ThreadsPanel } from './threads-panel';
 import { CommentsPanel } from './comments-panel';
 
-type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'conta' | 'posts' | 'comentarios' | 'publicar' | 'threads' | 'activity';
+type Tab = MarketingTab;
 
 const WINDOW_LABELS: Record<string, string> = {
   LAST_MONTH: 'último mês',
@@ -148,7 +155,21 @@ function AccountPicker() {
 }
 
 function MarketingPanelInner() {
-  const [tab, setTab] = useState<Tab>('resumo');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  /**
+   * A aba mora na URL (`?aba=`). Sem isso a sidebar não teria pra onde apontar,
+   * e recarregar a página jogava você de volta no Resumo.
+   */
+  const param = searchParams.get(MARKETING_TAB_PARAM);
+  const tab: Tab = isMarketingTab(param) ? param : 'resumo';
+  const setTab = (proxima: Tab) =>
+    // replace: trocar de aba não é navegação, é filtro — o Voltar do navegador
+    // deve sair do marketing, não desfazer dez cliques de aba.
+    router.replace(`/marketing?${MARKETING_TAB_PARAM}=${proxima}`, {
+      scroll: false,
+    });
   // range = null → "todo o período" (sem filtro de data).
   const [range, setRange] = useState<DateRange | null>(defaultRange);
   const all = range === null;
@@ -181,21 +202,7 @@ function MarketingPanelInner() {
     refetchInterval: 30000,
   });
 
-  const TABS: { id: Tab; icon: React.ElementType; label: string; subtitle: string }[] = [
-    // Resumo abre o painel (é o panorama); Conta vem logo atrás porque a
-    // primeira pergunta de quem opera mais de um perfil é "em qual conta eu
-    // estou?" — e a resposta não pode estar escondida no fim da fila.
-    { id: 'resumo', icon: LayoutDashboard, label: 'Resumo', subtitle: 'Verba do mês, desempenho da conta e campanhas num olhar' },
-    { id: 'conta', icon: UserCircle2, label: 'Conta', subtitle: 'Perfil do Instagram: foto, bio, seguidores e publicações' },
-    { id: 'gestao', icon: Megaphone, label: 'Gestão de anúncios', subtitle: 'Pause, ative e exclua suas campanhas do Meta Ads' },
-    { id: 'admetrics', icon: BarChart3, label: 'Métricas dos anúncios', subtitle: 'Desempenho por campanha ao longo do tempo' },
-    { id: 'metrics', icon: BarChart3, label: 'Métricas dos posts', subtitle: 'Engajamento dos posts do Instagram' },
-    { id: 'posts', icon: Instagram, label: 'Posts do Instagram', subtitle: 'Seus posts recentes com miniatura e engajamento' },
-    { id: 'comentarios', icon: MessageCircle, label: 'Comentários', subtitle: 'Veja e responda os comentários de cada post — e acompanhe a automação agindo' },
-    { id: 'publicar', icon: PenSquare, label: 'Publicar', subtitle: 'Crie e publique posts no Instagram e no Threads' },
-    { id: 'threads', icon: AtSign, label: 'Threads', subtitle: 'Respostas, moderação e desempenho dos seus posts do Threads' },
-    { id: 'activity', icon: Activity, label: 'Atividade da crew', subtitle: 'Análises e ações registradas pelos agentes' },
-  ];
+  const TABS = MARKETING_TABS;
   const active = TABS.find((t) => t.id === tab) ?? TABS[0];
   const ActiveIcon = active.icon;
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { Megaphone } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
@@ -30,5 +31,11 @@ export default function MarketingPage() {
     );
   }
 
-  return <MarketingPanel />;
+  // A aba vem de `?aba=` — e quem lê search param precisa de fronteira de
+  // Suspense, senão a página inteira sai do pré-render.
+  return (
+    <Suspense fallback={null}>
+      <MarketingPanel />
+    </Suspense>
+  );
 }

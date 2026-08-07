@@ -16,6 +16,7 @@ import {
 import { InboxTree } from '@/features/inbox-views/components/inbox-tree';
 import { AgentSectorTree } from '@/features/ai-agents/components/agent-sector-tree';
 import { PipelinesTree } from '@/features/pipelines/components/pipelines-tree';
+import { MarketingTree } from '@/features/marketing/components/marketing-tree';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 import { useAuthStore } from '@/stores/auth-store';
@@ -105,12 +106,7 @@ export function AppSidebar() {
               sector="marketing"
             />
           )}
-          {activeOrg?.marketingEnabled && (
-            <SidebarItem href="/marketing">
-              <Megaphone className="size-5" />
-              <SidebarLabel>Painel de Marketing</SidebarLabel>
-            </SidebarItem>
-          )}
+          {activeOrg?.marketingEnabled && <MarketingTree />}
           <SidebarItem href="/campaigns">
             <Send className="size-5" />
             <SidebarLabel>Campanhas</SidebarLabel>
