@@ -118,53 +118,30 @@ export class InstagramHttpClient {
       /* usa o token do config */
     }
 
-    // Duas tentativas, nesta ordem, e o motivo importa:
+    // Só `messages`. NÃO tente incluir `comments` aqui — já foi testado contra
+    // a conta real e a Meta responde:
     //
-    // A doc da Instagram Platform (Webhooks → Enable Subscriptions) manda
-    // `subscribed_fields=comments,messages` e diz que o nó pode ser o ID da
-    // Página com Page token. Só que o enum do nó Página em graph.facebook.com
-    // é o enum de PÁGINA (feed, mention, messages…), que não tem `comments` —
-    // e foi por isso que a chamada com `comments` foi removida antes.
+    //   (#100) Param subscribed_fields[0] must be one of {feed, mention, name,
+    //   …, messages, message_reactions, …} - got "comments".
     //
-    // Só que sem `comments` em lugar nenhum da inscrição da conta, comentário
-    // nunca chega — que é exatamente o sintoma em produção. Então tentamos o
-    // que a doc manda e, se a Meta recusar, caímos pra `messages` (que
-    // comprovadamente funciona pras DMs) guardando o erro EXATO. Assim o botão
-    // "Ativar recebimento" para de esconder o motivo em vez de nos deixar
-    // adivinhando qual das duas docs vale.
-    const inscrever = async (fields: string) => {
+    // O enum deste nó é o de PÁGINA e não tem `comments`. A doc da Instagram
+    // Platform mostra `subscribed_fields=comments,messages`, mas aquele exemplo
+    // é do fluxo Instagram Login (graph.instagram.com), não deste.
+    //
+    // E não é aqui que mora o problema de comentário não chegar: comentário
+    // exige Advanced Access em `instagram_manage_comments`, ou seja, App Review
+    // aprovado. Ver docs/app-review-meta.md.
+    try {
       const { data } = await axios.post(
         `https://graph.facebook.com/${cfg.apiVersion}/${pageId}/subscribed_apps`,
         null,
         {
-          params: { subscribed_fields: fields, access_token: pageToken },
+          params: { subscribed_fields: 'messages', access_token: pageToken },
           timeout: 30000,
         },
       );
-      return data;
-    };
-
-    let avisoComments: string | undefined;
-    try {
-      const data = await inscrever('comments,messages');
-      this.logger.log(`Instagram subscribed via Página ${pageId} (comments,messages)`);
-      return { ok: true, node: 'page', fields: 'comments,messages', ...data };
-    } catch (err: any) {
-      const meta = err?.response?.data?.error;
-      // #100 = campo inválido no nó. Não é falta de permissão: é a Meta dizendo
-      // que `comments` não existe neste enum. Segue pro fallback.
-      avisoComments =
-        meta?.message ?? (err as Error)?.message ?? 'motivo não informado';
-      this.logger.warn(
-        `Página ${pageId}: Meta recusou 'comments' no subscribed_apps — "${avisoComments}". ` +
-          'Caindo pra "messages"; comentário vai depender da assinatura do objeto instagram no painel.',
-      );
-    }
-
-    try {
-      const data = await inscrever('messages');
       this.logger.log(`Instagram subscribed via Página ${pageId} (messages)`);
-      return { ok: true, node: 'page', fields: 'messages', avisoComments, ...data };
+      return { ok: true, node: 'page', fields: 'messages', ...data };
     } catch (err: any) {
       const meta = err?.response?.data?.error;
       // #200 = falta permissão no token. A Meta diz QUAL na mensagem — repassamos

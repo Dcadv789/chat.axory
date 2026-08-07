@@ -66,6 +66,46 @@ volta sozinho.
 
 Não repetir: criar configuração nova de login **não** resolve, já foi tentado.
 
+## Webhook de comentário só funciona depois do App Review
+
+Sintoma: DM do Instagram chega no inbox, comentário nunca. Investigado até o
+fim em 06/08/2026 na conta real (Axory Capital Group, IG `17841458024232453`,
+Página `105844012423899`) — **não é bug nosso**.
+
+O que foi conferido e está CERTO:
+
+- App `1677293733555162`, objeto `instagram`: `comments` assinado, junto com
+  `messages`, `standby`, `messaging_referral`, `messaging_postbacks`,
+  `message_reactions`, `messaging_seen`.
+- Token do canal (`debug_token`): válido, System User do app certo, com
+  `instagram_manage_comments`, `instagram_basic`, `pages_manage_metadata`,
+  `pages_read_engagement`, `pages_show_list`.
+- `POST /{page}/subscribed_apps` com `messages`: ativo. Incluir `comments` é
+  impossível — a Meta responde `(#100) Param subscribed_fields[0] must be one
+  of {feed, mention, …} - got "comments"`. O enum daquele nó é o de Página.
+- 30 webhooks recebidos, todos `object: instagram`, todos DM. Nenhum
+  `changes[field=comments]` jamais.
+
+O que FALTA, direto da doc *Webhooks from Meta → Instagram*:
+
+> Your app must have successfully completed App Review (advanced access) to
+> receive webhooks notifications for `comments` and `live_comments` webhooks
+> fields.
+>
+> For Business apps, they must have permissions with an Advanced Access level.
+> **If the app permissions don't have an access level of Advanced Access, the
+> app doesn't receive webhook notifications.**
+
+Hoje `instagram_manage_comments` está em `access_level: none`. Por isso DM
+funciona e comentário não: DM entra pela Messenger Platform, que roda em
+Development Mode pra quem tem papel no app; `comments` é explicitamente
+barrado sem Advanced Access.
+
+Consequência prática: **a automação de comentário não tem como ser testada
+antes da aprovação.** Não adianta mexer em inscrição, permissão de token ou
+código. A mesma doc ainda exige que o Business ligado à Página esteja
+verificado e que a conta não seja privada.
+
 ## Textos de "uso permitido"
 
 Em inglês de propósito: os revisores são globais e a doc recomenda inglês.
