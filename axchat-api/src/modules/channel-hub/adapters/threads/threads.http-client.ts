@@ -16,10 +16,15 @@ export function extrairIdNumericoCru(
   json: string,
   campo: string,
 ): string | undefined {
-  // Aceita number cru ("user_id":123) e string ("user_id":"123").
-  const m = new RegExp(`"${campo}"\s*:\s*"?(\d+)"?`).exec(json);
+  // String.raw é OBRIGATÓRIO aqui. Em template literal comum, `\s` vira `s` e
+  // `\d` vira `d` — escapes desconhecidos colapsam sem erro, e a regex passa a
+  // ser `"user_id"s*:s*"?(d+)"?`, que nunca casa. Foi assim que a reconexão
+  // quebrou: o id saía `undefined` e a troca de token morria em
+  // "Threads não retornou access_token/user_id".
+  const m = new RegExp(String.raw`"${campo}"\s*:\s*"?(\d+)"?`).exec(json);
   return m?.[1];
 }
+
 const THREADS_GRAPH = 'https://graph.threads.net';
 const API_VERSION = 'v1.0';
 
