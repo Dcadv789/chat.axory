@@ -470,7 +470,7 @@ export class ChannelsService {
     creator: { userOrganizationId: string; role: OrgRole },
     name: string,
     visibility?: 'ORG' | 'PRIVATE',
-  ): Promise<{ url: string }> {
+  ): Promise<{ url: string; redirectUri: string; threadsAppId: string }> {
     const { threadsAppId, threadsAppSecret } =
       await this.loadMetaCoexistenceConfig();
     if (!threadsAppId || !threadsAppSecret) {
@@ -489,12 +489,20 @@ export class ChannelsService {
       v: visibility,
       exp: Date.now() + 10 * 60 * 1000, // 10 min
     });
+    const redirectUri = this.threadsRedirectUri();
     const url = this.threadsHttpClient.buildAuthorizeUrl(
       threadsAppId,
-      this.threadsRedirectUri(),
+      redirectUri,
       state,
     );
-    return { url };
+    // Devolve o redirect_uri junto porque ele é montado a partir do APP_URL do
+    // servidor e precisa bater, caractere por caractere, com o que está
+    // liberado no painel do Threads. Quando não bate, a Meta responde só
+    // "URL bloqueada" — sem dizer qual URL ela recebeu. Com este campo a tela
+    // mostra o valor exato pra conferir, em vez de adivinhar qual é o APP_URL
+    // de produção.
+    this.logger.log(`Threads OAuth: redirect_uri=${redirectUri} client_id=${threadsAppId}`);
+    return { url, redirectUri, threadsAppId };
   }
 
   /**
