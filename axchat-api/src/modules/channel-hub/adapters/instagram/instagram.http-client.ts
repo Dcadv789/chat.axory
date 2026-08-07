@@ -118,19 +118,53 @@ export class InstagramHttpClient {
       /* usa o token do config */
     }
 
-    try {
+    // Duas tentativas, nesta ordem, e o motivo importa:
+    //
+    // A doc da Instagram Platform (Webhooks → Enable Subscriptions) manda
+    // `subscribed_fields=comments,messages` e diz que o nó pode ser o ID da
+    // Página com Page token. Só que o enum do nó Página em graph.facebook.com
+    // é o enum de PÁGINA (feed, mention, messages…), que não tem `comments` —
+    // e foi por isso que a chamada com `comments` foi removida antes.
+    //
+    // Só que sem `comments` em lugar nenhum da inscrição da conta, comentário
+    // nunca chega — que é exatamente o sintoma em produção. Então tentamos o
+    // que a doc manda e, se a Meta recusar, caímos pra `messages` (que
+    // comprovadamente funciona pras DMs) guardando o erro EXATO. Assim o botão
+    // "Ativar recebimento" para de esconder o motivo em vez de nos deixar
+    // adivinhando qual das duas docs vale.
+    const inscrever = async (fields: string) => {
       const { data } = await axios.post(
         `https://graph.facebook.com/${cfg.apiVersion}/${pageId}/subscribed_apps`,
         null,
         {
-          // Na Página só "messages" é campo válido (DMs). Comentários do IG são
-          // assinados no objeto "instagram" no painel de Webhooks, não aqui.
-          params: { subscribed_fields: 'messages', access_token: pageToken },
+          params: { subscribed_fields: fields, access_token: pageToken },
           timeout: 30000,
         },
       );
+      return data;
+    };
+
+    let avisoComments: string | undefined;
+    try {
+      const data = await inscrever('comments,messages');
       this.logger.log(`Instagram subscribed via Página ${pageId} (comments,messages)`);
-      return { ok: true, node: 'page', ...data };
+      return { ok: true, node: 'page', fields: 'comments,messages', ...data };
+    } catch (err: any) {
+      const meta = err?.response?.data?.error;
+      // #100 = campo inválido no nó. Não é falta de permissão: é a Meta dizendo
+      // que `comments` não existe neste enum. Segue pro fallback.
+      avisoComments =
+        meta?.message ?? (err as Error)?.message ?? 'motivo não informado';
+      this.logger.warn(
+        `Página ${pageId}: Meta recusou 'comments' no subscribed_apps — "${avisoComments}". ` +
+          'Caindo pra "messages"; comentário vai depender da assinatura do objeto instagram no painel.',
+      );
+    }
+
+    try {
+      const data = await inscrever('messages');
+      this.logger.log(`Instagram subscribed via Página ${pageId} (messages)`);
+      return { ok: true, node: 'page', fields: 'messages', avisoComments, ...data };
     } catch (err: any) {
       const meta = err?.response?.data?.error;
       // #200 = falta permissão no token. A Meta diz QUAL na mensagem — repassamos
@@ -157,24 +191,36 @@ export class InstagramHttpClient {
    * do canal, permissão revogada, app trocado). Guardar um "ativei em tal dia"
    * do nosso lado mentiria em todos esses casos.
    */
-  async getSubscription(
-    channel: Channel,
-  ): Promise<{ active: boolean; fields: string[]; node: string; error?: string }> {
+  async getSubscription(channel: Channel): Promise<{
+    active: boolean;
+    /** `comments` presente na inscrição — sem isso, comentário não chega. */
+    comments: boolean;
+    fields: string[];
+    node: string;
+    error?: string;
+  }> {
     const cfg = this.getConfig(channel);
     const config = channel.config as Record<string, any>;
     const pageId = config?.fbPageId ? String(config.fbPageId).trim() : undefined;
 
     try {
       if (cfg.graphApi === 'instagram') {
-        if (!cfg.igBusinessId) return { active: false, fields: [], node: 'ig' };
+        if (!cfg.igBusinessId)
+          return { active: false, comments: false, fields: [], node: 'ig' };
         const { data } = await this.createClient(channel).get(
           `/${cfg.igBusinessId}/subscribed_apps`,
         );
         const fields: string[] = data?.data?.[0]?.subscribed_fields ?? [];
-        return { active: fields.includes('messages'), fields, node: 'ig' };
+        return {
+          active: fields.includes('messages'),
+          comments: fields.includes('comments'),
+          fields,
+          node: 'ig',
+        };
       }
 
-      if (!pageId) return { active: false, fields: [], node: 'page' };
+      if (!pageId)
+        return { active: false, comments: false, fields: [], node: 'page' };
       const pageToken = config?.pageAccessToken || cfg.accessToken;
       const { data } = await axios.get(
         `https://graph.facebook.com/${cfg.apiVersion}/${pageId}/subscribed_apps`,
@@ -183,10 +229,16 @@ export class InstagramHttpClient {
       // A Página lista TODOS os apps inscritos; só o nosso interessa, mas o
       // token é do nosso app, então a lista já vem escopada a ele.
       const fields: string[] = data?.data?.[0]?.subscribed_fields ?? [];
-      return { active: fields.includes('messages'), fields, node: 'page' };
+      return {
+        active: fields.includes('messages'),
+        comments: fields.includes('comments'),
+        fields,
+        node: 'page',
+      };
     } catch (err: any) {
       return {
         active: false,
+        comments: false,
         fields: [],
         node: pageId ? 'page' : 'ig',
         error: err?.response?.data?.error?.message ?? err?.message ?? 'falha ao consultar',

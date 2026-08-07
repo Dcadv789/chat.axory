@@ -1084,6 +1084,14 @@ function WebhookDiagnostics({ channelId }: { channelId: string }) {
                 <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
                   {subscription.fields.join(', ')}
                 </p>
+                {/* "Ativado" verde só olhava `messages`. Com comentário fora da
+                    inscrição, DM chega e comentário não — e a tela dizia que
+                    estava tudo certo. */}
+                {!subscription.comments && (
+                  <p className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                    comentários não inscritos
+                  </p>
+                )}
               </div>
               <button
                 onClick={subscribe}

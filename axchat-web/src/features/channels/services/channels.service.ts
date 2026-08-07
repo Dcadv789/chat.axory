@@ -19,6 +19,8 @@ export interface WebhookDiagnostics {
   /** Estado atual da inscrição na Meta (só Instagram). */
   subscription?: {
     active: boolean;
+    /** `comments` na inscrição. Sem isso, comentário não chega — só DM. */
+    comments: boolean;
     fields: string[];
     node: string;
     error?: string;
