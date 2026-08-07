@@ -516,8 +516,15 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-const inputCls =
-  'w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-primary dark:border-white/15 dark:bg-black dark:text-zinc-100 dark:placeholder:text-zinc-500';
+/**
+ * Aparência sem largura. Os seletores da linha de condição precisam de largura
+ * própria: com `w-full` nos três controles eles disputavam a mesma linha e o
+ * campo de valor — o único onde se digita — era o que sobrava espremido.
+ */
+const controlBase =
+  'rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-primary dark:border-white/15 dark:bg-black dark:text-zinc-100 dark:placeholder:text-zinc-500';
+
+const inputCls = `w-full ${controlBase}`;
 
 // Renders the value side of a condition rule based on which field is
 // selected. Maps every ID-bearing field to a real-data dropdown so a
@@ -639,7 +646,7 @@ function ConditionValueInput({
           className={inputCls}
           value={(value as string | number | undefined)?.toString() ?? ''}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="valor"
+          placeholder="Ex: preço, quero, orçamento…"
         />
       );
   }
@@ -661,7 +668,8 @@ function RuleRow({
   const ops = operatorsForField(rule.field);
   const needsValue = rule.op !== 'is_set' && rule.op !== 'is_not_set';
   return (
-    <div className="flex items-center gap-2">
+    // Quebra em telas estreitas em vez de espremer tudo numa linha só.
+    <div className="flex flex-wrap items-center gap-2">
       <select
         value={rule.field}
         onChange={(e) =>
@@ -670,7 +678,7 @@ function RuleRow({
           // meaningless if user just switched to channelId).
           onChange({ field: e.target.value, value: '' })
         }
-        className={inputCls}
+        className={`${controlBase} w-[180px] shrink-0`}
       >
         {fields.map((f) => (
           <option key={f} value={f}>
@@ -681,7 +689,7 @@ function RuleRow({
       <select
         value={rule.op}
         onChange={(e) => onChange({ op: e.target.value as ConditionOperator })}
-        className={inputCls}
+        className={`${controlBase} w-[150px] shrink-0`}
       >
         {ops.map((op) => (
           <option key={op} value={op}>
@@ -690,7 +698,9 @@ function RuleRow({
         ))}
       </select>
       {needsValue && (
-        <div className="flex-1">
+        // min-w garante que o campo de digitar nunca colapse: é nele que a
+        // pessoa escreve o texto que a condição procura.
+        <div className="min-w-[240px] flex-1">
           <ConditionValueInput
             field={rule.field}
             value={rule.value}
