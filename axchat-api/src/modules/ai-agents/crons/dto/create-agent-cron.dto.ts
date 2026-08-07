@@ -5,6 +5,7 @@ import {
   MaxLength,
   MinLength,
   Validate,
+  ValidateIf,
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
@@ -60,4 +61,14 @@ export class CreateAgentCronDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'ESTEIRA: id do cron que dispara logo depois deste, recebendo o que este agente concluiu como contexto. Use pra encadear a crew (medir → decidir → agir). `null` desliga o encadeamento.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  nextCronId?: string | null;
 }

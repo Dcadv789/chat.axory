@@ -56,6 +56,7 @@ export class AgentCronsService {
         cronExpression: dto.cronExpression,
         timezone,
         isActive: dto.isActive ?? true,
+        nextCronId: dto.nextCronId ?? null,
         nextRunAt,
       },
       include: { agent: { select: { id: true, name: true, kind: true } } },
@@ -66,6 +67,25 @@ export class AgentCronsService {
     await this.findOne(organizationId, id);
 
     const data: Record<string, unknown> = { ...dto };
+
+    // Encadear consigo mesmo é laço de um passo — o guard do disparo pegaria,
+    // mas recusar aqui evita gravar uma configuração que nunca vai funcionar.
+    if (dto.nextCronId && dto.nextCronId === id) {
+      throw new BadRequestException(
+        'Um cron não pode disparar ele mesmo. Escolha outro cron como próximo da esteira.',
+      );
+    }
+    if (dto.nextCronId) {
+      const proximo = await this.prisma.agentCron.findFirst({
+        where: { id: dto.nextCronId, organizationId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!proximo) {
+        throw new BadRequestException(
+          'O cron escolhido como próximo da esteira não existe nesta organização.',
+        );
+      }
+    }
 
     // Recalcula nextRunAt se a expressão, o timezone ou o estado mudou.
     if (dto.cronExpression !== undefined || dto.timezone !== undefined || dto.isActive !== undefined) {

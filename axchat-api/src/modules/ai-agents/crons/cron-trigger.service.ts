@@ -20,6 +20,13 @@ const CRON_CONTACT_EXTERNAL_ID = 'cron-system';
  * outbound no-op, então a resposta do agente persiste e fica visível como
  * thread interna — sem mandar nada pra fora.
  */
+
+/** Junta as falas do agente com linha em branco entre elas. */
+const SEPARADOR = '\n\n';
+
+/** Teto de passos numa esteira. Trava de segurança, não limite de produto. */
+const MAX_ESTEIRA = 6;
+
 @Injectable()
 export class CronTriggerService {
   private readonly logger = new Logger(CronTriggerService.name);
@@ -29,8 +36,36 @@ export class CronTriggerService {
     private readonly runner: AiAgentRunnerService,
   ) {}
 
-  /** Dispara um cron por id. Atualiza lastRunAt/lastStatus/lastRunId/lastError. */
-  async fire(cronId: string): Promise<void> {
+  /**
+   * Dispara um cron por id. Atualiza lastRunAt/lastStatus/lastRunId/lastError.
+   *
+   * `opcoes.contexto` é o que o agente ANTERIOR da esteira
+   * concluiu — entra junto com a tarefa, e é o que faz um agente trabalhar em
+   * cima do outro em vez de cada um começar do zero.
+   *
+   * `opcoes.trilha` carrega os crons já disparados nesta cadeia. Existe porque
+   * a esteira é um ponteiro livre: nada impede alguém ligar A→B→A no painel, e
+   * sem a trilha isso viraria laço infinito de chamadas de LLM — caro e difícil
+   * de perceber.
+   */
+  async fire(
+    cronId: string,
+    opcoes?: { contexto?: string; trilha?: string[] },
+  ): Promise<void> {
+    const trilha = opcoes?.trilha ?? [];
+    if (trilha.includes(cronId)) {
+      this.logger.warn(
+        `fire(${cronId}): já disparado nesta esteira (${trilha.join(' → ')}) — parando pra não entrar em laço.`,
+      );
+      return;
+    }
+    if (trilha.length >= MAX_ESTEIRA) {
+      this.logger.warn(
+        `fire(${cronId}): esteira atingiu o teto de ${MAX_ESTEIRA} passos — parando.`,
+      );
+      return;
+    }
+
     const cron = await this.prisma.agentCron.findFirst({
       where: { id: cronId, deletedAt: null },
       include: {
@@ -70,7 +105,7 @@ export class CronTriggerService {
           conversationId: conversation.id,
           direction: MessageDirection.INBOUND,
           type: MessageContentType.TEXT,
-          content: { text: `[CRON · ${cron.name}] ${cron.task}` },
+          content: { text: this.montarGatilho(cron, opcoes?.contexto) },
           status: MessageStatus.DELIVERED,
           senderName: 'Cron',
           metadata: { cronId: cron.id, system: true },
@@ -104,11 +139,80 @@ export class CronTriggerService {
       this.logger.log(
         `cron "${cron.name}" disparado (agent=${cron.agent.name}, run=${lastRun?.id ?? 'n/a'})`,
       );
+
+      // Passa o bastão. Só depois de COMPLETED: encadear em cima de uma falha
+      // seria mandar o próximo agente decidir sobre um resultado que não veio.
+      const concluiu = (lastRun?.status ?? 'COMPLETED') === 'COMPLETED';
+      if (cron.nextCronId && concluiu) {
+        const contexto = await this.resumoDoQueSaiu(conversation.id, cron.agentId);
+        this.logger.log(
+          `esteira: "${cron.name}" → próximo cron ${cron.nextCronId}`,
+        );
+        // Sequencial de propósito: o próximo precisa do resultado deste.
+        await this.fire(cron.nextCronId, {
+          contexto: contexto ?? undefined,
+          trilha: [...trilha, cronId],
+        });
+      }
     } catch (err: any) {
       const msg = err?.message ?? String(err);
       this.logger.error(`fire(${cronId}) falhou: ${msg}`);
       await this.markResult(cron.id, 'FAILED', msg.slice(0, 500));
     }
+  }
+
+  /**
+   * Texto que chega ao agente como mensagem-gatilho.
+   *
+   * Quando vem de uma esteira, o resultado do agente anterior entra junto com
+   * a instrução explícita de partir dali. Sem essa frase o modelo tende a
+   * refazer a análise do zero — e aí a esteira gasta o dobro pra chegar no
+   * mesmo lugar.
+   */
+  private montarGatilho(
+    cron: { name: string; task: string },
+    contexto?: string,
+  ): string {
+    const base = `[CRON · ${cron.name}] ${cron.task}`;
+    if (!contexto) return base;
+    return [
+      base,
+      '',
+      '--- O agente anterior da esteira acabou de concluir isto. Use como',
+      'ponto de partida; não repita o trabalho dele. ---',
+      contexto,
+    ].join('\n');
+  }
+
+  /**
+   * O que este agente produziu no disparo — é isso que vira contexto do
+   * próximo. Pega as últimas falas dele na conversa do cron.
+   *
+   * Corta em 4000 caracteres: o texto entra no prompt do agente seguinte, e
+   * relatório longo demais empurra pra fora o resto do contexto dele.
+   */
+  private async resumoDoQueSaiu(
+    conversationId: string,
+    agentId: string,
+  ): Promise<string | null> {
+    const falas = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        direction: MessageDirection.OUTBOUND,
+        metadata: { path: ['aiAgentId'], equals: agentId },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { content: true },
+    });
+    const texto = falas
+      .reverse()
+      .map((m) => (m.content as any)?.text)
+      .filter((t): t is string => typeof t === 'string' && !!t.trim())
+      .join(SEPARADOR)
+      .trim();
+    if (!texto) return null;
+    return texto.length > 4000 ? `${texto.slice(0, 4000)}…` : texto;
   }
 
   private async markResult(

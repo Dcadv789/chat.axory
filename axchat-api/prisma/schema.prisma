@@ -1443,12 +1443,28 @@ model AgentCron {
   // Conversa interna reutilizada como thread deste cron (uma por cron).
   conversationId String? @map("conversation_id")
 
+  /// ESTEIRA: cron que dispara logo depois deste, recebendo o que este agente
+  /// concluiu como contexto de entrada.
+  ///
+  /// Sem isto cada agente rodava no relógio dele e nenhum via o trabalho do
+  /// outro: o Edda media na segunda sem saber o que o Wystan mexeu no domingo.
+  /// Encadeando, o ciclo fecha — medir, decidir, agir, medir de novo.
+  ///
+  /// Só encadeia quando este cron termina com COMPLETED: se o agente falhou,
+  /// passar adiante um resultado que não existe é pior do que parar.
+  nextCronId String? @map("next_cron_id")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   agent        AiAgent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  /// SetNull, não Cascade: apagar um cron da esteira não pode derrubar o
+  /// anterior junto — ele só perde o "próximo".
+  next     AgentCron?  @relation("EsteiraDeCrons", fields: [nextCronId], references: [id], onDelete: SetNull)
+  previous AgentCron[] @relation("EsteiraDeCrons")
 
   @@index([organizationId], name: "idx_agent_cron_org")
   @@index([agentId], name: "idx_agent_cron_agent")
