@@ -44,6 +44,12 @@ import { MarketingCredentialsService } from './marketing/marketing-credentials.s
 import { MarketingBudgetService } from './marketing/marketing-budget.service';
 import { MarketingProvisioningService } from './marketing/marketing-provisioning.service';
 import { MarketingPublishService } from './marketing/marketing-publish.service';
+import { MarketingScheduleService } from './marketing/marketing-schedule.service';
+import {
+  SCHEDULED_POST_QUEUE,
+  ScheduledPostProcessor,
+  ScheduledPostSchedulerService,
+} from './marketing/scheduled-post.scheduler';
 import { MarketingUploadService } from './marketing/marketing-upload.service';
 
 @Module({
@@ -63,6 +69,7 @@ import { MarketingUploadService } from './marketing/marketing-upload.service';
     RagModule,
     EvalsModule,
     BullModule.registerQueue({ name: 'agent-crons' }),
+    BullModule.registerQueue({ name: SCHEDULED_POST_QUEUE }),
   ],
   controllers: [
     AgentsController,
@@ -94,6 +101,9 @@ import { MarketingUploadService } from './marketing/marketing-upload.service';
     MarketingProvisioningService,
     MarketingPublishService,
     MarketingUploadService,
+    MarketingScheduleService,
+    ScheduledPostSchedulerService,
+    ScheduledPostProcessor,
   ],
   exports: [AiAgentRunnerService, AgentRouterService, MarketingProvisioningService],
 })

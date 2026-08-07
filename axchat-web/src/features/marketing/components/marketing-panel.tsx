@@ -4,6 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarioPosts } from './calendario-posts';
+import {
+  DataAgendamentoInvalida,
+  fusoDoNavegador,
+  paraIsoComFuso,
+  valorInicialDoCampo,
+} from '../agenda-datas';
 import {
   MARKETING_TAB_PARAM,
   acharSecao,
@@ -15,7 +22,7 @@ import {
 import {
   Megaphone, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
   TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
-  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, Send, AtSign, ImageIcon, Search, ChevronDown, Upload,
+  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, Send, AtSign, ImageIcon, Search, ChevronDown, Upload, CalendarClock,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -31,6 +38,7 @@ import {
   type AdSet,
   type InstagramPost,
   type MarketingOverview,
+  type AgendarPostPayload,
 } from '@/features/marketing/services/marketing.service';
 import {
   MarketingAccountProvider,
@@ -67,10 +75,47 @@ interface MetricsCols {
   delta: boolean;
 }
 
+/**
+ * Mês em que a pessoa está: dia 1 até o último dia. Antes eram "os últimos 30
+ * dias", que atravessa a virada do mês — quem entra dia 2 via metade de um mês
+ * e metade do outro, e nenhum número batia com o fechamento.
+ */
 function defaultRange(): DateRange {
-  const until = new Date(); until.setHours(0, 0, 0, 0);
-  const since = new Date(Date.now() - 29 * 86400000); since.setHours(0, 0, 0, 0);
+  const hoje = new Date();
+  const since = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const until = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+  since.setHours(0, 0, 0, 0);
+  until.setHours(0, 0, 0, 0);
   return { since, until };
+}
+
+/**
+ * Casca da barra de filtro. Mesma moldura da navegação (p-3, borda fina,
+ * rounded-lg) pra as duas lerem como peças empilhadas da mesma coisa. Cada aba
+ * põe dentro os controles que fazem sentido nela.
+ */
+function BarraDeFiltro({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
+      {children}
+    </div>
+  );
+}
+
+/** Rótulo + calendário, do jeito que aparece em toda barra que filtra data. */
+function FiltroPeriodo({
+  range,
+  setRange,
+}: {
+  range: DateRange | null;
+  setRange: (r: DateRange | null) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-medium text-zinc-500">Período:</span>
+      <RangeCalendar value={range} onChange={setRange} onClear={() => setRange(null)} />
+    </div>
+  );
 }
 
 export function MarketingPanel({ secao }: { secao: MarketingSection }) {
@@ -208,6 +253,11 @@ function MarketingPanelInner({ secao: secaoId }: { secao: MarketingSection }) {
   const TABS = secao.tabs;
   const ActiveIcon = active.icon;
 
+  // AccountPicker se esconde sozinho com menos de duas contas; aqui a gente
+  // precisa saber ANTES, pra decidir se a linha inteira deve existir.
+  const { accounts } = useMarketingAccount();
+  const temSeletorDeConta = accounts.length >= 2;
+
   return (
     <PageHeader
       icon={ActiveIcon as LucideIcon}
@@ -245,40 +295,78 @@ function MarketingPanelInner({ secao: secaoId }: { secao: MarketingSection }) {
           </div>
         </nav>
 
-        {/* Conta + período. A conta vale pra TODAS as abas, então fica fora do
-            condicional do calendário. */}
-        <div className="flex flex-wrap items-center gap-3">
-          <AccountPicker />
-          {(tab === 'resumo' || tab === 'admetrics' || tab === 'metrics') && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-zinc-500">Período:</span>
-              <RangeCalendar value={range} onChange={setRange} onClear={() => setRange(null)} />
-            </div>
-          )}
-        </div>
+        {/* Só a conta. O período desceu pra barra de filtro de cada aba, junto
+            dos outros controles — ficava solto aqui em cima, longe do conteúdo
+            que ele filtra. E com uma conta só o seletor some: a div vazia
+            continuava cobrando os dois gap-3 e afastava tudo da navegação. */}
+        {temSeletorDeConta && (
+          <div className="flex flex-wrap items-center gap-3">
+            <AccountPicker />
+          </div>
+        )}
 
         {tab === 'conta' && <ContaTab />}
-        {tab === 'resumo' && <ResumoTab since={since} until={until} all={all} rangeKey={rangeKey} />}
+        {tab === 'resumo' && (
+          <ResumoTab
+            since={since}
+            until={until}
+            all={all}
+            rangeKey={rangeKey}
+            range={range}
+            setRange={setRange}
+          />
+        )}
         {tab === 'gestao' && <GestaoTab />}
         {tab === 'admetrics' && (
-          loadingAd
-            ? <TableSkeleton cols={11} />
-            : <AdMetricsTab rows={adMetrics?.metrics ?? []} window={adMetrics?.window ?? 'LAST_MONTH'} />
+          <div className="space-y-3">
+            <BarraDeFiltro>
+              <FiltroPeriodo range={range} setRange={setRange} />
+            </BarraDeFiltro>
+            {loadingAd ? (
+              <TableSkeleton cols={11} />
+            ) : (
+              <AdMetricsTab rows={adMetrics?.metrics ?? []} window={adMetrics?.window ?? 'LAST_MONTH'} />
+            )}
+          </div>
         )}
         {tab === 'metrics' && (
-          loadingMedia
-            ? <TableSkeleton cols={9} />
-            : <MetricsTab
+          <div className="space-y-3">
+            <BarraDeFiltro>
+              <FiltroPeriodo range={range} setRange={setRange} />
+              <span className="mx-1 hidden h-6 w-px bg-zinc-200 sm:block dark:bg-white/10" />
+              {/* Colunas: estavam soltas dentro da tabela, longe do filtro que
+                  elas complementam. */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {COL_GROUPS.map((g) => (
+                  <button
+                    key={g.key}
+                    onClick={() => setCols((c) => ({ ...c, [g.key]: !c[g.key] }))}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      cols[g.key]
+                        ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
+                        : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-white/5 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </BarraDeFiltro>
+            {loadingMedia ? (
+              <TableSkeleton cols={9} />
+            ) : (
+              <MetricsTab
                 rows={mediaMetrics?.metrics ?? []}
                 window={mediaMetrics?.window ?? 'LAST_MONTH'}
                 cols={cols}
-                setCols={setCols}
               />
+            )}
+          </div>
         )}
         {tab === 'posts' && <InstagramPostsTab />}
         {tab === 'comentarios' && <CommentsPanel />}
         {tab === 'publicar' && <PublicarTab />}
-        {tab === 'threads' && <ThreadsPanel />}
+        {tab === 'threads' && <ThreadsTabComBarra />}
         {tab === 'activity' && (
           loadingActivity
             ? <div className="grid gap-6 lg:grid-cols-2">
@@ -372,7 +460,16 @@ const fmtMoney = (n: number | null | undefined, cur = 'BRL') =>
 const fmtDec = (n: number | null | undefined, suffix = '') =>
   n == null ? '—' : n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
 
-function ResumoTab({ since, until, all, rangeKey }: { since: string; until: string; all: boolean; rangeKey: string }) {
+function ResumoTab({
+  since, until, all, rangeKey, range, setRange,
+}: {
+  since: string;
+  until: string;
+  all: boolean;
+  rangeKey: string;
+  range: DateRange | null;
+  setRange: (r: DateRange | null) => void;
+}) {
   const { channelId } = useMarketingAccount();
   const { data: ov, isLoading } = useQuery({
     queryKey: ['marketing-overview', rangeKey, channelId],
@@ -400,7 +497,11 @@ function ResumoTab({ since, until, all, rangeKey }: { since: string; until: stri
   const st = p.status ? statusLabel[p.status] : null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
+      <BarraDeFiltro>
+        <FiltroPeriodo range={range} setRange={setRange} />
+      </BarraDeFiltro>
+
       {ov.warning && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
           {ov.warning}
@@ -673,43 +774,61 @@ function GestaoTab() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-zinc-500">
-          Suas campanhas no Meta Ads, ao vivo. Pause, ative ou exclua direto aqui.
-          Criar campanhas novas é com a crew (peça o funil completo no chat da crew).
-        </p>
+      <BarraDeFiltro>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} /> Atualizar
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          Atualizar
         </button>
-      </div>
 
-      {!isLoading && !isError && (data?.campaigns.length ?? 0) > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          {STATUS_TABS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setStatusFilter(s.id)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                statusFilter === s.id
-                  ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
-                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-white/5 dark:text-zinc-400 dark:hover:bg-white/10'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
+        <div className="relative h-9 min-w-[200px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar campanha…"
-            className="ml-auto w-48 rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-xs focus:border-primary focus:outline-none dark:border-white/10 dark:bg-black dark:text-zinc-100"
+            className="h-9 w-full rounded-md border border-zinc-200 bg-zinc-50 pl-9 pr-9 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
           />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+              title="Limpar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
-      )}
+
+        <div className="relative h-9 shrink-0">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'paused')}
+            className="h-9 w-full appearance-none rounded-md border border-zinc-200 bg-zinc-50 pl-3 pr-9 text-sm text-zinc-700 outline-none focus:border-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
+          >
+            {STATUS_TABS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+        </div>
+
+        <span className="shrink-0 px-1 text-xs text-zinc-500">
+          {filtered.length === (data?.campaigns.length ?? 0)
+            ? `${filtered.length} campanha(s)`
+            : `${filtered.length} de ${data?.campaigns.length ?? 0} campanha(s)`}
+        </span>
+      </BarraDeFiltro>
+
+      <p className="text-xs text-zinc-500">
+        Suas campanhas no Meta Ads, ao vivo. Pause, ative ou exclua direto aqui.
+        Criar campanhas novas é com a crew (peça o funil completo no chat da crew).
+      </p>
 
       {isLoading ? (
         <TableSkeleton cols={4} />
@@ -1079,12 +1198,11 @@ const COL_GROUPS: { key: keyof MetricsCols; label: string }[] = [
 ];
 
 function MetricsTab({
-  rows, window, cols, setCols,
+  rows, window, cols,
 }: {
   rows: MediaMetricRow[];
   window: string;
   cols: MetricsCols;
-  setCols: React.Dispatch<React.SetStateAction<MetricsCols>>;
 }) {
   const prevByRow = new Map<string, MediaMetricRow | null>();
   const seen = new Map<string, MediaMetricRow>();
@@ -1109,27 +1227,10 @@ function MetricsTab({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-zinc-500">
-          Cada linha é uma captura de métricas de um post. Período:{' '}
-          <span className="font-medium">{WINDOW_LABELS[window] ?? window}</span>.
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {COL_GROUPS.map((g) => (
-            <button
-              key={g.key}
-              onClick={() => setCols((c) => ({ ...c, [g.key]: !c[g.key] }))}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                cols[g.key]
-                  ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
-                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-white/5 dark:hover:bg-white/10'
-              }`}
-            >
-              {g.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <p className="text-xs text-zinc-500">
+        Cada linha é uma captura de métricas de um post. Período:{' '}
+        <span className="font-medium">{WINDOW_LABELS[window] ?? window}</span>.
+      </p>
       {engagementSeries.length > 1 && (
         <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-black">
           <p className="mb-2 text-xs font-medium text-zinc-500">Alcance e interações por dia</p>
@@ -1252,11 +1353,11 @@ function ContaTab() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
+      <BarraDeFiltro>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
           Atualizar
@@ -1264,7 +1365,7 @@ function ContaTab() {
         <span className="px-1 text-xs text-zinc-500">
           Dados lidos direto do Instagram no momento da consulta.
         </span>
-      </div>
+      </BarraDeFiltro>
 
       {isLoading ? (
         <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
@@ -1437,25 +1538,27 @@ function InstagramPostsTab() {
 
   return (
     <div className="space-y-3">
-      {/* Barra de filtro. Altura e padding iguais aos da navegação (p-3 + h-10)
-          pra as duas parecerem a mesma peça, empilhadas. */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
+      <BarraDeFiltro>
         <button
           onClick={() => refetch()}
           disabled={isFetching}
-          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
           Atualizar
         </button>
 
-        <div className="relative h-10 min-w-[220px] flex-1">
+        {/* h-9 = a mesma altura dos botões (px-4 py-2 + text-sm). Com h-10 o
+            campo era o item mais alto e esticava a barra inteira. O fundo é um
+            tom acima do papel — campo editável tem que parecer afundado, não
+            se confundir com a barra. */}
+        <div className="relative h-9 min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar na legenda dos posts…"
-            className="h-10 w-full rounded-md border border-zinc-200 bg-white pl-9 pr-9 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+            className="h-9 w-full rounded-md border border-zinc-200 bg-zinc-50 pl-9 pr-9 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
           />
           {busca && (
             <button
@@ -1470,11 +1573,11 @@ function InstagramPostsTab() {
 
         {/* appearance-none + seta própria: a seta nativa do select desalinha
             quando a altura é fixada, e cada navegador desenha de um jeito. */}
-        <div className="relative h-10 shrink-0">
+        <div className="relative h-9 shrink-0">
           <select
             value={ordem}
             onChange={(e) => setOrdem(e.target.value as OrdemPosts)}
-            className="h-10 w-full appearance-none rounded-md border border-zinc-200 bg-white pl-3 pr-9 text-sm text-zinc-700 outline-none focus:border-primary dark:border-white/10 dark:bg-black dark:text-zinc-200"
+            className="h-9 w-full appearance-none rounded-md border border-zinc-200 bg-zinc-50 pl-3 pr-9 text-sm text-zinc-700 outline-none focus:border-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
           >
             {(Object.keys(ORDEM_LABELS) as OrdemPosts[]).map((o) => (
               <option key={o} value={o}>
@@ -1490,7 +1593,7 @@ function InstagramPostsTab() {
             ? `${posts.length} de ${todos.length} post(s)`
             : `${todos.length} post(s)`}
         </span>
-      </div>
+      </BarraDeFiltro>
 
       {isLoading ? (
         <PostsSkeleton />
@@ -1779,34 +1882,90 @@ function ActivityView({ activity }: { activity: { analyses: any[]; activities: a
 
 // ─── Publicar (Instagram / Threads) ────────────────────────────
 
+/**
+ * Threads com a mesma barra das outras abas. O ThreadsPanel em si não tinha
+ * barra nenhuma — atualizar dependia de recarregar a página.
+ */
+function ThreadsTabComBarra() {
+  const queryClient = useQueryClient();
+  const [atualizando, setAtualizando] = useState(false);
+
+  const atualizar = async () => {
+    setAtualizando(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['threads-posts'] }),
+        queryClient.invalidateQueries({ queryKey: ['threads-replies'] }),
+        queryClient.invalidateQueries({ queryKey: ['threads-insights'] }),
+      ]);
+    } finally {
+      setAtualizando(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <BarraDeFiltro>
+        <button
+          onClick={atualizar}
+          disabled={atualizando}
+          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${atualizando ? 'animate-spin' : ''}`} />
+          Atualizar
+        </button>
+        <span className="px-1 text-xs text-zinc-500">
+          Escolha um post pra ver respostas e desempenho.
+        </span>
+      </BarraDeFiltro>
+      <ThreadsPanel />
+    </div>
+  );
+}
+
 function PublicarTab() {
   const [channel, setChannel] = useState<'instagram' | 'threads'>('instagram');
+  // Dia clicado no calendário — desce pro formulário abrir o campo já na data.
+  const [diaSugerido, setDiaSugerido] = useState<Date | null>(null);
   return (
-    <div className="space-y-4">
-      <div className="flex w-full max-w-sm gap-2 rounded-lg border border-zinc-200 p-1 dark:border-white/10">
-        <button
-          onClick={() => setChannel('instagram')}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-            channel === 'instagram'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
-          }`}
-        >
-          <Instagram className="h-4 w-4" /> Instagram
-        </button>
-        <button
-          onClick={() => setChannel('threads')}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-            channel === 'threads'
-              ? 'bg-primary text-primary-foreground'
-              : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/5'
-          }`}
-        >
-          <AtSign className="h-4 w-4" /> Threads
-        </button>
-      </div>
+    <div className="space-y-3">
+      <BarraDeFiltro>
+        {([
+          { id: 'instagram' as const, icon: Instagram, label: 'Instagram' },
+          { id: 'threads' as const, icon: AtSign, label: 'Threads' },
+        ]).map((r) => (
+          <button
+            key={r.id}
+            onClick={() => setChannel(r.id)}
+            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              channel === r.id
+                ? 'bg-primary text-primary-foreground'
+                : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100'
+            }`}
+          >
+            <r.icon className="h-4 w-4 shrink-0" />
+            {r.label}
+          </button>
+        ))}
+        <span className="px-1 text-xs text-zinc-500">
+          Escolha a rede em que o post vai sair.
+        </span>
+      </BarraDeFiltro>
 
-      {channel === 'instagram' ? <PublishInstagramForm /> : <PublishThreadsForm />}
+      {/* Formulário e calendário lado a lado: agendar sem ver o que já está
+          marcado é como escrever agenda de olhos fechados. Empilha no mobile. */}
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
+        <div className="min-w-0">
+          {channel === 'instagram' ? (
+            <PublishInstagramForm diaSugerido={diaSugerido} />
+          ) : (
+            <PublishThreadsForm diaSugerido={diaSugerido} />
+          )}
+        </div>
+        <div className="min-w-0">
+          <CalendarioPosts onEscolherDia={setDiaSugerido} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -1873,7 +2032,7 @@ function UploadMidia({
   );
 }
 
-function PublishInstagramForm() {
+function PublishInstagramForm({ diaSugerido }: { diaSugerido?: Date | null }) {
   const { channelId } = useMarketingAccount();
   const [formato, setFormato] = useState<'unico' | 'carrossel'>('unico');
   const [caption, setCaption] = useState('');
@@ -2032,17 +2191,37 @@ function PublishInstagramForm() {
         </>
       )}
 
-      <PubButton
-        onClick={submit}
-        disabled={!canPublish}
-        loading={publishing}
-        label={formato === 'carrossel' ? 'Publicar carrossel' : 'Publicar no Instagram'}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <PubButton
+          onClick={submit}
+          disabled={!canPublish}
+          loading={publishing}
+          label={formato === 'carrossel' ? 'Publicar carrossel' : 'Publicar no Instagram'}
+        />
+        <BotaoAgendar
+          disabled={!canPublish}
+          diaSugerido={diaSugerido}
+          montarPayload={(scheduledFor) => ({
+            network: 'INSTAGRAM',
+            scheduledFor,
+            caption: caption.trim() || undefined,
+            ...(formato === 'carrossel'
+              ? { carouselUrls: preenchidos }
+              : {
+                  imageUrl: imageUrl.trim() || undefined,
+                  videoUrl: videoUrl.trim() || undefined,
+                }),
+          })}
+          onAgendado={() => {
+            setCaption(''); setImageUrl(''); setVideoUrl(''); setItens(['', '']);
+          }}
+        />
+      </div>
     </div>
   );
 }
 
-function PublishThreadsForm() {
+function PublishThreadsForm({ diaSugerido }: { diaSugerido?: Date | null }) {
   const [text, setText] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -2082,7 +2261,21 @@ function PublishThreadsForm() {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="prévia" className="max-h-64 rounded-lg border border-zinc-200 object-contain dark:border-white/10" onError={(e) => (e.currentTarget.style.display = 'none')} />
       )}
-      <PubButton onClick={submit} disabled={!canPublish} loading={publishing} label="Publicar no Threads" />
+      <div className="flex flex-wrap items-center gap-2">
+        <PubButton onClick={submit} disabled={!canPublish} loading={publishing} label="Publicar no Threads" />
+        <BotaoAgendar
+          disabled={!canPublish}
+          diaSugerido={diaSugerido}
+          montarPayload={(scheduledFor) => ({
+            network: 'THREADS',
+            scheduledFor,
+            caption: text.trim() || undefined,
+            imageUrl: imageUrl.trim() || undefined,
+            videoUrl: videoUrl.trim() || undefined,
+          })}
+          onAgendado={() => { setText(''); setImageUrl(''); setVideoUrl(''); }}
+        />
+      </div>
     </div>
   );
 }
@@ -2120,6 +2313,113 @@ function PubUrlField({ label, value, onChange, placeholder, icon: Icon, disabled
           className="h-10 w-full bg-transparent text-sm placeholder:text-zinc-400 focus-visible:outline-none dark:text-zinc-100"
         />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Agendar, ao lado do Publicar. Abre um campo de data/hora inline em vez de
+ * modal — é um dado só, e modal pra um campo interrompe mais do que ajuda.
+ */
+function BotaoAgendar({
+  disabled,
+  diaSugerido,
+  montarPayload,
+  onAgendado,
+}: {
+  disabled: boolean;
+  diaSugerido?: Date | null;
+  montarPayload: (scheduledFor: string) => AgendarPostPayload;
+  onAgendado: () => void;
+}) {
+  const qc = useQueryClient();
+  const [aberto, setAberto] = useState(false);
+  const [quando, setQuando] = useState(() => valorInicialDoCampo());
+  const [enviando, setEnviando] = useState(false);
+
+  // Clicou num dia do calendário: o campo acompanha.
+  useEffect(() => {
+    if (diaSugerido) {
+      setQuando(valorInicialDoCampo(diaSugerido));
+      setAberto(true);
+    }
+  }, [diaSugerido]);
+
+  // O horário só vale se for no futuro — o backend recusa o resto, e é melhor
+  // dizer isso no campo do que num toast vermelho depois do clique.
+  const instante = quando ? new Date(quando).getTime() : NaN;
+  const horarioValido = !Number.isNaN(instante) && instante > Date.now();
+
+  const agendar = async () => {
+    setEnviando(true);
+    try {
+      await marketingService.agendarPost(montarPayload(paraIsoComFuso(quando)));
+      toast.success(
+        `Agendado para ${new Date(quando).toLocaleString('pt-BR', {
+          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+        })} (${fusoDoNavegador()}).`,
+      );
+      await qc.invalidateQueries({ queryKey: ['marketing-schedule'] });
+      setAberto(false);
+      onAgendado();
+    } catch (err: any) {
+      if (err instanceof DataAgendamentoInvalida) {
+        toast.error(err.message);
+        return;
+      }
+      toast.error(err?.response?.data?.message ?? 'Falha ao agendar');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  if (!aberto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        disabled={disabled}
+        title={disabled ? 'Preencha o post primeiro' : 'Escolher data e hora'}
+        className="inline-flex items-center justify-center gap-2 rounded-md border border-zinc-200 px-4 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
+      >
+        <CalendarClock className="h-4 w-4" />
+        Agendar
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 p-1.5 dark:border-white/10">
+      <input
+        type="datetime-local"
+        value={quando}
+        onChange={(e) => setQuando(e.target.value)}
+        className="h-9 rounded-md border border-zinc-200 bg-zinc-50 px-2 text-sm text-zinc-800 outline-none focus:border-primary dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
+      />
+      {/* Diz em que fuso o horário será lido. Sem isso, quem viaja ou usa o
+          navegador em outro fuso não tem como saber o que "14:30" significa. */}
+      <span
+        className={`text-[11px] ${horarioValido ? 'text-zinc-500' : 'text-rose-600 dark:text-rose-400'}`}
+      >
+        {horarioValido ? fusoDoNavegador() : 'escolha um horário futuro'}
+      </span>
+      <button
+        type="button"
+        onClick={agendar}
+        disabled={disabled || enviando || !horarioValido}
+        className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      >
+        {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />}
+        {enviando ? 'Agendando…' : 'Confirmar'}
+      </button>
+      <button
+        type="button"
+        onClick={() => setAberto(false)}
+        className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10"
+        aria-label="Fechar"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }

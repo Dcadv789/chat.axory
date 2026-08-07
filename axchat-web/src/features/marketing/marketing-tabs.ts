@@ -99,6 +99,13 @@ export const MARKETING_SECTIONS: MarketingSectionDef[] = [
         subtitle: 'Seus posts recentes com miniatura e engajamento',
       },
       {
+        id: 'threads',
+        icon: AtSign,
+        label: 'Threads',
+        subtitle:
+          'Respostas, moderação e desempenho dos seus posts do Threads',
+      },
+      {
         id: 'comentarios',
         icon: MessageCircle,
         label: 'Comentários',
@@ -110,13 +117,6 @@ export const MARKETING_SECTIONS: MarketingSectionDef[] = [
         icon: BarChart3,
         label: 'Métricas dos posts',
         subtitle: 'Engajamento dos posts do Instagram',
-      },
-      {
-        id: 'threads',
-        icon: AtSign,
-        label: 'Threads',
-        subtitle:
-          'Respostas, moderação e desempenho dos seus posts do Threads',
       },
     ],
   },

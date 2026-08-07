@@ -270,6 +270,35 @@ export const marketingService = {
     });
   },
 
+  // ─── Agendamento ───
+  async listarAgendamentos(
+    since: string,
+    until: string,
+  ): Promise<{ posts: ScheduledPost[] }> {
+    const { data } = await api.get('/marketing/schedule', {
+      params: { since, until },
+    });
+    return data?.data ?? data;
+  },
+
+  async agendarPost(payload: AgendarPostPayload): Promise<ScheduledPost> {
+    const { data } = await api.post('/marketing/schedule', payload);
+    return data?.data ?? data;
+  },
+
+  async reagendarPost(id: string, scheduledFor: string): Promise<ScheduledPost> {
+    const { data } = await api.put(`/marketing/schedule/${id}`, { scheduledFor });
+    return data?.data ?? data;
+  },
+
+  async cancelarAgendamento(id: string): Promise<void> {
+    await api.post(`/marketing/schedule/${id}/cancel`);
+  },
+
+  async removerAgendamento(id: string): Promise<void> {
+    await api.delete(`/marketing/schedule/${id}`);
+  },
+
   async instagramProfile(channelId?: string): Promise<InstagramProfile> {
     const { data } = await api.get('/marketing/instagram/profile', {
       params: channelId ? { channelId } : undefined,
@@ -390,6 +419,43 @@ export interface AdSet {
   dailyBudgetCents: number | null;
   lifetimeBudgetCents: number | null;
   optimizationGoal: string | null;
+}
+
+export type ScheduledPostNetwork = 'INSTAGRAM' | 'THREADS';
+export type ScheduledPostStatus =
+  | 'PENDING'
+  | 'PUBLISHING'
+  | 'PUBLISHED'
+  | 'FAILED'
+  | 'CANCELED';
+
+export interface ScheduledPost {
+  id: string;
+  network: ScheduledPostNetwork;
+  caption: string | null;
+  imageUrl: string | null;
+  videoUrl: string | null;
+  carouselUrls: string[];
+  /** ISO em UTC — a tela converte pro fuso de quem está olhando. */
+  scheduledFor: string;
+  status: ScheduledPostStatus;
+  publishedAt: string | null;
+  publishedMediaId: string | null;
+  lastError: string | null;
+  attempts: number;
+  channelId: string | null;
+  createdAt: string;
+}
+
+export interface AgendarPostPayload {
+  network: ScheduledPostNetwork;
+  /** ISO COM fuso. Sem ele o post sai na hora errada. */
+  scheduledFor: string;
+  caption?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  carouselUrls?: string[];
+  channelId?: string;
 }
 
 /** Ficha da conta, direto do nó da conta na Graph API. */

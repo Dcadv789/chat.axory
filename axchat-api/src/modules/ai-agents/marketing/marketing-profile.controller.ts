@@ -25,9 +25,11 @@ import { MarketingCredentialsService } from './marketing-credentials.service';
 import { MarketingPublishService } from './marketing-publish.service';
 import { MarketingUploadService } from './marketing-upload.service';
 import { MarketingBudgetService } from './marketing-budget.service';
+import { MarketingScheduleService } from './marketing-schedule.service';
+import { AgendarPostDto, ReagendarPostDto } from './dto/agendar-post.dto';
 import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
 import { SetMonthlyBudgetDto } from './dto/set-monthly-budget.dto';
-import { CurrentOrg, Roles } from '../../../common/decorators';
+import { CurrentOrg, CurrentUser, Roles } from '../../../common/decorators';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 
 type ThreadsMediaType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'CAROUSEL';
@@ -44,7 +46,62 @@ export class MarketingProfileController {
     private readonly budgetService: MarketingBudgetService,
     private readonly credentials: MarketingCredentialsService,
     private readonly uploads: MarketingUploadService,
+    private readonly schedule: MarketingScheduleService,
   ) {}
+
+  // ─── Agendamento de posts ──────────────────────────────────
+
+  @Get('schedule')
+  @ApiOperation({ summary: 'Posts agendados num intervalo (calendário)' })
+  listarAgendamentos(
+    @CurrentOrg('id') orgId: string,
+    @Query('since') since?: string,
+    @Query('until') until?: string,
+  ) {
+    return this.schedule.listar(orgId, since, until);
+  }
+
+  @Post('schedule')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Agenda um post para publicar depois' })
+  agendarPost(
+    @CurrentOrg('id') orgId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: AgendarPostDto,
+  ) {
+    return this.schedule.criar(orgId, userId, dto);
+  }
+
+  @Put('schedule/:id')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Muda o horário de um agendamento pendente' })
+  reagendarPost(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Body() dto: ReagendarPostDto,
+  ) {
+    return this.schedule.reagendar(orgId, id, dto.scheduledFor);
+  }
+
+  @Post('schedule/:id/cancel')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Cancela um agendamento pendente' })
+  cancelarAgendamento(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+  ) {
+    return this.schedule.cancelar(orgId, id);
+  }
+
+  @Delete('schedule/:id')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Remove do calendário um agendamento já finalizado' })
+  removerAgendamento(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+  ) {
+    return this.schedule.remover(orgId, id);
+  }
 
   // ─── Publicação direta (dono) ──────────────────────────────
 

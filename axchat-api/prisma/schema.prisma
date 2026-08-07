@@ -301,6 +301,7 @@ model Organization {
   personalEvents       PersonalCalendarEvent[]
   instagramHiddenComments InstagramHiddenComment[]
   instagramPostCache      InstagramPostCache[]
+  scheduledPosts          ScheduledPost[]
 
   @@map("organizations")
 }
@@ -1623,6 +1624,59 @@ model MarketingAnalysis {
 // Log append-only de TODA atividade de marketing (auditoria 100% no domínio).
 // Complementa o log técnico que já existe em AiAgentRun + AiToolCall (toda
 // tool-call com input/output/erro). Aqui é o evento de negócio legível.
+/// Post que o dono marcou pra sair depois. O painel grava aqui e um tick de um
+/// minuto publica o que venceu — nada fica "esperando" só na memória do
+/// processo, então reiniciar a API não perde agendamento.
+model ScheduledPost {
+  id             String  @id @default(cuid())
+  organizationId String  @map("organization_id")
+  /// Conta do Instagram escolhida no painel. Null = credenciais da organização.
+  channelId      String? @map("channel_id")
+
+  network ScheduledPostNetwork
+  caption String? @db.Text
+  imageUrl String? @map("image_url")
+  videoUrl String? @map("video_url")
+  /// 2 a 10 itens quando é carrossel; vazio nos demais casos.
+  carouselUrls String[] @map("carousel_urls")
+
+  /// Quando publicar. Guardado em UTC; a tela converte pro fuso de quem olha.
+  scheduledFor DateTime            @map("scheduled_for")
+  status       ScheduledPostStatus @default(PENDING)
+
+  /// Preenchidos depois que sai (ou falha).
+  publishedAt      DateTime? @map("published_at")
+  publishedMediaId String?   @map("published_media_id")
+  lastError        String?   @map("last_error")
+  /// Tentativas já feitas. Publicação é irreversível, então o teto é baixo e
+  /// a falha para de tentar em vez de insistir e arriscar post duplicado.
+  attempts         Int       @default(0)
+
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, scheduledFor], name: "idx_sched_post_org_time")
+  /// Índice do tick: ele varre por status + horário, sem filtrar organização.
+  @@index([status, scheduledFor], name: "idx_sched_post_due")
+  @@map("scheduled_posts")
+}
+
+enum ScheduledPostNetwork {
+  INSTAGRAM
+  THREADS
+}
+
+enum ScheduledPostStatus {
+  PENDING
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELED
+}
+
 model MarketingActivity {
   id             String  @id @default(cuid())
   organizationId String  @map("organization_id")
