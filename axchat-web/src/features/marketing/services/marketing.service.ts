@@ -270,6 +270,13 @@ export const marketingService = {
     });
   },
 
+  async instagramProfile(channelId?: string): Promise<InstagramProfile> {
+    const { data } = await api.get('/marketing/instagram/profile', {
+      params: channelId ? { channelId } : undefined,
+    });
+    return data?.data ?? data;
+  },
+
   async instagramPosts(
     channelId?: string,
   ): Promise<{ posts: InstagramPost[]; syncedAt?: string | null; total?: number }> {
@@ -383,6 +390,19 @@ export interface AdSet {
   dailyBudgetCents: number | null;
   lifetimeBudgetCents: number | null;
   optimizationGoal: string | null;
+}
+
+/** Ficha da conta, direto do nó da conta na Graph API. */
+export interface InstagramProfile {
+  id: string;
+  username: string | null;
+  name: string | null;
+  profilePictureUrl: string | null;
+  biography: string | null;
+  website: string | null;
+  followers: number | null;
+  following: number | null;
+  posts: number | null;
 }
 
 export interface InstagramPost {

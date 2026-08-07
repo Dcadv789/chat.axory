@@ -209,6 +209,15 @@ export class MarketingProfileController {
     );
   }
 
+  @Get('instagram/profile')
+  @ApiOperation({ summary: 'Ficha da conta do Instagram (perfil público)' })
+  instagramProfile(
+    @CurrentOrg('id') orgId: string,
+    @Query('channelId') channelId?: string,
+  ) {
+    return this.ads.getInstagramProfile(orgId, channelId);
+  }
+
   @Get('instagram/posts')
   @ApiOperation({ summary: 'Posts recentes do Instagram (com miniatura)' })
   instagramPosts(

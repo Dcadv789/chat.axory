@@ -166,6 +166,48 @@ export class MarketingAdsService {
    * `MAX_PAGINAS` existe só como trava de segurança contra loop de paginação —
    * não é limite de produto.
    */
+  /**
+   * Ficha da conta do Instagram: foto, @, nome, bio, seguidores, seguindo e
+   * total de posts. Uma chamada só, direto no nó da conta.
+   *
+   * É a leitura mais básica que `instagram_basic` autoriza, e até então o app
+   * não mostrava nada disso em lugar nenhum — o @ aparecia só no seletor de
+   * conta, que some quando existe uma conta só. Sem tela, não há como
+   * demonstrar a permissão no App Review.
+   */
+  async getInstagramProfile(orgId: string, channelId?: string) {
+    const { igUserId, token } = await this.credentialsService.instagram(
+      orgId,
+      channelId,
+    );
+
+    const fields =
+      'id,username,name,profile_picture_url,biography,website,followers_count,follows_count,media_count';
+    const url =
+      `${GRAPH}/${encodeURIComponent(igUserId)}` +
+      `?fields=${fields}&access_token=${encodeURIComponent(token)}`;
+
+    const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    const json: any = await res.json();
+    if (!res.ok) {
+      throw new BadRequestException(
+        `Instagram: ${json?.error?.message ?? `HTTP ${res.status}`}`,
+      );
+    }
+
+    return {
+      id: String(json.id),
+      username: json.username ?? null,
+      name: json.name ?? null,
+      profilePictureUrl: json.profile_picture_url ?? null,
+      biography: json.biography ?? null,
+      website: json.website ?? null,
+      followers: this.num(json.followers_count),
+      following: this.num(json.follows_count),
+      posts: this.num(json.media_count),
+    };
+  }
+
   async listInstagramPosts(
     orgId: string,
     channelId?: string,

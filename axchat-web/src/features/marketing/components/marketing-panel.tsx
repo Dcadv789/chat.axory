@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Megaphone, Activity, BarChart3, Loader2, Play, Pause, Trash2, RefreshCw,
   LayoutDashboard, TrendingUp, TrendingDown, Wallet, MousePointerClick, Users, Eye, Target,
-  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon, Search, ChevronDown, Upload,
+  Instagram, X, Pencil, ExternalLink, Heart, MessageCircle, Layers, PenSquare, Send, AtSign, ImageIcon, Search, ChevronDown, Upload, UserCircle2,
   type LucideIcon,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -34,7 +34,7 @@ import { channelsService } from '@/features/channels/services/channels.service';
 import { ThreadsPanel } from './threads-panel';
 import { CommentsPanel } from './comments-panel';
 
-type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'posts' | 'comentarios' | 'publicar' | 'threads' | 'activity';
+type Tab = 'resumo' | 'gestao' | 'admetrics' | 'metrics' | 'conta' | 'posts' | 'comentarios' | 'publicar' | 'threads' | 'activity';
 
 const WINDOW_LABELS: Record<string, string> = {
   LAST_MONTH: 'último mês',
@@ -186,6 +186,7 @@ function MarketingPanelInner() {
     { id: 'gestao', icon: Megaphone, label: 'Gestão de anúncios', subtitle: 'Pause, ative e exclua suas campanhas do Meta Ads' },
     { id: 'admetrics', icon: BarChart3, label: 'Métricas dos anúncios', subtitle: 'Desempenho por campanha ao longo do tempo' },
     { id: 'metrics', icon: BarChart3, label: 'Métricas dos posts', subtitle: 'Engajamento dos posts do Instagram' },
+    { id: 'conta', icon: UserCircle2, label: 'Conta', subtitle: 'Perfil do Instagram: foto, bio, seguidores e publicações' },
     { id: 'posts', icon: Instagram, label: 'Posts do Instagram', subtitle: 'Seus posts recentes com miniatura e engajamento' },
     { id: 'comentarios', icon: MessageCircle, label: 'Comentários', subtitle: 'Veja e responda os comentários de cada post — e acompanhe a automação agindo' },
     { id: 'publicar', icon: PenSquare, label: 'Publicar', subtitle: 'Crie e publique posts no Instagram e no Threads' },
@@ -241,6 +242,7 @@ function MarketingPanelInner() {
           )}
         </div>
 
+        {tab === 'conta' && <ContaTab />}
         {tab === 'resumo' && <ResumoTab since={since} until={until} all={all} rangeKey={rangeKey} />}
         {tab === 'gestao' && <GestaoTab />}
         {tab === 'admetrics' && (
@@ -1212,6 +1214,131 @@ const ORDEM_LABELS: Record<OrdemPosts, string> = {
 
 /** Post sem data vai pro fim em vez de virar NaN e bagunçar a ordenação. */
 const tempo = (iso: string | null) => (iso ? new Date(iso).getTime() : 0);
+
+/**
+ * Ficha da conta do Instagram: foto, @, nome, bio, seguidores, seguindo e
+ * número de posts, lidos ao vivo da Graph API.
+ *
+ * Existe porque o app usava `instagram_basic` em tudo (listar posts, publicar,
+ * comentários) sem nunca MOSTRAR os dados de perfil que a permissão autoriza —
+ * o @ aparecia só no seletor de conta, que some quando há uma conta só.
+ */
+function ContaTab() {
+  const { channelId } = useMarketingAccount();
+
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['marketing-instagram-profile', channelId],
+    queryFn: () => marketingService.instagramProfile(channelId),
+    staleTime: 60000,
+  });
+
+  const numero = (v: number | null | undefined) =>
+    typeof v === 'number' ? v.toLocaleString('pt-BR') : '—';
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          Atualizar
+        </button>
+        <span className="px-1 text-xs text-zinc-500">
+          Dados lidos direto do Instagram no momento da consulta.
+        </span>
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+          <div className="flex items-center gap-4">
+            <div className="h-20 w-20 shrink-0 animate-pulse rounded-full bg-zinc-100 dark:bg-white/5" />
+            <div className="flex-1 space-y-2">
+              <div className="h-5 w-48 animate-pulse rounded bg-zinc-100 dark:bg-white/5" />
+              <div className="h-4 w-32 animate-pulse rounded bg-zinc-100 dark:bg-white/5" />
+              <div className="h-4 w-64 animate-pulse rounded bg-zinc-100 dark:bg-white/5" />
+            </div>
+          </div>
+        </div>
+      ) : isError ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+          {(error as any)?.response?.data?.message ??
+            'Não consegui ler os dados da conta do Instagram.'}
+        </div>
+      ) : !data ? null : (
+        <div className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">
+          <div className="flex flex-wrap items-start gap-5">
+            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-zinc-200 bg-zinc-100 dark:border-white/10 dark:bg-white/5">
+              {data.profilePictureUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={data.profilePictureUrl}
+                  alt={data.username ?? 'perfil'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-zinc-300">
+                  <Instagram className="h-7 w-7" />
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-[240px] flex-1">
+              <h2 className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                {data.name ?? data.username ?? 'Conta do Instagram'}
+              </h2>
+              {data.username && (
+                <a
+                  href={`https://instagram.com/${data.username}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary hover:underline"
+                >
+                  @{data.username}
+                </a>
+              )}
+              {data.biography && (
+                <p className="mt-2 whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-300">
+                  {data.biography}
+                </p>
+              )}
+              {data.website && (
+                <a
+                  href={data.website}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-block text-xs text-zinc-500 hover:underline"
+                >
+                  {data.website}
+                </a>
+              )}
+              <p className="mt-2 font-mono text-[11px] text-zinc-400">
+                ID {data.id}
+              </p>
+            </div>
+
+            <div className="flex gap-6">
+              {[
+                { label: 'Publicações', valor: data.posts },
+                { label: 'Seguidores', valor: data.followers },
+                { label: 'Seguindo', valor: data.following },
+              ].map((m) => (
+                <div key={m.label} className="text-center">
+                  <p className="text-xl font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">
+                    {numero(m.valor)}
+                  </p>
+                  <p className="text-xs text-zinc-500">{m.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function InstagramPostsTab() {
   const { channelId } = useMarketingAccount();
