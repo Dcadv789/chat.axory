@@ -21,6 +21,7 @@ import {
   type ThreadsReply,
 } from '@/features/channels/services/channels.service';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { DateRange } from './range-calendar';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   Area,
@@ -38,7 +39,7 @@ import {
  * tiveram tela — na prática ninguém conseguia ler nem moderar resposta do
  * Threads pelo AxChat.
  */
-export function ThreadsPanel() {
+export function ThreadsPanel({ range }: { range?: DateRange | null }) {
   const queryClient = useQueryClient();
   const [postSelecionado, setPostSelecionado] = useState<ThreadsPost | null>(null);
   const [paraExcluir, setParaExcluir] = useState<ThreadsPost | null>(null);
@@ -103,7 +104,7 @@ export function ThreadsPanel() {
 
   return (
     <div className="space-y-3">
-      <ResumoDoPerfil canalId={canalThreads.id} />
+      <ResumoDoPerfil canalId={canalThreads.id} range={range} />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
@@ -208,10 +209,23 @@ export function ThreadsPanel() {
  * a tela só sabia pedir métrica DE UM POST — então visualizações do perfil e
  * evolução de seguidores não apareciam em lugar nenhum.
  */
-function ResumoDoPerfil({ canalId }: { canalId: string }) {
+function ResumoDoPerfil({
+  canalId,
+  range,
+}: {
+  canalId: string;
+  range?: DateRange | null;
+}) {
+  // O fim do intervalo vai como 23:59:59: o calendário devolve a data zerada, e
+  // mandar assim cortaria o último dia inteiro da conta.
+  const since = range ? new Date(range.since).toISOString() : undefined;
+  const until = range
+    ? new Date(new Date(range.until).setHours(23, 59, 59, 999)).toISOString()
+    : undefined;
+
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['threads-insights-perfil', canalId],
-    queryFn: () => channelsService.threadsInsights(canalId),
+    queryKey: ['threads-insights-perfil', canalId, since ?? '', until ?? ''],
+    queryFn: () => channelsService.threadsInsights(canalId, undefined, since, until),
     retry: false,
   });
 

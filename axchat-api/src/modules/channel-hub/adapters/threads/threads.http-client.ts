@@ -464,17 +464,49 @@ export class ThreadsHttpClient {
     }
   }
 
-  /** Métricas do PERFIL (views, likes, replies, followers, etc.). */
-  async getUserInsights(channel: Channel): Promise<any[]> {
+  /**
+   * Métricas do PERFIL. `since`/`until` em Unix (segundos), opcionais.
+   *
+   * São DUAS chamadas de propósito. A doc do Threads é explícita: o
+   * `followers_count` **não aceita** `since`/`until` — pedir junto com as
+   * métricas de período faria a chamada inteira falhar, e o cartão de
+   * seguidores sumiria justamente quando alguém filtrasse data.
+   *
+   * Sem `since`/`until` a Meta devolve só DOIS DIAS (ontem e hoje). Por isso o
+   * filtro na tela não é enfeite: sem ele, o gráfico nunca passa de dois
+   * pontos.
+   */
+  async getUserInsights(
+    channel: Channel,
+    since?: number,
+    until?: number,
+  ): Promise<any[]> {
     const cfg = this.getConfig(channel);
     const client = this.createClient(channel);
+    const no = `/${cfg.threadsUserId}/threads_insights`;
+
+    // A Meta rejeita qualquer data anterior a 13/04/2024. Fixar aqui evita
+    // devolver erro pra quem só escolheu um intervalo largo no calendário.
+    const MINIMO = 1712991600;
+    const periodo =
+      since && until
+        ? { since: Math.max(since, MINIMO), until: Math.max(until, MINIMO) }
+        : {};
+
     try {
-      const { data } = await client.get(`/${cfg.threadsUserId}/threads_insights`, {
-        params: {
-          metric: 'views,likes,replies,reposts,quotes,followers_count',
-        },
-      });
-      return data?.data ?? [];
+      const [comPeriodo, seguidores] = await Promise.all([
+        client.get(no, {
+          params: { metric: 'views,likes,replies,reposts,quotes', ...periodo },
+        }),
+        client
+          .get(no, { params: { metric: 'followers_count' } })
+          // Seguidores é um extra: se falhar, as outras métricas ainda valem.
+          .catch(() => ({ data: { data: [] } })),
+      ]);
+      return [
+        ...(comPeriodo?.data?.data ?? []),
+        ...(seguidores?.data?.data ?? []),
+      ];
     } catch (err: any) {
       throw this.wrapError(err, 'getUserInsights');
     }

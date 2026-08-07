@@ -367,7 +367,7 @@ function MarketingPanelInner({ secao: secaoId }: { secao: MarketingSection }) {
         {tab === 'posts' && <InstagramPostsTab />}
         {tab === 'comentarios' && <CommentsPanel />}
         {tab === 'publicar' && <PublicarTab />}
-        {tab === 'threads' && <ThreadsTabComBarra />}
+        {tab === 'threads' && <ThreadsTabComBarra range={range} setRange={setRange} />}
         {tab === 'activity' && (
           loadingActivity
             ? <div className="grid gap-6 lg:grid-cols-2">
@@ -1887,7 +1887,13 @@ function ActivityView({ activity }: { activity: { analyses: any[]; activities: a
  * Threads com a mesma barra das outras abas. O ThreadsPanel em si não tinha
  * barra nenhuma — atualizar dependia de recarregar a página.
  */
-function ThreadsTabComBarra() {
+function ThreadsTabComBarra({
+  range,
+  setRange,
+}: {
+  range: DateRange | null;
+  setRange: (r: DateRange | null) => void;
+}) {
   const queryClient = useQueryClient();
   const [atualizando, setAtualizando] = useState(false);
 
@@ -1898,6 +1904,7 @@ function ThreadsTabComBarra() {
         queryClient.invalidateQueries({ queryKey: ['threads-posts'] }),
         queryClient.invalidateQueries({ queryKey: ['threads-replies'] }),
         queryClient.invalidateQueries({ queryKey: ['threads-insights'] }),
+        queryClient.invalidateQueries({ queryKey: ['threads-insights-perfil'] }),
       ]);
     } finally {
       setAtualizando(false);
@@ -1907,6 +1914,9 @@ function ThreadsTabComBarra() {
   return (
     <div className="space-y-3">
       <BarraDeFiltro>
+        {/* Filtro à esquerda do Atualizar. Ele não é enfeite aqui: sem período,
+            a Meta devolve só dois dias de métrica do perfil (ontem e hoje). */}
+        <FiltroPeriodo range={range} setRange={setRange} />
         <button
           onClick={atualizar}
           disabled={atualizando}
@@ -1919,7 +1929,7 @@ function ThreadsTabComBarra() {
           Escolha um post pra ver respostas e desempenho.
         </span>
       </BarraDeFiltro>
-      <ThreadsPanel />
+      <ThreadsPanel range={range} />
     </div>
   );
 }

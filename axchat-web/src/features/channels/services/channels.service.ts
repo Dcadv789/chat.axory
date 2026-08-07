@@ -407,13 +407,27 @@ export const channelsService = {
   },
 
   /** Sem `mediaId` devolve os insights do perfil inteiro. */
+  /**
+   * Métricas de um post (`mediaId`) ou do PERFIL (sem ele).
+   *
+   * `since`/`until` valem só pro perfil — e importam: sem eles a Meta devolve
+   * apenas dois dias (ontem e hoje).
+   */
   async threadsInsights(
     channelId: string,
     mediaId?: string,
+    since?: string,
+    until?: string,
   ): Promise<{ insights: ThreadsInsight[] }> {
     const { data } = await api.get<{ data: { insights: ThreadsInsight[] } }>(
       `/channels/${channelId}/threads/insights`,
-      { params: mediaId ? { mediaId } : {} },
+      {
+        params: mediaId
+          ? { mediaId }
+          : since && until
+            ? { since, until }
+            : {},
+      },
     );
     return data.data;
   },

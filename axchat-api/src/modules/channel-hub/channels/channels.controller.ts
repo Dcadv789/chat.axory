@@ -236,8 +236,10 @@ export class ChannelsController {
     @Param('id') id: string,
     @CurrentOrg('id') orgId: string,
     @Query('mediaId') mediaId?: string,
+    @Query('since') since?: string,
+    @Query('until') until?: string,
   ) {
-    return this.service.threadsInsights(id, orgId, mediaId);
+    return this.service.threadsInsights(id, orgId, mediaId, since, until);
   }
 
   @Get(':id/instagram/token-scopes')

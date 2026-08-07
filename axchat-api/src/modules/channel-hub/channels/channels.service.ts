@@ -941,17 +941,35 @@ export class ChannelsService {
     return this.threadsHttpClient.hideReply(channel, replyId, hide);
   }
 
-  /** Insights de um post (mediaId) ou do perfil (sem mediaId). */
+  /**
+   * Insights de um post (mediaId) ou do perfil (sem mediaId).
+   * `since`/`until` em ISO valem só pro perfil — métrica de post é lifetime.
+   */
   async threadsInsights(
     channelId: string,
     organizationId: string,
     mediaId?: string,
+    since?: string,
+    until?: string,
   ) {
     const channel = await this.assertThreads(channelId, organizationId);
-    const data = mediaId
-      ? await this.threadsHttpClient.getMediaInsights(channel, mediaId)
-      : await this.threadsHttpClient.getUserInsights(channel);
-    return { insights: data };
+    if (mediaId) {
+      return {
+        insights: await this.threadsHttpClient.getMediaInsights(channel, mediaId),
+      };
+    }
+    const emSegundos = (iso?: string) => {
+      if (!iso) return undefined;
+      const t = new Date(iso).getTime();
+      return Number.isNaN(t) ? undefined : Math.floor(t / 1000);
+    };
+    return {
+      insights: await this.threadsHttpClient.getUserInsights(
+        channel,
+        emSegundos(since),
+        emSegundos(until),
+      ),
+    };
   }
 
   /**
