@@ -252,6 +252,19 @@ export function ChannelDetailPanel({ channel, onUpdate, onSelect }: ChannelDetai
             sync={sync}
           />
         )}
+        {/* Reconectar mora AQUI, não na aba de credenciais: quem quer refazer o
+            login procura na tela principal do canal, não num formulário de
+            tokens. */}
+        {tab === 'dados' && channel.type === 'INSTAGRAM' && (
+          <div className="px-6 pb-6">
+            <InstagramReconnect channelId={channel.id} />
+          </div>
+        )}
+        {tab === 'dados' && channel.type === 'THREADS' && (
+          <div className="px-6 pb-6">
+            <ThreadsReconnect channel={channel} />
+          </div>
+        )}
         {tab === 'agentes' && <AgentsTab channelId={channel.id} />}
         {tab === 'config' && (
           <ConfigTab
@@ -953,14 +966,7 @@ function ConfigTab({
         </div>
       </div>
 
-      {channel.type === 'INSTAGRAM' && (
-        <>
-          <InstagramReconnect channelId={channel.id} />
-          <WebhookDiagnostics channelId={channel.id} />
-        </>
-      )}
-
-      {channel.type === 'THREADS' && <ThreadsReconnect channel={channel} />}
+      {channel.type === 'INSTAGRAM' && <WebhookDiagnostics channelId={channel.id} />}
     </div>
   );
 }
@@ -991,7 +997,23 @@ function InstagramReconnect({ channelId }: { channelId: string }) {
     }
   };
 
-  if (!enabled) return null;
+  // Antes o bloco inteiro sumia quando o app do Instagram não estava
+  // configurado — e sumir calado faz parecer que a função não existe. Agora ele
+  // aparece dizendo o que falta e pra quem pedir.
+  if (!enabled) {
+    return (
+      <div className="rounded-lg border border-zinc-200 p-4 dark:border-white/10">
+        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+          Conexão com a Meta
+        </p>
+        <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+          O app do Instagram não está configurado na plataforma, então não dá pra
+          refazer o login por aqui. Peça ao Super Admin para preencher o App ID e
+          a Configuração de Login do Instagram em Integrações.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-zinc-200 p-4 dark:border-white/10">
@@ -1012,8 +1034,10 @@ function InstagramReconnect({ channelId }: { channelId: string }) {
           title="Abre o popup da Meta e atualiza as credenciais deste canal"
           className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${running ? 'animate-spin' : ''}`} />
-          {running ? 'Reconectando…' : 'Reconectar'}
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${running || !sdkReady ? 'animate-spin' : ''}`}
+          />
+          {running ? 'Reconectando…' : !sdkReady ? 'Carregando…' : 'Reconectar'}
         </button>
       </div>
     </div>
