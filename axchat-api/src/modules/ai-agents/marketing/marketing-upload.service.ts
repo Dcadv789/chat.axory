@@ -23,19 +23,7 @@ const TIPOS_IMAGEM = [
 ];
 const TIPOS_VIDEO = ['video/mp4', 'video/quicktime'];
 
-/**
- * Como o imgproxy entrega a imagem pra Meta.
- *
- * `rs:fit:1440:1800` — 1440 é a largura máxima que o Instagram usa, e 1800 é a
- * altura de um 4:5 (o formato mais alto que ele aceita) nessa largura. `fit`
- * preserva a proporção e NÃO amplia, então imagem pequena passa intacta.
- *
- * `q:90` porque o Instagram recomprime tudo de novo: acima disso só engorda o
- * arquivo sem diferença visível no feed.
- */
-const IMGPROXY_PROCESSO = 'rs:fit:1440:1800/q:90';
-
-const MAX_IMAGEM = 25 * 1024 * 1024; // o imgproxy encolhe; o teto aqui é de sanidade
+const MAX_IMAGEM = 25 * 1024 * 1024; // a conversão encolhe; o teto é de sanidade
 const MAX_IMAGEM_SEM_PROXY = 8 * 1024 * 1024; // limite da Meta, quando vai direto
 const MAX_VIDEO = 100 * 1024 * 1024;
 
@@ -51,6 +39,7 @@ export class MarketingUploadService {
   private readonly logger = new Logger(MarketingUploadService.name);
 
   private readonly imgproxy: string;
+  private readonly imgproxyOpcoes: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -58,12 +47,18 @@ export class MarketingUploadService {
     config: ConfigService,
   ) {
     this.imgproxy = (config.get<string>('IMGPROXY_URL') || '').replace(/\/+$/, '');
+    // Vazio de propósito: só converte o formato, sem redimensionar. Quem
+    // exporta a arte já escolheu as dimensões, e mexer nisso por conta muda o
+    // enquadramento que a pessoa decidiu. Fica em env pra dar pra acrescentar
+    // (ex.: "rs:fit:1440:1800/q:90") sem precisar de deploy.
+    this.imgproxyOpcoes = (config.get<string>('IMGPROXY_OPTIONS') || '')
+      .replace(/^\/+|\/+$/g, '');
   }
 
   /**
-   * URL que vai pra Meta. Com imgproxy, entrega JPEG redimensionado a partir de
-   * qualquer formato — resolve o "só JPEG" e de quebra derruba o peso (um PNG
-   * de 2,3 MB sai com ~300 KB).
+   * URL que vai pra Meta. Com imgproxy, entrega JPEG a partir de qualquer
+   * formato — resolve o "só JPEG" e de quebra derruba o peso (um PNG de
+   * 2,3 MB sai com ~160 KB só pela conversão).
    *
    * Sem imgproxy configurado, devolve a URL crua: o arquivo já é JPEG, porque
    * a validação de formato exigiu isso na entrada.
@@ -72,7 +67,8 @@ export class MarketingUploadService {
     if (!this.imgproxy) return urlOriginal;
     // Modo `insecure` (sem assinatura) e `plain` — nossas keys são
     // uuid+extensão, sem query string nem caractere que precise de escape.
-    return `${this.imgproxy}/insecure/${IMGPROXY_PROCESSO}/plain/${urlOriginal}@jpg`;
+    const opcoes = this.imgproxyOpcoes ? `${this.imgproxyOpcoes}/` : '';
+    return `${this.imgproxy}/insecure/${opcoes}plain/${urlOriginal}@jpg`;
   }
 
   async uploadPostMedia(

@@ -1810,8 +1810,8 @@ function PublishInstagramForm() {
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             O Instagram exige mídia. <strong>Envie o arquivo</strong> do seu
             computador ou cole a URL, se já tiver uma. Pode mandar PNG, WEBP ou
-            foto do celular — convertemos para o formato que a Meta aceita e já
-            redimensionamos.
+            foto do celular — convertemos para o formato que a Meta aceita,{' '}
+            <strong>mantendo o tamanho que você exportou</strong>.
           </p>
           <div className="flex items-end gap-2">
             <div className="flex-1">
