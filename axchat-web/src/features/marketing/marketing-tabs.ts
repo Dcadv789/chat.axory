@@ -48,8 +48,10 @@ export interface MarketingSectionDef {
  * responde "que parte do marketing eu quero" e a barra responde "o que eu faço
  * aqui dentro".
  *
- * A URL carrega só a aba (`?aba=`); a seção é deduzida dela. Guardar as duas
- * abriria espaço pra estado incoerente (seção A com aba da seção B).
+ * A seção é SEGMENTO DE ROTA (`/marketing/conteudo`) e a aba é query param
+ * (`?aba=posts`). A seção precisa ser rota porque é o que a sidebar navega —
+ * como query, o clique só reescrevia o que vinha depois do `?` e a tela não
+ * trocava.
  */
 export const MARKETING_SECTIONS: MarketingSectionDef[] = [
   {
@@ -139,11 +141,28 @@ export const MARKETING_SECTIONS: MarketingSectionDef[] = [
   },
 ];
 
-/** Nome do query param que carrega a aba (`/marketing?aba=conta`). */
+/** Nome do query param que carrega a aba (`/marketing/resumo?aba=conta`). */
 export const MARKETING_TAB_PARAM = 'aba';
 
 /** Aba de entrada quando a URL não diz nada. */
 export const MARKETING_TAB_PADRAO: MarketingTab = 'resumo';
+
+/**
+ * A SEÇÃO é segmento de rota, não query param. Trocar de seção pela sidebar
+ * precisa ser uma troca de página de verdade — com a seção na query, o clique
+ * mexia só no que vinha depois do `?` e a tela ficava onde estava.
+ */
+export function rotaDaSecao(secao: MarketingSection): string {
+  return `/marketing/${secao}`;
+}
+
+export function isMarketingSection(v: string | null): v is MarketingSection {
+  return !!v && MARKETING_SECTIONS.some((s) => s.id === v);
+}
+
+export function acharSecao(v: string | null): MarketingSectionDef {
+  return MARKETING_SECTIONS.find((s) => s.id === v) ?? MARKETING_SECTIONS[0];
+}
 
 const TODAS = MARKETING_SECTIONS.flatMap((s) =>
   s.tabs.map((t) => ({ tab: t, secao: s })),
@@ -153,15 +172,16 @@ export function isMarketingTab(value: string | null): value is MarketingTab {
   return !!value && TODAS.some((x) => x.tab.id === value);
 }
 
-/** A aba e a seção dona dela. Cai no padrão quando a URL traz lixo. */
-export function resolveMarketingTab(value: string | null): {
-  tab: MarketingTabDef;
-  secao: MarketingSectionDef;
-} {
-  const alvo = isMarketingTab(value) ? value : MARKETING_TAB_PADRAO;
-  const achado = TODAS.find((x) => x.tab.id === alvo);
-  // O `!` é seguro: MARKETING_TAB_PADRAO é uma aba da primeira seção.
-  return achado ?? TODAS[0]!;
+/**
+ * Aba ativa DENTRO de uma seção. Aba de outra seção é ignorada — a URL manda
+ * na seção, e obedecer os dois lados deixaria a barra do topo destacando uma
+ * aba que ela nem exibe.
+ */
+export function resolveAbaDaSecao(
+  secao: MarketingSectionDef,
+  value: string | null,
+): MarketingTabDef {
+  return secao.tabs.find((t) => t.id === value) ?? secao.tabs[0];
 }
 
 /** Primeira aba da seção — é onde o clique na sidebar cai. */

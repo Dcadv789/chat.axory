@@ -1,41 +1,12 @@
 'use client';
 
-import { Suspense } from 'react';
-import Link from 'next/link';
-import { Megaphone } from 'lucide-react';
-import { useAuthStore } from '@/stores/auth-store';
 import { MarketingPanel } from '@/features/marketing/components/marketing-panel';
 
+/**
+ * `/marketing` sem seção abre o Resumo. Não redireciona: quem chega por link
+ * antigo (ou pelo cabeçalho da sidebar) veria a URL trocar sozinha debaixo do
+ * dedo. A seção fica implícita e a sidebar destaca o Resumo do mesmo jeito.
+ */
 export default function MarketingPage() {
-  const marketingEnabled = useAuthStore(
-    (s) => s.organizations.find((o) => o.id === s.activeOrgId)?.marketingEnabled,
-  );
-
-  if (!marketingEnabled) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="mx-auto max-w-lg rounded-xl border border-dashed border-zinc-300 bg-white p-10 text-center dark:border-white/10 dark:bg-black">
-          <Megaphone className="mx-auto h-8 w-8 text-zinc-300" />
-          <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-200">
-            Módulo de Marketing não habilitado
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            O add-on de Marketing (crew de IA + gestão de anúncios) não está ativo nesta
-            organização. Fale com o suporte para habilitar.
-          </p>
-          <Link href="/inbox" className="mt-4 inline-block text-xs text-primary hover:underline">
-            Voltar para o Inbox
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // A aba vem de `?aba=` — e quem lê search param precisa de fronteira de
-  // Suspense, senão a página inteira sai do pré-render.
-  return (
-    <Suspense fallback={null}>
-      <MarketingPanel />
-    </Suspense>
-  );
+  return <MarketingPanel secao="resumo" />;
 }

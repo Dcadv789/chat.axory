@@ -6,7 +6,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   MARKETING_TAB_PARAM,
-  resolveMarketingTab,
+  acharSecao,
+  resolveAbaDaSecao,
+  rotaDaSecao,
+  type MarketingSection,
   type MarketingTab,
 } from '../marketing-tabs';
 import {
@@ -70,10 +73,10 @@ function defaultRange(): DateRange {
   return { since, until };
 }
 
-export function MarketingPanel() {
+export function MarketingPanel({ secao }: { secao: MarketingSection }) {
   return (
     <MarketingAccountProvider>
-      <MarketingPanelInner />
+      <MarketingPanelInner secao={secao} />
     </MarketingAccountProvider>
   );
 }
@@ -153,24 +156,21 @@ function AccountPicker() {
   );
 }
 
-function MarketingPanelInner() {
+function MarketingPanelInner({ secao: secaoId }: { secao: MarketingSection }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  /**
-   * A aba mora na URL (`?aba=`). Sem isso a sidebar não teria pra onde apontar,
-   * e recarregar a página jogava você de volta no Resumo.
-   */
-  const { tab: active, secao } = resolveMarketingTab(
-    searchParams.get(MARKETING_TAB_PARAM),
-  );
+  // Seção vem da ROTA; aba vem da query, sempre resolvida dentro da seção.
+  const secao = acharSecao(secaoId);
+  const active = resolveAbaDaSecao(secao, searchParams.get(MARKETING_TAB_PARAM));
   const tab = active.id;
   const setTab = (proxima: Tab) =>
     // replace: trocar de aba não é navegação, é filtro — o Voltar do navegador
     // deve sair do marketing, não desfazer dez cliques de aba.
-    router.replace(`/marketing?${MARKETING_TAB_PARAM}=${proxima}`, {
-      scroll: false,
-    });
+    router.replace(
+      `${rotaDaSecao(secao.id)}?${MARKETING_TAB_PARAM}=${proxima}`,
+      { scroll: false },
+    );
   // range = null → "todo o período" (sem filtro de data).
   const [range, setRange] = useState<DateRange | null>(defaultRange);
   const all = range === null;
@@ -215,7 +215,7 @@ function MarketingPanelInner() {
       subtitle={active.subtitle}
       breadcrumb={[
         { label: 'Gestão de Marketing', href: '/marketing' },
-        { label: secao.label, href: `/marketing?aba=${secao.tabs[0].id}` },
+        { label: secao.label, href: rotaDaSecao(secao.id) },
       ]}
       contentClassName="flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-thin px-4 py-3"
     >
