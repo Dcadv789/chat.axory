@@ -22,6 +22,13 @@ import {
 } from '@/features/channels/services/channels.service';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip as ChartTooltip,
+  XAxis,
+} from 'recharts';
 
 /**
  * Moderação e desempenho do Threads: escolhe um post publicado e mostra as
@@ -95,7 +102,10 @@ export function ThreadsPanel() {
   const posts = postsData?.posts ?? [];
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+    <div className="space-y-3">
+      <ResumoDoPerfil canalId={canalThreads.id} />
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
       <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-200">
           <ThreadsIcon className="h-4 w-4" /> Seus posts
@@ -171,6 +181,8 @@ export function ThreadsPanel() {
         )}
       </div>
 
+      </div>
+
       <ConfirmDialog
         open={!!paraExcluir}
         title="Excluir post do Threads?"
@@ -185,6 +197,145 @@ export function ThreadsPanel() {
         onConfirm={excluir}
         onCancel={() => setParaExcluir(null)}
       />
+    </div>
+  );
+}
+
+/**
+ * Retorno geral da conta no Threads, acima da lista de posts.
+ *
+ * A API já devolvia isso (`threads_insights` no nó da conta, sem mediaId), mas
+ * a tela só sabia pedir métrica DE UM POST — então visualizações do perfil e
+ * evolução de seguidores não apareciam em lugar nenhum.
+ */
+function ResumoDoPerfil({ canalId }: { canalId: string }) {
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['threads-insights-perfil', canalId],
+    queryFn: () => channelsService.threadsInsights(canalId),
+    retry: false,
+  });
+
+  const metricas = data?.insights ?? [];
+  const achar = (nome: string) => metricas.find((m) => m.name === nome);
+
+  /**
+   * A Meta devolve duas formas: `total_value` (acumulado) e `values` (série
+   * diária). Somar os dois do mesmo jeito daria número errado — seguidores é
+   * saldo, não evento: o certo ali é o último ponto, não a soma dos dias.
+   */
+  const valor = (nome: string): number | null => {
+    const m = achar(nome);
+    if (!m) return null;
+    if (m.total_value?.value != null) return m.total_value.value;
+    const pontos = m.values ?? [];
+    if (!pontos.length) return null;
+    if (nome === 'followers_count') return pontos[pontos.length - 1]?.value ?? null;
+    return pontos.reduce((soma, v) => soma + (v.value ?? 0), 0);
+  };
+
+  const serieViews = (achar('views')?.values ?? [])
+    .filter((v) => v.end_time)
+    .map((v) => ({
+      dia: new Date(v.end_time as string).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+      }),
+      valor: v.value ?? 0,
+    }));
+
+  const cartoes = [
+    { nome: 'views', label: 'Visualizações' },
+    { nome: 'likes', label: 'Curtidas' },
+    { nome: 'replies', label: 'Respostas' },
+    { nome: 'reposts', label: 'Reposts' },
+    { nome: 'quotes', label: 'Citações' },
+    { nome: 'followers_count', label: 'Seguidores' },
+  ];
+
+  if (isError) {
+    return (
+      <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+        {(error as any)?.response?.data?.message ??
+          'Não consegui carregar as métricas do perfil.'}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
+      <div className="mb-3 flex items-center gap-2">
+        <BarChart3 className="h-4 w-4 shrink-0 text-primary" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+            Retorno geral
+          </h3>
+          <p className="text-[11px] text-zinc-500">
+            Desempenho da conta no Threads. Números do período que a Meta
+            devolve por padrão.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        {cartoes.map((c) => {
+          const v = valor(c.nome);
+          return (
+            <div
+              key={c.nome}
+              className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-white/5"
+            >
+              <p className="text-lg font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                {isLoading ? (
+                  <span className="inline-block h-6 w-10 animate-pulse rounded bg-zinc-200 dark:bg-white/10" />
+                ) : v == null ? (
+                  '—'
+                ) : (
+                  v.toLocaleString('pt-BR')
+                )}
+              </p>
+              <p className="text-[11px] text-zinc-500">{c.label}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {serieViews.length > 1 && (
+        <div className="mt-3">
+          <p className="mb-1 text-[11px] font-medium text-zinc-500">
+            Visualizações por dia
+          </p>
+          <ResponsiveContainer width="100%" height={120}>
+            <AreaChart data={serieViews} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+              <defs>
+                <linearGradient id="thViews" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="dia" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+              <ChartTooltip
+                contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                labelFormatter={(l) => `Dia ${l}`}
+                formatter={(v) => [Number(v ?? 0).toLocaleString('pt-BR'), 'Visualizações']}
+              />
+              <Area
+                type="monotone"
+                dataKey="valor"
+                stroke="#6366f1"
+                strokeWidth={2}
+                fill="url(#thViews)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* A Meta só libera demografia com 100+ seguidores; dizer isso evita a
+          leitura de que a tela está quebrada. */}
+      <p className="mt-2 text-[10px] text-zinc-400">
+        Demografia dos seguidores (país, cidade, idade) só é liberada pela Meta a
+        partir de 100 seguidores.
+      </p>
     </div>
   );
 }

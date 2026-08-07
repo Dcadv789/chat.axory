@@ -135,7 +135,9 @@ export interface ThreadsInsight {
   name: string;
   title?: string;
   description?: string;
-  values?: Array<{ value: number }>;
+  /** Série diária. `end_time` é o fim do dia daquele ponto. */
+  values?: Array<{ value: number; end_time?: string }>;
+  /** Métricas acumuladas (ex.: followers_count) vêm assim, sem série. */
   total_value?: { value: number };
 }
 
