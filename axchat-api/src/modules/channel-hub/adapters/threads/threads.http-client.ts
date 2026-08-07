@@ -30,7 +30,14 @@ export const THREADS_SCOPES = [
   'threads_manage_replies',
   'threads_read_replies',
   'threads_manage_insights',
+  // Exigida pelo DELETE /{threads-media-id}. Precisa estar ADICIONADA no caso
+  // de uso do Threads no painel da Meta — senão a janela de autorização recusa
+  // o escopo inteiro e nem o login funciona.
+  'threads_delete',
 ].join(',');
+
+/** Lista de escopos pedidos, pra gravar no canal e a tela saber o que dá. */
+export const THREADS_SCOPE_LIST = THREADS_SCOPES.split(',');
 
 interface ThreadsConfig {
   accessToken: string;
@@ -320,6 +327,35 @@ export class ThreadsHttpClient {
       return { id: String(data.id) };
     } catch (err: any) {
       throw this.wrapError(err, 'publishContainer');
+    }
+  }
+
+  /**
+   * Exclui um post publicado. Irreversível.
+   *
+   * Exige `threads_delete` no token — permissão separada, que precisa estar
+   * adicionada no caso de uso do Threads. Canal conectado antes dela existir
+   * tem token sem o escopo e recebe erro de permissão; por isso a tela só
+   * habilita o botão quando o canal registrou o escopo na conexão.
+   *
+   * A Meta limita 100 exclusões por dia por conta.
+   */
+  async deletePost(
+    channel: Channel,
+    mediaId: string,
+  ): Promise<{ ok: true; deletedId: string }> {
+    const cfg = this.getConfig(channel);
+    try {
+      const { data } = await axios.delete(
+        `${THREADS_GRAPH}/${cfg.apiVersion}/${encodeURIComponent(mediaId)}`,
+        { params: { access_token: cfg.accessToken }, timeout: 30000 },
+      );
+      if (data?.success === false) {
+        throw new Error('O Threads recusou a exclusão.');
+      }
+      return { ok: true, deletedId: String(data?.deleted_id ?? mediaId) };
+    } catch (err: any) {
+      throw this.wrapError(err, 'deletePost');
     }
   }
 

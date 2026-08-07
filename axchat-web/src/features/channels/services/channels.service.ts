@@ -346,6 +346,17 @@ export const channelsService = {
     return data.data;
   },
 
+  /** Exclui um post do Threads. Irreversível. */
+  async threadsDeletePost(
+    channelId: string,
+    mediaId: string,
+  ): Promise<{ ok: true; deletedId: string }> {
+    const { data } = await api.delete(
+      `/channels/${channelId}/threads/posts/${encodeURIComponent(mediaId)}`,
+    );
+    return data?.data ?? data;
+  },
+
   async threadsReplies(
     channelId: string,
     mediaId: string,

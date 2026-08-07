@@ -25,6 +25,7 @@ import { WhatsAppOfficialHttpClient } from '../adapters/whatsapp-official/whatsa
 import { InstagramHttpClient } from '../adapters/instagram/instagram.http-client';
 import { TelegramHttpClient } from '../adapters/telegram/telegram.http-client';
 import {
+  THREADS_SCOPE_LIST,
   ThreadsHttpClient,
   ThreadsPublishInput,
 } from '../adapters/threads/threads.http-client';
@@ -666,10 +667,33 @@ export class ChannelsService {
         threadsUserId,
         apiVersion: 'v1.0',
         tokenExpiresAt: new Date(Date.now() + long.expiresIn * 1000).toISOString(),
+        // Escopos pedidos NESTA conexão. Sem registrar, a tela não teria como
+        // saber que um canal antigo não pode excluir post — o botão apareceria
+        // e só falharia no clique, que foi exatamente o problema do botão de
+        // excluir do Instagram.
+        scopes: THREADS_SCOPE_LIST,
         ...(username ? { username } : {}),
       },
       ...(parsed.v ? { visibility: parsed.v } : {}),
     }, { userOrganizationId: parsed.u, role: parsed.r as OrgRole });
+  }
+
+  /** Exclui um post do Threads. Irreversível. */
+  async threadsDeletePost(
+    channelId: string,
+    organizationId: string,
+    mediaId: string,
+  ) {
+    const channel = await this.assertThreads(channelId, organizationId);
+    const escopos = ((channel.config as Record<string, any>)?.scopes ??
+      []) as string[];
+    if (!escopos.includes('threads_delete')) {
+      throw new BadRequestException(
+        'Este canal do Threads foi conectado antes da permissão de exclusão existir. ' +
+          'Reconecte o canal em Configurações → Canais para poder excluir posts.',
+      );
+    }
+    return this.threadsHttpClient.deletePost(channel, mediaId);
   }
 
   /** Publica um post no Threads (texto/imagem/vídeo/carrossel). */

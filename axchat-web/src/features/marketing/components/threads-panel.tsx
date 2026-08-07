@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AtSign,
+  Trash2,
   Eye,
   EyeOff,
   ExternalLink,
@@ -20,6 +21,7 @@ import {
   type ThreadsReply,
 } from '@/features/channels/services/channels.service';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 /**
  * Moderação e desempenho do Threads: escolhe um post publicado e mostra as
@@ -30,7 +32,10 @@ import { Skeleton } from '@/components/ui/skeleton';
  * Threads pelo AxChat.
  */
 export function ThreadsPanel() {
+  const queryClient = useQueryClient();
   const [postSelecionado, setPostSelecionado] = useState<ThreadsPost | null>(null);
+  const [paraExcluir, setParaExcluir] = useState<ThreadsPost | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   const { data: canais, isLoading: carregandoCanais } = useQuery({
     queryKey: ['channels'],
@@ -63,6 +68,30 @@ export function ThreadsPanel() {
     );
   }
 
+  /**
+   * `threads_delete` é permissão separada e só entra no token na conexão. Canal
+   * conectado antes dela existir não pode excluir — o backend recusa com uma
+   * mensagem pedindo pra reconectar, e é ela que aparece aqui.
+   */
+  const podeExcluir = !!(canalThreads?.config?.scopes as string[] | undefined)
+    ?.includes('threads_delete');
+
+  const excluir = async () => {
+    if (!paraExcluir || !canalThreads) return;
+    setExcluindo(true);
+    try {
+      await channelsService.threadsDeletePost(canalThreads.id, paraExcluir.id);
+      toast.success('Post excluído do Threads.');
+      if (postSelecionado?.id === paraExcluir.id) setPostSelecionado(null);
+      setParaExcluir(null);
+      await queryClient.invalidateQueries({ queryKey: ['threads-posts'] });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Falha ao excluir o post');
+    } finally {
+      setExcluindo(false);
+    }
+  };
+
   const posts = postsData?.posts ?? [];
 
   return (
@@ -87,15 +116,18 @@ export function ThreadsPanel() {
             {posts.map((post) => {
               const ativo = postSelecionado?.id === post.id;
               return (
-                <li key={post.id}>
+                <li
+                  key={post.id}
+                  className={`flex items-start gap-1 rounded-lg border transition-colors ${
+                    ativo
+                      ? 'border-primary bg-primary/5'
+                      : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10 dark:hover:border-white/20'
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => setPostSelecionado(post)}
-                    className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                      ativo
-                        ? 'border-primary bg-primary/5'
-                        : 'border-zinc-200 hover:border-zinc-300 dark:border-white/10 dark:hover:border-white/20'
-                    }`}
+                    className="min-w-0 flex-1 px-3 py-2 text-left"
                   >
                     <p className="line-clamp-2 text-xs text-zinc-800 dark:text-zinc-200">
                       {post.text || <span className="italic text-zinc-400">Sem texto</span>}
@@ -108,6 +140,19 @@ export function ThreadsPanel() {
                       )}
                       {post.media_type && <span>· {post.media_type}</span>}
                     </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setParaExcluir(post)}
+                    disabled={!podeExcluir}
+                    title={
+                      podeExcluir
+                        ? 'Excluir post do Threads'
+                        : 'Reconecte o canal do Threads em Configurações → Canais para poder excluir'
+                    }
+                    className="mr-1 mt-1.5 shrink-0 rounded-md p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-zinc-400 dark:hover:bg-rose-900/20"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </li>
               );
@@ -125,6 +170,21 @@ export function ThreadsPanel() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!paraExcluir}
+        title="Excluir post do Threads?"
+        description={
+          paraExcluir?.text?.trim()
+            ? `"${paraExcluir.text.slice(0, 120)}" — o post sai do perfil e não tem como desfazer.`
+            : 'O post sai do perfil e não tem como desfazer.'
+        }
+        confirmLabel="Excluir"
+        loading={excluindo}
+        variant="danger"
+        onConfirm={excluir}
+        onCancel={() => setParaExcluir(null)}
+      />
     </div>
   );
 }

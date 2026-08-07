@@ -174,6 +174,16 @@ export class ChannelsController {
     return this.service.threadsPosts(id, orgId);
   }
 
+  @Delete(':id/threads/posts/:mediaId')
+  @ApiOperation({ summary: 'Exclui um post do Threads (irreversível)' })
+  threadsDeletePost(
+    @Param('id') id: string,
+    @Param('mediaId') mediaId: string,
+    @CurrentOrg('id') orgId: string,
+  ) {
+    return this.service.threadsDeletePost(id, orgId, mediaId);
+  }
+
   @Get(':id/threads/replies')
   @ApiOperation({ summary: 'Lista as respostas de um post do Threads' })
   threadsReplies(
