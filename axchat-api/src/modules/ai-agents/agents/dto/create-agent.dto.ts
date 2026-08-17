@@ -121,7 +121,6 @@ export class CreateAgentDto {
   @IsOptional()
   @IsString()
   @MaxLength(60)
-  squad?: string;
 
   @ApiPropertyOptional({
     description:
@@ -131,4 +130,12 @@ export class CreateAgentDto {
   @IsString()
   @MaxLength(8000)
   operationalContext?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Ajuste do cliente, ANEXADO ao texto de instrução em vez de substituí-lo. É o caminho de edição para agentes do produto.',
+  })
+  @IsOptional()
+  @IsString()
+  additionalInstructions?: string;
 }

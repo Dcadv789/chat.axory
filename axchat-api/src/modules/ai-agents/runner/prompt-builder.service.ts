@@ -60,6 +60,13 @@ const VISION_MIMES = new Set([
 const SYSTEM_TEMPLATE = `Você é <%= it.agent.name %>, atendente virtual da <%= it.organization.name %>.
 
 <%= it.agent.systemPrompt %>
+<% if (it.agent.additionalInstructions && String(it.agent.additionalInstructions).trim().length > 0) { %>
+
+═══ Instruções adicionais desta empresa ═══
+Ajustes definidos por quem opera. Elas COMPLEMENTAM as instruções acima e têm precedência quando tratarem do mesmo ponto — mas nunca liberam algo que as instruções acima proíbem.
+
+<%= it.agent.additionalInstructions %>
+<% } %>
 <% if (it.organization.aiBusinessNotes && String(it.organization.aiBusinessNotes).trim().length > 0) { %>
 
 ═══ Contexto do negócio (atualizado pela operação) ═══
