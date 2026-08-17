@@ -20,15 +20,18 @@ import {
   aiAgentsService,
   type AiAgent,
   DEPARTMENT_COLORS,
+  type AgentSector,
 } from '../services/ai-agents.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { CreateAgentDialog } from './create-agent-dialog';
-import { EditAgentDialog } from './edit-agent-dialog';
+import { ResumoDoAgente } from './resumo-do-agente';
 import { AgentCapabilitiesDrawer } from './agent-capabilities-drawer';
 import { AgentNode, type AgentNodeData } from './agent-node';
 
-const NODE_WIDTH = 320;
-const NODE_HEIGHT = 160;
+// Precisam bater com o tamanho REAL do cartão em `agent-node.tsx`: é com estes
+// números que o dagre reserva espaço. Menor que o cartão = nós sobrepostos.
+const NODE_WIDTH = 360;
+const NODE_HEIGHT = 220;
 
 const nodeTypes: NodeTypes = { agent: AgentNode };
 
@@ -115,15 +118,25 @@ function layoutOrganogram(agents: AiAgent[]): {
 
 export function AgentsList({
   agentSector,
+  deptFilter = null,
+  abrirCriacao,
+  onFecharCriacao,
+  onEditarAgente,
 }: {
-  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+  agentSector?: AgentSector;
+  /** Departamento escolhido na barra de filtro da página. */
+  deptFilter?: string | null;
+  /** A criação é disparada pela barra, que fica fora deste componente. */
+  abrirCriacao?: boolean;
+  onFecharCriacao?: () => void;
+  /** Editar não acontece aqui: leva pra visão de Departamentos, que é onde
+      mora o formulário. Uma edição só, num lugar só. */
+  onEditarAgente?: (agent: AiAgent) => void;
 }) {
   const orgId = useOrgId();
   const queryClient = useQueryClient();
-  const [showCreate, setShowCreate] = useState(false);
-  const [editing, setEditing] = useState<AiAgent | null>(null);
+  const [resumindo, setResumindo] = useState<AiAgent | null>(null);
   const [vendoCapacidades, setVendoCapacidades] = useState<AiAgent | null>(null);
-  const [deptFilter, setDeptFilter] = useState<string | null>(null);
 
   const { data: agents, isLoading } = useQuery({
     queryKey: ['ai-agents', orgId, agentSector ?? 'all'],
@@ -143,18 +156,6 @@ export function AgentsList({
     }
   };
 
-  // Distinct departments present, in stable order, for the filter chips.
-  const departments = useMemo(() => {
-    if (!agents) return [];
-    return [
-      ...new Set(
-        agents
-          .map((a) => a.department)
-          .filter((d): d is string => !!d),
-      ),
-    ].sort();
-  }, [agents]);
-
   const filtered = useMemo(() => {
     if (!agents) return [];
     if (!deptFilter) return agents;
@@ -169,7 +170,7 @@ export function AgentsList({
         ...n,
         data: {
           ...n.data,
-          onClick: setEditing,
+          onClick: setResumindo,
           onToggleActive: handleToggleActive,
           onVerCapacidades: setVendoCapacidades,
         },
@@ -183,49 +184,6 @@ export function AgentsList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-end px-6 py-3">
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Novo agente
-        </button>
-      </div>
-
-      {departments.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-6 py-3 dark:border-white/10">
-          <span className="text-xs font-medium text-zinc-500">Departamento:</span>
-          <button
-            onClick={() => setDeptFilter(null)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              deptFilter === null
-                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-black dark:text-zinc-400 dark:hover:bg-white/10'
-            }`}
-          >
-            Todos
-          </button>
-          {departments.map((d) => {
-            const c = DEPARTMENT_COLORS[d];
-            const active = deptFilter === d;
-            return (
-              <button
-                key={d}
-                onClick={() => setDeptFilter(active ? null : d)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  active
-                    ? `${c?.bg ?? 'bg-zinc-200'} ${c?.text ?? 'text-zinc-900'} ring-1 ${c?.ring ?? 'ring-zinc-300'}`
-                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-black dark:text-zinc-400 dark:hover:bg-white/10'
-                }`}
-              >
-                {d}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       <div className="flex-1 min-h-[640px]">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
@@ -275,21 +233,17 @@ export function AgentsList({
                 Crie um agente, dê a ele um system prompt e atribua a um canal —
                 ele passa a responder automaticamente.
               </p>
-              <button
-                onClick={() => setShowCreate(true)}
-                className="mx-auto mt-4 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Criar primeiro agente
-              </button>
+              <p className="mt-4 text-xs text-zinc-400">
+                Use o botão <strong>Novo agente</strong>, na barra acima.
+              </p>
             </div>
           </div>
         )}
       </div>
 
       <CreateAgentDialog
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
+        open={!!abrirCriacao}
+        onClose={() => onFecharCriacao?.()}
         onCreated={refresh}
         defaultSector={agentSector}
       />
@@ -298,11 +252,21 @@ export function AgentsList({
         onClose={() => setVendoCapacidades(null)}
       />
 
-      <EditAgentDialog
-        agent={editing}
-        onClose={() => setEditing(null)}
-        onSaved={refresh}
-      />
+      {resumindo && (
+        <ResumoDoAgente
+          agent={resumindo}
+          onFechar={() => setResumindo(null)}
+          onEditar={(a) => {
+            setResumindo(null);
+            onEditarAgente?.(a);
+          }}
+          onVerCapacidades={(a) => {
+            setResumindo(null);
+            setVendoCapacidades(a);
+          }}
+          onToggleActive={handleToggleActive}
+        />
+      )}
     </div>
   );
 }

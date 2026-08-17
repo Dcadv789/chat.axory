@@ -7,6 +7,9 @@ import {
   type AiAgent,
   DEPARTMENT_COLORS,
 } from '../services/ai-agents.service';
+import { departamentoVisivel } from '../rotulo-departamento';
+import { AvatarAgente } from './avatar-agente';
+import { papelDoAgente } from '../avatar-do-agente';
 
 // React Flow v12 requires node data to be assignable to Record<string,unknown>.
 export type AgentNodeData = {
@@ -35,7 +38,7 @@ function AgentNodeBase({ data }: { data: AgentNodeData }) {
       />
       <button
         onClick={() => onClick(agent)}
-        className={`group w-[320px] rounded-xl border bg-white p-4 text-left shadow-sm transition-shadow hover:shadow-md dark:bg-black ${
+        className={`group flex w-[360px] flex-col rounded-xl border bg-white p-4 text-left shadow-sm transition-shadow hover:shadow-md dark:bg-black ${
           isOrchestrator
             ? 'border-primary/40 ring-1 ring-primary/10 dark:border-primary/30'
             : dept
@@ -43,112 +46,103 @@ function AgentNodeBase({ data }: { data: AgentNodeData }) {
               : 'border-zinc-200 dark:border-white/10'
         }`}
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-3 min-w-0">
-            <div
-              className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${
-                isOrchestrator
-                  ? 'bg-primary/15 text-primary'
-                  : dept
-                    ? `${dept.bg} ${dept.text}`
-                    : 'bg-primary/10 text-primary'
-              }`}
-            >
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">
-                  {agent.name}
-                </p>
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase ${
-                    isOrchestrator
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-zinc-100 text-zinc-500 dark:bg-black dark:text-zinc-400'
-                  }`}
-                >
-                  {isOrchestrator ? 'Orquestrador' : 'Worker'}
-                </span>
-              </div>
-              <p className="mt-0.5 truncate text-[11px] text-zinc-500">
-                {agent.modelId}
+        <div className="flex w-full items-start gap-3">
+          <AvatarAgente
+            nome={agent.name}
+            avatarUrl={agent.avatarUrl}
+            tamanho="md"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">
+                {agent.name}
               </p>
-              {agent.description && (
-                <p className="mt-1.5 line-clamp-2 text-[12px] text-zinc-600 dark:text-zinc-400">
-                  {agent.description}
-                </p>
-              )}
-            </div>
-          </div>
-          {/* Clicar no cartão ABRE A EDIÇÃO. Quem só quer entender o agente não
-              deveria cair num formulário — por isso a ficha tem porta própria. */}
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              onVerCapacidades(agent);
-            }}
-            title="Ver o que este agente consegue fazer"
-            className="inline-flex flex-shrink-0 cursor-pointer items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20"
-          >
-            <Sparkles className="h-3 w-3" /> O que faz
-          </span>
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleActive(agent);
-            }}
-            className={`inline-flex flex-shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
-              agent.isActive
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                : 'bg-zinc-100 text-zinc-500 dark:bg-black'
-            }`}
-          >
-            {agent.isActive ? (
-              <>
-                <Power className="h-3 w-3" /> Ativo
-              </>
-            ) : (
-              <>
-                <PowerOff className="h-3 w-3" /> Pausado
-              </>
-            )}
-          </span>
-        </div>
-
-        {(agent.department || agent.squad) && (
-          <div className="mt-3 flex flex-wrap gap-1">
-            {agent.department && (
+              <div className="flex shrink-0 items-center gap-1">
+              {/* Clicar no cartão abre a FICHA, não o formulário: quem clica no
+                  organograma quer entender a estrutura. */}
               <span
-                className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
-                  dept
-                    ? `${dept.bg} ${dept.text}`
-                    : 'bg-zinc-100 text-zinc-600 dark:bg-black dark:text-zinc-400'
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onVerCapacidades(agent);
+                }}
+                title="Ver o que este agente consegue fazer"
+                className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20 dark:bg-primary/20 dark:text-[#8ab4ff]"
+              >
+                <Sparkles className="h-3 w-3" /> O que faz
+              </span>
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleActive(agent);
+                }}
+                title={agent.isActive ? 'Pausar agente' : 'Ativar agente'}
+                className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+                  agent.isActive
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-300'
+                    : 'bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400'
                 }`}
               >
-                {agent.department}
+                {agent.isActive ? (
+                  <>
+                    <Power className="h-3 w-3" /> Ativo
+                  </>
+                ) : (
+                  <>
+                    <PowerOff className="h-3 w-3" /> Pausado
+                  </>
+                )}
               </span>
-            )}
-            {agent.squad && (
-              <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-black dark:text-zinc-400">
-                ⚡ {agent.squad}
+              </div>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium uppercase ${
+                  isOrchestrator
+                    ? 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-[#8ab4ff]'
+                    : 'bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-300'
+                }`}
+              >
+                {papelDoAgente(agent.kind)}
               </span>
-            )}
+              {departamentoVisivel(agent.department, agent.sector) && (
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+                    dept
+                      ? `${dept.bg} ${dept.text}`
+                      : 'bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300'
+                  }`}
+                >
+                  {departamentoVisivel(agent.department, agent.sector)}
+                </span>
+              )}
+              <span className="truncate font-mono text-[10px] text-zinc-400 dark:text-zinc-500">
+                {agent.modelId}
+              </span>
+            </div>
           </div>
+        </div>
+
+        {/* Largura INTEIRA do cartão. Enquanto isto vivia na coluna ao lado do
+            avatar, o texto quebrava num filete estreito e sobrava um vazio
+            enorme à direita, onde só havia dois chips. */}
+        {agent.description && (
+          <p className="mt-3 line-clamp-4 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+            {agent.description}
+          </p>
         )}
 
         {agent.channels && agent.channels.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {agent.channels.map((c) => (
-              <span
-                key={c.id}
-                className="inline-flex items-center gap-0.5 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-700 dark:bg-black dark:text-zinc-300"
-              >
-                {c.channel.name}
-                <span className="text-zinc-400">· {c.mode.toLowerCase()}</span>
-              </span>
-            ))}
-          </div>
+        <div className="mt-3 flex flex-wrap items-center gap-1">
+          {agent.channels.map((c) => (
+            <span
+              key={c.id}
+              className="inline-flex items-center gap-0.5 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-700 dark:bg-white/10 dark:text-zinc-300"
+            >
+              {c.channel.name}
+              <span className="text-zinc-400">· {c.mode.toLowerCase()}</span>
+            </span>
+          ))}
+        </div>
         )}
       </button>
       <Handle

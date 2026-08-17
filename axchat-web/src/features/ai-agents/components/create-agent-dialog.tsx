@@ -44,7 +44,6 @@ export function CreateAgentDialog({
   const [temperature, setTemperature] = useState(0.7);
   const [parentAgentId, setParentAgentId] = useState<string>('');
   const [department, setDepartment] = useState<string>('');
-  const [squad, setSquad] = useState('');
   const [sectorIds, setSectorIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -98,8 +97,11 @@ export function CreateAgentDialog({
         systemPrompt: systemPrompt.trim(),
         temperature,
         parentAgentId: parentAgentId || null,
-        department: department || null,
-        squad: squad.trim() || null,
+        // `department` (texto) virou coluna derivada: quem manda é o
+        // departamento escolhido na lista. Ela continua sendo gravada só
+        // porque o organograma ainda colore por ela — sai junto com a coluna.
+        department:
+          sectors.find((s) => s.id === sectorIds[0])?.name ?? null,
       });
       // Add agent to selected sectors
       for (const sectorId of sectorIds) {
@@ -132,7 +134,6 @@ export function CreateAgentDialog({
     setTemperature(0.7);
     setParentAgentId('');
     setDepartment('');
-    setSquad('');
     setSectorIds([]);
   };
 
@@ -219,7 +220,7 @@ export function CreateAgentDialog({
               Organograma
             </p>
             <p className="mt-0.5 text-[11px] text-zinc-500">
-              Define hierarquia (chefia direta), departamento e squad ágil.
+              Define a chefia direta e o departamento do agente.
             </p>
 
             <div className="mt-3 space-y-3">
@@ -241,48 +242,28 @@ export function CreateAgentDialog({
                 </select>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3">
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
                     Departamento
                   </label>
-                  <select
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
-                  >
-                    <option value="">— Não definido —</option>
-                    {DEPARTMENTS.map((d) => (
-                      <option key={d} value={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                    Squad ágil
-                  </label>
-                  <input
-                    type="text"
-                    value={squad}
-                    onChange={(e) => setSquad(e.target.value)}
-                    placeholder="Ex: Inbound B2C"
-                    className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
-                  />
+                  <p className="mt-1 rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 dark:border-white/15">
+                    Escolha abaixo, no bloco Departamentos. Antes havia dois
+                    campos — um texto livre e a lista — e eles divergiam.
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Setores de Operação */}
+          {/* Departamentos */}
           {sectors.length > 0 && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-white/10 dark:bg-black">
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Setores de Operação
+                Departamentos
               </p>
               <p className="mt-0.5 text-[11px] text-zinc-500">
-                Selecione os setores aos quais este agente pertence.
+                A que departamento este agente pertence.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {sectors.map((s) => {

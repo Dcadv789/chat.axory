@@ -5,14 +5,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bot, Plus, Pencil, Power, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { agentSectorsService, type AgentSector } from '../services/agent-sectors.service';
-import { aiAgentsService, type AiAgent } from '../services/ai-agents.service';
+import { aiAgentsService, type AiAgent, type AgentSector as Frente } from '../services/ai-agents.service';
 import { filterAgentsForSectorCards } from './agents-sector-utils';
 import { EditAgentDialog } from './edit-agent-dialog';
 import { CreateAgentDialog } from './create-agent-dialog';
 import { useOrgId } from '@/hooks/use-org-query-key';
 
 interface AgentsSectorViewProps {
-  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+  agentSector?: Frente;
 }
 
 function AgentCard({
@@ -49,7 +49,6 @@ function AgentCard({
           {agent.department && (
             <p className="mt-1 truncate text-[11px] text-zinc-500">
               {agent.department}
-              {agent.squad ? ` · ${agent.squad}` : ''}
             </p>
           )}
           <p className="mt-0.5 truncate text-[10px] font-mono text-zinc-400">
@@ -124,16 +123,6 @@ export function AgentsSectorView({ agentSector }: AgentsSectorViewProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-end px-6 py-3">
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          Novo agente
-        </button>
-      </div>
-
       <div className="flex-1 overflow-y-auto px-6 pb-8">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
@@ -147,7 +136,7 @@ export function AgentsSectorView({ agentSector }: AgentsSectorViewProps) {
                 Nenhum agente cadastrado ainda
               </p>
               <p className="mt-1 max-w-md text-center text-xs text-zinc-400 dark:text-zinc-500">
-                Crie agentes e organize-os em setores em Configurações &gt; IA &gt; Setores de Operação.
+                Crie agentes e organize-os em setores em Configurações &gt; IA &gt; Departamentos.
               </p>
             </div>
           </div>
@@ -168,11 +157,30 @@ export function AgentsSectorView({ agentSector }: AgentsSectorViewProps) {
                 />
               );
             })}
+            {/* Zero setores cadastrados não é "todo mundo sem setor" — é que a
+                organização ainda não criou nenhum. Mostrar só o balde cinza
+                dava a impressão de que a tela estava quebrada. */}
+            {sectors.length === 0 && agents.length > 0 && (
+              <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                  Nenhum setor criado ainda
+                </p>
+                <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-300/90">
+                  Setores agrupam agentes por frente de trabalho. Enquanto não
+                  existir nenhum, todos aparecem juntos abaixo. Crie em
+                  Configurações → Geral → Setores.
+                </p>
+              </div>
+            )}
             {unassigned.length > 0 && (
               <div>
                 <SectorHeader
-                  name="Sem setor"
-                  description="Agentes ainda não vinculados a nenhum setor."
+                  name={sectors.length === 0 ? 'Todos os agentes' : 'Sem setor'}
+                  description={
+                    sectors.length === 0
+                      ? 'Sua equipe de IA. Crie setores para agrupá-los por frente de trabalho.'
+                      : 'Agentes ainda não vinculados a nenhum setor.'
+                  }
                   color="#a1a1aa"
                   count={unassigned.length}
                 />

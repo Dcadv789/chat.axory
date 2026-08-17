@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   BadgeCheck,
@@ -39,16 +40,40 @@ export function AgentCapabilitiesDrawer({
     enabled: !!agentId,
   });
 
+  // Fechar no Esc. O hook vem ANTES do return condicional — chamar hook depois
+  // de um early return quebra a ordem entre renders.
+  useEffect(() => {
+    if (!agentId) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [agentId, onClose]);
+
   if (!agentId) return null;
 
-  const sozinhas = (data?.skills ?? []).filter((s) => !s.pedeAprovacao);
-  const comAprovacao = (data?.skills ?? []).filter((s) => s.pedeAprovacao);
+  // `skills` agora é o catálogo inteiro da org — aqui só interessam as que
+  // este agente realmente tem. Uma resposta antiga em cache não tem
+  // `temAcesso` e já vinha só com as ligadas: nesse caso vale a lista toda,
+  // senão a gaveta apareceria vazia até o refetch chegar.
+  const todas = data?.skills ?? [];
+  const semMarca = todas.length > 0 && todas.every((s) => s.temAcesso === undefined);
+  const doAgente = semMarca ? todas : todas.filter((s) => s.temAcesso);
+  const sozinhas = doAgente.filter((s) => !s.pedeAprovacao);
+  const comAprovacao = doAgente.filter((s) => s.pedeAprovacao);
   const nativas = (data?.builtin ?? []).filter((b) => b.disponivel);
   const foraDoAlcance = (data?.builtin ?? []).filter((b) => !b.disponivel);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm">
-      <div className="flex h-full w-full max-w-2xl flex-col border-l border-zinc-200 bg-white shadow-xl dark:border-white/10 dark:bg-black">
+    <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Véu clicável: fechar ao clicar fora é o gesto que todo mundo tenta
+          primeiro numa gaveta. Sem ele, o único jeito de sair era o X. */}
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative flex h-full w-full max-w-2xl flex-col border-l border-zinc-200 bg-white shadow-xl dark:border-white/10 dark:bg-black">
         <div className="flex items-start gap-3 border-b border-zinc-200 px-5 py-4 dark:border-white/10">
           <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">

@@ -1,11 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart, Grid3X3, GitBranch, Headset, Megaphone, type LucideIcon } from 'lucide-react';
+import { Bot, BarChart3, User, Sparkles, Wrench, Activity, ShieldCheck, PieChart, Grid3X3, GitBranch, Headset, Megaphone, Building2, UserCog, Plus, type LucideIcon } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
+import type { AgentSector } from '@/features/ai-agents/services/ai-agents.service';
 import { AgentsList } from '@/features/ai-agents/components/agents-list';
-import { AgentsSectorView } from '@/features/ai-agents/components/agents-sector-view';
+import { AgentsSplitView } from '@/features/ai-agents/components/agents-split-view';
+import { CreateAgentDialog } from '@/features/ai-agents/components/create-agent-dialog';
+import { FiltroDeDepartamento } from '@/features/ai-agents/components/filtro-departamento';
 import { JarvisOverviewTab } from '@/features/ai-agents/components/jarvis/overview-tab';
 import { JarvisAgentTab } from '@/features/ai-agents/components/jarvis/agent-tab';
 import { JarvisSkillsTab } from '@/features/ai-agents/components/jarvis/skills-tab';
@@ -17,9 +21,15 @@ import { useAuthStore } from '@/stores/auth-store';
 
 type Tab = 'overview' | 'metrics' | 'agents' | 'skills' | 'tools' | 'agent' | 'runs' | 'watchdog';
 
-const SECTOR_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
-  atendimento: { label: 'Atendimento', icon: Headset },
-  marketing: { label: 'Marketing', icon: Megaphone },
+/** Frente vinda da URL → rótulo e valor do enum do backend. */
+const SECTOR_LABELS: Record<
+  string,
+  { label: string; icon: React.ElementType; enum: AgentSector }
+> = {
+  atendimento: { label: 'Atendimento', icon: Headset, enum: 'ATENDIMENTO' },
+  marketing: { label: 'Marketing', icon: Megaphone, enum: 'MARKETING' },
+  operacao: { label: 'Operação', icon: Building2, enum: 'OPERACAO' },
+  pessoal: { label: 'Pessoal', icon: UserCog, enum: 'PESSOAL' },
 };
 
 const TAB_META: Record<Tab, { label: string; icon: React.ElementType; subtitle: string }> = {
@@ -77,12 +87,25 @@ export default function AiAgentsPage() {
   const tab: Tab = requestedTab === 'overview' && !isSuperAdmin ? 'metrics' : requestedTab ?? defaultTab;
   const meta = TAB_META[tab];
   const [sectorView, setSectorView] = useState(false);
+  const [deptFilter, setDeptFilter] = useState<string | null>(null);
+  const [criando, setCriando] = useState(false);
+  // Ponte organograma -> Departamentos: o botão Editar do resumo troca de
+  // visão e abre o formulário no agente clicado.
+  const [editarAgenteId, setEditarAgenteId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Setor vindo da URL (sidebar) — padrão é atendimento
   const sector = searchParams.get('sector') || 'atendimento';
-  const agentSector: 'ATENDIMENTO' | 'MARKETING' =
-    sector === 'marketing' ? 'MARKETING' : 'ATENDIMENTO';
   const sectorMeta = SECTOR_LABELS[sector] ?? SECTOR_LABELS.atendimento;
+  const agentSector: AgentSector = sectorMeta.enum;
+
+  // Trocar de frente na sidebar NÃO remonta esta página — muda só a query.
+  // Sem zerar o filtro, um departamento escolhido em Atendimento (SUPORTE,
+  // VENDAS…) continuava valendo em Marketing, onde ninguém tem esse
+  // departamento, e a tela aparecia vazia como se não houvesse agente.
+  useEffect(() => {
+    setDeptFilter(null);
+  }, [agentSector]);
 
   useEffect(() => {
     if (raw === 'overview' && !isSuperAdmin) {
@@ -105,36 +128,78 @@ export default function AiAgentsPage() {
         {tab === 'metrics' && <JarvisMetricsTab agentSector={agentSector} />}
         {tab === 'agents' && (
           <div className="flex h-full flex-col">
-            <div className="flex items-center justify-end gap-2 border-b border-zinc-200 px-6 py-2 dark:border-white/10">
-              <div className="inline-flex items-center rounded-md bg-zinc-100 p-0.5 dark:bg-black">
-                <button
-                  onClick={() => setSectorView(false)}
-                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                    !sectorView
-                      ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
-                      : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
-                  }`}
-                >
-                  <GitBranch className="h-3.5 w-3.5" />
-                  Organograma
-                </button>
-                <button
-                  onClick={() => setSectorView(true)}
-                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-                    sectorView
-                      ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
-                      : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
-                  }`}
-                >
-                  <Grid3X3 className="h-3.5 w-3.5" />
-                  Setores
-                </button>
+            {/* Uma barra só: filtro, modo de exibição e criar. Antes eram duas
+                faixas empilhadas — o botão de criar numa, os departamentos na
+                outra — e o alternador de visão numa terceira, dentro da página. */}
+            <div className="mx-4 mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-black">
+              <FiltroDeDepartamento
+                agentSector={agentSector}
+                valor={deptFilter}
+                onChange={setDeptFilter}
+              />
+
+              <span className="mx-1 hidden h-6 w-px bg-zinc-200 sm:block dark:bg-white/10" />
+
+              <div className="inline-flex shrink-0 items-center rounded-md bg-zinc-100 p-0.5 dark:bg-white/5">
+                {[
+                  { ativo: !sectorView, ir: () => setSectorView(false), icone: GitBranch, label: 'Organograma' },
+                  { ativo: sectorView, ir: () => setSectorView(true), icone: Grid3X3, label: 'Departamentos' },
+                ].map((m) => (
+                  <button
+                    key={m.label}
+                    onClick={m.ir}
+                    className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                      m.ativo
+                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100'
+                        : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
+                    }`}
+                  >
+                    <m.icone className="h-3.5 w-3.5" />
+                    {m.label}
+                  </button>
+                ))}
               </div>
+
+              <button
+                onClick={() => setCriando(true)}
+                className="ml-auto inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+                Novo agente
+              </button>
             </div>
+
             {sectorView ? (
-              <AgentsSectorView agentSector={agentSector} />
+              <>
+                <AgentsSplitView
+                  agentSector={agentSector}
+                  deptFilter={deptFilter}
+                  abrirAgenteId={editarAgenteId}
+                  abrirEditando={!!editarAgenteId}
+                  onAberto={() => setEditarAgenteId(null)}
+                />
+                {/* Na visão de setores a criação é da página, porque o botão
+                    está na barra. No organograma quem cuida é o AgentsList. */}
+                <CreateAgentDialog
+                  open={criando}
+                  onClose={() => setCriando(false)}
+                  onCreated={() =>
+                    queryClient.invalidateQueries({ queryKey: ['ai-agents'] })
+                  }
+                  defaultSector={agentSector}
+                />
+              </>
             ) : (
-              <AgentsList agentSector={agentSector} />
+              <AgentsList
+                agentSector={agentSector}
+                deptFilter={deptFilter}
+                abrirCriacao={criando}
+                onFecharCriacao={() => setCriando(false)}
+                onEditarAgente={(a) => {
+                  setEditarAgenteId(a.id);
+                  setSectorView(true);
+                }}
+              />
             )}
           </div>
         )}
