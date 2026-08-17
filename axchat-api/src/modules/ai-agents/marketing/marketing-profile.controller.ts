@@ -26,9 +26,11 @@ import { MarketingPublishService } from './marketing-publish.service';
 import { MarketingUploadService } from './marketing-upload.service';
 import { MarketingBudgetService } from './marketing-budget.service';
 import { MarketingScheduleService } from './marketing-schedule.service';
+import { CampaignBriefService } from './campaign-brief.service';
 import { AgendarPostDto, ReagendarPostDto } from './dto/agendar-post.dto';
 import { UpsertMarketingProfileDto } from './dto/upsert-marketing-profile.dto';
 import { SetMonthlyBudgetDto } from './dto/set-monthly-budget.dto';
+import { UpsertCampaignBriefDto } from './dto/campaign-brief.dto';
 import { CurrentOrg, CurrentUser, Roles } from '../../../common/decorators';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 
@@ -47,6 +49,7 @@ export class MarketingProfileController {
     private readonly credentials: MarketingCredentialsService,
     private readonly uploads: MarketingUploadService,
     private readonly schedule: MarketingScheduleService,
+    private readonly briefs: CampaignBriefService,
   ) {}
 
   // ─── Agendamento de posts ──────────────────────────────────
@@ -358,6 +361,62 @@ export class MarketingProfileController {
     @Query('channelId') channelId?: string,
   ) {
     return this.ads.deleteInstagramComment(orgId, id, channelId);
+  }
+
+  // ─── Briefings de campanha ─────────────────────────────────
+  //
+  // O perfil vale pra empresa inteira; o briefing vale pra UMA campanha. É o
+  // que permite duas campanhas no ar querendo coisas diferentes.
+
+  @Get('campaign-briefs')
+  @ApiOperation({ summary: 'Briefings das campanhas (objetivo, público, oferta)' })
+  listBriefs(
+    @CurrentOrg('id') orgId: string,
+    @Query('arquivadas') arquivadas?: string,
+  ) {
+    return this.briefs.list(orgId, arquivadas === '1' || arquivadas === 'true');
+  }
+
+  @Post('campaign-briefs')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Cria o briefing de uma campanha' })
+  createBrief(
+    @CurrentOrg('id') orgId: string,
+    @Body() dto: UpsertCampaignBriefDto,
+  ) {
+    return this.briefs.create(orgId, dto);
+  }
+
+  @Put('campaign-briefs/:id')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Edita o briefing de uma campanha' })
+  updateBrief(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Body() dto: UpsertCampaignBriefDto,
+  ) {
+    return this.briefs.update(orgId, id, dto);
+  }
+
+  @Post('campaign-briefs/:id/status')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Ativa, pausa ou arquiva um briefing' })
+  setBriefStatus(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @Body() body: { status: 'ACTIVE' | 'PAUSED' | 'ARCHIVED' },
+  ) {
+    return this.briefs.setStatus(orgId, id, body.status);
+  }
+
+  @Delete('campaign-briefs/:id')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Arquiva o briefing. Não apaga: ele é o contexto de campanhas que já rodaram.',
+  })
+  archiveBrief(@CurrentOrg('id') orgId: string, @Param('id') id: string) {
+    return this.briefs.archive(orgId, id);
   }
 
   @Get('profile')

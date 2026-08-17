@@ -11,6 +11,7 @@ import {
   type MarketingBudgetMonth,
   type UpsertMarketingProfileInput,
 } from '@/features/marketing/services/marketing.service';
+import { BriefingsDeCampanha } from '@/features/marketing/components/briefings-de-campanha';
 
 const inputCls =
   'w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100';
@@ -50,6 +51,8 @@ export default function MarketingRulesPage() {
     targetAudience: '',
     toneOfVoice: '',
     guidelines: '',
+    strategy: '',
+    restrictions: '',
     maxDailyBudget: '',
     externalRulesSkill: '',
     analysisWindow: 'LAST_MONTH',
@@ -163,6 +166,8 @@ export default function MarketingRulesPage() {
         targetAudience: profile.targetAudience ?? '',
         toneOfVoice: profile.toneOfVoice ?? '',
         guidelines: profile.guidelines ?? '',
+        strategy: profile.strategy ?? '',
+        restrictions: profile.restrictions ?? '',
         maxDailyBudget: toReais(profile.maxDailyBudgetCents),
         externalRulesSkill: profile.externalRulesSkill ?? '',
         analysisWindow: profile.analysisWindow ?? 'LAST_MONTH',
@@ -184,6 +189,8 @@ export default function MarketingRulesPage() {
         targetAudience: form.targetAudience.trim() || undefined,
         toneOfVoice: form.toneOfVoice.trim() || undefined,
         guidelines: form.guidelines.trim() || undefined,
+        strategy: form.strategy.trim() || undefined,
+        restrictions: form.restrictions.trim() || undefined,
         maxDailyBudgetCents: toCents(form.maxDailyBudget),
         externalRulesSkill: form.externalRulesSkill.trim() || undefined,
         analysisWindow: form.analysisWindow || undefined,
@@ -368,6 +375,29 @@ export default function MarketingRulesPage() {
               <textarea rows={3} value={form.guidelines} onChange={set('guidelines')} className={inputCls}
                 placeholder="Ex: nunca prometer ROI; não citar concorrentes; sempre incluir CTA…" />
             </Field>
+
+            <Field n={6} label="O que NUNCA fazer (restrições)">
+              <textarea rows={3} value={form.restrictions} onChange={set('restrictions')} className={inputCls}
+                placeholder="Ex: nunca prometer retorno garantido; nunca citar concorrente pelo nome; nunca publicar valores sem aprovação." />
+              <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+                Proibições absolutas. Diferente das diretrizes acima: diretriz é
+                orientação (“mantenha tom consultivo”), restrição é limite duro.
+                A IA é instruída a recusar a tarefa se só conseguir cumpri-la
+                violando uma destas.
+              </p>
+            </Field>
+
+            <Field n={7} label="Estratégia do período (o que perseguir agora)">
+              <textarea rows={4} value={form.strategy} onChange={set('strategy')} className={inputCls}
+                placeholder="Ex: neste trimestre o foco é BPO financeiro para escritórios contábeis. Consultoria avulsa é secundária. Meta: 15 reuniões/mês. Priorizar conteúdo que fale com sócio de escritório, não com pessoa física." />
+              <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+                É a direção que a equipe de IA segue quando precisa escolher.
+                Diferente das diretrizes acima: diretriz é limite, estratégia é
+                rumo. Sem preencher, a IA decide sozinha pelo que performou no
+                passado — o que atrapalha justamente quando você está mudando
+                de direção.
+              </p>
+            </Field>
           </Card>
         </div>
 
@@ -420,6 +450,12 @@ export default function MarketingRulesPage() {
             </Field>
           </Card>
         </div>
+      </div>
+
+      {/* Campanhas ficam FORA da grade de duas colunas: a lista cresce e cada
+          briefing é um bloco de texto — espremido em meia largura, não lê. */}
+      <div className="mt-4">
+        <BriefingsDeCampanha />
       </div>
 
       <div className="flex justify-end">

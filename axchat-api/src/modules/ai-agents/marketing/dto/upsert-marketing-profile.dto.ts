@@ -47,6 +47,24 @@ export class UpsertMarketingProfileDto {
   @MaxLength(8000)
   guidelines?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Estratégia do período: o que perseguir, qual oferta priorizar, qual meta. Diferente de diretrizes, que são limites.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  strategy?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'O que NUNCA fazer. Proibições duras, separadas das diretrizes (que são orientação).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  restrictions?: string;
+
   @ApiPropertyOptional({ description: 'Teto de verba mensal de mídia, em centavos.' })
   @IsOptional()
   @IsInt()

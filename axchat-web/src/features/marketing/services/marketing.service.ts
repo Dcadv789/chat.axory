@@ -8,6 +8,10 @@ export interface MarketingProfile {
   targetAudience: string | null;
   toneOfVoice: string | null;
   guidelines: string | null;
+  /** Direção do período — o que perseguir. Diferente de diretrizes, que são limites. */
+  strategy: string | null;
+  /** Proibições absolutas — diferente de diretrizes, que são orientação. */
+  restrictions: string | null;
   monthlyAdBudgetCents: number | null;
   maxDailyBudgetCents: number | null;
   currency: string;
@@ -25,6 +29,8 @@ export interface UpsertMarketingProfileInput {
   targetAudience?: string;
   toneOfVoice?: string;
   guidelines?: string;
+  strategy?: string;
+  restrictions?: string;
   monthlyAdBudgetCents?: number;
   maxDailyBudgetCents?: number;
   currency?: string;
@@ -93,7 +99,76 @@ export interface MarketingAnalysisRow {
   createdAt: string;
 }
 
+
+/** Briefing de UMA campanha — o que ela quer, para quem, com qual limite. */
+export interface CampaignBrief {
+  id: string;
+  name: string;
+  objective: string;
+  targetAudience: string | null;
+  offer: string | null;
+  keyMessage: string | null;
+  restrictions: string | null;
+  adIds: string[];
+  monthlyBudgetCents: number | null;
+  status: 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+}
+
+export interface UpsertCampaignBriefInput {
+  name: string;
+  objective: string;
+  targetAudience?: string;
+  offer?: string;
+  keyMessage?: string;
+  restrictions?: string;
+  adIds?: string[];
+  monthlyBudgetCents?: number;
+  status?: 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+  startsAt?: string;
+  endsAt?: string;
+}
+
 export const marketingService = {
+  // ─── Briefings de campanha ───────────────────────────────
+  async listCampaignBriefs(arquivadas = false): Promise<CampaignBrief[]> {
+    const { data } = await api.get('/marketing/campaign-briefs', {
+      params: arquivadas ? { arquivadas: '1' } : undefined,
+    });
+    return data?.data ?? data ?? [];
+  },
+
+  async createCampaignBrief(
+    input: UpsertCampaignBriefInput,
+  ): Promise<CampaignBrief> {
+    const { data } = await api.post('/marketing/campaign-briefs', input);
+    return data?.data ?? data;
+  },
+
+  async updateCampaignBrief(
+    id: string,
+    input: UpsertCampaignBriefInput,
+  ): Promise<CampaignBrief> {
+    const { data } = await api.put(`/marketing/campaign-briefs/${id}`, input);
+    return data?.data ?? data;
+  },
+
+  async setCampaignBriefStatus(
+    id: string,
+    status: 'ACTIVE' | 'PAUSED' | 'ARCHIVED',
+  ): Promise<CampaignBrief> {
+    const { data } = await api.post(`/marketing/campaign-briefs/${id}/status`, {
+      status,
+    });
+    return data?.data ?? data;
+  },
+
+  async archiveCampaignBrief(id: string): Promise<void> {
+    await api.delete(`/marketing/campaign-briefs/${id}`);
+  },
+
   async getProfile(): Promise<MarketingProfile | null> {
     const { data } = await api.get('/marketing/profile');
     return data?.data ?? data ?? null;

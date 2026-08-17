@@ -92,6 +92,8 @@ export class MarketingProfileService {
       targetAudience: dto.targetAudience ?? null,
       toneOfVoice: dto.toneOfVoice ?? null,
       guidelines: dto.guidelines ?? null,
+      strategy: dto.strategy ?? null,
+      restrictions: dto.restrictions ?? null,
       monthlyAdBudgetCents: dto.monthlyAdBudgetCents ?? null,
       maxDailyBudgetCents: dto.maxDailyBudgetCents ?? null,
       currency: dto.currency || 'BRL',

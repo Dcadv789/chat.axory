@@ -24,6 +24,8 @@ import { MarketingCredentialsService } from '../marketing/marketing-credentials.
 import { CaptureInstagramMetricsTool } from './builtin/capture-instagram-metrics.tool';
 import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.tool';
 import { GetBudgetPacingTool } from './builtin/get-budget-pacing.tool';
+import { GetCampaignFunnelTool } from './builtin/get-campaign-funnel.tool';
+import { GetCampaignBriefsTool } from './builtin/get-campaign-briefs.tool';
 import { GetRecentMarketingAnalysesTool } from './builtin/get-recent-marketing-analyses.tool';
 import {
   PublishThreadsPostTool,
@@ -110,6 +112,8 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     CaptureInstagramMetricsTool,
     CaptureMetaAdsMetricsTool,
     GetBudgetPacingTool,
+    GetCampaignFunnelTool,
+    GetCampaignBriefsTool,
     GetRecentMarketingAnalysesTool,
     PublishThreadsPostTool,
     ReplyToThreadsPostTool,

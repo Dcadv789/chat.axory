@@ -89,6 +89,7 @@ export class MarketingProvisioningService {
           visibility: ChannelVisibility.ORG,
           isActive: true,
           aiEnabled: true,
+          sector: 'MARKETING',
           defaultOrchestratorId: magnus.id,
         },
       });

@@ -57,6 +57,20 @@ export class GetMarketingProfileTool implements AiTool {
         targetAudience: p.targetAudience,
         toneOfVoice: p.toneOfVoice,
         guidelines: p.guidelines,
+        strategy: p.strategy,
+        restrictions: p.restrictions,
+        // Proibição precisa ser lida como limite duro, não como sugestão de
+        // estilo. Sem esta linha o modelo dá o mesmo peso a "mantenha tom
+        // consultivo" e "nunca prometa retorno garantido".
+        restrictionsInstruction: p.restrictions
+          ? 'As RESTRICOES acima sao proibicoes absolutas. Nao ha excecao, nem quando o resultado pareceria melhor. Se uma tarefa so puder ser cumprida violando uma restricao, NAO cumpra: devolva explicando qual restricao impede.'
+          : undefined,
+        // Sem esta linha o modelo trata estratégia como só mais um texto do
+        // perfil. Ela existe pra dizer que, em caso de conflito, a direção do
+        // dono vence o que o número do mês passado sugere.
+        strategyInstruction: p.strategy
+          ? 'A ESTRATEGIA acima e a direcao definida pelo dono do negocio para este periodo. Ela tem precedencia sobre o que os numeros historicos sugerem: se a estrategia diz priorizar um produto, priorize-o mesmo que outro tenha performado melhor no passado. Se for recomendar algo que a contrarie, diga explicitamente que esta contrariando e por que.'
+          : undefined,
         monthlyAdBudgetCents: p.monthlyAdBudgetCents,
         maxDailyBudgetCents: p.maxDailyBudgetCents,
         currency: p.currency,

@@ -24,6 +24,8 @@ import { RecordMarketingAnalysisTool } from './builtin/record-marketing-analysis
 import { CaptureInstagramMetricsTool } from './builtin/capture-instagram-metrics.tool';
 import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.tool';
 import { GetBudgetPacingTool } from './builtin/get-budget-pacing.tool';
+import { GetCampaignFunnelTool } from './builtin/get-campaign-funnel.tool';
+import { GetCampaignBriefsTool } from './builtin/get-campaign-briefs.tool';
 import { GetRecentMarketingAnalysesTool } from './builtin/get-recent-marketing-analyses.tool';
 import {
   PublishThreadsPostTool,
@@ -97,6 +99,8 @@ export class ToolRegistry {
     captureInstagramMetrics: CaptureInstagramMetricsTool,
     captureMetaAdsMetrics: CaptureMetaAdsMetricsTool,
     getBudgetPacing: GetBudgetPacingTool,
+    getCampaignFunnel: GetCampaignFunnelTool,
+    getCampaignBriefs: GetCampaignBriefsTool,
     getRecentMarketingAnalyses: GetRecentMarketingAnalysesTool,
     publishThreadsPost: PublishThreadsPostTool,
     replyToThreadsPost: ReplyToThreadsPostTool,
@@ -158,6 +162,17 @@ export class ToolRegistry {
     ]);
     // Contexto das análises/decisões anteriores — continuidade do ciclo diário.
     this.register(getRecentMarketingAnalyses, ['ORCHESTRATOR', 'WORKER'], undefined, [
+      'MARKETING',
+    ]);
+    // Funil por campanha: liga o anúncio ao que aconteceu com o lead no
+    // pipeline. É a única ferramenta que atravessa a fronteira entre marketing
+    // e atendimento — as métricas do Meta param no clique.
+    this.register(getCampaignFunnel, ['ORCHESTRATOR', 'WORKER'], undefined, [
+      'MARKETING',
+    ]);
+    // Briefing por campanha: o que CADA uma quer. Sem isto, duas campanhas
+    // simultâneas com objetivos opostos recebiam a mesma mensagem.
+    this.register(getCampaignBriefs, ['ORCHESTRATOR', 'WORKER'], undefined, [
       'MARKETING',
     ]);
 
