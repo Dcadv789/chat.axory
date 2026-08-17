@@ -13,6 +13,7 @@ import {
   CircleCheck,
   CircleAlert,
   ExternalLink,
+  Info,
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -54,6 +55,11 @@ interface Integration {
   webhookUrl?: string;
   endpoints: Endpoint[];
   setupUrl: string;
+  /**
+   * Passo que NÃO é credencial e que ninguém adivinha — preencher os campos
+   * não basta pra integração começar a funcionar.
+   */
+  depoisDePreencher?: string;
 }
 
 const INTEGRATIONS: Integration[] = [
@@ -188,6 +194,8 @@ const INTEGRATIONS: Integration[] = [
       { method: 'PUT', path: '/accounts/{account}/locations/{location}/reviews/{review}/reply', label: 'Responde uma avaliação' },
     ],
     setupUrl: 'https://console.cloud.google.com/apis/credentials',
+    depoisDePreencher:
+      'Preencher os três campos acima não liga o Google sozinho. As skills de Google (createGoogleBusinessPost, listGoogleBusinessReviews, replyToGoogleBusinessReview) estão no catálogo mas desligadas do Caspian, porque apontavam para uma conta que ainda não existia. Depois de salvar as credenciais, vá em Agentes → Marketing → Caspian → Configurar e ligue as três em Habilidades.',
   },
   {
     id: 'openai',
@@ -399,6 +407,12 @@ function IntegrationCard({
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           {integration.description}
         </p>
+        {integration.depoisDePreencher && (
+          <p className="mt-2 flex gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>{integration.depoisDePreencher}</span>
+          </p>
+        )}
       </div>
 
       {/* Formulário (esquerda) + referência técnica (direita), lado a lado */}

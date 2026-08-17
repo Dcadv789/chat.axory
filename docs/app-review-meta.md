@@ -7,6 +7,28 @@ pra colar no painel.
 > **Só mexer neste app.** Os apps de WhatsApp (`AxChat` 1906464760047808 e
 > `Chat.Axory.API` 1527760795404234) são outros e não entram nesta submissão.
 
+## Status: SUBMETIDO em 10/08/2026
+
+O que foi enviado nesse dia:
+
+- Os textos de uso permitido das 6 permissões do Threads (as 13 de
+  Instagram/Pages/Ads já estavam salvas de antes).
+- Os 7 screencasts.
+- O formulário de **tratamento de dados** (operadores, controlador, país,
+  segurança nacional, políticas de solicitação).
+- As **instruções de acesso** com a conta de teste do revisor.
+
+O `api_precheck` do Threads, que ficava pendente por falta de chamada real,
+apareceu depois de a Meta registrar as chamadas — a doc dela fala em até 2 dias
+e foi mais ou menos isso.
+
+Ficou um ponto em aberto no dia do envio: o painel respondia `can_submit: false`
+com a justificativa *"não é possível enviar enquanto um envio anterior estiver
+em análise"*, mesmo com `submission_status: UNSUBMITTED`, sem nada pendente e
+com histórico vazio. Parece trava genérica que some quando todos os passos
+fecham. Se voltar a aparecer com tudo completo, é caso de chamado com a Meta —
+não adianta mexer em configuração.
+
 ## Decisões que já foram tomadas
 
 - **Facebook Login for Business**, não Instagram Login. Não é preferência: a doc
@@ -238,13 +260,13 @@ be undone. AI agents never delete content: deletion is available only to users
 with the OWNER or ADMIN role, from a manual click.
 
 ### public_profile
-Granted by default with Facebook Login. We use it only to show the name of the
-person who is signed in while they connect their business accounts, so it is
-clear which identity is being used to authorize the connection. We do not store
-or process it beyond the session.
+Não tem campo de texto no painel — só entra no Data Use Checkup. O texto abaixo
+fica registrado caso a Meta passe a pedir:
 
-### public_profile
-Sem campo de texto — só marcar a conformidade.
+> Granted by default with Facebook Login. We use it only to show the name of the
+> person who is signed in while they connect their business accounts, so it is
+> clear which identity is being used to authorize the connection. We do not
+> store or process it beyond the session.
 
 ## Por que declaramos a IA nos textos
 
@@ -379,11 +401,90 @@ outra conta**. Sem isso os passos 4 e 5 ficam vazios.
 ### Sem screencast
 `public_profile` pede só o Data Use Checkup — não tem vídeo.
 
-## O que falta pra submeter (checklist)
+## Formulário de tratamento de dados (respondido em 10/08/2026)
 
-- [ ] Publicar 1 post no Threads e conseguir 1 resposta de outra conta
-- [ ] Colar os 20 textos de uso permitido
-- [ ] `pages_messaging`: indicar a Página de teste (passo `test_page`)
-- [ ] Gravar os 7 vídeos
-- [ ] **Data Use Checkup** — uma vez pro app inteiro, não por permissão
-- [ ] Conferir no PAINEL quais `api_precheck` faltam (o MCP atrasa)
+### Operadores de dados: SIM
+
+Responder "não" seria declaração falsa: o conteúdo de DMs e comentários do
+Instagram sai do nosso servidor e vai para provedores de LLM em
+`llm.service.ts`. Foi conferido no banco de produção quais modelos os agentes
+ativos realmente usam — não o que o catálogo oferece:
+
+| Provedor | Uso real | Papel declarado |
+|---|---|---|
+| Anthropic | 353 agentes ativos (Claude Sonnet 4.6 e 3.5) | conteúdo de mensagem → resposta do agente |
+| DeepSeek | 30 agentes ativos | mesmo papel |
+| OpenAI | transcrição de áudio (Whisper), geração de imagem | áudio de DM, prompts |
+| Provedor do VPS | infraestrutura | app, PostgreSQL, storage |
+
+**Google Gemini está no catálogo mas com zero agentes.** Não foi declarado. Se
+algum cliente ativar, a lista tem que ser atualizada.
+
+**A DeepSeek é empresa chinesa.** Está declarado à Meta que conteúdo de DM de
+Instagram de clientes brasileiros vai para lá. Não é proibido, mas sob LGPD é
+transferência internacional: exige base legal e menção no aviso de privacidade.
+Se um dia isso incomodar, dá pra migrar os 30 agentes pra Claude e refazer a
+declaração.
+
+### Demais respostas
+
+- **Controlador dos dados:** razão social da empresa, idêntica à entidade que
+  passou na verificação de negócio da Meta. Divergência entre esse campo e o
+  Business Manager é motivo de rejeição.
+- **País:** Brasil.
+- **Solicitações de segurança nacional nos últimos 12 meses:** Não.
+- **Políticas para pedidos de autoridades:** só marcar o que existe de verdade.
+  As quatro (análise de legitimidade, contestação de pedido ilegal, minimização,
+  registro das solicitações) cabem numa página e, uma vez escritas, podem ser
+  marcadas com honestidade. Marcar sem ter é o tipo de coisa que a Meta pode
+  pedir pra comprovar.
+
+Pendência ligada a isto: o **aviso de privacidade** público precisa listar esses
+operadores. Se ele não disser que conteúdo de mensagem vai pra provedor de IA, o
+revisor consegue cruzar e ver contradição entre formulário e política.
+
+## Instruções de acesso do revisor
+
+Conta de teste: **`facebook@axory.com.br`**, papel **ADMIN** na organização
+**Axory Capital Group** (`cmqinbcvh0005o707q0vz0fv1`) — a mesma que tem o canal
+Instagram e o canal Threads conectados. ADMIN basta: o botão de excluir do
+Threads exige OWNER **ou** ADMIN.
+
+Dois detalhes que evitam reprovação por "não conseguimos acessar":
+
+1. **São dois logins diferentes.** O AxChat tem entrada própria por e-mail e
+   senha; o Facebook Login for Business não serve pra entrar no produto, só pra
+   conectar a conta do cliente depois de logado. Revisor que tenta entrar pelo
+   botão do Facebook não entra.
+2. **A interface é em português.** As instruções enviadas trazem o caminho de
+   menu com os rótulos exatos em português pra cada permissão.
+
+> **A senha dessa conta não pode ser trocada por um ano.** O campo de
+> credenciais diz que elas têm que ficar ativas por 12 meses após o envio — o
+> que derruba o plano anterior de desativar o usuário logo após a aprovação.
+> A conta fica viva, com senha longa e exclusiva. Senha é hash bcrypt: não tem
+> como recuperar, só resetar.
+
+Também vale lembrar que o revisor entra numa organização com inbox real. Se
+houver conversa de cliente de verdade ali, é dado de terceiro exposto a um
+revisor da Meta.
+
+## Checklist da submissão (fechado em 10/08/2026)
+
+- [x] Publicar 1 post no Threads e conseguir 1 resposta de outra conta
+- [x] Colar os textos de uso permitido (13 já estavam salvos; faltavam as 6 do Threads)
+- [x] `pages_messaging`: indicar a Página de teste (passo `test_page`)
+- [x] Gravar os 7 vídeos
+- [x] **Data Use Checkup**
+- [x] `api_precheck` — apareceu depois que a Meta registrou as chamadas reais
+- [x] Formulário de tratamento de dados
+- [x] Instruções de acesso + credenciais do revisor
+
+### Depois da aprovação
+
+- [ ] Conferir se a automação de comentário passou a funcionar — ela depende de
+      Advanced Access e **não tinha como ser testada antes** (ver seção acima).
+- [ ] Só então virar **Live**. Em Live o app só pede permissão aprovada, e isso
+      vale inclusive pra quem tem papel no app: virar Live antes quebra o app
+      até pra nós.
+- [ ] Manter `facebook@axory.com.br` ativa até 10/08/2027.
