@@ -15,6 +15,7 @@ import {
 import {
   aiAgentsService,
   type TimeRangeFilter,
+  type AgentSector,
 } from '../../services/ai-agents.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { useCanSeeCost } from '../../hooks/use-can-see-cost';
@@ -27,7 +28,7 @@ import { fmtMs, fmtNum, fmtUsdShort } from './format';
 export function JarvisOverviewTab({
   agentSector,
 }: {
-  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+  agentSector?: AgentSector;
 }) {
   const orgId = useOrgId();
   const canSeeCost = useCanSeeCost();

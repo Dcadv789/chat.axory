@@ -1,7 +1,13 @@
 import { api } from '@/lib/api';
 
 export type AgentKind = 'ORCHESTRATOR' | 'WORKER';
-export type AgentSector = 'ATENDIMENTO' | 'MARKETING';
+/**
+ * Frente do agente — a fronteira de capacidade, não um rótulo. Decide para
+ * quem o orquestrador delega, quais ferramentas o agente enxerga e de qual
+ * teto de tokens ele consome. OPERACAO é a frente interna: nunca é candidata
+ * a conversa de cliente.
+ */
+export type AgentSector = 'ATENDIMENTO' | 'MARKETING' | 'OPERACAO' | 'PESSOAL';
 export type AgentMode = 'AUTONOMOUS' | 'COPILOT' | 'DISABLED';
 export type AgentTrigger = 'ALWAYS' | 'OFF_HOURS' | 'NO_HUMAN_ASSIGNED';
 
@@ -66,7 +72,13 @@ export interface AiAgent {
   isActive: boolean;
   parentAgentId: string | null;
   department: string | null;
-  squad: string | null;
+  /**
+   * Agente do PRODUTO (veio do provisionamento). O texto de instrução dele é
+   * mantido pela Axory: o cliente ajusta por `additionalInstructions`.
+   */
+  isManaged: boolean;
+  /** Ajuste do cliente, somado ao texto de instrução — não o substitui. */
+  additionalInstructions: string | null;
   /** Contexto operacional vivo — atualizado quase diariamente pelo operador. */
   operationalContext: string | null;
   /** Quando foi a última vez que `operationalContext` mudou. */
@@ -79,6 +91,8 @@ export interface AiAgent {
 export interface CreateAgentInput {
   name: string;
   description?: string;
+  /** `emoji:🎯`, uma URL de imagem, ou vazio (cai nas iniciais coloridas). */
+  avatarUrl?: string | null;
   kind?: AgentKind;
   sector?: AgentSector;
   category?: string;
@@ -91,7 +105,7 @@ export interface CreateAgentInput {
   isActive?: boolean;
   parentAgentId?: string | null;
   department?: string | null;
-  squad?: string | null;
+  additionalInstructions?: string | null;
   operationalContext?: string | null;
 }
 
@@ -485,14 +499,20 @@ export const CURATED_MODELS = [
   },
 ] as const;
 
-/** Uma habilidade configurável (HTTP/SQL), com o que ela faz. */
+/**
+ * Uma habilidade do CATÁLOGO da organização. A lista vem inteira: `temAcesso`
+ * separa as que este agente usa das que existem mas não estão ligadas nele.
+ */
 export interface CapabilitySkill {
+  id: string;
   nome: string;
   descricao: string;
   categoria: string | null;
   origem: string;
   /** Mexe em algo fora do AxChat (POST/PUT/PATCH/DELETE). */
   escreve: boolean;
+  /** Está vinculada a este agente. */
+  temAcesso: boolean;
   pedeAprovacao: boolean;
 }
 
@@ -510,11 +530,30 @@ export interface AgentCapabilities {
     kind: string;
     sector: string | null;
     description: string | null;
+    category: string | null;
+    department: string | null;
+      modelId: string;
+    temperature: number;
+    maxTokens: number;
+    canRespondDirectly: boolean;
+    isActive: boolean;
+    operationalContext: string | null;
+    operationalContextUpdatedAt: string | null;
+    systemPrompt: string;
+    parent: { id: string; name: string } | null;
+    subordinates: Array<{ id: string; name: string; isActive: boolean }>;
+    channels: Array<{
+      mode: string;
+      trigger: string;
+      channel: { id: string; name: string; type: string };
+    }>;
   };
   skills: CapabilitySkill[];
   builtin: CapabilityBuiltin[];
   resumo: {
     skillsTotal: number;
+    /** Quantas habilidades existem na organização, ligadas ou não. */
+    skillsCatalogo: number;
     skillsComAprovacao: number;
     builtinDisponiveis: number;
     builtinTotal: number;

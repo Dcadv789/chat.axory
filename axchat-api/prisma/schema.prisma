@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
@@ -119,137 +119,137 @@ enum NotificationType {
 // ─── Core: Auth + Multi-tenancy ──────────────────
 
 model User {
-  id        String    @id @default(cuid())
-  name      String
-  email     String    @unique
-  password  String
-  avatarUrl String?   @map("avatar_url")
-  isActive  Boolean   @default(true) @map("is_active")
-  isSuperAdmin Boolean @default(false) @map("is_super_admin")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  password     String
+  avatarUrl    String?   @map("avatar_url")
+  isActive     Boolean   @default(true) @map("is_active")
+  isSuperAdmin Boolean   @default(false) @map("is_super_admin")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
 
-  organizations         UserOrganization[]
-  assignedConversations Conversation[]     @relation("AssignedAgent")
-  sentMessages          Message[]          @relation("MessageSender")
-  revokedMessages       Message[]          @relation("MessageRevoker")
-  notifications         Notification[]
-  pushSubscriptions     PushSubscription[]
-  sentInvitations       Invitation[]
-  apiKeys               ApiKey[]
-  inboxViews            InboxView[]
-  conversationReads     ConversationRead[]
-  contactNotes          ContactNote[]
+  organizations            UserOrganization[]
+  assignedConversations    Conversation[]            @relation("AssignedAgent")
+  sentMessages             Message[]                 @relation("MessageSender")
+  revokedMessages          Message[]                 @relation("MessageRevoker")
+  notifications            Notification[]
+  pushSubscriptions        PushSubscription[]
+  sentInvitations          Invitation[]
+  apiKeys                  ApiKey[]
+  inboxViews               InboxView[]
+  conversationReads        ConversationRead[]
+  contactNotes             ContactNote[]
   conversationParticipants ConversationParticipant[]
-  assignedCards         Card[]             @relation("CardAssignee")
-  superAdminAuditLogs   SuperAdminAuditLog[]
-  assistantConfigs      PersonalAssistantConfig[]
-  personalTasks         PersonalTask[]
-  personalNotes         PersonalNote[]
-  personalReminders     PersonalReminder[]
-  personalEvents        PersonalCalendarEvent[]
+  assignedCards            Card[]                    @relation("CardAssignee")
+  superAdminAuditLogs      SuperAdminAuditLog[]
+  assistantConfigs         PersonalAssistantConfig[]
+  personalTasks            PersonalTask[]
+  personalNotes            PersonalNote[]
+  personalReminders        PersonalReminder[]
+  personalEvents           PersonalCalendarEvent[]
 
   @@map("users")
 }
 
 model Organization {
-  id        String    @id @default(cuid())
-  name      String
-  slug      String    @unique
-  logoUrl   String?   @map("logo_url")
-  plan      String    @default("free")
-  settings  Json      @default("{}")
-  status    OrganizationStatus @default(ACTIVE)
-  suspendedAt DateTime? @map("suspended_at")
-  suspendedReason String? @map("suspended_reason")
-  billingStatus BillingStatus @default(TRIALING) @map("billing_status")
-  billingEmail String? @map("billing_email")
-  billingAmountCents Int? @map("billing_amount_cents")
-  billingCurrency String @default("BRL") @map("billing_currency")
-  billingCycle String @default("monthly") @map("billing_cycle")
-  billingDueDay Int? @map("billing_due_day")
+  id                  String             @id @default(cuid())
+  name                String
+  slug                String             @unique
+  logoUrl             String?            @map("logo_url")
+  plan                String             @default("free")
+  settings            Json               @default("{}")
+  status              OrganizationStatus @default(ACTIVE)
+  suspendedAt         DateTime?          @map("suspended_at")
+  suspendedReason     String?            @map("suspended_reason")
+  billingStatus       BillingStatus      @default(TRIALING) @map("billing_status")
+  billingEmail        String?            @map("billing_email")
+  billingAmountCents  Int?               @map("billing_amount_cents")
+  billingCurrency     String             @default("BRL") @map("billing_currency")
+  billingCycle        String             @default("monthly") @map("billing_cycle")
+  billingDueDay       Int?               @map("billing_due_day")
   /// Termos comerciais NEGOCIADOS por empresa (override do template do plano)
   /// + descontos. Coluna própria pra que "aplicar template" nunca apague isto.
   /// Shape: { seats, pricePerSeatCents, suiteFlatCents, aiConversations,
   /// includesMarketing, includesAssistant, discountType: 'NONE'|'PERCENT'|'FIXED',
   /// discountValue, discountReason, setupFeeCents, notes }.
-  billingProfile Json? @map("billing_profile")
-  trialEndsAt DateTime? @map("trial_ends_at")
-  currentPeriodEndsAt DateTime? @map("current_period_ends_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  billingProfile      Json?              @map("billing_profile")
+  trialEndsAt         DateTime?          @map("trial_ends_at")
+  currentPeriodEndsAt DateTime?          @map("current_period_ends_at")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  deletedAt           DateTime?          @map("deleted_at")
 
   // ─── AI settings ────────────────────────────────
-  aiEnabled            Boolean @default(true) @map("ai_enabled")
-  aiTimezone           String  @default("America/Sao_Paulo") @map("ai_timezone")
-  aiBusinessHours      Json?   @map("ai_business_hours")
-  aiOutOfHoursMessage  String? @map("ai_out_of_hours_message")
-  aiAutoDisableOnHuman Boolean @default(true) @map("ai_auto_disable_on_human")
+  aiEnabled                  Boolean  @default(true) @map("ai_enabled")
+  aiTimezone                 String   @default("America/Sao_Paulo") @map("ai_timezone")
+  aiBusinessHours            Json?    @map("ai_business_hours")
+  aiOutOfHoursMessage        String?  @map("ai_out_of_hours_message")
+  aiAutoDisableOnHuman       Boolean  @default(true) @map("ai_auto_disable_on_human")
   /// Quando true, prefixa o nome de quem enviou (atendente humano ou agente
   /// de IA) no texto entregue ao cliente — formato "*Nome:*\ntexto". Aplicado
   /// só no envio ao provider; o texto no banco/inbox continua limpo (o nome já
   /// aparece na própria bolha pra equipe). Default false.
-  signMessagesWithSenderName Boolean @default(false) @map("sign_messages_with_sender_name")
+  signMessagesWithSenderName Boolean  @default(false) @map("sign_messages_with_sender_name")
   /// Trava de roteamento por setor. Quando true, o orquestrador joga TODA
   /// conversa que precisa de humano no setor (Department) marcado como padrão,
   /// sem distribuir entre setores. Quando false, o orquestrador escolhe o setor
   /// e usa o padrão só como fallback. Default false.
-  routeAllToDefaultSector Boolean @default(false) @map("route_all_to_default_sector")
+  routeAllToDefaultSector    Boolean  @default(false) @map("route_all_to_default_sector")
   /// Quantas mensagens anteriores da conversa entram no prompt do agente.
   /// Default 50 — a operação é de atendimento rápido, então janela curta é
   /// suficiente e mantém custo/latência baixos. Configurável em Settings > IA.
-  aiHistoryWindow      Int     @default(50) @map("ai_history_window")
-  aiMonthlyTokenCap    Int?    @map("ai_monthly_token_cap")
-  monthlyConversationLimit Int? @map("monthly_conversation_limit")
+  aiHistoryWindow            Int      @default(50) @map("ai_history_window")
+  aiMonthlyTokenCap          Int?     @map("ai_monthly_token_cap")
+  monthlyConversationLimit   Int?     @map("monthly_conversation_limit")
   /// Cap de tokens de IA do MARKETING no mês, SEPARADO do cap de atendimento.
   /// A crew consome tokens; esse limite é o do add-on de marketing (não come a
   /// cota de conversas de cliente). null = sem limite.
-  aiMarketingMonthlyTokenCap Int? @map("ai_marketing_monthly_token_cap")
+  aiMarketingMonthlyTokenCap Int?     @map("ai_marketing_monthly_token_cap")
   /// Add-on vendável: habilita o módulo de Marketing (agentes/menu próprios).
   /// Controlado pelo Super Admin. Quando false, o cliente nem vê o menu.
-  marketingEnabled     Boolean @default(false) @map("marketing_enabled")
+  marketingEnabled           Boolean  @default(false) @map("marketing_enabled")
   /// Motor de automações desta empresa. Independente do AUTOMATIONS_ENABLED
   /// global (que é a chave de emergência da plataforma): aqui é o dono que
   /// decide se as regras dele rodam. Nasce desligado — automação que dispara
   /// sem ninguém ter ligado é a pior surpresa possível.
-  automationsEnabled   Boolean @default(false) @map("automations_enabled")
+  automationsEnabled         Boolean  @default(false) @map("automations_enabled")
   /// Add-on vendável: habilita a IA de Assistente Pessoal (do dono/gestor).
   /// Fluxo 1:1 privado, com tarefas/notas/lembretes/agenda. Quando false,
   /// o cliente nem vê o menu.
-  assistantEnabled     Boolean @default(false) @map("assistant_enabled")
+  assistantEnabled           Boolean  @default(false) @map("assistant_enabled")
   /// Motor de IA da org, controlado pelo Super Admin.
   /// true  = "IA AxChat": roda no NOSSO motor (chaves globais de env). O cliente
   ///         não configura chave nenhuma — a UI de chave/modelo próprio some e o
   ///         backend ignora `deepseekApiKey` e os AiModelProvider da org.
   /// false = "IA própria": o cliente traz o motor dele (chave DeepSeek e/ou
   ///         modelos custom registrados em AiModelProvider).
-  axchatAiEnabled      Boolean @default(true) @map("axchat_ai_enabled")
+  axchatAiEnabled            Boolean  @default(true) @map("axchat_ai_enabled")
   /// Chave de API do DeepSeek por organização (definida pela UI em
   /// Settings > IA). NULL = usa o fallback global DEEPSEEK_API_KEY da env.
   /// Só tem efeito quando `axchatAiEnabled` = false.
-  deepseekApiKey       String? @map("deepseek_api_key") @db.Text
+  deepseekApiKey             String?  @map("deepseek_api_key") @db.Text
   /// Notas livres do negócio injetadas no system prompt de TODOS os
   /// agentes da org. Use pra info que muda com frequência e que vale
   /// pra qualquer fluxo (vendas/suporte/CS): regras de entrega, horários
   /// de live, política de reembolso, talking points atuais, etc.
-  aiBusinessNotes      String? @map("ai_business_notes") @db.Text
+  aiBusinessNotes            String?  @map("ai_business_notes") @db.Text
   /// Regras de segurança (imutáveis) injetadas na Layer 1 do prompt composer.
   /// Shape: { noPriceCommitment, noDeadlineCommitment, noResultPromise,
   /// noCrossClientDataLeak, forbiddenEmojis: string[], language: 'pt-BR'|'en-US',
   /// customRules: string[] }. NULL = usa defaults do código.
-  aiSecurityRules      Json?   @map("ai_security_rules")
+  aiSecurityRules            Json?    @map("ai_security_rules")
   /// Threshold de confiança do IntentClassifier pra pular o orchestrator.
   /// Default 0.85. Abaixo disso cai no Augusto.
-  aiClassifierThreshold Decimal? @default(0.85) @map("ai_classifier_threshold") @db.Decimal(3, 2)
+  aiClassifierThreshold      Decimal? @default(0.85) @map("ai_classifier_threshold") @db.Decimal(3, 2)
 
   /// Lista de domínios permitidos em links que a IA pode mandar pro
   /// cliente. Quando preenchido (array com strings tipo "bravy.co",
   /// "trivapp.com.br"), o runtime guard rejeita qualquer URL fora da
   /// lista — IA tem que reescrever sem o link inventado. NULL ou
   /// array vazio = permissivo (só loga warning, não bloqueia).
-  allowedUrlDomains    Json?   @map("allowed_url_domains")
+  allowedUrlDomains Json? @map("allowed_url_domains")
 
   // ─── Watchdog (conversas presas) ────────────────
   /// Liga/desliga o watchdog que detecta conversas onde a IA travou ou
@@ -264,41 +264,42 @@ model Organization {
   /// null = usa defaults do código (15, 15, 60, 3).
   watchdogConfig        Json?   @map("watchdog_config")
 
-  members       UserOrganization[]
-  channels      Channel[]
-  contacts      Contact[]
-  conversations Conversation[]
-  departments   Department[]
-  chatbotFlows  ChatbotFlow[]
-  quickReplies  QuickReply[]
-  tags          Tag[]
-  notifications Notification[]
-  invitations   Invitation[]
-  apiKeys       ApiKey[]
-  aiAgents      AiAgent[]
-  aiTools       AiTool[]
-  aiSkills      AiSkill[]
-  inboxViews    InboxView[]
-  pipelines     Pipeline[]
-  cards         Card[]
-  products      Product[]
-  auditLogs          SuperAdminAuditLog[]
-  aiModelProviders   AiModelProvider[]
-  agentSectors       AgentSector[]
-  organizationSecrets OrganizationSecret[]
-  agentCrons         AgentCron[]
-  marketingProfile     MarketingProfile?
+  members                 UserOrganization[]
+  channels                Channel[]
+  contacts                Contact[]
+  conversations           Conversation[]
+  departments             Department[]
+  chatbotFlows            ChatbotFlow[]
+  quickReplies            QuickReply[]
+  tags                    Tag[]
+  notifications           Notification[]
+  invitations             Invitation[]
+  apiKeys                 ApiKey[]
+  aiAgents                AiAgent[]
+  aiTools                 AiTool[]
+  aiSkills                AiSkill[]
+  inboxViews              InboxView[]
+  pipelines               Pipeline[]
+  cards                   Card[]
+  products                Product[]
+  auditLogs               SuperAdminAuditLog[]
+  aiModelProviders        AiModelProvider[]
+  agentSectors            AgentSector[]
+  organizationSecrets     OrganizationSecret[]
+  agentCrons              AgentCron[]
+  marketingProfile        MarketingProfile?
   marketingMonthlyBudgets MarketingMonthlyBudget[]
-  marketingMediaAssets MarketingMediaAsset[]
-  marketingAnalyses    MarketingAnalysis[]
-  marketingActivities  MarketingActivity[]
-  marketingMediaMetrics MarketingMediaMetric[]
-  marketingAdMetrics   MarketingAdMetric[]
-  assistantConfigs     PersonalAssistantConfig[]
-  personalTasks        PersonalTask[]
-  personalNotes        PersonalNote[]
-  personalReminders    PersonalReminder[]
-  personalEvents       PersonalCalendarEvent[]
+  marketingCampaignBriefs MarketingCampaignBrief[]
+  marketingMediaAssets    MarketingMediaAsset[]
+  marketingAnalyses       MarketingAnalysis[]
+  marketingActivities     MarketingActivity[]
+  marketingMediaMetrics   MarketingMediaMetric[]
+  marketingAdMetrics      MarketingAdMetric[]
+  assistantConfigs        PersonalAssistantConfig[]
+  personalTasks           PersonalTask[]
+  personalNotes           PersonalNote[]
+  personalReminders       PersonalReminder[]
+  personalEvents          PersonalCalendarEvent[]
   instagramHiddenComments InstagramHiddenComment[]
   instagramPostCache      InstagramPostCache[]
   scheduledPosts          ScheduledPost[]
@@ -336,13 +337,13 @@ model AgentSector {
   organizationId String   @map("organization_id")
   name           String
   description    String?
-  icon           String?  // lucide-react icon name
-  color          String?  // tailwind color
+  icon           String? // lucide-react icon name
+  color          String? // tailwind color
   order          Int      @default(0)
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   agents       AgentSectorAgent[]
 
   @@index([organizationId, order], name: "idx_agent_sector_org_order")
@@ -363,16 +364,16 @@ model AgentSectorAgent {
 model AiModelProvider {
   id             String   @id @default(cuid())
   organizationId String   @map("organization_id")
-  provider       String   // "anthropic", "openai", "custom"
-  name           String   // Display name: "Claude Sonnet 4.6"
-  modelId        String   // "anthropic/claude-sonnet-4-6"
+  provider       String // "anthropic", "openai", "custom"
+  name           String // Display name: "Claude Sonnet 4.6"
+  modelId        String // "anthropic/claude-sonnet-4-6"
   apiKey         String?  @map("api_key") @db.Text
   baseUrl        String?  @map("base_url")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, modelId])
   @@map("ai_model_providers")
@@ -458,33 +459,39 @@ model Invitation {
 // ─── Channel Hub ─────────────────────────────────
 
 model Channel {
-  id             String      @id @default(cuid())
-  organizationId String      @map("organization_id")
-  type           ChannelType
-  name           String
-  config         Json
-  webhookSecret  String?     @map("webhook_secret")
-  isActive       Boolean     @default(true) @map("is_active")
-  visibility     ChannelVisibility @default(ORG)
+  id                    String            @id @default(cuid())
+  organizationId        String            @map("organization_id")
+  type                  ChannelType
+  name                  String
+  config                Json
+  webhookSecret         String?           @map("webhook_secret")
+  isActive              Boolean           @default(true) @map("is_active")
+  visibility            ChannelVisibility @default(ORG)
   // Tri-state override: NULL=segue org.aiEnabled, true=força ON, false=força OFF.
   // Permite o operador desligar a IA num canal específico (ex: 1581 produção)
   // sem precisar mexer no toggle global da org.
-  aiEnabled      Boolean?    @map("ai_enabled")
-  defaultOrchestratorId String? @map("default_orchestrator_id")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt @map("updated_at")
-  deletedAt      DateTime?   @map("deleted_at")
+  aiEnabled             Boolean?          @map("ai_enabled")
+  /// Frente do canal: qual equipe de IA atende aqui. É a FONTE DA VERDADE do
+  /// roteamento — antes era derivada do setor do `defaultOrchestrator`, o que
+  /// deixava canal sem orquestrador virar ATENDIMENTO em silêncio e mudava a
+  /// frente sem aviso quando alguém trocava o orquestrador padrão.
+  /// Um canal só aceita agente da mesma frente.
+  sector                AiAgentSector     @default(ATENDIMENTO)
+  defaultOrchestratorId String?           @map("default_orchestrator_id")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+  deletedAt             DateTime?         @map("deleted_at")
 
-  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contactChannels ContactChannel[]
-  conversations   Conversation[]
-  chatbotFlows    ChatbotFlowChannel[]
-  syncJobs        ChannelSyncJob[]
-  channelAgents   ChannelAgent[]
-  aiAgentChannels AiAgentChannel[]
-  whatsappTemplates WhatsappTemplate[]
-  defaultOrchestrator AiAgent? @relation("DefaultOrchestrator", fields: [defaultOrchestratorId], references: [id], onDelete: SetNull)
-  marketingProfiles MarketingProfile[]
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactChannels     ContactChannel[]
+  conversations       Conversation[]
+  chatbotFlows        ChatbotFlowChannel[]
+  syncJobs            ChannelSyncJob[]
+  channelAgents       ChannelAgent[]
+  aiAgentChannels     AiAgentChannel[]
+  whatsappTemplates   WhatsappTemplate[]
+  defaultOrchestrator AiAgent?             @relation("DefaultOrchestrator", fields: [defaultOrchestratorId], references: [id], onDelete: SetNull)
+  marketingProfiles   MarketingProfile[]
 
   @@index([organizationId, type], name: "idx_channel_org_type")
   @@map("channels")
@@ -578,15 +585,15 @@ model ChannelSyncJob {
 // o seletor de templates e aberto. Usado para enviar mensagens quando a
 // janela de 24h do WhatsApp esta fechada.
 model WhatsappTemplate {
-  id            String   @id @default(cuid())
-  channelId     String   @map("channel_id")
-  metaTemplateId String  @map("meta_template_id")
-  name          String
-  category      String   @default("")
-  language      String   @default("pt_BR")
-  status        String   @default("APPROVED") // APPROVED, PENDING, REJECTED
-  components    Json     @default("{}")
-  syncedAt      DateTime @default(now()) @map("synced_at")
+  id             String   @id @default(cuid())
+  channelId      String   @map("channel_id")
+  metaTemplateId String   @map("meta_template_id")
+  name           String
+  category       String   @default("")
+  language       String   @default("pt_BR")
+  status         String   @default("APPROVED") // APPROVED, PENDING, REJECTED
+  components     Json     @default("{}")
+  syncedAt       DateTime @default(now()) @map("synced_at")
 
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
@@ -645,33 +652,45 @@ model ContactChannel {
 // ─── Conversations ───────────────────────────────
 
 model Conversation {
-  id              String             @id @default(cuid())
-  organizationId  String             @map("organization_id")
-  channelId       String             @map("channel_id")
-  contactId       String             @map("contact_id")
-  assignedToId    String?            @map("assigned_to_id")
-  departmentId    String?            @map("department_id")
-  status          ConversationStatus @default(PENDING)
-  subject         String?
-  protocol        String?
-  isGroup         Boolean            @default(false) @map("is_group")
-  lastMessageAt   DateTime?          @map("last_message_at")
-  firstResponseAt DateTime?          @map("first_response_at")
-  closedAt        DateTime?          @map("closed_at")
-  reopenedAt      DateTime?          @map("reopened_at")
-  reopenedCount   Int                @default(0) @map("reopened_count")
-  deletedAt       DateTime?          @map("deleted_at")
+  id             String             @id @default(cuid())
+  organizationId String             @map("organization_id")
+  channelId      String             @map("channel_id")
+  contactId      String             @map("contact_id")
+  assignedToId   String?            @map("assigned_to_id")
+  departmentId   String?            @map("department_id")
+  status         ConversationStatus @default(PENDING)
+  subject        String?
+  protocol       String?
+  isGroup        Boolean            @default(false) @map("is_group")
+
+  /// De onde veio esta conversa: anúncio de clique-para-mensagem, link ig.me,
+  /// story. A Meta manda isso no `messaging_referral` do primeiro contato e o
+  /// adapter já extraía — só que a informação morria como texto numa mensagem
+  /// de sistema. Aqui ela vira dado consultável.
+  ///
+  /// PRIMEIRO TOQUE vence: uma vez gravado, não sobrescreve. O que interessa é
+  /// qual anúncio TROUXE a pessoa, não o último em que ela clicou.
+  adId           String? @map("ad_id")
+  adTitle        String? @map("ad_title")
+  referralSource String? @map("referral_source")
+
+  lastMessageAt   DateTime? @map("last_message_at")
+  firstResponseAt DateTime? @map("first_response_at")
+  closedAt        DateTime? @map("closed_at")
+  reopenedAt      DateTime? @map("reopened_at")
+  reopenedCount   Int       @default(0) @map("reopened_count")
+  deletedAt       DateTime? @map("deleted_at")
 
   // ─── Archive state ──────────────────────────────
   // Orthogonal to `status` — archived conversations are hidden from the
   // main inbox but their status (OPEN/PENDING/etc.) is preserved so they
   // re-appear in the right place when unarchived.
-  isArchived     Boolean   @default(false) @map("is_archived")
-  archivedAt     DateTime? @map("archived_at")
-  archivedById   String?   @map("archived_by_id")
-  metadata        Json               @default("{}")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
+  isArchived   Boolean   @default(false) @map("is_archived")
+  archivedAt   DateTime? @map("archived_at")
+  archivedById String?   @map("archived_by_id")
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   // ─── AI state (tri-state override) ──────────────
   // null  = segue regras globais (org.aiEnabled, business hours, agent)
@@ -686,15 +705,15 @@ model Conversation {
   /// Tentativas de reativação. Cada vez que o watchdog reaciona a IA na
   /// conversa, +1. Resetado pra 0 quando IA/humano responde com sucesso.
   /// Quando atinge `maxAttempts`, a conversa é marcada `isStuck=true`.
-  stuckAttempts        Int       @default(0) @map("stuck_attempts")
+  stuckAttempts       Int       @default(0) @map("stuck_attempts")
   /// Última vez que o watchdog avaliou a conversa.
-  lastWatchdogCheckAt  DateTime? @map("last_watchdog_check_at")
+  lastWatchdogCheckAt DateTime? @map("last_watchdog_check_at")
   /// ID do job reativo (BullMQ) atualmente agendado pra essa conversa.
   /// Permite cancelar/substituir o job quando algo muda na conversa.
-  watchdogJobId        String?   @map("watchdog_job_id")
+  watchdogJobId       String?   @map("watchdog_job_id")
   /// Bandeira "presa pra valer". Setada quando `stuckAttempts >= maxAttempts`.
   /// Frontend filtra por isso na inbox e no dashboard.
-  isStuck              Boolean   @default(false) @map("is_stuck")
+  isStuck             Boolean   @default(false) @map("is_stuck")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   channel      Channel      @relation(fields: [channelId], references: [id])
@@ -703,17 +722,17 @@ model Conversation {
   department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   activeAgent  AiAgent?     @relation("ActiveAgent", fields: [activeAgentId], references: [id], onDelete: SetNull)
 
-  messages      Message[]
-  tags          ConversationTag[]
-  internalNotes InternalNote[]
-  auditLogs     ConversationAuditLog[]
-  rating        ConversationRating?
+  messages         Message[]
+  tags             ConversationTag[]
+  internalNotes    InternalNote[]
+  auditLogs        ConversationAuditLog[]
+  rating           ConversationRating?
   aiRuns           AiAgentRun[]
   aiHandoffs       AiAgentHandoff[]
   aiPendingActions AiPendingAction[]
-  reads         ConversationRead[]
-  cards         Card[]                 @relation("CardConversation")
-  participants  ConversationParticipant[]
+  reads            ConversationRead[]
+  cards            Card[]                    @relation("CardConversation")
+  participants     ConversationParticipant[]
 
   @@index([organizationId, status], name: "idx_conv_org_status")
   @@index([organizationId, assignedToId], name: "idx_conv_org_agent")
@@ -728,6 +747,9 @@ model Conversation {
   @@index([organizationId, departmentId], name: "idx_conv_org_department")
   @@index([contactId], name: "idx_conv_contact")
   @@index([lastMessageAt], name: "idx_conv_last_msg")
+  // "quantos leads o anúncio X trouxe no período" é a consulta que a crew de
+  // marketing vai fazer — sem índice, isso vira varredura da tabela inteira.
+  @@index([organizationId, adId], name: "idx_conv_org_ad")
   @@map("conversations")
 }
 
@@ -802,15 +824,15 @@ model Message {
   /// Quando setado, a mensagem foi marcada como deletada. UI renderiza
   /// placeholder em vez do conteúdo. Não removemos a row pra preservar
   /// auditoria + histórico (audit-log mantém o conteúdo original).
-  revokedAt              DateTime? @map("revoked_at")
-  revokedBy              String?   @map("revoked_by")
+  revokedAt             DateTime? @map("revoked_at")
+  revokedBy             String?   @map("revoked_by")
   /// Se conseguimos propagar o delete pro provider (Zappfy/Meta).
   /// - true  = chamada na API do provider funcionou (some no app do cliente)
   /// - false = provider não suportou ou erro (mensagem ficou no app do cliente,
   ///           só sumiu no nosso inbox)
   /// - null  = ainda não foi revogada
-  revokeSucceededRemote  Boolean?  @map("revoke_succeeded_remote")
-  revoker                User?     @relation("MessageRevoker", fields: [revokedBy], references: [id], onDelete: SetNull)
+  revokeSucceededRemote Boolean?  @map("revoke_succeeded_remote")
+  revoker               User?     @relation("MessageRevoker", fields: [revokedBy], references: [id], onDelete: SetNull)
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User?        @relation("MessageSender", fields: [senderId], references: [id], onDelete: SetNull)
@@ -1139,6 +1161,7 @@ enum AiAgentKind {
 enum AiAgentSector {
   ATENDIMENTO
   MARKETING
+  OPERACAO
   PESSOAL
 }
 
@@ -1180,7 +1203,7 @@ model AiAgent {
   kind         AiAgentKind   @default(WORKER)
   sector       AiAgentSector @default(ATENDIMENTO)
   category     String?
-  capabilities String[]    @default([])
+  capabilities String[]      @default([])
 
   // ─── Organograma matricial ágil ────────────────────────────
   // parentAgentId: chefia direta — quem este agent reporta. Null = raiz (CEO/diretoria).
@@ -1189,22 +1212,25 @@ model AiAgent {
   parentAgentId String?   @map("parent_agent_id")
   parent        AiAgent?  @relation("AgentHierarchy", fields: [parentAgentId], references: [id], onDelete: SetNull)
   subordinates  AiAgent[] @relation("AgentHierarchy")
+  /// DEPRECADO — o departamento agora é a tabela `AgentSector` (N:N via
+  /// `AgentSectorAgent`). A coluna continua aqui só até o próximo deploy
+  /// limpar as últimas leituras; derrubar antes quebraria o app entre o
+  /// migrate e a subida do código novo.
   department    String?
-  squad         String?
 
-  modelId      String @map("model_id")
-  modelParams  Json?  @map("model_params")
-  systemPrompt String @map("system_prompt")
+  modelId                     String    @map("model_id")
+  modelParams                 Json?     @map("model_params")
+  systemPrompt                String    @map("system_prompt")
   // Contexto vivo da operação — atualizado quase diariamente pelo
   // operador. Ex: "Hoje teve aula sobre Skills. Ofereça Dominando
   // Claude Code R$ 1.497 (link X) pra quem responder feedback positivo."
   // Injetado no system prompt em todo run, marcado como cache_control
   // ephemeral pra não inflar token cost — quando o JP edita, o cache
   // é invalidado naturalmente pela mudança de hash.
-  operationalContext String?   @map("operational_context")
+  operationalContext          String?   @map("operational_context")
   operationalContextUpdatedAt DateTime? @map("operational_context_updated_at")
-  temperature  Float  @default(0.7)
-  maxTokens    Int    @default(2048) @map("max_tokens")
+  temperature                 Float     @default(0.7)
+  maxTokens                   Int       @default(2048) @map("max_tokens")
 
   canRespondDirectly Boolean @default(true) @map("can_respond_directly")
   isActive           Boolean @default(true) @map("is_active")
@@ -1213,6 +1239,23 @@ model AiAgent {
   /// opcionais. Usado no clone: principais vão sempre, acréscimos por
   /// departamento. Default false (acréscimo).
   isCore             Boolean @default(false) @map("is_core")
+
+  /// Agente do PRODUTO — veio do provisionamento, não foi criado pelo cliente.
+  ///
+  /// O `systemPrompt` destes é o produto que a Axory vende: se o cliente
+  /// reescrever, ele quebra e a culpa vira do sistema. Pior, ao melhorarmos o
+  /// texto no seed, quem editou não recebe a melhoria — e passa a existir uma
+  /// versão por cliente pra manter. Por isso o prompt fica travado aqui e o
+  /// cliente ajusta o comportamento por `additionalInstructions`.
+  ///
+  /// Agente criado PELO cliente nasce `false`: o prompt é dele, edita à
+  /// vontade. É o que separa "produto vendido" de "plataforma aberta".
+  isManaged          Boolean @default(false) @map("is_managed")
+
+  /// Ajuste do cliente, ANEXADO ao prompt do produto em vez de substituí-lo.
+  /// Vale para agente gerenciado e criado pelo cliente — no segundo é só uma
+  /// conveniência, já que lá o prompt inteiro é editável.
+  additionalInstructions String? @map("additional_instructions") @db.Text
 
   // ─── Follow-up automation ──────────────────────────────────
   // Quando este agent envia uma mensagem e o cliente não responde, o
@@ -1228,17 +1271,17 @@ model AiAgent {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  channels     AiAgentChannel[]
-  memories       AiAgentMemory[]
-  runs           AiAgentRun[]
-  handoffsFrom   AiAgentHandoff[]  @relation("HandoffFrom")
-  handoffsTo     AiAgentHandoff[]  @relation("HandoffTo")
-  pendingActions AiPendingAction[]
-  activeOn     Conversation[]   @relation("ActiveAgent")
-  skills       AiAgentSkill[]
-  sectorMemberships AgentSectorAgent[]
-  defaultOrchestratorForChannels Channel[] @relation("DefaultOrchestrator")
-  crons        AgentCron[]
+  channels                       AiAgentChannel[]
+  memories                       AiAgentMemory[]
+  runs                           AiAgentRun[]
+  handoffsFrom                   AiAgentHandoff[]   @relation("HandoffFrom")
+  handoffsTo                     AiAgentHandoff[]   @relation("HandoffTo")
+  pendingActions                 AiPendingAction[]
+  activeOn                       Conversation[]     @relation("ActiveAgent")
+  skills                         AiAgentSkill[]
+  sectorMemberships              AgentSectorAgent[]
+  defaultOrchestratorForChannels Channel[]          @relation("DefaultOrchestrator")
+  crons                          AgentCron[]
 
   @@index([organizationId], name: "idx_ai_agent_org")
   @@index([organizationId, kind], name: "idx_ai_agent_org_kind")
@@ -1422,14 +1465,14 @@ model AiAgentSkill {
 // `task` como mensagem-gatilho, e recalcula nextRunAt. A saída do agente fica
 // como thread interna visível no inbox.
 model AgentCron {
-  id             String  @id @default(cuid())
-  organizationId String  @map("organization_id")
-  agentId        String  @map("agent_id")
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  agentId        String @map("agent_id")
 
   name           String // rótulo humano, ex: "Revisão mensal de mídia"
-  task           String  @db.Text // o que o agente deve fazer quando disparar
-  cronExpression String  @map("cron_expression") // 5 campos, ex: "0 9 1 * *"
-  timezone       String  @default("America/Sao_Paulo")
+  task           String @db.Text // o que o agente deve fazer quando disparar
+  cronExpression String @map("cron_expression") // 5 campos, ex: "0 9 1 * *"
+  timezone       String @default("America/Sao_Paulo")
 
   isActive Boolean @default(true) @map("is_active")
 
@@ -1490,14 +1533,28 @@ model MarketingProfile {
   targetAudience     String? @map("target_audience") @db.Text // público-alvo padrão
   toneOfVoice        String? @map("tone_of_voice") @db.Text // tom de voz da marca
   guidelines         String? @db.Text // regras/limites (o que pode e não pode)
+  /// A ESTRATÉGIA do período: o que perseguir, qual oferta empurrar, qual meta.
+  ///
+  /// Separado de `guidelines` de propósito — diretriz é limite ("não prometa
+  /// retorno garantido"), estratégia é direção ("este trimestre o foco é BPO
+  /// para escritórios contábeis; consultoria avulsa é secundária"). Sem um
+  /// campo próprio, a crew sabia o que NÃO fazer e escolhia sozinha o que
+  /// fazer — pelo número do mês anterior, que é o pior conselheiro possível
+  /// quando a empresa está mudando de direção.
+  strategy           String? @db.Text
+  /// O que NUNCA fazer. Separado das diretrizes de propósito: diretriz é
+  /// orientação ("mantenha tom consultivo"), restrição é proibição ("nunca
+  /// prometa retorno garantido"). Misturadas num campo só, o modelo trata as
+  /// duas com o mesmo peso — e proibição precisa ser lida como limite duro.
+  restrictions       String? @db.Text
 
   // Regras de verba para anúncios.
   /// Verba mensal LEGADA (valor único). Continua valendo como fallback para
   /// meses anteriores ao primeiro registro de `MarketingMonthlyBudget` — que é
   /// onde a verba passou a ser definida mês a mês.
-  monthlyAdBudgetCents Int?    @map("monthly_ad_budget_cents") // teto mensal total de mídia
-  maxDailyBudgetCents  Int?    @map("max_daily_budget_cents") // teto por campanha/dia
-  currency             String  @default("BRL")
+  monthlyAdBudgetCents Int?   @map("monthly_ad_budget_cents") // teto mensal total de mídia
+  maxDailyBudgetCents  Int?   @map("max_daily_budget_cents") // teto por campanha/dia
+  currency             String @default("BRL")
 
   // Se a org puxa as regras de um banco EXTERNO, qual skill SQL usar.
   externalRulesSkill String? @map("external_rules_skill") // nome da AiSkill SQL, se houver
@@ -1562,6 +1619,54 @@ model InstagramPostCache {
 /// seja <= àquele mês (herança pra frente). Assim, definir a verba de abril não
 /// reescreve o passado, e quem não mexe todo mês continua coberto. Se não
 /// houver nenhum registro anterior, cai no `MarketingProfile.monthlyAdBudgetCents`.
+/// Briefing de UMA campanha. O perfil de marketing responde "quem é a empresa";
+/// isto responde "o que esta campanha específica está tentando conseguir".
+///
+/// Existe porque duas campanhas no ar ao mesmo tempo podem querer coisas
+/// opostas — uma captando lead frio para BPO contábil, outra reativando
+/// cliente antigo de consultoria. Com um perfil só, a crew tratava as duas com
+/// a mesma mensagem e o mesmo público.
+model MarketingCampaignBrief {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+
+  name      String
+  objective String @db.Text
+
+  /// Público, oferta e ângulo DESTA campanha. Quando vazios, valem os do
+  /// perfil da empresa — o briefing sobrescreve, não repete.
+  targetAudience String? @map("target_audience") @db.Text
+  offer          String? @db.Text
+  keyMessage     String? @map("key_message") @db.Text
+
+  /// O que não fazer NESTA campanha, além das restrições gerais da empresa.
+  restrictions String? @db.Text
+
+  /// Anúncios do Meta que pertencem a este briefing. É o que liga o briefing
+  /// ao resultado: com o `ad_id` da conversa, dá pra dizer quanto ESTA
+  /// campanha trouxe, não só quanto o anúncio isolado trouxe.
+  adIds String[] @default([]) @map("ad_ids")
+
+  monthlyBudgetCents Int? @map("monthly_budget_cents")
+
+  status    MarketingCampaignStatus @default(ACTIVE)
+  startsAt  DateTime?               @map("starts_at")
+  endsAt    DateTime?               @map("ends_at")
+  createdAt DateTime                @default(now()) @map("created_at")
+  updatedAt DateTime                @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status], name: "idx_campaign_brief_org_status")
+  @@map("marketing_campaign_briefs")
+}
+
+enum MarketingCampaignStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
 model MarketingMonthlyBudget {
   id             String @id @default(cuid())
   organizationId String @map("organization_id")
@@ -1625,7 +1730,7 @@ model MarketingAnalysis {
   kind            String // PERFORMANCE | STRATEGY | MEASUREMENT | AUDIENCE | OUTRO
   title           String
   summary         String  @db.Text // texto da análise
-  data            Json?   // métricas/achados estruturados (JSON)
+  data            Json? // métricas/achados estruturados (JSON)
   recommendations String? @db.Text // o que fazer a seguir
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1649,12 +1754,12 @@ model ScheduledPost {
   /// Conta do Instagram escolhida no painel. Null = credenciais da organização.
   channelId      String? @map("channel_id")
 
-  network ScheduledPostNetwork
-  caption String? @db.Text
-  imageUrl String? @map("image_url")
-  videoUrl String? @map("video_url")
+  network      ScheduledPostNetwork
+  caption      String?              @db.Text
+  imageUrl     String?              @map("image_url")
+  videoUrl     String?              @map("video_url")
   /// 2 a 10 itens quando é carrossel; vazio nos demais casos.
-  carouselUrls String[] @map("carousel_urls")
+  carouselUrls String[]             @map("carousel_urls")
 
   /// Quando publicar. Guardado em UTC; a tela converte pro fuso de quem olha.
   scheduledFor DateTime            @map("scheduled_for")
@@ -1699,12 +1804,12 @@ model MarketingActivity {
   agentId        String? @map("agent_id")
   runId          String? @map("run_id")
 
-  action  String // POST_PUBLISHED | CAMPAIGN_CREATED | AD_CREATED | BUDGET_CHANGED | REVIEW_REPLIED | COMMENT_REPLIED | IMAGE_GENERATED | ANALYSIS_RECORDED | ...
-  channel String? // INSTAGRAM | GOOGLE_BUSINESS | META_ADS
-  status  String  @default("OK") // OK | PENDING_APPROVAL | FAILED
-  title   String? // resumo curto legível
+  action     String // POST_PUBLISHED | CAMPAIGN_CREATED | AD_CREATED | BUDGET_CHANGED | REVIEW_REPLIED | COMMENT_REPLIED | IMAGE_GENERATED | ANALYSIS_RECORDED | ...
+  channel    String? // INSTAGRAM | GOOGLE_BUSINESS | META_ADS
+  status     String  @default("OK") // OK | PENDING_APPROVAL | FAILED
+  title      String? // resumo curto legível
   externalId String? @map("external_id") // id retornado pela plataforma (post id, campaign id...)
-  payload Json? // dados do evento
+  payload    Json? // dados do evento
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -1817,9 +1922,9 @@ enum PersonalEventSource {
 // Configuração do assistente de um usuário: qual agente o atende, em qual
 // inbox/canal ele conversa, fuso, e se o Google Calendar está conectado.
 model PersonalAssistantConfig {
-  id             String  @id @default(cuid())
-  organizationId String  @map("organization_id")
-  userId         String  @map("user_id")
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+  userId         String @map("user_id")
 
   agentId   String? @map("agent_id") // AiAgent (sector=PESSOAL) que atende
   channelId String? @map("channel_id") // canal PRINCIPAL (entrega de lembrete/briefing)
@@ -1828,15 +1933,15 @@ model PersonalAssistantConfig {
   // ficha de longo prazo é lida/gravada sempre neste contato).
   contactId String? @map("contact_id")
 
-  timezone               String  @default("America/Sao_Paulo")
-  googleCalendarConnected Boolean @default(false) @map("google_calendar_connected")
+  timezone                String    @default("America/Sao_Paulo")
+  googleCalendarConnected Boolean   @default(false) @map("google_calendar_connected")
   // Briefing diário: hora local pra mandar o "bom dia, hoje você tem...".
   // null = desligado. lastBriefingSentAt evita reenviar no mesmo dia.
-  dailyBriefingHour      Int?      @map("daily_briefing_hour")
-  lastBriefingSentAt     DateTime? @map("last_briefing_sent_at")
+  dailyBriefingHour       Int?      @map("daily_briefing_hour")
+  lastBriefingSentAt      DateTime? @map("last_briefing_sent_at")
   // Resumo de fim de dia (pendências + agenda de amanhã). null = desligado.
-  eveningSummaryHour     Int?      @map("evening_summary_hour")
-  lastEveningSentAt      DateTime? @map("last_evening_sent_at")
+  eveningSummaryHour      Int?      @map("evening_summary_hour")
+  lastEveningSentAt       DateTime? @map("last_evening_sent_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1855,15 +1960,15 @@ model PersonalTask {
   title          String
   notes          String?            @db.Text
   status         PersonalTaskStatus @default(TODO)
-  priority       Int?               // 1=alta .. 3=baixa (livre)
+  priority       Int? // 1=alta .. 3=baixa (livre)
   dueAt          DateTime?          @map("due_at")
   completedAt    DateTime?          @map("completed_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   reminders    PersonalReminder[]
 
   @@index([organizationId, userId, status], name: "idx_ptask_org_user_status")
@@ -1872,10 +1977,10 @@ model PersonalTask {
 }
 
 model PersonalNote {
-  id             String  @id @default(cuid())
-  organizationId String  @map("organization_id")
-  userId         String  @map("user_id")
-  content        String  @db.Text
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  content        String   @db.Text
   tags           String[] @default([])
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1941,8 +2046,8 @@ model PersonalCalendarEvent {
   user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   reminders    PersonalReminder[]
 
-  @@index([organizationId, userId, startAt], name: "idx_pevent_org_user_start")
   @@unique([userId, googleEventId], name: "uq_pevent_user_google")
+  @@index([organizationId, userId, startAt], name: "idx_pevent_org_user_start")
   @@map("personal_calendar_events")
 }
 
@@ -2012,10 +2117,10 @@ model AiAgentRun {
   startedAt  DateTime  @default(now()) @map("started_at")
   finishedAt DateTime? @map("finished_at")
 
-  conversation    Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  agent           AiAgent            @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  toolCalls       AiToolCall[]
-  pendingActions  AiPendingAction[]
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  agent          AiAgent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  toolCalls      AiToolCall[]
+  pendingActions AiPendingAction[]
 
   @@index([organizationId, startedAt], name: "idx_ai_run_org_time")
   @@index([conversationId], name: "idx_ai_run_conv")
@@ -2149,11 +2254,11 @@ model InboxView {
 // Tracks which users are participating/assigned to a conversation.
 // This replaces reliance solely on assignedToId for multi-agent scenarios.
 model ConversationParticipant {
-  id             String   @id @default(cuid())
-  conversationId String   @map("conversation_id")
-  userId         String   @map("user_id")
-  role           String   @default("ASSIGNEE") // ASSIGNEE | FOLLOWER | OBSERVER
-  joinedAt       DateTime @default(now()) @map("joined_at")
+  id             String    @id @default(cuid())
+  conversationId String    @map("conversation_id")
+  userId         String    @map("user_id")
+  role           String    @default("ASSIGNEE") // ASSIGNEE | FOLLOWER | OBSERVER
+  joinedAt       DateTime  @default(now()) @map("joined_at")
   leftAt         DateTime? @map("left_at")
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
@@ -2421,17 +2526,17 @@ model Automation {
 
   // schemaVersion: bumped when conditions/actions JSON shape changes.
   // Workers refuse to run automations with unknown schemaVersion.
-  schemaVersion  Int               @default(1) @map("schema_version")
+  schemaVersion Int @default(1) @map("schema_version")
 
   // Estado operacional
-  enabled        Boolean           @default(false)
+  enabled  Boolean @default(false)
   // actorId: snapshot do criador. Se este user perder permissão / sair do
   // workspace, o run é bloqueado e a automation pausada.
-  actorId        String            @map("actor_id")
-  priority       Int               @default(0)
+  actorId  String  @map("actor_id")
+  priority Int     @default(0)
 
   // Auto-disable em falhas consecutivas
-  consecutiveFailures Int     @default(0) @map("consecutive_failures")
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
   autoPausedAt        DateTime? @map("auto_paused_at")
   autoPausedReason    String?   @map("auto_paused_reason")
 
@@ -2439,10 +2544,10 @@ model Automation {
   rateLimitPerMinute Int @default(10) @map("rate_limit_per_minute")
 
   // Telemetria
-  lastRunAt   DateTime? @map("last_run_at")
-  runCount    Int       @default(0) @map("run_count")
-  successCount Int      @default(0) @map("success_count")
-  failureCount Int      @default(0) @map("failure_count")
+  lastRunAt    DateTime? @map("last_run_at")
+  runCount     Int       @default(0) @map("run_count")
+  successCount Int       @default(0) @map("success_count")
+  failureCount Int       @default(0) @map("failure_count")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -2456,28 +2561,28 @@ model Automation {
 }
 
 model AutomationRun {
-  id             String              @id @default(cuid())
-  automationId   String              @map("automation_id")
-  organizationId String              @map("organization_id")
+  id             String @id @default(cuid())
+  automationId   String @map("automation_id")
+  organizationId String @map("organization_id")
   // outboxEventId: liga o run ao evento que disparou (debug + tracing)
-  outboxEventId  String              @map("outbox_event_id")
-  traceId        String              @map("trace_id")
+  outboxEventId  String @map("outbox_event_id")
+  traceId        String @map("trace_id")
 
-  status         AutomationRunStatus
+  status       AutomationRunStatus
   // errorCode: enum-ish curto pra UI agrupar. Ex:
   //   condition_not_matched | rate_limited | invalid_ref | external_api_error
   //   timeout | actor_unauthorized | kill_switch | cascade_max_depth | loop_detected
-  errorCode      String?             @map("error_code")
-  errorMessage   String?             @map("error_message") @db.Text
+  errorCode    String?             @map("error_code")
+  errorMessage String?             @map("error_message") @db.Text
 
   // Snapshot do payload do evento (debug)
-  triggerPayload Json                @map("trigger_payload")
+  triggerPayload Json @map("trigger_payload")
   // actionsLog: array de { index, type, status, durationMs, error?, output? }
-  actionsLog     Json                @default("[]") @map("actions_log")
+  actionsLog     Json @default("[]") @map("actions_log")
 
-  durationMs     Int?                @map("duration_ms")
-  startedAt      DateTime            @default(now()) @map("started_at")
-  finishedAt     DateTime?           @map("finished_at")
+  durationMs Int?      @map("duration_ms")
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
 
   automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
 

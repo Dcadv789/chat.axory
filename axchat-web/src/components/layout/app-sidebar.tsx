@@ -106,6 +106,11 @@ export function AppSidebar() {
               sector="marketing"
             />
           )}
+          <AgentSectorTree
+            label="Operação"
+            icon={Building2}
+            sector="operacao"
+          />
           {activeOrg?.marketingEnabled && <MarketingTree />}
           <SidebarItem href="/campaigns">
             <Send className="size-5" />

@@ -250,22 +250,24 @@ export class AgentRouterService {
   }
 
   /**
-   * Setor do canal = setor do seu orquestrador padrão. Sem orquestrador
-   * padrão definido, assume ATENDIMENTO (preserva comportamento legado).
+   * Frente do canal — que equipe atende ali.
+   *
+   * O canal DECLARA a frente (`channel.sector`). Antes ela era derivada do
+   * setor do orquestrador padrão, e isso tinha dois furos: canal sem
+   * orquestrador virava ATENDIMENTO em silêncio, e trocar o orquestrador
+   * padrão mudava a frente do canal sem ninguém pedir.
+   *
+   * A coluna nasceu com o backfill dessa mesma regra, então nenhum canal em
+   * produção mudou de comportamento quando isto passou a valer.
    */
   private async resolveChannelSector(
     channelId: string,
   ): Promise<AiAgentSector> {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
-      select: { defaultOrchestratorId: true },
-    });
-    if (!channel?.defaultOrchestratorId) return 'ATENDIMENTO';
-    const orchestrator = await this.prisma.aiAgent.findUnique({
-      where: { id: channel.defaultOrchestratorId },
       select: { sector: true },
     });
-    return orchestrator?.sector ?? 'ATENDIMENTO';
+    return channel?.sector ?? 'ATENDIMENTO';
   }
 
   /**

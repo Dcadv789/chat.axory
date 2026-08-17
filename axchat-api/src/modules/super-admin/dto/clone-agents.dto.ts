@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-const SECTORS = ['ATENDIMENTO', 'MARKETING', 'PESSOAL'] as const;
+const SECTORS = ['ATENDIMENTO', 'MARKETING', 'OPERACAO', 'PESSOAL'] as const;
 
 export class CloneAgentsDto {
   @ApiProperty({ description: 'ID da empresa-modelo (origem da cópia).' })

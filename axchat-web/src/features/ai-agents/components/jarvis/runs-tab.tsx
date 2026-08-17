@@ -17,6 +17,7 @@ import {
   type FeedRun,
   type FeedTimeRangeFilter,
   timeRangeToParams,
+  type AgentSector,
 } from '../../services/ai-agents.service';
 import { PeriodSelector } from './period-selector';
 import { useCanSeeCost } from '../../hooks/use-can-see-cost';
@@ -55,7 +56,7 @@ const FINAL_ACTION_LABEL: Record<string, string> = {
 export function JarvisRunsTab({
   agentSector,
 }: {
-  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+  agentSector?: AgentSector;
 }) {
   const [timeRange, setTimeRange] = useState<FeedTimeRangeFilter>({
     kind: 'preset',

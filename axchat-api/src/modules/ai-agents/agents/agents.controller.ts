@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { OrgRole } from '@prisma/client';
+import { AiAgentSector, OrgRole } from '@prisma/client';
 import { AgentsService } from './agents.service';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
@@ -48,9 +48,11 @@ export class AgentsController {
     @CurrentOrg('id') orgId: string,
     @Query('sector') sector?: string,
   ) {
-    const validSector =
-      sector === 'ATENDIMENTO' || sector === 'MARKETING' ? sector : undefined;
-    return this.service.list(orgId, validSector);
+    // Uma validação só, em `parseSector`. Este endpoint tinha uma cópia
+    // hardcoded em ATENDIMENTO/MARKETING — o efeito era silencioso e feio:
+    // `?sector=OPERACAO` não filtrava nada e devolvia a organização inteira,
+    // como se toda frente tivesse todos os agentes.
+    return this.service.list(orgId, this.parseSector(sector));
   }
 
   @Get(':id')
@@ -66,8 +68,9 @@ export class AgentsController {
     @CurrentOrg('id') orgId: string,
     @Param('id') id: string,
     @Body() dto: UpdateAgentDto,
+    @CurrentUser() user?: AuthUser,
   ) {
-    return this.service.update(orgId, id, dto);
+    return this.service.update(orgId, id, dto, !!user?.isSuperAdmin);
   }
 
   @Delete(':id')
@@ -298,8 +301,9 @@ export class AgentsController {
     return undefined;
   }
 
-  private parseSector(s?: string): 'ATENDIMENTO' | 'MARKETING' | undefined {
-    if (s === 'ATENDIMENTO' || s === 'MARKETING') return s;
-    return undefined;
+  /** Frente vinda da query. Valor desconhecido vira `undefined` = todas. */
+  private parseSector(s?: string): AiAgentSector | undefined {
+    const frentes = Object.values(AiAgentSector) as string[];
+    return s && frentes.includes(s) ? (s as AiAgentSector) : undefined;
   }
 }

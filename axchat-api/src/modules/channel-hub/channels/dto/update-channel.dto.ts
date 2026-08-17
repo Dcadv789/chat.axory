@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsObject, IsBoolean, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsObject, IsBoolean, IsIn, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { AiAgentSector } from '@prisma/client';
 
 export class UpdateChannelDto {
   @ApiPropertyOptional()
@@ -55,4 +56,13 @@ export class UpdateChannelDto {
   @IsOptional()
   @IsIn(['ORG', 'PRIVATE'])
   visibility?: 'ORG' | 'PRIVATE';
+
+  /**
+   * Frente do canal: qual equipe de IA atende aqui. É o que impede um agente
+   * de operação interna de ser vinculado ao canal do cliente.
+   */
+  @ApiPropertyOptional({ enum: AiAgentSector })
+  @IsOptional()
+  @IsEnum(AiAgentSector)
+  sector?: AiAgentSector;
 }

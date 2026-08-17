@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AiAgentMode, AiAgentTrigger, AiFinalAction } from '@prisma/client';
+import { AiAgentMode, AiAgentSector, AiAgentTrigger, AiFinalAction } from '@prisma/client';
 import { PrismaService } from '../../../database/prisma.service';
 import { ToolRegistry } from '../tools/tool-registry.service';
 import { assertWithinPlanLimit } from '../../../common/plan-limits';
@@ -49,19 +49,23 @@ export class AgentsService {
         isActive: dto.isActive ?? true,
         parentAgentId: dto.parentAgentId ?? null,
         department: dto.department ?? null,
-        squad: dto.squad ?? null,
         operationalContext: dto.operationalContext ?? null,
         operationalContextUpdatedAt: dto.operationalContext ? new Date() : null,
       },
     });
 
-    // Auto-link a TODOS os canais ativos da org com mode AUTONOMOUS.
-    // Justificativa: criar agent sem canal = agent inerte (não responde
-    // ninguém). 99% dos casos JP quer o agent ativo em tudo, e
-    // específicos podem ser desligados depois manualmente. Default
-    // útil > default vazio.
+    // Auto-link aos canais ativos DA MESMA FRENTE, com mode AUTONOMOUS.
+    // Agent sem canal é agent inerte, então o default continua sendo ligar em
+    // tudo — mas "tudo" agora respeita a frente. Antes um agente novo de
+    // operação interna nascia ligado ao WhatsApp do cliente, o que é
+    // exatamente o que a frente existe pra impedir.
     const channels = await this.prisma.channel.findMany({
-      where: { organizationId, isActive: true, deletedAt: null },
+      where: {
+        organizationId,
+        isActive: true,
+        deletedAt: null,
+        sector: agent.sector,
+      },
       select: { id: true },
     });
     if (channels.length > 0) {
@@ -78,7 +82,7 @@ export class AgentsService {
     return agent;
   }
 
-  async list(organizationId: string, sector?: 'ATENDIMENTO' | 'MARKETING') {
+  async list(organizationId: string, sector?: AiAgentSector) {
     return this.prisma.aiAgent.findMany({
       where: {
         organizationId,
@@ -106,42 +110,81 @@ export class AgentsService {
    *
    * O corte principal não é leitura/escrita, é "roda sozinho" versus "pede
    * aprovação": é essa a pergunta de quem decide quanta autonomia dar.
+   *
+   * `skills` traz o CATÁLOGO INTEIRO da organização, com `temAcesso` marcando
+   * as deste agente. Devolver só as ligadas respondia "o que ele faz" mas não
+   * "o que ele PODERIA fazer" — e sem essa segunda metade não dá pra decidir o
+   * que ligar, porque o resto do catálogo é invisível.
    */
   async capabilities(organizationId: string, id: string) {
     const agente = await this.prisma.aiAgent.findFirst({
       where: { id, organizationId, deletedAt: null },
-      select: { id: true, name: true, kind: true, sector: true, description: true },
-    });
-    if (!agente) throw new NotFoundException('Agente não encontrado.');
-
-    const vinculos = await this.prisma.aiAgentSkill.findMany({
-      where: { agentId: id },
       select: {
-        requiresApproval: true,
-        skill: {
+        id: true,
+        name: true,
+        kind: true,
+        sector: true,
+        description: true,
+        category: true,
+        department: true,
+        modelId: true,
+        temperature: true,
+        maxTokens: true,
+        canRespondDirectly: true,
+        isActive: true,
+        operationalContext: true,
+        operationalContextUpdatedAt: true,
+        systemPrompt: true,
+        parent: { select: { id: true, name: true } },
+        subordinates: {
+          where: { deletedAt: null },
+          select: { id: true, name: true, isActive: true },
+          orderBy: { name: 'asc' },
+        },
+        channels: {
           select: {
-            name: true,
-            description: true,
-            category: true,
-            source: true,
-            httpMethod: true,
+            mode: true,
+            trigger: true,
+            channel: { select: { id: true, name: true, type: true } },
           },
         },
       },
     });
+    if (!agente) throw new NotFoundException('Agente não encontrado.');
 
-    const skills = vinculos
-      .filter((v) => !!v.skill)
-      .map((v) => ({
-        nome: v.skill.name,
-        descricao: v.skill.description,
-        categoria: v.skill.category,
-        origem: v.skill.source,
-        // GET é leitura; POST/PUT/PATCH/DELETE mexem em algo lá fora. SQL aqui
-        // é sempre consulta (as tools SQL são somente leitura por construção).
-        escreve: !!v.skill.httpMethod && v.skill.httpMethod.toUpperCase() !== 'GET',
-        pedeAprovacao: v.requiresApproval,
-      }));
+    const [catalogo, vinculos] = await Promise.all([
+      this.prisma.aiSkill.findMany({
+        where: { organizationId, deletedAt: null, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          category: true,
+          source: true,
+          httpMethod: true,
+        },
+        orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      }),
+      this.prisma.aiAgentSkill.findMany({
+        where: { agentId: id },
+        select: { skillId: true, requiresApproval: true },
+      }),
+    ]);
+
+    const ligadas = new Map(vinculos.map((v) => [v.skillId, v.requiresApproval]));
+
+    const skills = catalogo.map((s) => ({
+      id: s.id,
+      nome: s.name,
+      descricao: s.description,
+      categoria: s.category,
+      origem: s.source,
+      // GET é leitura; POST/PUT/PATCH/DELETE mexem em algo lá fora. SQL aqui
+      // é sempre consulta (as tools SQL são somente leitura por construção).
+      escreve: !!s.httpMethod && s.httpMethod.toUpperCase() !== 'GET',
+      temAcesso: ligadas.has(s.id),
+      pedeAprovacao: ligadas.get(s.id) ?? false,
+    }));
 
     const builtin = this.toolRegistry
       .listBuiltinForAgent(agente.kind, agente.id, agente.sector ?? undefined)
@@ -151,13 +194,16 @@ export class AgentsService {
         disponivel: t.disponivel,
       }));
 
+    const doAgente = skills.filter((s) => s.temAcesso);
+
     return {
       agente,
       skills,
       builtin,
       resumo: {
-        skillsTotal: skills.length,
-        skillsComAprovacao: skills.filter((s) => s.pedeAprovacao).length,
+        skillsTotal: doAgente.length,
+        skillsCatalogo: skills.length,
+        skillsComAprovacao: doAgente.filter((s) => s.pedeAprovacao).length,
         builtinDisponiveis: builtin.filter((b: { disponivel: boolean }) => b.disponivel).length,
         builtinTotal: builtin.length,
       },
@@ -179,8 +225,31 @@ export class AgentsService {
     return agent;
   }
 
-  async update(organizationId: string, id: string, dto: UpdateAgentDto) {
+  /**
+   * @param permitirPromptGerenciado só o super-admin passa `true`. É quem
+   * mantém o texto do produto.
+   */
+  async update(
+    organizationId: string,
+    id: string,
+    dto: UpdateAgentDto,
+    permitirPromptGerenciado = false,
+  ) {
     const existing = await this.findOne(organizationId, id);
+
+    // O prompt de um agente do PRODUTO não é editável pelo cliente. A trava
+    // vive aqui, e não só na tela: o endpoint é público pra quem tem token, e
+    // uma interface escondendo o campo não impede ninguém de mandar o PATCH.
+    if (
+      existing.isManaged &&
+      !permitirPromptGerenciado &&
+      dto.systemPrompt !== undefined &&
+      dto.systemPrompt !== existing.systemPrompt
+    ) {
+      throw new BadRequestException(
+        `"${existing.name}" é um agente do produto: o texto de instrução dele é mantido pela Axory e recebe melhorias automaticamente. Para ajustar o comportamento, use "Instruções adicionais" — elas são somadas ao texto original, não o substituem.`,
+      );
+    }
 
     // Validate org-tree integrity when changing parent.
     // Two failure modes: (a) self-reference, (b) cycle via descendant.
@@ -287,6 +356,21 @@ export class AgentsService {
       throw new BadRequestException('Channel not found in this organization');
     }
 
+    // Fronteira da frente. Sem isto, "equipe interna" é convenção: bastava
+    // vincular um agente de OPERACAO ao canal do cliente pra furar. O
+    // roteador já filtra candidatos por frente, mas um vínculo cruzado deixa
+    // o agente aparecer em tela como se atendesse ali — e ninguém entende
+    // por que ele nunca responde.
+    const agente = await this.prisma.aiAgent.findUnique({
+      where: { id: agentId },
+      select: { sector: true, name: true },
+    });
+    if (agente && agente.sector !== channel.sector) {
+      throw new BadRequestException(
+        `O agente ${agente.name} é da frente ${agente.sector} e o canal ${channel.name} é da frente ${channel.sector}. Um canal só aceita agentes da mesma frente.`,
+      );
+    }
+
     return this.prisma.aiAgentChannel.upsert({
       where: {
         agentId_channelId: { agentId, channelId: dto.channelId },
@@ -346,7 +430,7 @@ export class AgentsService {
       from?: string;
       to?: string;
     } = {},
-    sector?: 'ATENDIMENTO' | 'MARKETING',
+    sector?: AiAgentSector,
     privileged = false,
   ) {
     const w = this.resolveTimeWindow(window);
@@ -545,7 +629,7 @@ export class AgentsService {
       from?: string;
       to?: string;
     } = {},
-    sector?: 'ATENDIMENTO' | 'MARKETING',
+    sector?: AiAgentSector,
   ) {
     const w = this.resolveTimeWindow(window);
     const since = w.since!;
@@ -825,7 +909,7 @@ export class AgentsService {
       hasErrors?: boolean;
       status?: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
       finalAction?: string;
-      sector?: 'ATENDIMENTO' | 'MARKETING';
+      sector?: AiAgentSector;
       limit?: number;
       cursor?: string;
     },
@@ -989,7 +1073,7 @@ export class AgentsService {
 
   private async aggregateMonthlyTokens(
     organizationId: string,
-    sector?: 'ATENDIMENTO' | 'MARKETING',
+    sector?: AiAgentSector,
   ) {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
@@ -1010,7 +1094,7 @@ export class AgentsService {
    * Sem setor, devolve {} (não filtra). Runs são separadas por
    * `agent.sector` — marketing e atendimento têm agentes distintos.
    */
-  private runSectorFilter(sector?: 'ATENDIMENTO' | 'MARKETING') {
+  private runSectorFilter(sector?: AiAgentSector) {
     return sector ? { agent: { sector } } : {};
   }
 
@@ -1025,7 +1109,7 @@ export class AgentsService {
    */
   async watchdogStats(
     organizationId: string,
-    sector?: 'ATENDIMENTO' | 'MARKETING',
+    sector?: AiAgentSector,
   ) {
     const org = await this.prisma.organization.findUniqueOrThrow({
       where: { id: organizationId },

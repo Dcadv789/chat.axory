@@ -43,6 +43,11 @@ export interface Channel {
   aiEnabled: boolean | null;
   defaultOrchestratorId: string | null;
   /**
+   * Frente do canal: qual equipe de IA atende aqui. É a fonte da verdade do
+   * roteamento — o canal declara, em vez de ser deduzido do orquestrador.
+   */
+  sector: 'ATENDIMENTO' | 'MARKETING' | 'OPERACAO' | 'PESSOAL';
+  /**
    * ORG     = qualquer membro da org com permissão padrão enxerga (default).
    * PRIVATE = só membros com grant explícito enxergam, mesmo OWNER/ADMIN.
    */
@@ -167,6 +172,7 @@ export interface UpdateChannelPayload {
   isActive?: boolean;
   aiEnabled?: boolean | null;
   defaultOrchestratorId?: string | null;
+  sector?: 'ATENDIMENTO' | 'MARKETING' | 'OPERACAO' | 'PESSOAL';
   visibility?: ChannelVisibility;
 }
 

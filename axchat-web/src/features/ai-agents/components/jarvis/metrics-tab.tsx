@@ -15,6 +15,7 @@ import {
 import {
   aiAgentsService,
   type TimeRangeFilter,
+  type AgentSector,
 } from '../../services/ai-agents.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { KpiCard } from './kpi-card';
@@ -32,7 +33,7 @@ const CHANNEL_LABELS: Record<string, string> = {
 export function JarvisMetricsTab({
   agentSector,
 }: {
-  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+  agentSector?: AgentSector;
 }) {
   const orgId = useOrgId();
   const [timeRange, setTimeRange] = useState<TimeRangeFilter>({

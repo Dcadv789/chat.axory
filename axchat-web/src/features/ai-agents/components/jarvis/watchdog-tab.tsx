@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   ShieldOff,
 } from 'lucide-react';
-import { aiAgentsService, type WatchdogConversationLite } from '../../services/ai-agents.service';
+import { aiAgentsService, type WatchdogConversationLite, type AgentSector } from '../../services/ai-agents.service';
 
 /**
  * Aba "Watchdog" do Jarvis. Monitoramento das conversas presas:
@@ -22,7 +22,7 @@ import { aiAgentsService, type WatchdogConversationLite } from '../../services/a
 export function JarvisWatchdogTab({
   agentSector,
 }: {
-  agentSector?: 'ATENDIMENTO' | 'MARKETING';
+  agentSector?: AgentSector;
 }) {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['watchdog-stats', agentSector ?? 'all'],

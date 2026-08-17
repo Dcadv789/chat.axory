@@ -396,16 +396,40 @@ function DataTab({
   const queryClient = useQueryClient();
   const [orchId, setOrchId] = useState(channel.defaultOrchestratorId ?? '');
   const [savingOrch, setSavingOrch] = useState(false);
+  const [frente, setFrente] = useState(channel.sector ?? 'ATENDIMENTO');
+  const [savingFrente, setSavingFrente] = useState(false);
 
   useEffect(() => {
     setOrchId(channel.defaultOrchestratorId ?? '');
   }, [channel.defaultOrchestratorId]);
 
+  useEffect(() => {
+    setFrente(channel.sector ?? 'ATENDIMENTO');
+  }, [channel.sector]);
+
   const { data: agents = [] } = useQuery({
     queryKey: ['ai-agents'],
     queryFn: () => aiAgentsService.list(),
   });
-  const orchestrators = agents.filter((a) => a.kind === 'ORCHESTRATOR');
+  // Só orquestrador da MESMA frente. Oferecer os outros seria oferecer uma
+  // escolha que o backend recusa — e o roteador nunca chamaria mesmo.
+  const orchestrators = agents.filter(
+    (a) => a.kind === 'ORCHESTRATOR' && a.sector === frente,
+  );
+
+  const handleSaveFrente = async () => {
+    setSavingFrente(true);
+    try {
+      await channelsService.update(channel.id, { sector: frente });
+      toast.success('Frente do canal atualizada');
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar frente');
+      setFrente(channel.sector ?? 'ATENDIMENTO');
+    } finally {
+      setSavingFrente(false);
+    }
+  };
 
   const handleSaveOrch = async () => {
     setSavingOrch(true);
@@ -439,6 +463,36 @@ function DataTab({
         <div className="flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-600 dark:border-white/10 dark:bg-black dark:text-zinc-400">
           <meta.icon className="h-4 w-4 shrink-0" />
           <span>{meta.label}</span>
+        </div>
+      </div>
+
+      {/* Frente do canal */}
+      <div className="space-y-1.5">
+        <label className={labelCls}>Frente do canal</label>
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          Que equipe de IA atende aqui. Só agentes desta frente podem ser
+          vinculados ao canal — é o que garante que a operação interna não
+          apareça numa conversa de cliente.
+        </p>
+        <div className="flex items-center gap-2">
+          <select
+            value={frente}
+            onChange={(e) => setFrente(e.target.value as typeof frente)}
+            className="flex h-10 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-white/10 dark:bg-black dark:text-zinc-100"
+          >
+            <option value="ATENDIMENTO">Atendimento — fala com o cliente</option>
+            <option value="MARKETING">Marketing — publica pela empresa</option>
+            <option value="OPERACAO">Operação — interna, nunca atende cliente</option>
+            <option value="PESSOAL">Pessoal — assistente do dono</option>
+          </select>
+          <button
+            onClick={handleSaveFrente}
+            disabled={savingFrente || frente === channel.sector}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            {savingFrente ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Salvar
+          </button>
         </div>
       </div>
 

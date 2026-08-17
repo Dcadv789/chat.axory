@@ -1844,6 +1844,24 @@ export class ChannelsService {
       );
     }
 
+    // Trocar a frente do canal com agente de outra frente vinculado deixaria
+    // vínculo órfão: o agente aparece na tela do canal mas o roteador nunca o
+    // escolhe, e ninguém entende por quê. Recusa e diz quem está no caminho.
+    if (rest.sector) {
+      const conflitantes = await this.prisma.aiAgentChannel.findMany({
+        where: { channelId: id, agent: { sector: { not: rest.sector } } },
+        select: { agent: { select: { name: true, sector: true } } },
+      });
+      if (conflitantes.length > 0) {
+        const nomes = conflitantes
+          .map((c) => `${c.agent.name} (${c.agent.sector})`)
+          .join(', ');
+        throw new BadRequestException(
+          `Não dá pra mudar a frente deste canal para ${rest.sector}: ${conflitantes.length} agente(s) de outra frente continuam vinculados — ${nomes}. Desvincule antes.`,
+        );
+      }
+    }
+
     if (Object.keys(rest).length === 0) {
       return this.repository.findById(id);
     }
