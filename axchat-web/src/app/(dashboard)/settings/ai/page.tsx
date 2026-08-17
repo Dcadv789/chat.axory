@@ -484,7 +484,7 @@ export default function SettingsAiPage() {
       </section>
       </div>
 
-      {/* ─── Setores de Operação ────────────────────── */}
+      {/* ─── Departamentos ────────────────────── */}
       <AgentSectorsSection />
 
       {/* URL Whitelist */}
@@ -1627,7 +1627,7 @@ function AgentSectorsSection() {
           <Layers className="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
           <div>
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              Setores de Operação
+              Departamentos
             </p>
             <p className="mt-0.5 text-xs text-zinc-500">
               Organize seus agentes em setores (ex: Suporte, Marketing, Vendas).

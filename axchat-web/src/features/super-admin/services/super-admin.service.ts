@@ -148,7 +148,6 @@ export interface SuperAdminAgent {
   isActive: boolean;
   isCore: boolean;
   department: string | null;
-  squad: string | null;
   operationalContext: string | null;
   operationalContextUpdatedAt: string | null;
   createdAt: string;

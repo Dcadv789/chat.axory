@@ -44,7 +44,6 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
   const [temperature, setTemperature] = useState(0.7);
   const [parentAgentId, setParentAgentId] = useState<string>('');
   const [department, setDepartment] = useState<string>('');
-  const [squad, setSquad] = useState('');
   const [category, setCategory] = useState('');
   const [operationalContext, setOperationalContext] = useState('');
   const [operationalContextUpdatedAt, setOperationalContextUpdatedAt] = useState<string | null>(null);
@@ -93,7 +92,6 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
     setTemperature(agent.temperature);
     setParentAgentId(agent.parentAgentId ?? '');
     setDepartment(agent.department ?? '');
-    setSquad(agent.squad ?? '');
     setCategory(agent.category ?? '');
     setOperationalContext(agent.operationalContext ?? '');
     setOperationalContextUpdatedAt(agent.operationalContextUpdatedAt ?? null);
@@ -130,7 +128,6 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
         temperature,
         parentAgentId: parentAgentId || null,
         department: department || null,
-        squad: squad.trim() || null,
         category: category.trim() || null,
         operationalContext: operationalContext.trim() || null,
         isActive,
@@ -242,7 +239,6 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
               <Field label="Nome" value={name} onChange={setName} />
               <Field label="Descrição" value={description} onChange={setDescription} />
               <Field label="Categoria" value={category} onChange={setCategory} placeholder="vendas / suporte" />
-              <Field label="Squad ágil" value={squad} onChange={setSquad} placeholder="Inbound B2C" />
             </div>
 
             <div className="mt-4 flex flex-wrap gap-4 border-t border-zinc-100 pt-4 dark:border-white/10">
@@ -271,7 +267,7 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
           <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Organograma</h3>
             <p className="mt-0.5 text-[11px] text-zinc-500">
-              Define hierarquia (chefia direta), departamento e squad ágil.
+              Define a chefia direta e o departamento do agente.
             </p>
             <div className="mt-3 space-y-3">
               <div>
@@ -307,26 +303,14 @@ export function EditAgentDrawer({ agent, onClose, onSaved }: EditAgentDrawerProp
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-300">
-                    Squad ágil
-                  </label>
-                  <input
-                    type="text"
-                    value={squad}
-                    onChange={(e) => setSquad(e.target.value)}
-                    placeholder="Ex: Inbound B2C"
-                    className={inputCls}
-                  />
-                </div>
               </div>
             </div>
           </div>
 
-          {/* ── Card: Setores de Operação ── */}
+          {/* ── Card: Departamentos ── */}
           {sectors.length > 0 && (
             <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-black">
-              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Setores de Operação</h3>
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Departamentos</h3>
               <p className="mt-0.5 text-[11px] text-zinc-500">
                 Selecione os setores aos quais este agente pertence.
               </p>
