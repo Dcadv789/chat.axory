@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
-import { redisResilienceOptions } from '../../../common/redis.util';
+import {
+  naoDerrubarAApi,
+  redisResilienceOptions,
+} from '../../../common/redis.util';
 import { ChatbotSession } from './chatbot-session.types';
 
 @Injectable()
@@ -11,12 +14,15 @@ export class ChatbotSessionService {
   private readonly TTL = 86400; // 24h
 
   constructor(private readonly config: ConfigService) {
-    this.redis = new Redis({
-      host: this.config.get<string>('REDIS_HOST', 'localhost'),
-      port: this.config.get<number>('REDIS_PORT', 6379),
-      password: this.config.get<string>('REDIS_PASSWORD') || undefined,
-      ...redisResilienceOptions(),
-    });
+    this.redis = naoDerrubarAApi(
+      new Redis({
+        host: this.config.get<string>('REDIS_HOST', 'localhost'),
+        port: this.config.get<number>('REDIS_PORT', 6379),
+        password: this.config.get<string>('REDIS_PASSWORD') || undefined,
+        ...redisResilienceOptions(),
+      }),
+      'chatbot-session',
+    );
   }
 
   private key(conversationId: string): string {
