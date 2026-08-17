@@ -66,11 +66,19 @@ export const FIELD_LABELS: Record<string, string> = {
   authorUsername: 'Usuário que comentou',
   mediaId: 'Post (media ID)',
   isReply: 'É resposta a outro comentário',
+  veioDeAnuncio: 'Veio de anúncio',
+  adId: 'Anúncio (ID)',
+  adTitle: 'Anúncio (título)',
 };
 
 export function operatorsForField(field: string): ConditionOperator[] {
   // Boolean-like fields skip the value-comparison operators.
-  if (field === 'hasAttachment' || field === 'target' || field === 'isReply') {
+  if (
+    field === 'hasAttachment' ||
+    field === 'target' ||
+    field === 'isReply' ||
+    field === 'veioDeAnuncio'
+  ) {
     return ['equals', 'not_equals'];
   }
   // authorUsername entra aqui junto com body: filtrar comentário por "contém"

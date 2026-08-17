@@ -88,6 +88,13 @@ export class AddToPipelineHandler implements ActionHandler {
       where: { id: payload.contactId, organizationId },
       select: { name: true, phone: true },
     });
+
+    const origem = payload.conversationId
+      ? await prisma.conversation.findUnique({
+          where: { id: payload.conversationId },
+          select: { adId: true, adTitle: true, referralSource: true },
+        })
+      : null;
     const title =
       p.title ??
       contact?.name ??
@@ -107,6 +114,18 @@ export class AddToPipelineHandler implements ActionHandler {
           metadata: {
             createdBy: 'automation',
             traceId: ctx.traceId,
+            // Carimba a origem no próprio card. A conversa já guarda o
+            // anúncio, mas o card é o que sobrevive: conversa fecha, card
+            // continua no funil com o valor e o desfecho. Sem isto, ligar
+            // receita a campanha exigiria um join que some quando a conversa
+            // é arquivada.
+            ...(origem?.adId || origem?.adTitle
+              ? {
+                  adId: origem.adId ?? null,
+                  adTitle: origem.adTitle ?? null,
+                  referralSource: origem.referralSource ?? null,
+                }
+              : {}),
           },
         },
       });

@@ -24,6 +24,7 @@ import {
   ConversationStatus,
   Prisma,
 } from '@prisma/client';
+import { OrigemDoLeadService } from './origem-do-lead.service';
 
 interface InboundJobData {
   channelId: string;
@@ -83,6 +84,7 @@ export class InboundMessageProcessor extends WorkerHost {
   private readonly followupNeeded = new Set<string>();
 
   constructor(
+    private readonly origemDoLead: OrigemDoLeadService,
     private readonly prisma: PrismaService,
     private readonly idempotency: IdempotencyService,
     private readonly contactResolver: ContactResolverService,
@@ -177,6 +179,11 @@ export class InboundMessageProcessor extends WorkerHost {
         message.channelType,
       );
 
+      // Anúncio que trouxe a pessoa. Fica FORA da transação de mensagem de
+      // propósito: atribuição é acessório e não pode fazer a entrega falhar.
+      const origemDoLead = this.origemDoLead.extrair(message.replyTo);
+      await this.origemDoLead.registrar(conversationId, origemDoLead);
+
       const isEcho = !!message.isEcho;
       const direction = isEcho
         ? MessageDirection.OUTBOUND
@@ -252,6 +259,12 @@ export class InboundMessageProcessor extends WorkerHost {
                   type: String(message.type),
                   hasAttachment,
                   isFromCustomer: true,
+                  // Origem do lead no payload da automação: é o que permite
+                  // a regra "criar card SÓ quando veio de anúncio". Sem isto
+                  // a automação criaria card pra toda mensagem que entra.
+                  veioDeAnuncio: !!origemDoLead?.adId,
+                  adId: origemDoLead?.adId ?? null,
+                  adTitle: origemDoLead?.adTitle ?? null,
                 },
               );
             }

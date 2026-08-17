@@ -9,6 +9,7 @@ import { ContactResolverService } from './pipeline/contact-resolver.service';
 import { ConversationResolverService } from './pipeline/conversation-resolver.service';
 import { HistoryImportService } from './pipeline/history-import.service';
 import { InboundMessageProcessor } from './pipeline/inbound-message.processor';
+import { OrigemDoLeadService } from './pipeline/origem-do-lead.service';
 import { OutboundMessageProcessor } from './pipeline/outbound-message.processor';
 import { ConversationFsmService } from './conversations/conversation-fsm.service';
 import { ConversationsController } from './conversations/conversations.controller';
@@ -50,6 +51,7 @@ import { LlmModule } from '../ai-agents/llm/llm.module';
     ConversationResolverService,
     HistoryImportService,
     InboundMessageProcessor,
+    OrigemDoLeadService,
     OutboundMessageProcessor,
     ConversationFsmService,
     ConversationsService,

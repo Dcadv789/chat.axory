@@ -46,6 +46,17 @@ export interface MessageReceivedPayload extends BaseEventPayload {
   type: string; // MessageContentType — kept loose to avoid Prisma circular dep
   hasAttachment: boolean;
   isFromCustomer: true; // INBOUND only — outbound never enters this trigger
+
+  /**
+   * Lead que chegou clicando num anúncio (Instagram DM ou Click-to-WhatsApp).
+   *
+   * Vem denormalizado no evento porque é o que permite a regra "criar card
+   * SÓ quando veio de anúncio" — sem isso, "quando chega mensagem, cria card"
+   * criaria card pra toda mensagem, inclusive de cliente antigo.
+   */
+  veioDeAnuncio?: boolean;
+  adId?: string | null;
+  adTitle?: string | null;
 }
 
 /**

@@ -32,7 +32,42 @@ export class WhatsAppOfficialMessageMapper {
       result.replyTo = { externalMessageId: message.context.id };
     }
 
+    // Click-to-WhatsApp: quem clicou num anúncio (ou num post) e caiu aqui.
+    // A Meta manda isto SÓ na primeira mensagem da conversa — se não for lido
+    // agora, a origem do lead se perde e não tem como recuperar depois.
+    const origem = this.extrairOrigem(message.referral);
+    if (origem) {
+      result.replyTo = { ...(result.replyTo ?? {}), ad: origem };
+    }
+
     return result;
+  }
+
+  /**
+   * Traduz o `referral` do Cloud API pro formato que o resto do sistema já
+   * entende — o mesmo que o Instagram usa, pra quem consome não precisar
+   * aprender duas formas.
+   *
+   * `source_type` vem como 'ad' ou 'post'. Guardamos os dois: post orgânico
+   * também é origem, só não tem custo. Quem calcula custo por lead filtra
+   * pelo tipo.
+   */
+  private extrairOrigem(
+    referral: Record<string, any> | undefined,
+  ): { id?: string; title?: string; source?: string } | null {
+    if (!referral) return null;
+    const id = referral.source_id ? String(referral.source_id) : undefined;
+    const title = referral.headline
+      ? String(referral.headline)
+      : referral.body
+        ? String(referral.body)
+        : undefined;
+    if (!id && !title) return null;
+    return {
+      id,
+      title,
+      source: referral.source_type ? String(referral.source_type) : 'ad',
+    };
   }
 
   /**

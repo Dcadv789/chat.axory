@@ -75,6 +75,13 @@ export const FIELDS_BY_TRIGGER: Record<
     body: (p) => (p as any).body,
     type: (p) => (p as any).type,
     hasAttachment: (p) => (p as any).hasAttachment,
+    // Lead que chegou clicando num anúncio (Instagram ou Click-to-WhatsApp).
+    // Sem este campo, "criar card quando chega mensagem" criaria card pra
+    // TODA mensagem — inclusive de quem já é cliente há dois anos.
+    veioDeAnuncio: (p) => (p as any).veioDeAnuncio,
+    /** Id do anúncio, pra regra que separa campanha de campanha. */
+    adId: (p) => (p as any).adId,
+    adTitle: (p) => (p as any).adTitle,
     channelId: (p) => p.channelId,
     contactId: (p) => p.contactId,
     conversationId: (p) => p.conversationId,

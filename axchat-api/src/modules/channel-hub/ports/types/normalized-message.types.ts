@@ -59,7 +59,16 @@ export interface NormalizedMessageContent {
 export interface ReplyContext {
   externalMessageId?: string;
   story?: { id?: string; url?: string; kind?: 'reply' | 'mention' };
-  ad?: { id?: string; title?: string };
+  /**
+   * Anúncio (ou post) que trouxe a pessoa pra conversa.
+   *
+   * `source` distingue a procedência: no WhatsApp o clique pode vir de um
+   * ANÚNCIO (`ad`) ou de um POST orgânico (`post`) — nos dois casos a Meta
+   * manda um `source_id`, mas só o primeiro tem custo associado. Sem essa
+   * marca, post orgânico entraria na conta de custo por lead como se fosse
+   * anúncio e distorceria o número.
+   */
+  ad?: { id?: string; title?: string; source?: string };
 }
 
 export interface NormalizedInboundMessage {

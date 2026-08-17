@@ -18,6 +18,7 @@ import {
   TRIGGER_LABELS,
 } from '@/features/automations/utils/labels';
 import { AutomationBuilder } from '@/features/automations/components/automation-builder';
+import { MedirAnunciosGuia } from '@/features/automations/components/medir-anuncios-guia';
 import { AutomationRunsPanel } from '@/features/automations/components/automation-runs-panel';
 import { PageHeader } from '@/components/layout/page-header';
 
@@ -80,6 +81,8 @@ export default function AutomationsPage() {
       }
     >
       {engine && !engine.ativo && <EngineOffBanner engine={engine} />}
+
+      <MedirAnunciosGuia />
 
       <div>
         {isLoading && (

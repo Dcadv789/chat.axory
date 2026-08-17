@@ -190,6 +190,10 @@ export class InstagramMessageMapper {
         ad: {
           id: referral.ad_id ? String(referral.ad_id) : undefined,
           title: ads?.ad_title,
+          // `source` da Meta: ADS, SHORTLINK (ig.me), CUSTOMER_CHAT_PLUGIN…
+          // Só ADS tem custo; o resto é orgânico e não pode entrar na conta
+          // de custo por lead.
+          source,
         },
       };
     }
