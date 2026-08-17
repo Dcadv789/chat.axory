@@ -80,6 +80,23 @@ export class AuthService {
         },
       });
 
+      // Departamento de AGENTES (outra tabela do `Department` humano acima).
+      // Sem isto a organização nasce sem nenhum, e a tela de agentes mostrava
+      // todo mundo num balde cinza "Sem setor" — parecia defeito, e era só
+      // ausência de default.
+      await tx.agentSector.create({
+        data: {
+          organizationId: organization.id,
+          // "Geral" não: o `Department` humano acima já usa esse nome, e ter
+          // duas coisas chamadas Geral em tabelas diferentes é a confusão
+          // "setor vs departamento" voltando pela porta dos fundos.
+          name: 'Equipe',
+          description: 'Departamento padrão',
+          color: '#a1a1aa',
+          order: 999,
+        },
+      });
+
       const userOrg = await tx.userOrganization.findUnique({
         where: {
           userId_organizationId: {

@@ -282,7 +282,6 @@ export class PersonalAssistantProvisioningService {
       category: 'Assistente pessoal',
       capabilities: ['tarefas', 'agenda', 'lembretes', 'notas'],
       department: 'PESSOAL',
-      squad: 'Assistente Pessoal',
       modelId: DEFAULT_MODEL,
       modelParams: {},
       systemPrompt: buildSystemPrompt(ownerName),
@@ -323,6 +322,7 @@ export class PersonalAssistantProvisioningService {
         visibility: ChannelVisibility.PRIVATE,
         isActive: true,
         aiEnabled: true,
+        sector: 'PESSOAL',
       },
     });
   }

@@ -269,7 +269,6 @@ export class SuperAdminService {
           category: a.category,
           capabilities: a.capabilities,
           department: a.department,
-          squad: a.squad,
           modelId: a.modelId,
           modelParams:
             a.modelParams === null
@@ -709,6 +708,20 @@ export class SuperAdminService {
           name: 'Geral',
           description: 'Departamento padrao',
           isDefault: true,
+        },
+      });
+
+      // Departamento de agentes — ver comentário equivalente no auth.service.
+      await tx.agentSector.create({
+        data: {
+          organizationId: organization.id,
+          // "Geral" não: o `Department` humano acima já usa esse nome, e ter
+          // duas coisas chamadas Geral em tabelas diferentes é a confusão
+          // "setor vs departamento" voltando pela porta dos fundos.
+          name: 'Equipe',
+          description: 'Departamento padrão',
+          color: '#a1a1aa',
+          order: 999,
         },
       });
 
@@ -1250,7 +1263,6 @@ export class SuperAdminService {
         isActive: agent.isActive,
         parentAgentId: null,
         department: agent.department,
-        squad: agent.squad,
         operationalContext: null,
       },
     });
@@ -1357,8 +1369,7 @@ export class SuperAdminService {
           isActive: agent.isActive,
           parentAgentId: null,
           department: agent.department,
-          squad: agent.squad,
-          operationalContext: null,
+            operationalContext: null,
         },
       });
       agentIdMap.set(agent.id, newAgent.id);
@@ -1399,7 +1410,7 @@ export class SuperAdminService {
 
     const safe: Record<string, any> = {};
     const allowedFields = ['name', 'description', 'modelId', 'systemPrompt', 'temperature',
-      'parentAgentId', 'department', 'squad', 'operationalContext', 'isActive',
+      'parentAgentId', 'department', 'operationalContext', 'isActive',
       'category', 'maxTokens', 'canRespondDirectly', 'isCore'];
     for (const field of allowedFields) {
       if (dto[field] !== undefined) safe[field] = dto[field];
