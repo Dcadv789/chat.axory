@@ -40,6 +40,8 @@ export interface VectorEntry {
   content: string;
   /** Raw embedding (only populated when fetched explicitly — search omits it). */
   embedding: number[];
+  /** Modelo que gerou o vetor. Busca só compara vetores do MESMO modelo. */
+  embeddingModel?: string;
   /** Free-form metadata (timestamps, sender role, fact category, etc). */
   metadata: Record<string, any>;
   /** ISO timestamp of when the entry was indexed. */
@@ -52,6 +54,9 @@ export interface SearchScope {
   conversationId?: string;
   /** `'any'` (or undefined) skips the filter — searches all owner types. */
   ownerType?: VectorOwnerType | 'any';
+  /** Modelo atual do slot de embedding. Vetores de outro modelo são ignorados
+   *  — comparar espaços diferentes devolve número sem significado. */
+  embeddingModel?: string;
 }
 
 export interface SearchQuery {

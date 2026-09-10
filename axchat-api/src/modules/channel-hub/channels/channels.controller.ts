@@ -30,6 +30,7 @@ import { InstagramCommentReplyDto } from './dto/instagram-comment-reply.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../../common/guards';
 import { CurrentChannelAccess, CurrentOrg, Roles } from '../../../common/decorators';
 import type { ChannelAccess } from '../../iam/channel-access/channel-access.service';
+import { EvolutionChannelService } from '../adapters/evolution/evolution-channel.service';
 
 @ApiTags('Channels')
 @ApiBearerAuth()
@@ -39,7 +40,60 @@ export class ChannelsController {
   constructor(
     private readonly service: ChannelsService,
     private readonly healthService: WhatsAppHealthService,
+    private readonly evolution: EvolutionChannelService,
   ) {}
+
+  // ─── WhatsApp não oficial (Evolution) ────────────────
+  //
+  // Pro cliente esta é a tela inteira: clicar, ler o QR, pronto. Nada de
+  // endereço de servidor, chave ou nome de instância — isso é da plataforma e
+  // fica no Super Admin.
+
+  @Get('whatsapp-nao-oficial/disponivel')
+  @ApiOperation({
+    summary:
+      'Se a plataforma já tem servidor Evolution configurado. A tela usa isto pra não oferecer um canal que não teria como conectar.',
+  })
+  evolutionDisponivel() {
+    return this.evolution.disponivel();
+  }
+
+  @Post(':id/whatsapp-nao-oficial/conectar')
+  @ApiOperation({
+    summary:
+      'Cria a instância (se ainda não existe) e devolve o QR code. Já conectado, não gera QR novo — isso derrubaria a sessão ativa do cliente.',
+  })
+  evolutionConectar(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') channelId: string,
+  ) {
+    return this.evolution.conectar(orgId, channelId);
+  }
+
+  @Get(':id/whatsapp-nao-oficial/status')
+  @ApiOperation({
+    summary:
+      'Estado do pareamento, perguntando ao servidor. É o que a tela consulta enquanto o QR está aberto.',
+  })
+  evolutionStatus(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') channelId: string,
+  ) {
+    return this.evolution.status(orgId, channelId);
+  }
+
+  @Post(':id/whatsapp-nao-oficial/desconectar')
+  @Roles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Desliga o celular do canal, mantendo a instância pra reconectar por QR depois.',
+  })
+  evolutionDesconectar(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') channelId: string,
+  ) {
+    return this.evolution.desconectar(orgId, channelId);
+  }
 
   @Post()
   @ApiOperation({

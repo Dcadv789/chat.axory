@@ -50,6 +50,18 @@ export function AppSidebar() {
     useAuthStore();
   const activeOrg = organizations.find((o) => o.id === activeOrgId);
 
+  // Atendente entra pra atender: caixa de entrada e funil. O resto é
+  // configuração da empresa — a API já recusa as escritas dele, então antes o
+  // menu só oferecia telas que davam erro no clique, e ainda expunha a
+  // estrutura interna (quais setores existem, que a empresa faz marketing).
+  //
+  // Isto é acabamento, não tranca: quem sabe a URL continua chegando na tela.
+  // O que protege de verdade é o `@Roles` no backend.
+  const configuraEmpresa =
+    !!user?.isSuperAdmin ||
+    activeOrg?.role === 'OWNER' ||
+    activeOrg?.role === 'ADMIN';
+
   const handleOrgSwitch = (orgId: string) => {
     setActiveOrg(orgId);
     window.location.reload();
@@ -94,34 +106,38 @@ export function AppSidebar() {
           </SidebarItem>
           <InboxTree />
           <PipelinesTree />
-          <AgentSectorTree
-            label="Atendimento"
-            icon={Headset}
-            sector="atendimento"
-          />
-          {activeOrg?.marketingEnabled && (
-            <AgentSectorTree
-              label="Marketing"
-              icon={Megaphone}
-              sector="marketing"
-            />
+          {configuraEmpresa && (
+            <>
+              <AgentSectorTree
+                label="Atendimento"
+                icon={Headset}
+                sector="atendimento"
+              />
+              {activeOrg?.marketingEnabled && (
+                <AgentSectorTree
+                  label="Marketing"
+                  icon={Megaphone}
+                  sector="marketing"
+                />
+              )}
+              <AgentSectorTree
+                label="Operação"
+                icon={Building2}
+                sector="operacao"
+              />
+              {activeOrg?.marketingEnabled && <MarketingTree />}
+              <SidebarItem href="/campaigns">
+                <Send className="size-5" />
+                <SidebarLabel>Campanhas</SidebarLabel>
+              </SidebarItem>
+              {navItems.map((item) => (
+                <SidebarItem key={item.href} href={item.href}>
+                  <item.icon className="size-5" />
+                  <SidebarLabel>{item.label}</SidebarLabel>
+                </SidebarItem>
+              ))}
+            </>
           )}
-          <AgentSectorTree
-            label="Operação"
-            icon={Building2}
-            sector="operacao"
-          />
-          {activeOrg?.marketingEnabled && <MarketingTree />}
-          <SidebarItem href="/campaigns">
-            <Send className="size-5" />
-            <SidebarLabel>Campanhas</SidebarLabel>
-          </SidebarItem>
-          {navItems.map((item) => (
-            <SidebarItem key={item.href} href={item.href}>
-              <item.icon className="size-5" />
-              <SidebarLabel>{item.label}</SidebarLabel>
-            </SidebarItem>
-          ))}
           {user?.isSuperAdmin && (
             <SidebarItem href="/super-admin">
               <Crown className="size-5" />
@@ -156,11 +172,15 @@ export function AppSidebar() {
             <ChevronUp className="ml-auto size-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
           </DropdownButton>
           <DropdownMenu anchor="top start" className="min-w-56">
-            <DropdownItem href="/settings">
-              <Settings />
-              <DropdownLabel>Configurações</DropdownLabel>
-            </DropdownItem>
-            <DropdownDivider />
+            {configuraEmpresa && (
+              <>
+                <DropdownItem href="/settings">
+                  <Settings />
+                  <DropdownLabel>Configurações</DropdownLabel>
+                </DropdownItem>
+                <DropdownDivider />
+              </>
+            )}
             <DropdownItem onClick={logout}>
               <LogOut />
               <DropdownLabel>Sair</DropdownLabel>

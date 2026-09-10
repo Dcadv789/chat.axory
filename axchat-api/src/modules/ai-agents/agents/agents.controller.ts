@@ -46,19 +46,45 @@ export class AgentsController {
   @ApiOperation({ summary: 'List AI agents for the organization' })
   list(
     @CurrentOrg('id') orgId: string,
+    @CurrentOrg('userRole') userRole?: string,
+    @CurrentUser() user?: AuthUser,
     @Query('sector') sector?: string,
   ) {
     // Uma validação só, em `parseSector`. Este endpoint tinha uma cópia
     // hardcoded em ATENDIMENTO/MARKETING — o efeito era silencioso e feio:
     // `?sector=OPERACAO` não filtrava nada e devolvia a organização inteira,
     // como se toda frente tivesse todos os agentes.
-    return this.service.list(orgId, this.parseSector(sector));
+    return this.service.list(
+      orgId,
+      this.parseSector(sector),
+      this.podeVerPrompt(userRole, user),
+    );
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a single AI agent' })
-  findOne(@CurrentOrg('id') orgId: string, @Param('id') id: string) {
-    return this.service.findOne(orgId, id);
+  findOne(
+    @CurrentOrg('id') orgId: string,
+    @Param('id') id: string,
+    @CurrentOrg('userRole') userRole?: string,
+    @CurrentUser() user?: AuthUser,
+  ) {
+    return this.service.findOne(orgId, id, this.podeVerPrompt(userRole, user));
+  }
+
+  /**
+   * O prompt é o que define o agente como especialista — é o que a Axory vende
+   * e, nos agentes do cliente, a estratégia comercial dele por escrito. Quem
+   * não configura agente não precisa lê-lo.
+   *
+   * Não dá pra fechar o endpoint inteiro com `@Roles`: a caixa de entrada usa
+   * esta lista pra escolher qual agente atende a conversa, e isso é trabalho de
+   * atendente. Então some o campo, não a rota.
+   */
+  private podeVerPrompt(userRole?: string, user?: AuthUser) {
+    return (
+      !!user?.isSuperAdmin || userRole === 'OWNER' || userRole === 'ADMIN'
+    );
   }
 
   @Patch(':id')

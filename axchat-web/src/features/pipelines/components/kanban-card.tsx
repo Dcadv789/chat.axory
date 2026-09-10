@@ -3,11 +3,12 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, MessageSquare, User } from 'lucide-react';
-import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
+import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon, WhatsappIcon } from '@/components/ui/icons';
 import type { CardSummary } from '../services/pipelines.service';
 
 const channelIconByType: Record<string, React.ElementType> = {
   WHATSAPP_ZAPPFY: ZappfyIcon,
+  WHATSAPP_EVOLUTION: WhatsappIcon,
   WHATSAPP_OFFICIAL: MetaIcon,
   INSTAGRAM: InstagramIcon,
   TELEGRAM: TelegramIcon,

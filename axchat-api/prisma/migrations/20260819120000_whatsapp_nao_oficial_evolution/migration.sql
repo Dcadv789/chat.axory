@@ -1,0 +1,11 @@
+-- WhatsApp não oficial via Evolution API.
+--
+-- "Não oficial" = conecta lendo o QR code do WhatsApp do próprio cliente, sem
+-- passar pela API da Meta. Não substitui o WHATSAPP_ZAPPFY: aquele fala com o
+-- servidor da Zappfy, este com um servidor Evolution que a Axory hospeda. Os
+-- dois convivem, e o cliente escolhe na hora de criar o canal.
+--
+-- Postgres não aceita ADD VALUE dentro de transação em versões antigas, e o
+-- Prisma roda cada migration em uma; IF NOT EXISTS deixa a reaplicação
+-- idempotente em vez de derrubar o deploy.
+ALTER TYPE "ChannelType" ADD VALUE IF NOT EXISTS 'WHATSAPP_EVOLUTION';

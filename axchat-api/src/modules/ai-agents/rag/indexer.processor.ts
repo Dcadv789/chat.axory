@@ -93,6 +93,7 @@ export class RagIndexerProcessor extends WorkerHost {
       contactId: scope?.contactId,
       content,
       embedding: emb.vector,
+      embeddingModel: emb.model,
       metadata: {
         ...(metadata ?? {}),
         embeddingModel: emb.model,

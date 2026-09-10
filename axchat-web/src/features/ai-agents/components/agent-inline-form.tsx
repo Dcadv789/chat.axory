@@ -4,11 +4,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  aiAgentsService,
-  type AiAgent,
-  CURATED_MODELS,
-} from '../services/ai-agents.service';
+import { aiAgentsService, type AiAgent } from '../services/ai-agents.service';
 import { agentSectorsService } from '../services/agent-sectors.service';
 import { AVATARES_PRONTOS } from '../avatar-do-agente';
 import { AvatarAgente } from './avatar-agente';
@@ -36,7 +32,7 @@ export function AgentInlineForm({
   const [nome, setNome] = useState(agent.name);
   const [avatar, setAvatar] = useState(agent.avatarUrl ?? '');
   const [descricao, setDescricao] = useState(agent.description ?? '');
-  const [modelId, setModelId] = useState(agent.modelId);
+  const modelId = agent.modelId;
   const [temperatura, setTemperatura] = useState(agent.temperature);
   const [maxTokens, setMaxTokens] = useState(agent.maxTokens);
   const [respondeDireto, setRespondeDireto] = useState(agent.canRespondDirectly);
@@ -82,7 +78,6 @@ export function AgentInlineForm({
         name: nome.trim(),
         avatarUrl: avatar || null,
         description: descricao.trim() || undefined,
-        modelId,
         temperature: temperatura,
         maxTokens,
         canRespondDirectly: respondeDireto,
@@ -279,21 +274,16 @@ export function AgentInlineForm({
           </Bloco>
 
           <Bloco titulo="Ficha técnica">
+            {/* Leitura, não escolha. O modelo vem da configuração de IA da
+                empresa — deixar um seletor aqui prometia um controle que não
+                existe: a pessoa trocava, salvava, e o agente continuava
+                rodando no mesmo motor de antes. */}
             <Campo rotulo="Modelo">
-              <select
-                value={modelId}
-                onChange={(e) => setModelId(e.target.value)}
-                className={INPUT}
-              >
-                {CURATED_MODELS.some((m) => m.id === modelId) ? null : (
-                  <option value={modelId}>{modelId} (atual)</option>
-                )}
-                {CURATED_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label} — {m.badge}
-                  </option>
-                ))}
-              </select>
+              <p className="rounded-md border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-500 dark:border-white/15">
+                Definido em <strong>Configurações → IA</strong>, e vale para
+                todos os agentes. O valor salvo neste agente ({modelId}) não é
+                mais usado para escolher o motor.
+              </p>
             </Campo>
             <div className="grid grid-cols-2 gap-3">
               <Campo rotulo={`Temperatura: ${temperatura}`}>

@@ -26,6 +26,9 @@ import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.to
 import { GetBudgetPacingTool } from './builtin/get-budget-pacing.tool';
 import { GetCampaignFunnelTool } from './builtin/get-campaign-funnel.tool';
 import { GetCampaignBriefsTool } from './builtin/get-campaign-briefs.tool';
+import { ConsultarBaseDeConhecimentoTool } from './builtin/consultar-base-de-conhecimento.tool';
+import { MoverCardNoFunilTool } from './builtin/mover-card-no-funil.tool';
+import { PipelinesModule } from '../../pipelines/pipelines.module';
 import { GetRecentMarketingAnalysesTool } from './builtin/get-recent-marketing-analyses.tool';
 import {
   PublishThreadsPostTool,
@@ -77,6 +80,7 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     RealtimeModule,
     ConfirmationsModule,
     ThreadsModule,
+    PipelinesModule,
     BullModule.registerQueue({ name: 'outbound-messages' }),
   ],
   providers: [
@@ -114,6 +118,8 @@ import { ConfirmationsModule } from '../confirmations/confirmations.module';
     GetBudgetPacingTool,
     GetCampaignFunnelTool,
     GetCampaignBriefsTool,
+    ConsultarBaseDeConhecimentoTool,
+    MoverCardNoFunilTool,
     GetRecentMarketingAnalysesTool,
     PublishThreadsPostTool,
     ReplyToThreadsPostTool,

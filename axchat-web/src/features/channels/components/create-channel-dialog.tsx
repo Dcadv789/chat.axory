@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, X, Copy, Check, HelpCircle, ChevronDown, MessageSquareText, AtSign } from 'lucide-react';
+import { Loader2, X, Copy, Check, HelpCircle, ChevronDown, MessageSquareText, AtSign, QrCode } from 'lucide-react';
 import { ThreadsIcon } from '@/components/icons/threads-icon';
 import { channelsService, type ChannelType } from '../services/channels.service';
 import { aiAgentsService } from '@/features/ai-agents/services/ai-agents.service';
@@ -15,6 +15,7 @@ import { CoexistenceConnect } from './coexistence-connect';
 import { InstagramConnect } from './instagram-connect';
 import { InstagramLoginConnect } from './instagram-login-connect';
 import { ThreadsConnect } from './threads-connect';
+import { QrWhatsappDialog } from './qr-whatsapp-dialog';
 
 const channelTypes: { value: ChannelType; label: string; icon: React.ElementType; color: string; description: string }[] = [
   {
@@ -23,6 +24,13 @@ const channelTypes: { value: ChannelType; label: string; icon: React.ElementType
     icon: ZappfyIcon,
     color: 'bg-zinc-50 dark:bg-black',
     description: 'Conecte via Zappfy/Uazapi — sem restrição de 24h',
+  },
+  {
+    value: 'WHATSAPP_EVOLUTION',
+    label: 'WhatsApp não oficial',
+    icon: QrCode,
+    color: 'bg-zinc-50 dark:bg-black',
+    description: 'Leia um QR code com o celular — pronto em um minuto',
   },
   {
     value: 'WHATSAPP_OFFICIAL',
@@ -132,6 +140,11 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
   const [igMode, setIgMode] = useState<'facebook' | 'instagram' | 'api'>('facebook');
   // Threads: nome do canal (OAuth via redirect, sem formulário de credenciais).
   const [threadsName, setThreadsName] = useState('');
+  // WhatsApp não oficial: o cliente só dá um nome; o QR abre em seguida.
+  const [evolutionName, setEvolutionName] = useState('');
+  const [canalDoQr, setCanalDoQr] = useState<{ id: string; name: string } | null>(
+    null,
+  );
 
   const zappfyForm = useForm<ZappfyFormData>({
     resolver: zodResolver(zappfySchema),
@@ -188,6 +201,35 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
       toast.success('Canal criado com sucesso!');
       handleClose();
       onCreated();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar canal');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Cria o canal e emenda no QR.
+   *
+   * O canal precisa existir ANTES da instância: ela é nomeada com o id dele.
+   * Se o QR falhar, o canal fica criado e desconectado — o cliente tenta de
+   * novo pela tela do canal, sem precisar recriar nada.
+   */
+  const onSubmitEvolution = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nome = evolutionName.trim();
+    if (!nome) return;
+
+    setIsLoading(true);
+    try {
+      const canal = await channelsService.create({
+        type: 'WHATSAPP_EVOLUTION',
+        name: nome,
+        config: {},
+        visibility,
+      });
+      onCreated();
+      setCanalDoQr({ id: canal.id, name: canal.name });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao criar canal');
     } finally {
@@ -345,7 +387,24 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
     TELEGRAM: 'Configurar Telegram',
     THREADS: 'Configurar Threads',
     INTERNAL: 'Configurar Canal Interno',
+    WHATSAPP_EVOLUTION: 'Novo WhatsApp',
   };
+
+  // O QR toma a frente do drawer: uma vez criado o canal, a única coisa que
+  // falta é o cliente escanear. Voltar pro formulário atrás não faria sentido.
+  if (canalDoQr) {
+    return (
+      <QrWhatsappDialog
+        channelId={canalDoQr.id}
+        channelName={canalDoQr.name}
+        onConectado={onCreated}
+        onClose={() => {
+          setCanalDoQr(null);
+          handleClose();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -387,6 +446,26 @@ export function CreateChannelDialog({ open, onClose, onCreated }: CreateChannelD
             <Field label="Token" placeholder="Token da instância Zappfy" error={zappfyForm.formState.errors.token?.message} {...zappfyForm.register('token')} />
             <Field label="Webhook Secret" placeholder="Opcional" optional {...zappfyForm.register('webhookSecret')} />
             <WebhookUrl url={`${apiBaseUrl}/webhooks/WHATSAPP_ZAPPFY`} copied={copied} onCopy={() => handleCopyWebhook('WHATSAPP_ZAPPFY')} />
+            <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
+          </form>
+        ) : selectedType === 'WHATSAPP_EVOLUTION' ? (
+          <form onSubmit={onSubmitEvolution} className="mt-6 space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Nome do canal
+              </label>
+              <input
+                value={evolutionName}
+                onChange={(ev) => setEvolutionName(ev.target.value)}
+                placeholder="Ex: WhatsApp Comercial"
+                autoFocus
+                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-white/10 dark:bg-black dark:text-zinc-100"
+              />
+              <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                É só o nome que a equipe vê aqui dentro. No próximo passo você
+                lê um QR code com o celular e o canal já começa a receber.
+              </p>
+            </div>
             <FormFooter isLoading={isLoading} onBack={() => setStep('type')} />
           </form>
         ) : selectedType === 'WHATSAPP_OFFICIAL' ? (

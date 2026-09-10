@@ -18,6 +18,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { PrismaService } from '../../../database/prisma.service';
 import { LlmService } from '../llm/llm.service';
+import { KnowledgeParaPromptService } from '../knowledge/knowledge-para-prompt.service';
 import { LlmMessage, LlmToolCall, LlmToolDefinition } from '../llm/llm.types';
 import { ToolRegistry } from '../tools/tool-registry.service';
 import { ToolContext } from '../tools/tool.types';
@@ -150,6 +151,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
   }
 
   constructor(
+    private readonly knowledgeParaPrompt: KnowledgeParaPromptService,
     private readonly prisma: PrismaService,
     private readonly llm: LlmService,
     private readonly registry: ToolRegistry,
@@ -339,6 +341,12 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
     const defaultSector =
       departments.find((d) => d.isDefault) ?? departments[0] ?? null;
 
+    // O que a IA sabe da empresa, no recorte deste agente.
+    const conhecimento = await this.knowledgeParaPrompt.carregar(
+      organization.id,
+      agent.id,
+    );
+
     const messages = this.promptBuilder.buildMessages({
       organization,
       agent,
@@ -351,6 +359,7 @@ export class AiAgentRunnerService implements OnModuleInit, OnModuleDestroy {
       memoryFacts: (memory?.facts as Record<string, unknown>) ?? null,
       triggerMessage,
       skillInstructions,
+      conhecimento,
       catalog,
       departments,
       routeAllToDefaultSector: organization.routeAllToDefaultSector,

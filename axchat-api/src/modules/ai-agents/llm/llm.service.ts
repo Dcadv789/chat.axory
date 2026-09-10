@@ -16,6 +16,7 @@ import {
 } from './llm.types';
 import { OpenAiCompatProvider } from './openai-compat.provider';
 import { AiEngineSettingsService } from './ai-engine-settings.service';
+import { resolverMotorDeTexto } from './motor-de-texto';
 import {
   resolveBaseUrl,
   resolveTransport,
@@ -115,18 +116,22 @@ export class LlmService {
    */
   private async usesAxchatAi(organizationId?: string): Promise<boolean> {
     if (!organizationId) return true;
-    try {
-      const org = await this.prisma.organization.findUnique({
-        where: { id: organizationId },
-        select: { axchatAiEnabled: true },
-      });
-      return org?.axchatAiEnabled ?? true;
-    } catch (err) {
-      this.logger.warn(
-        `Falha ao ler axchatAiEnabled da org ${organizationId}: ${(err as Error).message}`,
+    // SEM try/catch de propósito. Antes um erro de leitura assumia "motor
+    // nosso" — o palpite silencioso mais caro possível: a organização que
+    // paga a própria IA teria a conta na plataforma, e nada apareceria no log
+    // além de um warn. Quando a flag não pode ser lida, a resposta certa é
+    // falhar: se o banco não responde, o run ia falhar de qualquer jeito na
+    // leitura do agente e da conversa.
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { axchatAiEnabled: true },
+    });
+    if (!org) {
+      throw new InternalServerErrorException(
+        `Organização ${organizationId} não encontrada — não dá pra saber de quem é a chave de IA.`,
       );
-      return true;
     }
+    return org.axchatAiEnabled;
   }
 
   /**
@@ -183,21 +188,31 @@ export class LlmService {
     organizationId: string,
     modelId: string,
   ): Promise<
-    | { transport: 'openai-compat'; provider: OpenAiCompatProvider }
-    | { transport: 'anthropic'; client: Anthropic }
+    | { transport: 'openai-compat'; provider: OpenAiCompatProvider; modelId: string }
+    | { transport: 'anthropic'; client: Anthropic; modelId: string }
     | undefined
   > {
     // Motor AxChat: modelo/chave próprios do cliente não valem — cai no
     // roteamento padrão, que usa as chaves globais.
     if (await this.usesAxchatAi(organizationId)) return undefined;
     try {
-      const registered = await this.prisma.aiModelProvider.findUnique({
-        where: { organizationId_modelId: { organizationId, modelId } },
+      // A organização APONTA qual provedor atende o texto. Só quando ela não
+      // apontou é que caímos no casamento por nome de modelo — comportamento
+      // antigo, mantido pra não quebrar quem já rodava assim.
+      const escolhido = await this.prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { aiTextProvider: true },
       });
+      const registered =
+        escolhido?.aiTextProvider ??
+        (await this.prisma.aiModelProvider.findUnique({
+          where: { organizationId_modelId: { organizationId, modelId } },
+        }));
       if (!registered || !registered.apiKey || !registered.isActive) return undefined;
 
       if (resolveTransport(registered.provider) === 'anthropic') {
         return {
+          modelId: registered.modelId,
           transport: 'anthropic',
           // Sem base-URL salva vai pro endpoint oficial da Anthropic; com ela,
           // vai pro gateway que o cliente informou.
@@ -219,20 +234,83 @@ export class LlmService {
       const label = registered.provider;
       const cachedKey = `${label}::${baseURL}::${registered.apiKey}`;
       const cached = this.customByKey.get(cachedKey);
-      if (cached) return { transport: 'openai-compat', provider: cached };
+      if (cached)
+        return {
+          transport: 'openai-compat',
+          provider: cached,
+          modelId: registered.modelId,
+        };
 
       const provider = new OpenAiCompatProvider(
         { apiKey: registered.apiKey, baseURL, label },
         this.logger,
       );
       this.customByKey.set(cachedKey, provider);
-      return { transport: 'openai-compat', provider };
+      return {
+        transport: 'openai-compat',
+        provider,
+        modelId: registered.modelId,
+      };
     } catch (err) {
+      // Idem: engolir o erro aqui mandava a chamada pra chave da plataforma.
+      // Melhor falhar e alguém ver, do que faturar no lugar errado em
+      // silêncio.
+      throw new InternalServerErrorException(
+        `Não consegui resolver o motor de IA da organização ${organizationId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
+
+  /**
+   * Provedor de VISÃO da organização. Separado do de texto porque quem lê
+   * imagem raramente é o mesmo que conversa: DeepSeek é barato pra texto e não
+   * lê imagem nenhuma.
+   *
+   * Devolve `undefined` quando não há — e o chamador transforma a imagem em
+   * aviso textual, em vez de cair no motor de visão da plataforma. Cair lá
+   * seria a AxChat pagando pela imagem de quem escolheu bancar a própria IA.
+   */
+  private async resolveOrgVisionModel(
+    organizationId: string,
+  ): Promise<
+    | { transport: 'openai-compat'; provider: OpenAiCompatProvider; modelId: string }
+    | { transport: 'anthropic'; client: Anthropic; modelId: string }
+    | undefined
+  > {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { aiVisionProvider: true },
+    });
+    const registrado = org?.aiVisionProvider;
+    if (!registrado?.apiKey || !registrado.isActive) return undefined;
+
+    if (resolveTransport(registrado.provider) === 'anthropic') {
+      return {
+        transport: 'anthropic',
+        modelId: registrado.modelId,
+        client: this.buildAnthropicClient(
+          registrado.apiKey,
+          resolveBaseUrl(registrado.provider, registrado.baseUrl),
+        ),
+      };
+    }
+
+    const baseURL = resolveBaseUrl(registrado.provider, registrado.baseUrl);
+    if (!baseURL) {
       this.logger.warn(
-        `Falha ao buscar modelo customizado ${modelId} da org ${organizationId}: ${(err as Error).message}`,
+        `Provedor de visão da org ${organizationId} sem base-URL — ignorado pra não vazar a chave pro endpoint errado.`,
       );
       return undefined;
     }
+    return {
+      transport: 'openai-compat',
+      modelId: registrado.modelId,
+      provider: new OpenAiCompatProvider(
+        { apiKey: registrado.apiKey, baseURL, label: registrado.provider },
+        this.logger,
+      ),
+    };
   }
 
   /**
@@ -243,82 +321,104 @@ export class LlmService {
     // 1. Motor que a própria organização plugou (Anthropic, OpenAI, Google,
     //    DeepSeek ou personalizado), com a chave dela.
     if (req.organizationId) {
+      const daOrganizacao = !(await this.usesAxchatAi(req.organizationId));
       const orgModel = await this.resolveOrgModel(req.organizationId, req.modelId);
+
+      // A organização declarou que paga a própria IA e não deixou nenhum
+      // provedor utilizável. Antes isso caía no motor da plataforma sem
+      // avisar: a conta vinha pra AxChat e ninguém notava. Falhar aqui é o
+      // que mantém a flag significando o que ela diz.
+      if (daOrganizacao && !orgModel) {
+        throw new InternalServerErrorException(
+          'Esta organização está configurada para usar a IA própria, mas não há provedor de texto válido (ativo e com chave). Configure em Settings > IA, ou volte a usar a IA da AxChat.',
+        );
+      }
+
       if (orgModel?.transport === 'anthropic') {
         // Claude tem visão nativa — aqui a imagem passa direto, sem stub.
+        // O modelo é o do PROVEDOR que a organização apontou, não o salvo no
+        // agente: quem escolhe o motor é a configuração, não o cadastro.
         return this.completeWithAnthropic(
-          this.normalizeModelId(req.modelId),
+          this.normalizeModelId(orgModel.modelId),
           req,
           orgModel.client,
         );
       }
       if (orgModel?.transport === 'openai-compat') {
-        // A maioria dos endpoints compatíveis não aceita image_url.
-        const safeReq = this.requestHasImage(req)
-          ? this.stripImagesToStub(req)
-          : req;
-        return orgModel.provider.complete(safeReq, this.stripProviderPrefix(req.modelId));
-      }
-    }
-
-    const provider = this.resolveProvider(req.modelId);
-
-    if (provider === 'deepseek') {
-      if (this.requestHasImage(req)) {
-        const vision = (await this.engineSettings.getEffective()).vision;
-        if (vision.apiKey) {
-          const visionModel = vision.modelId ?? 'claude-haiku-4-5';
-          this.logger.log(
-            `Imagem detectada — roteando esta chamada para o modelo de visão ${visionModel}`,
+        // Imagem: a maioria dos endpoints compatíveis não aceita image_url.
+        // Se a organização apontou um provedor de VISÃO próprio, a imagem vai
+        // pra lá — na chave DELA. Sem provedor de visão, vira aviso textual:
+        // usar o motor de visão da plataforma aqui seria a AxChat pagando a
+        // leitura de imagem de quem escolheu bancar a própria IA.
+        let safeReq = req;
+        if (this.requestHasImage(req)) {
+          const visao = await this.resolveOrgVisionModel(req.organizationId);
+          if (visao?.transport === 'anthropic') {
+            return this.completeWithAnthropic(
+              this.normalizeModelId(visao.modelId),
+              req,
+              visao.client,
+            );
+          }
+          if (visao?.transport === 'openai-compat') {
+            return visao.provider.complete(
+              req,
+              this.stripProviderPrefix(visao.modelId),
+            );
+          }
+          this.logger.warn(
+            `Org ${req.organizationId} recebeu imagem e não tem provedor de visão próprio — enviando aviso textual.`,
           );
-          return this.completeWithAnthropic(visionModel, req);
+          safeReq = this.stripImagesToStub(req);
         }
-        this.logger.warn(
-          'Imagem recebida mas o motor de visão não está configurado — enviando stub textual ao provider de texto',
-        );
-        req = this.stripImagesToStub(req);
-      }
-      const deepseek = await this.resolveDeepSeekProvider(req.organizationId);
-      if (!deepseek) {
-        throw new InternalServerErrorException(
-          'Motor de texto sem chave — configure em Super Admin > Motor de IA (IA AxChat) ou em Settings > IA (motor próprio da organização).',
+        return orgModel.provider.complete(
+          safeReq,
+          this.stripProviderPrefix(orgModel.modelId),
         );
       }
-      return deepseek.complete(req, this.stripProviderPrefix(req.modelId));
     }
 
-    if (provider === 'openai') {
-      const audio = (await this.engineSettings.getEffective()).audio;
-      if (!audio.apiKey) {
-        throw new InternalServerErrorException(
-          'Chave OpenAI não configurada — configure em Super Admin > Motor de IA (bloco Áudio/OpenAI) ou via OPENAI_API_KEY.',
+    // ─── Motor da AxChat: quem manda é o slot `text` do Super Admin ───
+    //
+    // O `req.modelId` (modelo salvo no agente) NÃO escolhe mais o provedor.
+    // Configurou DeepSeek no motor, todos os agentes rodam DeepSeek;
+    // configurou OpenAI, todos rodam OpenAI. Antes o provedor saía do nome do
+    // modelo de cada agente, então o motor configurado só valia por acaso.
+    const engine = await this.engineSettings.getEffective();
+    const motor = resolverMotorDeTexto(engine.text);
+
+    if (!motor.apiKey) {
+      throw new InternalServerErrorException(
+        'Motor de texto sem chave — configure em Super Admin > Motor de IA (bloco Texto) ou em Settings > IA (motor próprio da organização).',
+      );
+    }
+
+    // Imagem em provedor sem visão continua desviando pro slot Visão: é pra
+    // isso que ele existe, e perder a imagem seria pior que a volta extra.
+    if (this.requestHasImage(req) && !motor.temVisao) {
+      if (engine.vision.apiKey) {
+        const visionModel = engine.vision.modelId ?? 'claude-haiku-4-5';
+        this.logger.log(
+          `Imagem detectada e o motor de texto (${motor.modelId}) não lê imagem — roteando esta chamada para ${visionModel}`,
         );
+        return this.completeWithAnthropic(visionModel, req);
       }
-      const openai = this.buildOpenAiProvider(audio.apiKey, audio.baseUrl);
-      // GPT-3.5 e modelos mais antigos não suportam image_url — remove se for o caso
-      const safeReq = this.requestHasImage(req)
-        ? this.stripImagesToStub(req)
-        : req;
-      return openai.complete(safeReq, this.stripProviderPrefix(req.modelId));
+      this.logger.warn(
+        'Imagem recebida mas o motor de visão não está configurado — enviando stub textual ao motor de texto',
+      );
+      req = this.stripImagesToStub(req);
     }
 
-    return this.completeWithAnthropic(this.normalizeModelId(req.modelId), req);
-  }
-
-  /** Resolve o provider a partir do prefixo do modelId. */
-  private resolveProvider(modelId: string): LlmProvider {
-    const id = (modelId || '').toLowerCase();
-    if (id.startsWith('deepseek')) return 'deepseek';
-    if (
-      id.startsWith('gpt') ||
-      id.startsWith('openai/') ||
-      id.startsWith('o1') ||
-      id.startsWith('o3') ||
-      id.startsWith('o4')
-    ) {
-      return 'openai';
+    if (motor.transporte === 'anthropic') {
+      return this.completeWithAnthropic(
+        motor.modelId,
+        req,
+        this.buildAnthropicClient(motor.apiKey),
+      );
     }
-    return 'anthropic';
+
+    const provider = this.buildOpenAiProvider(motor.apiKey, motor.baseUrl);
+    return provider.complete(req, motor.modelId);
   }
 
   /** Remove prefixos `deepseek/` ou `openai/` deixando o id que a API espera. */

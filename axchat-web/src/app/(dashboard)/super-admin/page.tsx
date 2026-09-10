@@ -30,6 +30,7 @@ import {
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ServidorEvolution } from '@/features/super-admin/components/servidor-evolution';
 import {
   superAdminService,
   DEFAULT_PLAN_TEMPLATES,
@@ -1974,13 +1975,17 @@ function IntegrationsPanel() {
           </div>
         )}
       </div>
+
+      <div className="mt-4">
+        <ServidorEvolution />
+      </div>
     </section>
   );
 }
 
 // ─── Motor de IA global ───────────────────────────────
 
-const ENGINE_KINDS: AiEngineKind[] = ['text', 'vision', 'audio'];
+const ENGINE_KINDS: AiEngineKind[] = ['text', 'vision', 'audio', 'embedding'];
 
 const ENGINE_META: Record<
   AiEngineKind,
@@ -1997,7 +2002,7 @@ const ENGINE_META: Record<
     label: 'Texto',
     icon: Sparkles,
     description:
-      'Motor principal (API compatível com DeepSeek). É ele que responde as conversas dos clientes.',
+      'Motor principal — é ele que responde as conversas. TODOS os agentes usam o que estiver aqui: o modelo salvo em cada agente não escolhe mais o provedor. Configurou DeepSeek, todos usam DeepSeek; configurou OpenAI, todos usam OpenAI. Só vale para organizações na IA da AxChat — quem tem motor próprio escolhe o dele.',
     showBaseUrl: true,
     baseUrlPlaceholder: 'https://api.deepseek.com',
     modelPlaceholder: 'deepseek-chat',
@@ -2019,6 +2024,15 @@ const ENGINE_META: Record<
     showBaseUrl: true,
     baseUrlPlaceholder: 'https://api.openai.com/v1',
     modelPlaceholder: 'whisper-1',
+  },
+  embedding: {
+    label: 'Busca semântica',
+    icon: Search,
+    description:
+      'Gera os vetores da busca no histórico das conversas. Anthropic e DeepSeek NÃO têm esse endpoint — aponte para OpenAI (https://api.openai.com/v1) ou Google (https://generativelanguage.googleapis.com/v1beta/openai). ATENÇÃO: trocar o modelo invalida o índice existente; a busca passa a achar menos até rodar o backfill, porque vetores de modelos diferentes não são comparáveis. Este motor é sempre da plataforma — o cliente não escolhe.',
+    showBaseUrl: true,
+    baseUrlPlaceholder: 'https://api.openai.com/v1',
+    modelPlaceholder: 'text-embedding-3-small',
   },
 };
 

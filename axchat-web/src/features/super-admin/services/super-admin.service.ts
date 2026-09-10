@@ -608,9 +608,48 @@ export const superAdminService = {
     });
     return data.data ?? data;
   },
+
+  // ─── WhatsApp não oficial (servidor Evolution) ──────
+
+  async getEvolution(): Promise<EvolutionConfig> {
+    const { data } = await api.get<{ data: EvolutionConfig }>('/super-admin/evolution');
+    return data.data ?? data;
+  },
+
+  /** Campo ausente = não mexe. String vazia = apaga e volta pro env. */
+  async updateEvolution(payload: {
+    baseUrl?: string;
+    apiKey?: string;
+  }): Promise<EvolutionConfig> {
+    const { data } = await api.patch<{ data: EvolutionConfig }>(
+      '/super-admin/evolution',
+      payload,
+    );
+    return data.data ?? data;
+  },
+
+  async testEvolution(): Promise<{ ok: boolean; detalhe: string }> {
+    const { data } = await api.post<{ data: { ok: boolean; detalhe: string } }>(
+      '/super-admin/evolution/test',
+      {},
+    );
+    return data.data ?? data;
+  },
 };
 
-export type AiEngineKind = 'text' | 'vision' | 'audio';
+/** O que a tela do Super Admin sabe do servidor Evolution. Sem a chave. */
+export interface EvolutionConfig {
+  baseUrl: string | null;
+  apiKeySet: boolean;
+  apiKeyPreview: string | null;
+  configured: boolean;
+  source: {
+    baseUrl: 'ui' | 'env' | 'default';
+    apiKey: 'ui' | 'env' | 'default';
+  };
+}
+
+export type AiEngineKind = 'text' | 'vision' | 'audio' | 'embedding';
 
 /** De onde veio o valor efetivo de cada campo. */
 export type AiEngineFieldSource = 'ui' | 'env' | 'default';

@@ -5,8 +5,15 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { PrismaService } from '../../../database/prisma.service';
 
-/** Os três motores que a IA AxChat usa. */
-export type EngineKind = 'text' | 'vision' | 'audio';
+/**
+ * Os motores que a IA AxChat usa. `embedding` é o da busca semântica (RAG) e
+ * fica SEPARADO de propósito: antes ele pegava emprestada a chave do slot de
+ * áudio, então trocar de provedor de transcrição derrubava a busca sem
+ * ninguém entender por quê. E nem todo provedor de texto gera embedding —
+ * Anthropic e DeepSeek não têm esse endpoint —, então quem roda Claude no
+ * texto precisa apontar o embedding pra outro lugar.
+ */
+export type EngineKind = 'text' | 'vision' | 'audio' | 'embedding';
 
 export interface EngineSlot {
   baseUrl: string | null;
@@ -19,7 +26,12 @@ export type AiEngineConfig = Record<EngineKind, EngineSlot>;
 /** De onde cada campo veio, pro Super Admin saber o que está mandando. */
 export type EngineFieldSource = 'ui' | 'env' | 'default';
 
-export const ENGINE_KINDS: EngineKind[] = ['text', 'vision', 'audio'];
+export const ENGINE_KINDS: EngineKind[] = [
+  'text',
+  'vision',
+  'audio',
+  'embedding',
+];
 
 const AI_ENGINE_KEY = 'ai_engine';
 /** Config global muda raramente; 30s evita ler o banco a cada completion. */
@@ -69,6 +81,24 @@ export class AiEngineSettingsService {
         baseUrl: 'https://api.openai.com/v1',
         apiKey: this.config.get<string>('OPENAI_API_KEY') || null,
         modelId: 'whisper-1',
+      },
+      embedding: {
+        // A API da OpenAI virou padrão de fato: o Google expõe uma camada
+        // compatível em /v1beta/openai, então trocar de provedor aqui é
+        // trocar base, chave e modelo — sem mexer em código.
+        //   OpenAI  → https://api.openai.com/v1            + text-embedding-3-small
+        //   Google  → https://generativelanguage.googleapis.com/v1beta/openai
+        //                                                  + text-embedding-004
+        baseUrl:
+          this.config.get<string>('EMBEDDING_BASE_URL') ||
+          'https://api.openai.com/v1',
+        apiKey:
+          this.config.get<string>('EMBEDDING_API_KEY') ||
+          this.config.get<string>('OPENAI_API_KEY') ||
+          null,
+        modelId:
+          this.config.get<string>('EMBEDDING_MODEL_ID') ||
+          'text-embedding-3-small',
       },
     };
   }

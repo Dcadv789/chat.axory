@@ -98,6 +98,32 @@ export class MovePipelineStageHandler implements ActionHandler {
         where: { id: card.id },
         data: updates,
       });
+
+      // Histórico: sem isto o card andaria sozinho no relatório. A automação
+      // é um autor como qualquer outro, e escrever direto aqui (em vez de
+      // chamar o serviço) é o que mantém o handler sem dependência de módulo.
+      await prisma.cardActivity
+        .create({
+          data: {
+            cardId: card.id,
+            tipo:
+              stage.type === 'WON'
+                ? 'GANHO'
+                : stage.type === 'LOST'
+                  ? 'PERDIDO'
+                  : card.status !== 'OPEN'
+                    ? 'REABERTO'
+                    : 'MOVIDO',
+            origem: 'AUTOMACAO',
+            fromStageId: card.stageId,
+            toStageId: stage.id,
+            descricao: 'Movido por automação',
+            metadata: { traceId: ctx.traceId },
+          },
+        })
+        // Perder o registro é ruim; travar a automação por causa dele é pior.
+        .catch(() => undefined);
+
       return {
         ok: true,
         output: {

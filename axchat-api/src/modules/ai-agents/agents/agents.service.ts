@@ -40,7 +40,8 @@ export class AgentsService {
         sector: dto.sector ?? 'ATENDIMENTO',
         category: dto.category,
         capabilities: dto.capabilities ?? [],
-        modelId: dto.modelId,
+        // Só um registro: o motor real vem da configuração de IA.
+        modelId: dto.modelId ?? 'definido-na-configuracao',
         modelParams: dto.modelParams as object | undefined,
         systemPrompt: dto.systemPrompt,
         temperature: dto.temperature ?? 0.7,
@@ -82,8 +83,41 @@ export class AgentsService {
     return agent;
   }
 
-  async list(organizationId: string, sector?: AiAgentSector) {
-    return this.prisma.aiAgent.findMany({
+  /**
+   * Tira do agente o que é conteúdo de prompt.
+   *
+   * O prompt é o que faz o agente ser especialista — é o produto que a Axory
+   * vende, e nos agentes do cliente é a estratégia comercial dele escrita por
+   * extenso. Atendente não precisa disso pra trabalhar: a caixa de entrada usa
+   * nome, foto e status pra escolher quem atende a conversa.
+   *
+   * Some, não vira string vazia: campo vazio dá a entender que o agente está
+   * mal configurado, e alguém vai "consertar" apagando o que não consegue ver.
+   */
+  private semPrompt<T extends Record<string, unknown>>(agent: T) {
+    const {
+      systemPrompt: _sp,
+      additionalInstructions: _ai,
+      operationalContext: _oc,
+      ...resto
+    } = agent as Record<string, unknown>;
+    return resto as Omit<
+      T,
+      'systemPrompt' | 'additionalInstructions' | 'operationalContext'
+    >;
+  }
+
+  /** OWNER/ADMIN configuram os agentes; AGENT só opera a caixa de entrada. */
+  private podeVerPrompt(userRole?: string, isSuperAdmin?: boolean) {
+    return !!isSuperAdmin || userRole === 'OWNER' || userRole === 'ADMIN';
+  }
+
+  async list(
+    organizationId: string,
+    sector?: AiAgentSector,
+    verPrompt = true,
+  ) {
+    const agents = await this.prisma.aiAgent.findMany({
       where: {
         organizationId,
         deletedAt: null,
@@ -98,6 +132,7 @@ export class AgentsService {
         },
       },
     });
+    return verPrompt ? agents : agents.map((a) => this.semPrompt(a));
   }
 
   /**
@@ -210,7 +245,12 @@ export class AgentsService {
     };
   }
 
-  async findOne(organizationId: string, id: string) {
+  /**
+   * Registro completo, pra uso interno — regras de negócio precisam comparar o
+   * prompt que está gravado. Não devolva isto direto numa resposta HTTP sem
+   * passar por `findOne`, que é quem aplica o papel de quem pediu.
+   */
+  private async buscarOuFalhar(organizationId: string, id: string) {
     const agent = await this.prisma.aiAgent.findFirst({
       where: { id, organizationId, deletedAt: null },
       include: {
@@ -225,6 +265,11 @@ export class AgentsService {
     return agent;
   }
 
+  async findOne(organizationId: string, id: string, verPrompt = true) {
+    const agent = await this.buscarOuFalhar(organizationId, id);
+    return verPrompt ? agent : this.semPrompt(agent);
+  }
+
   /**
    * @param permitirPromptGerenciado só o super-admin passa `true`. É quem
    * mantém o texto do produto.
@@ -235,7 +280,7 @@ export class AgentsService {
     dto: UpdateAgentDto,
     permitirPromptGerenciado = false,
   ) {
-    const existing = await this.findOne(organizationId, id);
+    const existing = await this.buscarOuFalhar(organizationId, id);
 
     // O prompt de um agente do PRODUTO não é editável pelo cliente. A trava
     // vive aqui, e não só na tela: o endpoint é público pra quem tem token, e
@@ -347,7 +392,9 @@ export class AgentsService {
     agentId: string,
     dto: AssignAgentChannelDto,
   ) {
-    await this.findOne(organizationId, agentId);
+    // `findOne` já recusa agente de outra organização — o retorno é usado
+    // abaixo em vez de uma segunda consulta por id solto.
+    const agente = await this.findOne(organizationId, agentId);
 
     const channel = await this.prisma.channel.findFirst({
       where: { id: dto.channelId, organizationId, deletedAt: null },
@@ -361,11 +408,7 @@ export class AgentsService {
     // roteador já filtra candidatos por frente, mas um vínculo cruzado deixa
     // o agente aparecer em tela como se atendesse ali — e ninguém entende
     // por que ele nunca responde.
-    const agente = await this.prisma.aiAgent.findUnique({
-      where: { id: agentId },
-      select: { sector: true, name: true },
-    });
-    if (agente && agente.sector !== channel.sector) {
+    if (agente.sector !== channel.sector) {
       throw new BadRequestException(
         `O agente ${agente.name} é da frente ${agente.sector} e o canal ${channel.name} é da frente ${channel.sector}. Um canal só aceita agentes da mesma frente.`,
       );

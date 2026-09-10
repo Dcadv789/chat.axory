@@ -36,7 +36,7 @@ import {
 } from '@/features/inbox-views/services/inbox-views.service';
 import { channelsService } from '@/features/channels/services/channels.service';
 import { tagsService } from '@/features/settings/services/tags.service';
-import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
+import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon, WhatsappIcon } from '@/components/ui/icons';
 import { useOrgId } from '@/hooks/use-org-query-key';
 import { useSocket } from '../hooks/use-socket';
 import { useAuthStore } from '@/stores/auth-store';
@@ -75,6 +75,7 @@ const scopeOptions: { label: string; value: ScopeFilter; icon: React.ElementType
 
 const channelIcons: Record<string, React.ElementType> = {
   WHATSAPP_ZAPPFY: ZappfyIcon,
+  WHATSAPP_EVOLUTION: WhatsappIcon,
   WHATSAPP_OFFICIAL: MetaIcon,
   INSTAGRAM: InstagramIcon,
   TELEGRAM: TelegramIcon,

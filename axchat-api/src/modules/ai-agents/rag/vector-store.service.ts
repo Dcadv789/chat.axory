@@ -41,6 +41,7 @@ export class VectorStoreService {
       contactId: entry.contactId ?? null,
       content: entry.content,
       embedding: entry.embedding,
+      embeddingModel: entry.embeddingModel ?? null,
       metadata: (entry.metadata ?? {}) as Prisma.InputJsonValue,
     };
 
@@ -78,6 +79,12 @@ export class VectorStoreService {
     if (scope.conversationId) where.conversationId = scope.conversationId;
     if (scope.ownerType && scope.ownerType !== 'any') {
       where.ownerType = scope.ownerType;
+    }
+    // Só vetores do modelo ATUAL. Sem isto, trocar o provedor de embedding
+    // faria a busca comparar espaços vetoriais diferentes e devolver
+    // resultado sem sentido — sem erro nenhum, o que é pior.
+    if (scope.embeddingModel) {
+      where.embeddingModel = scope.embeddingModel;
     }
 
     const candidates = await this.prisma.aiVectorEntry.findMany({
@@ -140,6 +147,12 @@ export class VectorStoreService {
     if (scope.conversationId) where.conversationId = scope.conversationId;
     if (scope.ownerType && scope.ownerType !== 'any') {
       where.ownerType = scope.ownerType;
+    }
+    // Só vetores do modelo ATUAL. Sem isto, trocar o provedor de embedding
+    // faria a busca comparar espaços vetoriais diferentes e devolver
+    // resultado sem sentido — sem erro nenhum, o que é pior.
+    if (scope.embeddingModel) {
+      where.embeddingModel = scope.embeddingModel;
     }
     return this.prisma.aiVectorEntry.count({ where });
   }

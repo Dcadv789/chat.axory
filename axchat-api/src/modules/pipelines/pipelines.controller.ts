@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PipelinesService } from './pipelines.service';
+import { CardActivityService } from './card-activity.service';
 import {
   CreateCardDto,
   CreatePipelineDto,
@@ -20,14 +21,17 @@ import {
   UpsertStageDto,
 } from './dto/pipeline.dto';
 import { JwtAuthGuard, OrgGuard, RolesGuard } from '../../common/guards';
-import { CurrentOrg } from '../../common/decorators';
+import { CurrentOrg, CurrentUser } from '../../common/decorators';
 
 @ApiTags('Pipelines (Kanban)')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, OrgGuard, RolesGuard)
 @Controller('pipelines')
 export class PipelinesController {
-  constructor(private readonly service: PipelinesService) {}
+  constructor(
+    private readonly service: PipelinesService,
+    private readonly atividades: CardActivityService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List pipelines for current org' })
@@ -98,8 +102,12 @@ export class PipelinesController {
     @Param('id') pipelineId: string,
     @CurrentOrg('id') orgId: string,
     @Body() dto: CreateCardDto,
+    @CurrentUser('id') userId?: string,
   ) {
-    return this.service.createCard(pipelineId, orgId, dto);
+    return this.service.createCard(pipelineId, orgId, dto, {
+      origem: 'HUMANO',
+      userId,
+    });
   }
 
   @Patch('cards/:cardId')
@@ -110,6 +118,18 @@ export class PipelinesController {
     @Body() dto: UpdateCardDto,
   ) {
     return this.service.updateCard(cardId, orgId, dto);
+  }
+
+  @Get('cards/:cardId/activities')
+  @ApiOperation({
+    summary:
+      'Linha do tempo do card: quem moveu, de onde pra onde e quando — incluindo automação e IA.',
+  })
+  cardActivities(
+    @Param('cardId') cardId: string,
+    @CurrentOrg('id') orgId: string,
+  ) {
+    return this.atividades.listar(orgId, cardId);
   }
 
   @Delete('cards/:cardId')
@@ -130,7 +150,12 @@ export class PipelinesController {
     @Param('cardId') cardId: string,
     @CurrentOrg('id') orgId: string,
     @Body() dto: MoveCardDto,
+    @CurrentUser('id') userId?: string,
   ) {
-    return this.service.moveCard(cardId, orgId, dto);
+    // Quem moveu vai pro histórico: pela API é sempre gente.
+    return this.service.moveCard(cardId, orgId, dto, {
+      origem: 'HUMANO',
+      userId,
+    });
   }
 }

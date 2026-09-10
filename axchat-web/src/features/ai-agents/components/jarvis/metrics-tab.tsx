@@ -26,6 +26,7 @@ import { fmtNum } from './format';
 const CHANNEL_LABELS: Record<string, string> = {
   WHATSAPP_OFFICIAL: 'WhatsApp Oficial',
   WHATSAPP_ZAPPFY: 'WhatsApp Zappfy',
+  WHATSAPP_EVOLUTION: 'WhatsApp não oficial',
   INSTAGRAM: 'Instagram',
   TELEGRAM: 'Telegram',
 };

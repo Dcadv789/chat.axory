@@ -40,6 +40,9 @@ import { IsCronExpressionConstraint } from './crons/dto/create-agent-cron.dto';
 import { MarketingProfileController } from './marketing/marketing-profile.controller';
 import { MarketingProfileService } from './marketing/marketing-profile.service';
 import { CampaignBriefService } from './marketing/campaign-brief.service';
+import { KnowledgeService } from './knowledge/knowledge.service';
+import { KnowledgeParaPromptService } from './knowledge/knowledge-para-prompt.service';
+import { KnowledgeController } from './knowledge/knowledge.controller';
 import { MarketingAdsService } from './marketing/marketing-ads.service';
 import { MarketingCredentialsService } from './marketing/marketing-credentials.service';
 import { MarketingBudgetService } from './marketing/marketing-budget.service';
@@ -77,6 +80,7 @@ import { MarketingUploadService } from './marketing/marketing-upload.service';
     AiCatalogController,
     AgentCronsController,
     MarketingProfileController,
+    KnowledgeController,
   ],
   providers: [
     PromptBuilderService,
@@ -97,6 +101,8 @@ import { MarketingUploadService } from './marketing/marketing-upload.service';
     IsCronExpressionConstraint,
     MarketingProfileService,
     CampaignBriefService,
+    KnowledgeService,
+    KnowledgeParaPromptService,
     MarketingAdsService,
     MarketingCredentialsService,
     MarketingBudgetService,

@@ -1,6 +1,26 @@
 import { api } from '@/lib/api';
 
-export type ChannelType = 'WHATSAPP_OFFICIAL' | 'WHATSAPP_ZAPPFY' | 'INSTAGRAM' | 'TELEGRAM' | 'INTERNAL' | 'THREADS';
+export type ChannelType =
+  | 'WHATSAPP_OFFICIAL'
+  | 'WHATSAPP_ZAPPFY'
+  /** Não oficial via servidor Evolution da plataforma — conecta por QR code. */
+  | 'WHATSAPP_EVOLUTION'
+  | 'INSTAGRAM'
+  | 'TELEGRAM'
+  | 'INTERNAL'
+  | 'THREADS';
+
+/** Pareamento do celular no WhatsApp não oficial. */
+export type StatusDoWhatsapp = 'CONECTADO' | 'CONECTANDO' | 'DESCONECTADO';
+
+export interface ConexaoWhatsapp {
+  channelId: string;
+  status: StatusDoWhatsapp;
+  /** Já pronto pra `<img src>`. Null quando conectado. */
+  qrCode: string | null;
+  pairingCode: string | null;
+  connectedNumber: string | null;
+}
 
 export type ChannelVisibility = 'ORG' | 'PRIVATE';
 
@@ -252,6 +272,39 @@ export const channelsService = {
   async create(payload: CreateChannelPayload): Promise<Channel> {
     const { data } = await api.post<{ data: Channel }>('/channels', payload);
     return data.data;
+  },
+
+  // ─── WhatsApp não oficial ───────────────────────────
+  //
+  // Do lado do cliente é só isto: criar, pedir o QR e perguntar se já conectou.
+  // Servidor, chave e instância são da plataforma e nunca passam por aqui.
+
+  async whatsappNaoOficialDisponivel(): Promise<{
+    disponivel: boolean;
+    motivo: string | null;
+  }> {
+    const { data } = await api.get<{
+      data: { disponivel: boolean; motivo: string | null };
+    }>('/channels/whatsapp-nao-oficial/disponivel');
+    return data.data ?? data;
+  },
+
+  async conectarWhatsappNaoOficial(channelId: string): Promise<ConexaoWhatsapp> {
+    const { data } = await api.post<{ data: ConexaoWhatsapp }>(
+      `/channels/${channelId}/whatsapp-nao-oficial/conectar`,
+    );
+    return data.data ?? data;
+  },
+
+  async statusWhatsappNaoOficial(channelId: string): Promise<ConexaoWhatsapp> {
+    const { data } = await api.get<{ data: ConexaoWhatsapp }>(
+      `/channels/${channelId}/whatsapp-nao-oficial/status`,
+    );
+    return data.data ?? data;
+  },
+
+  async desconectarWhatsappNaoOficial(channelId: string): Promise<void> {
+    await api.post(`/channels/${channelId}/whatsapp-nao-oficial/desconectar`);
   },
 
   async createCoexistence(payload: CoexistenceChannelPayload): Promise<Channel> {

@@ -23,6 +23,10 @@ import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
 import { MarketingProvisioningService } from '../ai-agents/marketing/marketing-provisioning.service';
 import { PersonalAssistantProvisioningService } from '../ai-agents/personal-assistant/personal-assistant-provisioning.service';
 import { AiEngineSettingsService } from '../ai-agents/llm/ai-engine-settings.service';
+import {
+  EvolutionSettingsService,
+  EVOLUTION_SETTING_KEY,
+} from '../channel-hub/adapters/evolution/evolution-settings.service';
 
 const BCRYPT_ROUNDS = 12;
 const PLAN_TEMPLATES_KEY = 'plan_templates';
@@ -147,6 +151,7 @@ export class SuperAdminService {
     private readonly marketingProvisioning: MarketingProvisioningService,
     private readonly assistantProvisioning: PersonalAssistantProvisioningService,
     private readonly aiEngineSettings: AiEngineSettingsService,
+    private readonly evolutionSettings: EvolutionSettingsService,
   ) {}
 
   /**
@@ -174,6 +179,33 @@ export class SuperAdminService {
     await this.audit(actorId, 'UPDATE_AI_ENGINE', 'platform', AI_ENGINE_KEY, null, {
       changedFields: changed,
     });
+
+    return result;
+  }
+
+  /**
+   * Troca o servidor Evolution da plataforma.
+   *
+   * A auditoria guarda QUAIS campos mudaram, nunca os valores: registrar a
+   * chave no log só cria uma segunda cópia do segredo, num lugar que ninguém
+   * lembra de proteger.
+   */
+  async updateEvolution(
+    actorId: string,
+    dto: { baseUrl?: string; apiKey?: string },
+  ) {
+    const changed = (['baseUrl', 'apiKey'] as const).filter((f) => f in dto);
+
+    const result = await this.evolutionSettings.save(dto);
+
+    await this.audit(
+      actorId,
+      'UPDATE_EVOLUTION',
+      'platform',
+      EVOLUTION_SETTING_KEY,
+      null,
+      { changedFields: changed },
+    );
 
     return result;
   }

@@ -129,6 +129,19 @@ export class AddToPipelineHandler implements ActionHandler {
           },
         },
       });
+      await prisma.cardActivity
+        .create({
+          data: {
+            cardId: card.id,
+            tipo: 'CRIADO',
+            origem: 'AUTOMACAO',
+            toStageId: stage.id,
+            descricao: 'Card criado por automação',
+            metadata: { traceId: ctx.traceId },
+          },
+        })
+        .catch(() => undefined);
+
       return {
         ok: true,
         output: { cardId: card.id, pipelineId: pipeline.id, stageId: stage.id },

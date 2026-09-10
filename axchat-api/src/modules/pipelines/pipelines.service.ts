@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import { CardStatus, PipelineStageType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import {
+  CardActivityService,
+  type OrigemDoMovimento,
+} from './card-activity.service';
 import { RealtimeGateway } from '../realtime/realtime.gateway';
 import {
   CreateCardDto,
@@ -27,6 +31,7 @@ const DEFAULT_STAGES: UpsertStageDto[] = [
 @Injectable()
 export class PipelinesService {
   constructor(
+    private readonly atividades: CardActivityService,
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeGateway,
   ) {}
@@ -224,6 +229,7 @@ export class PipelinesService {
     pipelineId: string,
     organizationId: string,
     dto: CreateCardDto,
+    por: OrigemDoMovimento = { origem: 'HUMANO' },
   ) {
     await this.assertPipeline(pipelineId, organizationId);
 
@@ -316,6 +322,14 @@ export class PipelinesService {
       },
     });
 
+    await this.atividades.registrar({
+      cardId: card.id,
+      tipo: 'CRIADO',
+      por,
+      toStageId: card.stageId,
+      descricao: 'Card criado',
+    });
+
     this.realtime.emitToOrg(organizationId, 'card:created', { card });
     return card;
   }
@@ -383,6 +397,7 @@ export class PipelinesService {
     cardId: string,
     organizationId: string,
     dto: MoveCardDto,
+    por: OrigemDoMovimento = { origem: 'HUMANO' },
   ) {
     const card = await this.prisma.card.findUnique({ where: { id: cardId } });
     if (!card || card.organizationId !== organizationId) {
@@ -465,6 +480,24 @@ export class PipelinesService {
           closedAt: newClosedAt,
         },
       });
+    });
+
+    // O tipo registrado segue o DESFECHO, não o gesto: mover pra uma etapa
+    // de ganho é "ganho", e é assim que alguém vai procurar no histórico.
+    await this.atividades.registrar({
+      cardId,
+      tipo:
+        targetStage.type === 'WON'
+          ? 'GANHO'
+          : targetStage.type === 'LOST'
+            ? 'PERDIDO'
+            : card.status !== 'OPEN'
+              ? 'REABERTO'
+              : 'MOVIDO',
+      por,
+      fromStageId,
+      toStageId: dto.toStageId,
+      descricao: sameStage ? 'Reordenado na etapa' : 'Mudou de etapa',
     });
 
     this.realtime.emitToOrg(organizationId, 'card:moved', {

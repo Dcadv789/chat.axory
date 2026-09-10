@@ -3,9 +3,17 @@ import type { EmbeddingResult } from './types';
 import { AiEngineSettingsService } from '../llm/ai-engine-settings.service';
 
 /**
- * Generates embeddings via the OpenAI Embeddings API (`text-embedding-3-small`,
- * 1536 dims, ~$0.02 per 1M tokens). Anthropic does not provide an embeddings
- * endpoint, so this is the one place we still depend on OpenAI.
+ * Gera embeddings pelo slot `embedding` do motor (Super Admin > Motor de IA).
+ *
+ * Base, chave e modelo são configuráveis porque o provedor MUDA: Anthropic e
+ * DeepSeek não têm endpoint de embeddings, então quem roda Claude no texto
+ * precisa apontar isto pra OpenAI ou pro Google. Como a API da OpenAI virou
+ * padrão de fato — o Google expõe uma camada compatível —, trocar de provedor
+ * é trocar três campos, sem tocar em código.
+ *
+ * Antes isto pegava emprestada a chave do slot de ÁUDIO e tinha o modelo
+ * cravado: trocar o provedor de transcrição derrubava a busca semântica, e
+ * ninguém ligava uma coisa à outra.
  *
  * The service is stateless: each call is one HTTP request. Batching is
  * supported via `embedBatch` to amortize round-trip latency when indexing
@@ -14,8 +22,10 @@ import { AiEngineSettingsService } from '../llm/ai-engine-settings.service';
 @Injectable()
 export class EmbeddingsService {
   private readonly logger = new Logger(EmbeddingsService.name);
-  private readonly MODEL = 'text-embedding-3-small';
-  /** USD cost per 1M tokens for `text-embedding-3-small`. */
+  /** Usado só quando o slot não define modelo. */
+  private readonly MODELO_PADRAO = 'text-embedding-3-small';
+  /** USD por 1M tokens do `text-embedding-3-small`. Provedor diferente cobra
+   *  diferente — o número serve de ordem de grandeza no log, não de fatura. */
   private readonly COST_PER_1M_TOKENS = 0.02;
   constructor(private readonly engineSettings: AiEngineSettingsService) {}
 
@@ -27,17 +37,22 @@ export class EmbeddingsService {
    * tinha efeito até reiniciar a API, e num deploy só por UI o RAG ficava sem
    * chave mesmo com tudo configurado.
    */
-  private async resolveCredentials(): Promise<{ apiKey: string; baseUrl: string }> {
-    const audio = (await this.engineSettings.getEffective()).audio;
-    const apiKey = audio.apiKey ?? '';
+  private async resolveCredentials(): Promise<{
+    apiKey: string;
+    baseUrl: string;
+    model: string;
+  }> {
+    const slot = (await this.engineSettings.getEffective()).embedding;
+    const apiKey = slot.apiKey ?? '';
     if (!apiKey) {
       this.logger.warn(
-        'Sem chave OpenAI (Super Admin > Motor de IA, bloco Áudio) — embeddings vão falhar',
+        'Sem chave no slot Embedding (Super Admin > Motor de IA) — a busca semântica não vai indexar nem buscar',
       );
     }
     return {
       apiKey,
-      baseUrl: (audio.baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, ''),
+      baseUrl: (slot.baseUrl ?? 'https://api.openai.com/v1').replace(/\/+$/, ''),
+      model: slot.modelId ?? this.MODELO_PADRAO,
     };
   }
 
@@ -47,14 +62,14 @@ export class EmbeddingsService {
    */
   async embed(text: string): Promise<EmbeddingResult> {
     const t0 = Date.now();
-    const { apiKey, baseUrl } = await this.resolveCredentials();
+    const { apiKey, baseUrl, model } = await this.resolveCredentials();
     const response = await fetch(`${baseUrl}/embeddings`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ model: this.MODEL, input: text }),
+      body: JSON.stringify({ model, input: text }),
     });
 
     if (!response.ok) {
@@ -81,7 +96,7 @@ export class EmbeddingsService {
 
     return {
       vector: data.data[0].embedding,
-      model: this.MODEL,
+      model,
       tokensUsed,
       costUsd,
     };
@@ -99,14 +114,14 @@ export class EmbeddingsService {
     if (texts.length === 0) return [];
 
     const t0 = Date.now();
-    const { apiKey, baseUrl } = await this.resolveCredentials();
+    const { apiKey, baseUrl, model } = await this.resolveCredentials();
     const response = await fetch(`${baseUrl}/embeddings`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ model: this.MODEL, input: texts }),
+      body: JSON.stringify({ model, input: texts }),
     });
 
     if (!response.ok) {
@@ -139,7 +154,7 @@ export class EmbeddingsService {
     const sorted = [...data.data].sort((a, b) => a.index - b.index);
     return sorted.map((item) => ({
       vector: item.embedding,
-      model: this.MODEL,
+      model,
       tokensUsed: perCallTokens,
       costUsd: perCallCost,
     }));

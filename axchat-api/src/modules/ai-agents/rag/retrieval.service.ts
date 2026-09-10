@@ -32,7 +32,15 @@ export class RetrievalService {
     const minScore = input.minScore ?? DEFAULT_RAG_CONFIG.minScore;
 
     const emb = await this.embeddings.embed(input.query);
-    let results = await this.store.search(emb.vector, input.scope, k, minScore);
+    // O modelo vem do próprio resultado: é o que o slot está usando AGORA.
+    // Buscar por ele descarta o índice antigo quando o provedor muda, em vez
+    // de comparar espaços vetoriais diferentes e devolver ruído.
+    let results = await this.store.search(
+      emb.vector,
+      { ...input.scope, embeddingModel: emb.model },
+      k,
+      minScore,
+    );
 
     const shouldRerank = input.rerank ?? DEFAULT_RAG_CONFIG.rerankEnabled;
     if (shouldRerank && results.length > 1) {

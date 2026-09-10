@@ -22,6 +22,14 @@ export interface PromptContext {
   triggerMessage: Message;
   /** Extra prompt fragments contributed by the agent's active skills. */
   skillInstructions?: string[];
+  /** O que a IA sabe da empresa: campos da org, texto do departamento e o
+   *  ÍNDICE dos documentos — o conteúdo vem pela ferramenta
+   *  `consultarBaseDeConhecimento`, mesmo padrão do catálogo de produtos. */
+  conhecimento?: {
+    empresa: Record<string, string | null> | null;
+    departamento: Array<{ nome: string; texto: string }>;
+    indiceDeDocumentos: Array<{ titulo: string; resumo: string | null }>;
+  };
   /** Compact product catalog for sales agents — name + slug + 1 line each.
    *  Full pitch is fetched on demand via the getProductPitch skill. */
   catalog?: Array<{
@@ -66,6 +74,40 @@ const SYSTEM_TEMPLATE = `Você é <%= it.agent.name %>, atendente virtual da <%=
 Ajustes definidos por quem opera. Elas COMPLEMENTAM as instruções acima e têm precedência quando tratarem do mesmo ponto — mas nunca liberam algo que as instruções acima proíbem.
 
 <%= it.agent.additionalInstructions %>
+<% } %>
+<% if (it.conhecimento && it.conhecimento.empresa) { %>
+<% var e = it.conhecimento.empresa; %>
+
+═══ A empresa ═══<% if (e.whatWeDo) { %>
+O QUE FAZEMOS: <%= e.whatWeDo %><% } %><% if (e.products) { %>
+PRODUTOS E SERVIÇOS: <%= e.products %><% } %><% if (e.targetAudience) { %>
+PARA QUEM É: <%= e.targetAudience %><% } %><% if (e.differentials) { %>
+DIFERENCIAIS: <%= e.differentials %><% } %><% if (e.serviceHours) { %>
+HORÁRIOS E PRAZOS: <%= e.serviceHours %><% } %><% if (e.toneOfVoice) { %>
+TOM DE VOZ: <%= e.toneOfVoice %><% } %><% if (e.guidelines) { %>
+
+DIRETRIZES (como agir):
+<%= e.guidelines %><% } %><% if (e.restrictions) { %>
+
+RESTRIÇÕES — LIMITE DURO. Não há exceção, nem quando a resposta pareceria melhor. Se só der pra atender o cliente violando uma delas, NÃO viole: diga que vai confirmar e transfira pra um humano.
+<%= e.restrictions %><% } %><% if (e.faq) { %>
+
+DÚVIDAS FREQUENTES — estas são as respostas OFICIAIS. Use-as em vez de improvisar:
+<%= e.faq %><% } %>
+<% } %>
+<% if (it.conhecimento && it.conhecimento.departamento && it.conhecimento.departamento.length > 0) { %>
+<% it.conhecimento.departamento.forEach(function (d) { %>
+
+═══ Conhecimento de <%= d.nome %> ═══
+<%= d.texto %>
+<% }); %>
+<% } %>
+<% if (it.conhecimento && it.conhecimento.indiceDeDocumentos && it.conhecimento.indiceDeDocumentos.length > 0) { %>
+
+═══ Documentos disponíveis ═══
+Você NÃO tem o conteúdo destes documentos aqui. Quando a conversa tocar num destes assuntos, chame a ferramenta "consultarBaseDeConhecimento" ANTES de responder — responder de memória sobre o que está documentado é como o agente erra preço, prazo e política.
+<% it.conhecimento.indiceDeDocumentos.forEach(function (d) { %>- <%= d.titulo %><% if (d.resumo) { %> — <%= d.resumo %><% } %>
+<% }); %>
 <% } %>
 <% if (it.organization.aiBusinessNotes && String(it.organization.aiBusinessNotes).trim().length > 0) { %>
 

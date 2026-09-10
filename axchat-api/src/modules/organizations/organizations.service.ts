@@ -11,12 +11,16 @@ import { OrganizationsRepository } from './organizations.repository';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
+import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
 export class OrganizationsService {
   private readonly logger = new Logger(OrganizationsService.name);
 
-  constructor(private readonly repository: OrganizationsRepository) {}
+  constructor(
+    private readonly repository: OrganizationsRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async getOrganization(orgId: string) {
     const org = await this.repository.findById(orgId);
@@ -48,6 +52,23 @@ export class OrganizationsService {
         'Esta organização usa a IA da AxChat. Para configurar um motor próprio, peça ao suporte para desativar a opção "IA AxChat".',
       );
     }
+    // O id do provedor vem do corpo da requisição: sem checar de quem ele é,
+    // uma organização apontaria o motor de outra e usaria a chave alheia.
+    for (const campo of ['aiTextProviderId', 'aiVisionProviderId'] as const) {
+      const id = (rest as Record<string, unknown>)[campo];
+      if (typeof id === 'string' && id) {
+        const existe = await this.prisma.aiModelProvider.findFirst({
+          where: { id, organizationId: orgId },
+          select: { id: true },
+        });
+        if (!existe) {
+          throw new BadRequestException(
+            'Provedor de IA não encontrado nesta organização.',
+          );
+        }
+      }
+    }
+
     const updated = await this.repository.update(orgId, {
       ...rest,
       ...(aiBusinessHours !== undefined

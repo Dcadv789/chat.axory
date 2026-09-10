@@ -58,9 +58,16 @@ export class CreateAgentDto {
   @IsString({ each: true })
   capabilities?: string[];
 
-  @ApiProperty({ example: 'anthropic/claude-sonnet-4-6' })
+  /**
+   * Guardado por histórico, mas NÃO escolhe mais o motor: quem manda é a
+   * configuração de IA (Motor de IA no Super Admin, ou o provedor apontado
+   * pela organização quando ela usa IA própria). Opcional porque exigir do
+   * cliente uma escolha que o sistema ignora é pedir informação inútil.
+   */
+  @ApiPropertyOptional({ example: 'anthropic/claude-sonnet-4-6' })
+  @IsOptional()
   @IsString()
-  modelId!: string;
+  modelId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

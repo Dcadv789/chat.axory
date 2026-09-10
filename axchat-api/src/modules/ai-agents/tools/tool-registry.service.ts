@@ -26,6 +26,8 @@ import { CaptureMetaAdsMetricsTool } from './builtin/capture-meta-ads-metrics.to
 import { GetBudgetPacingTool } from './builtin/get-budget-pacing.tool';
 import { GetCampaignFunnelTool } from './builtin/get-campaign-funnel.tool';
 import { GetCampaignBriefsTool } from './builtin/get-campaign-briefs.tool';
+import { ConsultarBaseDeConhecimentoTool } from './builtin/consultar-base-de-conhecimento.tool';
+import { MoverCardNoFunilTool } from './builtin/mover-card-no-funil.tool';
 import { GetRecentMarketingAnalysesTool } from './builtin/get-recent-marketing-analyses.tool';
 import {
   PublishThreadsPostTool,
@@ -101,6 +103,8 @@ export class ToolRegistry {
     getBudgetPacing: GetBudgetPacingTool,
     getCampaignFunnel: GetCampaignFunnelTool,
     getCampaignBriefs: GetCampaignBriefsTool,
+    consultarBaseDeConhecimento: ConsultarBaseDeConhecimentoTool,
+    moverCardNoFunil: MoverCardNoFunilTool,
     getRecentMarketingAnalyses: GetRecentMarketingAnalysesTool,
     publishThreadsPost: PublishThreadsPostTool,
     replyToThreadsPost: ReplyToThreadsPostTool,
@@ -138,6 +142,15 @@ export class ToolRegistry {
     // Cálculo determinístico de elegibilidade de bônus (D+7 corridos).
     // Disponível pra todos — bonus é dúvida frequente em qualquer fluxo.
     this.register(checkBonusEligibility, ['ORCHESTRATOR', 'WORKER']);
+    // Base de conhecimento da empresa. Disponível pra TODA frente: saber o que
+    // a empresa faz não é especialidade de ninguém — é o mínimo pra não
+    // inventar preço, prazo ou política.
+    this.register(consultarBaseDeConhecimento, ['ORCHESTRATOR', 'WORKER']);
+    // Registrar no funil o que a conversa mostrou. Escopado a ATENDIMENTO: é
+    // lá que existe negócio avançando. Marketing publica, não vende.
+    this.register(moverCardNoFunil, ['ORCHESTRATOR', 'WORKER'], undefined, [
+      'ATENDIMENTO',
+    ]);
     // Read-only: cliente já tem acesso a entrega na área de membros?
     // Usado pra "não recebi o brinde" / "cadê o agente grátis" antes
     // de pedir email novamente ou prometer liberação.

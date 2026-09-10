@@ -21,6 +21,7 @@ import {
 } from './dto/instagram-facebook-login.dto';
 import { ChannelAdapterRegistry } from '../channel-adapter.registry';
 import { ZappfyHttpClient } from '../adapters/zappfy/zappfy.http-client';
+import { EvolutionChannelService } from '../adapters/evolution/evolution-channel.service';
 import { WhatsAppOfficialHttpClient } from '../adapters/whatsapp-official/whatsapp-official.http-client';
 import { InstagramHttpClient } from '../adapters/instagram/instagram.http-client';
 import { TelegramHttpClient } from '../adapters/telegram/telegram.http-client';
@@ -63,6 +64,7 @@ export class ChannelsService {
     private readonly repository: ChannelsRepository,
     private readonly adapterRegistry: ChannelAdapterRegistry,
     private readonly zappfyHttpClient: ZappfyHttpClient,
+    private readonly evolutionChannel: EvolutionChannelService,
     private readonly waOfficialHttpClient: WhatsAppOfficialHttpClient,
     private readonly instagramHttpClient: InstagramHttpClient,
     private readonly telegramHttpClient: TelegramHttpClient,
@@ -1880,6 +1882,23 @@ export class ChannelsService {
         'Confirme digitando exatamente o nome do canal para remover.',
       );
     }
+
+    // Apaga a instância no servidor Evolution antes de soltar o canal. Sem
+    // isto o servidor acumula instâncias órfãs: cada uma continua consumindo
+    // memória e tentando reconectar um WhatsApp que ninguém mais lê.
+    //
+    // Falha aqui não impede a remoção — o cliente pediu pra remover, e travar
+    // isso porque um servidor externo não respondeu seria pior.
+    if (channel.type === ChannelType.WHATSAPP_EVOLUTION) {
+      await this.evolutionChannel
+        .removerInstancia(channel as any)
+        .catch((err) =>
+          this.logger.warn(
+            `Canal ${id} removido, mas a instância Evolution ficou pra trás: ${err.message}`,
+          ),
+        );
+    }
+
     return this.repository.softDelete(id);
   }
 

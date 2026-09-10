@@ -6,6 +6,7 @@ import { ToolsModule } from '../ai-agents/tools/tools.module';
 import { AiAgentsModule } from '../ai-agents/ai-agents.module';
 import { PersonalAssistantModule } from '../ai-agents/personal-assistant/personal-assistant.module';
 import { LlmModule } from '../ai-agents/llm/llm.module';
+import { EvolutionModule } from '../channel-hub/adapters/evolution/evolution.module';
 import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminService } from './super-admin.service';
 
@@ -25,6 +26,10 @@ import { SuperAdminService } from './super-admin.service';
     PersonalAssistantModule,
     // Config global do motor de IA (aba "Motor de IA" do Super Admin).
     LlmModule,
+    // Endereço do servidor Evolution (aba "Integrações"). Importar o módulo
+    // inteiro, e não só o serviço, é o que evita duas instâncias com caches
+    // divergentes — trocar o servidor numa não invalidaria a outra.
+    EvolutionModule,
   ],
   controllers: [SuperAdminController],
   providers: [SuperAdminService],

@@ -10,10 +10,11 @@ import {
 import { contactsService, type Contact, type ImportContactRow } from '@/features/contacts/services/contacts.service';
 import { tagsService, type Tag } from '@/features/settings/services/tags.service';
 import { useOrgId } from '@/hooks/use-org-query-key';
-import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon } from '@/components/ui/icons';
+import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon, WhatsappIcon } from '@/components/ui/icons';
 
 const channelIcons: Record<string, React.ElementType> = {
   WHATSAPP_ZAPPFY: ZappfyIcon,
+  WHATSAPP_EVOLUTION: WhatsappIcon,
   WHATSAPP_OFFICIAL: MetaIcon,
   INSTAGRAM: InstagramIcon,
   TELEGRAM: TelegramIcon,

@@ -7,6 +7,9 @@ import { ChannelsService } from './channels/channels.service';
 import { WhatsAppHealthService } from './channels/whatsapp-health.service';
 import { ChannelsRepository } from './channels/channels.repository';
 import { ZappfyModule } from './adapters/zappfy/zappfy.module';
+import { EvolutionModule } from './adapters/evolution/evolution.module';
+import { EvolutionInboundAdapter } from './adapters/evolution/evolution.inbound-adapter';
+import { EvolutionOutboundAdapter } from './adapters/evolution/evolution.outbound-adapter';
 import { ZappfyInboundAdapter } from './adapters/zappfy/zappfy.inbound-adapter';
 import { ZappfyOutboundAdapter } from './adapters/zappfy/zappfy.outbound-adapter';
 import { ZappfySyncAdapter } from './adapters/zappfy/zappfy.sync-adapter';
@@ -57,6 +60,7 @@ import {
       { name: CHANNEL_TOKEN_QUEUE },
     ),
     ZappfyModule,
+    EvolutionModule,
     WhatsAppOfficialModule,
     InstagramModule,
     TelegramModule,
@@ -95,6 +99,7 @@ import {
     InstagramModule,
     TelegramModule,
     ZappfyModule,
+    EvolutionModule,
     ThreadsModule,
   ],
 })
@@ -104,6 +109,8 @@ export class ChannelHubModule implements OnModuleInit {
     private readonly zappfyInbound: ZappfyInboundAdapter,
     private readonly zappfyOutbound: ZappfyOutboundAdapter,
     private readonly zappfySync: ZappfySyncAdapter,
+    private readonly evolutionInbound: EvolutionInboundAdapter,
+    private readonly evolutionOutbound: EvolutionOutboundAdapter,
     private readonly waOfficialInbound: WhatsAppOfficialInboundAdapter,
     private readonly waOfficialOutbound: WhatsAppOfficialOutboundAdapter,
     private readonly instagramInbound: InstagramInboundAdapter,
@@ -117,6 +124,7 @@ export class ChannelHubModule implements OnModuleInit {
 
   onModuleInit() {
     this.registry.register(this.zappfyInbound, this.zappfyOutbound);
+    this.registry.register(this.evolutionInbound, this.evolutionOutbound);
     this.registry.register(this.waOfficialInbound, this.waOfficialOutbound);
     this.registry.register(this.instagramInbound, this.instagramOutbound);
     this.registry.register(this.telegramInbound, this.telegramOutbound);

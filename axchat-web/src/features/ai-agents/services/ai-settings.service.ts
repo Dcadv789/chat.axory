@@ -37,6 +37,9 @@ export interface OrganizationAiSettings {
   aiBusinessHours: BusinessHoursConfig | null;
   aiOutOfHoursMessage: string | null;
   aiBusinessNotes: string | null;
+  /** Provedor da própria org que atende texto/visão (só com IA própria). */
+  aiTextProviderId: string | null;
+  aiVisionProviderId: string | null;
   aiAutoDisableOnHuman: boolean;
   /** Quando true, o nome de quem enviou (atendente ou agente de IA) é
    *  prefixado no texto entregue ao cliente — "*Nome:*\ntexto". */
@@ -69,6 +72,8 @@ export interface UpdateAiSettingsInput {
   aiBusinessHours?: BusinessHoursConfig | null;
   aiOutOfHoursMessage?: string;
   aiBusinessNotes?: string | null;
+  aiTextProviderId?: string | null;
+  aiVisionProviderId?: string | null;
   aiAutoDisableOnHuman?: boolean;
   signMessagesWithSenderName?: boolean;
   routeAllToDefaultSector?: boolean;

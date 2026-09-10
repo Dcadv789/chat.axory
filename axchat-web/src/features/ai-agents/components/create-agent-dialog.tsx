@@ -39,7 +39,6 @@ export function CreateAgentDialog({
   const [description, setDescription] = useState('');
   const [kind, setKind] = useState<AgentKind>('WORKER');
   const [category, setCategory] = useState('');
-  const [modelId, setModelId] = useState('anthropic/claude-sonnet-4-6');
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_PROMPT);
   const [temperature, setTemperature] = useState(0.7);
   const [parentAgentId, setParentAgentId] = useState<string>('');
@@ -56,12 +55,6 @@ export function CreateAgentDialog({
   });
 
   // Load registered AI models for this organization
-  const { data: orgModels = [] } = useQuery({
-    queryKey: ['ai-model-providers'],
-    queryFn: () => aiModelProvidersService.list(),
-    enabled: open,
-  });
-
   // Load sectors
   const { data: sectors = [] } = useQuery({
     queryKey: ['agent-sectors'],
@@ -93,7 +86,6 @@ export function CreateAgentDialog({
         kind,
         sector: defaultSector,
         category: category.trim() || undefined,
-        modelId,
         systemPrompt: systemPrompt.trim(),
         temperature,
         parentAgentId: parentAgentId || null,
@@ -129,7 +121,6 @@ export function CreateAgentDialog({
     setDescription('');
     setKind('WORKER');
     setCategory('');
-    setModelId('anthropic/claude-sonnet-4-6');
     setSystemPrompt(DEFAULT_PROMPT);
     setTemperature(0.7);
     setParentAgentId('');
@@ -301,36 +292,19 @@ export function CreateAgentDialog({
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-              Modelo *
-            </label>
-            {orgModels.length > 0 ? (
-              <select
-                value={modelId}
-                onChange={(e) => setModelId(e.target.value)}
-                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
-              >
-                {orgModels.filter((m) => m.isActive).map((m) => (
-                  <option key={m.id} value={m.modelId}>
-                    {m.name} ({m.provider}) — {m.modelId}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div>
-                <input
-                  type="text"
-                  value={modelId}
-                  onChange={(e) => setModelId(e.target.value)}
-                  placeholder="Ex: anthropic/claude-sonnet-4-6"
-                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-black dark:text-zinc-100"
-                />
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  Nenhum modelo cadastrado. Vá em Configurações &gt; IA &gt; Modelos para registrar.
-                </p>
-              </div>
-            )}
+          {/* Sem seletor de modelo: quem escolhe o motor é a configuração de
+              IA, não o cadastro do agente. Um seletor aqui prometeria um
+              controle que não existe — a pessoa escolheria, salvaria, e o
+              agente rodaria noutro motor. */}
+          <div className="rounded-lg border border-dashed border-zinc-300 px-3 py-2.5 dark:border-white/15">
+            <p className="text-xs text-zinc-600 dark:text-zinc-300">
+              O modelo vem de <strong>Configurações → IA</strong> e vale para
+              todos os agentes desta empresa.
+            </p>
+            <p className="mt-0.5 text-[11px] text-zinc-500">
+              Se você usa a IA da AxChat, quem define é o nosso Motor de IA. Com
+              IA própria, é o provedor que você apontou lá.
+            </p>
           </div>
 
           <div>

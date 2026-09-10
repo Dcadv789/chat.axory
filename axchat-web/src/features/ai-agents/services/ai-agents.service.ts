@@ -97,7 +97,8 @@ export interface CreateAgentInput {
   sector?: AgentSector;
   category?: string;
   capabilities?: string[];
-  modelId: string;
+  /** Guardado por histórico — o motor real vem da configuração de IA. */
+  modelId?: string;
   systemPrompt: string;
   temperature?: number;
   maxTokens?: number;

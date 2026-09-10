@@ -17,6 +17,8 @@ import {
   aiModelProvidersService,
   type AiModelProvider,
 } from '@/features/settings/services/ai-model-providers.service';
+import { MotoresDaOrganizacao } from '@/features/settings/components/motores-da-organizacao';
+import { BaseDeConhecimento } from '@/features/settings/components/base-de-conhecimento';
 import {
   agentSectorsService,
   type AgentSector,
@@ -543,10 +545,16 @@ export default function SettingsAiPage() {
               </div>
             </section>
           ) : (
-            /* IA própria: a chave de cada motor mora no próprio modelo cadastrado. */
-            <AiModelProvidersSection />
+            /* IA própria: a chave de cada motor mora no próprio modelo
+               cadastrado, e a organização aponta qual atende o quê. */
+            <>
+              <MotoresDaOrganizacao usaIaDaAxchat={false} />
+              <AiModelProvidersSection />
+            </>
           )}
           <ChannelAiOverrides />
+
+          <BaseDeConhecimento />
 
           {/* Contexto do negócio — vai pro system prompt de TODOS os agentes */}
           <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-white/10 dark:bg-black">

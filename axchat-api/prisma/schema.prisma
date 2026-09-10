@@ -38,7 +38,12 @@ enum AgentStatus {
 
 enum ChannelType {
   WHATSAPP_OFFICIAL
+  /// Não oficial via servidor da Zappfy/Uazapi — o canal guarda o token dele.
   WHATSAPP_ZAPPFY
+  /// Não oficial via servidor Evolution hospedado pela Axory. O endereço do
+  /// servidor é da PLATAFORMA (PlatformSetting `evolution_api`), não do canal;
+  /// o canal guarda só o nome da instância e o token dela.
+  WHATSAPP_EVOLUTION
   INSTAGRAM
   TELEGRAM
   INTERNAL
@@ -182,67 +187,80 @@ model Organization {
   deletedAt           DateTime?          @map("deleted_at")
 
   // ─── AI settings ────────────────────────────────
-  aiEnabled                  Boolean  @default(true) @map("ai_enabled")
-  aiTimezone                 String   @default("America/Sao_Paulo") @map("ai_timezone")
-  aiBusinessHours            Json?    @map("ai_business_hours")
-  aiOutOfHoursMessage        String?  @map("ai_out_of_hours_message")
-  aiAutoDisableOnHuman       Boolean  @default(true) @map("ai_auto_disable_on_human")
+  aiEnabled                  Boolean @default(true) @map("ai_enabled")
+  aiTimezone                 String  @default("America/Sao_Paulo") @map("ai_timezone")
+  aiBusinessHours            Json?   @map("ai_business_hours")
+  aiOutOfHoursMessage        String? @map("ai_out_of_hours_message")
+  aiAutoDisableOnHuman       Boolean @default(true) @map("ai_auto_disable_on_human")
   /// Quando true, prefixa o nome de quem enviou (atendente humano ou agente
   /// de IA) no texto entregue ao cliente — formato "*Nome:*\ntexto". Aplicado
   /// só no envio ao provider; o texto no banco/inbox continua limpo (o nome já
   /// aparece na própria bolha pra equipe). Default false.
-  signMessagesWithSenderName Boolean  @default(false) @map("sign_messages_with_sender_name")
+  signMessagesWithSenderName Boolean @default(false) @map("sign_messages_with_sender_name")
   /// Trava de roteamento por setor. Quando true, o orquestrador joga TODA
   /// conversa que precisa de humano no setor (Department) marcado como padrão,
   /// sem distribuir entre setores. Quando false, o orquestrador escolhe o setor
   /// e usa o padrão só como fallback. Default false.
-  routeAllToDefaultSector    Boolean  @default(false) @map("route_all_to_default_sector")
+  routeAllToDefaultSector    Boolean @default(false) @map("route_all_to_default_sector")
   /// Quantas mensagens anteriores da conversa entram no prompt do agente.
   /// Default 50 — a operação é de atendimento rápido, então janela curta é
   /// suficiente e mantém custo/latência baixos. Configurável em Settings > IA.
-  aiHistoryWindow            Int      @default(50) @map("ai_history_window")
-  aiMonthlyTokenCap          Int?     @map("ai_monthly_token_cap")
-  monthlyConversationLimit   Int?     @map("monthly_conversation_limit")
+  aiHistoryWindow            Int     @default(50) @map("ai_history_window")
+  aiMonthlyTokenCap          Int?    @map("ai_monthly_token_cap")
+  monthlyConversationLimit   Int?    @map("monthly_conversation_limit")
   /// Cap de tokens de IA do MARKETING no mês, SEPARADO do cap de atendimento.
   /// A crew consome tokens; esse limite é o do add-on de marketing (não come a
   /// cota de conversas de cliente). null = sem limite.
-  aiMarketingMonthlyTokenCap Int?     @map("ai_marketing_monthly_token_cap")
+  aiMarketingMonthlyTokenCap Int?    @map("ai_marketing_monthly_token_cap")
   /// Add-on vendável: habilita o módulo de Marketing (agentes/menu próprios).
   /// Controlado pelo Super Admin. Quando false, o cliente nem vê o menu.
-  marketingEnabled           Boolean  @default(false) @map("marketing_enabled")
+  marketingEnabled           Boolean @default(false) @map("marketing_enabled")
   /// Motor de automações desta empresa. Independente do AUTOMATIONS_ENABLED
   /// global (que é a chave de emergência da plataforma): aqui é o dono que
   /// decide se as regras dele rodam. Nasce desligado — automação que dispara
   /// sem ninguém ter ligado é a pior surpresa possível.
-  automationsEnabled         Boolean  @default(false) @map("automations_enabled")
+  automationsEnabled         Boolean @default(false) @map("automations_enabled")
   /// Add-on vendável: habilita a IA de Assistente Pessoal (do dono/gestor).
   /// Fluxo 1:1 privado, com tarefas/notas/lembretes/agenda. Quando false,
   /// o cliente nem vê o menu.
-  assistantEnabled           Boolean  @default(false) @map("assistant_enabled")
+  assistantEnabled           Boolean @default(false) @map("assistant_enabled")
   /// Motor de IA da org, controlado pelo Super Admin.
   /// true  = "IA AxChat": roda no NOSSO motor (chaves globais de env). O cliente
   ///         não configura chave nenhuma — a UI de chave/modelo próprio some e o
   ///         backend ignora `deepseekApiKey` e os AiModelProvider da org.
   /// false = "IA própria": o cliente traz o motor dele (chave DeepSeek e/ou
   ///         modelos custom registrados em AiModelProvider).
-  axchatAiEnabled            Boolean  @default(true) @map("axchat_ai_enabled")
+  axchatAiEnabled            Boolean @default(true) @map("axchat_ai_enabled")
   /// Chave de API do DeepSeek por organização (definida pela UI em
   /// Settings > IA). NULL = usa o fallback global DEEPSEEK_API_KEY da env.
   /// Só tem efeito quando `axchatAiEnabled` = false.
-  deepseekApiKey             String?  @map("deepseek_api_key") @db.Text
+  deepseekApiKey             String? @map("deepseek_api_key") @db.Text
   /// Notas livres do negócio injetadas no system prompt de TODOS os
   /// agentes da org. Use pra info que muda com frequência e que vale
   /// pra qualquer fluxo (vendas/suporte/CS): regras de entrega, horários
   /// de live, política de reembolso, talking points atuais, etc.
-  aiBusinessNotes            String?  @map("ai_business_notes") @db.Text
+  aiBusinessNotes            String? @map("ai_business_notes") @db.Text
+
+  /// Qual provedor DO CLIENTE atende cada motor, quando `axchatAiEnabled` é
+  /// false. Antes a escolha saía do `modelId` do agente casando com o nome de
+  /// um provedor registrado — e quando não casava, a chamada caía na chave da
+  /// AxChat sem avisar: a organização dizia "pago minha IA" e a plataforma
+  /// pagava a conta.
+  ///
+  /// EMBEDDING NÃO ENTRA AQUI de propósito. A busca semântica é infraestrutura
+  /// da plataforma: o índice é compartilhado por modelo, e deixar cada cliente
+  /// escolher o dele significaria um espaço vetorial por organização, com
+  /// reindexação a cada troca. O custo é nosso.
+  aiTextProviderId      String?  @map("ai_text_provider_id")
+  aiVisionProviderId    String?  @map("ai_vision_provider_id")
   /// Regras de segurança (imutáveis) injetadas na Layer 1 do prompt composer.
   /// Shape: { noPriceCommitment, noDeadlineCommitment, noResultPromise,
   /// noCrossClientDataLeak, forbiddenEmojis: string[], language: 'pt-BR'|'en-US',
   /// customRules: string[] }. NULL = usa defaults do código.
-  aiSecurityRules            Json?    @map("ai_security_rules")
+  aiSecurityRules       Json?    @map("ai_security_rules")
   /// Threshold de confiança do IntentClassifier pra pular o orchestrator.
   /// Default 0.85. Abaixo disso cai no Augusto.
-  aiClassifierThreshold      Decimal? @default(0.85) @map("ai_classifier_threshold") @db.Decimal(3, 2)
+  aiClassifierThreshold Decimal? @default(0.85) @map("ai_classifier_threshold") @db.Decimal(3, 2)
 
   /// Lista de domínios permitidos em links que a IA pode mandar pro
   /// cliente. Quando preenchido (array com strings tipo "bravy.co",
@@ -284,12 +302,16 @@ model Organization {
   products                Product[]
   auditLogs               SuperAdminAuditLog[]
   aiModelProviders        AiModelProvider[]
+  aiTextProvider          AiModelProvider?          @relation("MotorDeTextoDaOrg", fields: [aiTextProviderId], references: [id], onDelete: SetNull)
+  aiVisionProvider        AiModelProvider?          @relation("MotorDeVisaoDaOrg", fields: [aiVisionProviderId], references: [id], onDelete: SetNull)
   agentSectors            AgentSector[]
   organizationSecrets     OrganizationSecret[]
   agentCrons              AgentCron[]
   marketingProfile        MarketingProfile?
   marketingMonthlyBudgets MarketingMonthlyBudget[]
   marketingCampaignBriefs MarketingCampaignBrief[]
+  companyKnowledge        CompanyKnowledge?
+  knowledgeDocuments      KnowledgeDocument[]
   marketingMediaAssets    MarketingMediaAsset[]
   marketingAnalyses       MarketingAnalysis[]
   marketingActivities     MarketingActivity[]
@@ -337,14 +359,19 @@ model AgentSector {
   organizationId String   @map("organization_id")
   name           String
   description    String?
+  /// Conhecimento que vale só pra ESTE departamento — tabela de honorários do
+  /// contábil, prazos do jurídico. Entra no prompt apenas dos agentes daqui:
+  /// no de todo mundo seria ruído caro, multiplicado por agente e por conversa.
+  knowledge      String?  @db.Text
   icon           String? // lucide-react icon name
   color          String? // tailwind color
   order          Int      @default(0)
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  agents       AgentSectorAgent[]
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agents        AgentSectorAgent[]
+  knowledgeDocs KnowledgeDocument[]
 
   @@index([organizationId, order], name: "idx_agent_sector_org_order")
   @@map("agent_sectors")
@@ -373,7 +400,10 @@ model AiModelProvider {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Lados inversos das escolhas de motor da organização.
+  comoMotorDeTexto Organization[] @relation("MotorDeTextoDaOrg")
+  comoMotorDeVisao Organization[] @relation("MotorDeVisaoDaOrg")
 
   @@unique([organizationId, modelId])
   @@map("ai_model_providers")
@@ -1250,7 +1280,7 @@ model AiAgent {
   ///
   /// Agente criado PELO cliente nasce `false`: o prompt é dele, edita à
   /// vontade. É o que separa "produto vendido" de "plataforma aberta".
-  isManaged          Boolean @default(false) @map("is_managed")
+  isManaged Boolean @default(false) @map("is_managed")
 
   /// Ajuste do cliente, ANEXADO ao prompt do produto em vez de substituí-lo.
   /// Vale para agente gerenciado e criado pelo cliente — no segundo é só uma
@@ -1524,6 +1554,76 @@ model AgentCron {
 // Uma linha por org — as "regras de negócio" que guiam os agentes de marketing.
 // Fonte interna (preenchida no front). Orgs com banco externo usam, além disso,
 // uma skill SQL (AiTool CUSTOM_SQL) apontando pro banco delas.
+/// Conhecimento da empresa, estruturado — vale pra TODOS os agentes do tenant.
+///
+/// Antes existia um campo de texto livre só (`Organization.aiBusinessNotes`),
+/// onde regra de entrega, horário e política de reembolso ficavam misturados.
+/// Texto solto não tem precedência: quando o mesmo assunto aparece duas vezes,
+/// o modelo escolhe. Campo separado é o que permite dizer "isto é proibição" e
+/// "isto é orientação" com pesos diferentes.
+///
+/// Isolado por tenant: cada empresa que assina tem o seu, sem herança.
+model CompanyKnowledge {
+  id             String @id @default(cuid())
+  organizationId String @unique @map("organization_id")
+
+  whatWeDo       String? @map("what_we_do") @db.Text
+  products       String? @db.Text
+  targetAudience String? @map("target_audience") @db.Text
+  /// Por que escolher esta empresa — o que o agente usa pra sustentar valor
+  /// sem inventar vantagem.
+  differentials  String? @db.Text
+  toneOfVoice    String? @map("tone_of_voice") @db.Text
+  /// Como agir. Orientação, não proibição.
+  guidelines     String? @db.Text
+  /// O que NUNCA fazer. Lido como limite duro pelo agente.
+  restrictions   String? @db.Text
+  /// Horários, prazos de resposta e de entrega.
+  serviceHours   String? @map("service_hours") @db.Text
+  /// Dúvidas frequentes com a resposta OFICIAL da empresa. É o que evita o
+  /// agente improvisar no que mais aparece.
+  faq            String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("company_knowledge")
+}
+
+/// Documento de conhecimento — o que não cabe em campo estruturado.
+///
+/// Cada empresa tem particularidade que nenhum formulário prevê: contrato
+/// modelo, tabela de preços, política de reembolso inteira. Documento NÃO entra
+/// no prompt: com 363 agentes, injetar o conteúdo inteiro seria caro e ainda
+/// empurraria o que importa pra fora do contexto. O agente recebe só o ÍNDICE
+/// (título + resumo) e busca o conteúdo por ferramenta quando precisa.
+model KnowledgeDocument {
+  id             String @id @default(cuid())
+  organizationId String @map("organization_id")
+
+  title   String
+  /// Uma linha sobre quando consultar. É isto que vai no prompt — o agente
+  /// decide buscar a partir daqui, então vale mais que o título.
+  summary String? @db.Text
+  content String  @db.Text
+
+  /// Vazio = vale pra empresa toda. Preenchido = só os agentes deste
+  /// departamento enxergam no índice.
+  sectorId String? @map("sector_id")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sector       AgentSector? @relation(fields: [sectorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, isActive], name: "idx_knowledge_doc_org_active")
+  @@map("knowledge_documents")
+}
+
 model MarketingProfile {
   id             String @id @default(cuid())
   organizationId String @unique @map("organization_id")
@@ -2305,6 +2405,58 @@ enum CardStatus {
   LOST // fechou perdido
 }
 
+/// Cada movimento de um card. Sem isto não existe "quanto tempo o lead ficou
+/// em Proposta" nem "onde o funil trava" — que são as perguntas que fazem um
+/// CRM valer alguma coisa.
+///
+/// `origem` responde QUEM mexeu, e é o motivo de existirem três valores em vez
+/// de só o usuário: com IA e automação mexendo no funil, um histórico que só
+/// registra pessoa mente por omissão.
+model CardActivity {
+  id     String @id @default(cuid())
+  cardId String @map("card_id")
+
+  tipo   CardActivityTipo
+  origem CardActivityOrigem
+
+  /// Quem fez, quando foi gente. Nulo em automação e IA.
+  userId       String? @map("user_id")
+  /// Qual agente de IA fez. Nulo fora de IA.
+  agentId      String? @map("agent_id")
+  /// Qual automação disparou. Nulo fora de automação.
+  automationId String? @map("automation_id")
+
+  fromStageId String? @map("from_stage_id")
+  toStageId   String? @map("to_stage_id")
+  /// Texto curto pra tela: "moveu de Proposta para Fechado".
+  descricao   String? @db.Text
+  metadata    Json    @default("{}")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, createdAt], name: "idx_card_activity_card")
+  @@map("card_activities")
+}
+
+enum CardActivityTipo {
+  CRIADO
+  MOVIDO
+  GANHO
+  PERDIDO
+  REABERTO
+  VALOR_ALTERADO
+  ATRIBUIDO
+  COMENTARIO
+}
+
+enum CardActivityOrigem {
+  HUMANO
+  AUTOMACAO
+  IA
+}
+
 model Pipeline {
   id             String   @id @default(cuid())
   organizationId String   @map("organization_id")
@@ -2371,6 +2523,8 @@ model Card {
   contact      Contact?      @relation("CardContact", fields: [contactId], references: [id], onDelete: SetNull)
   conversation Conversation? @relation("CardConversation", fields: [conversationId], references: [id], onDelete: SetNull)
   assignedTo   User?         @relation("CardAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  atividades CardActivity[]
 
   @@index([pipelineId, stageId, order])
   @@index([organizationId, status])
@@ -2617,9 +2771,18 @@ model AiVectorEntry {
   contactId      String? @map("contact_id")
 
   /// Texto original — é o que volta na busca e entra no prompt.
-  content   String  @db.Text
-  embedding Float[]
-  metadata  Json    @default("{}")
+  content        String  @db.Text
+  embedding      Float[]
+  /// Modelo que gerou este vetor.
+  ///
+  /// Vetores de modelos diferentes NÃO são comparáveis — `text-embedding-3-small`
+  /// tem 1536 dimensões, o `text-embedding-004` do Google tem 768. Sem esta
+  /// coluna, trocar o provedor faria a busca devolver lixo em silêncio: o
+  /// cosseno entre vetores de espaços diferentes é um número, só não significa
+  /// nada. Com ela, a busca ignora o que veio de outro modelo — o resultado
+  /// fica MENOR até o backfill rodar, em vez de errado.
+  embeddingModel String? @map("embedding_model")
+  metadata       Json    @default("{}")
 
   createdAt DateTime @default(now()) @map("created_at")
 

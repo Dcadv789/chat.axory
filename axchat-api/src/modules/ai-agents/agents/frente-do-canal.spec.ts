@@ -19,10 +19,13 @@ describe('Fronteira da frente (canal ↔ agente)', () => {
     const prisma = {
       channel: { findFirst: jest.fn().mockResolvedValue(canal(canalSector)) },
       aiAgent: {
-        findFirst: jest.fn().mockResolvedValue({ id: 'ag-1', name: 'Contábil' }),
-        findUnique: jest
-          .fn()
-          .mockResolvedValue({ sector: agenteSector, name: 'Contábil' }),
+        // É o `findOne` do serviço: recusa agente de outra organização E já
+        // devolve o setor, então não há segunda consulta por id solto.
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'ag-1',
+          name: 'Contábil',
+          sector: agenteSector,
+        }),
       },
       aiAgentChannel: { upsert: jest.fn().mockResolvedValue({ ok: true }) },
     } as any;

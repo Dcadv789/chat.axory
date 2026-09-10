@@ -14,8 +14,11 @@ import { UpdatePlanTemplateDto } from './dto/update-plan-template.dto';
 import { UpdateMetaCoexistenceDto } from './dto/update-meta-coexistence.dto';
 import { CloneAgentsDto } from './dto/clone-agents.dto';
 import { UpdateAiEngineDto, TestAiEngineDto } from './dto/update-ai-engine.dto';
+import { UpdateEvolutionDto } from './dto/update-evolution.dto';
 import { SuperAdminService } from './super-admin.service';
 import { AiEngineSettingsService } from '../ai-agents/llm/ai-engine-settings.service';
+import { EvolutionSettingsService } from '../channel-hub/adapters/evolution/evolution-settings.service';
+import { EvolutionHttpClient } from '../channel-hub/adapters/evolution/evolution.http-client';
 import type { AiAgentSector } from '@prisma/client';
 
 @ApiTags('Super Admin')
@@ -27,6 +30,8 @@ export class SuperAdminController {
     private readonly service: SuperAdminService,
     private readonly toolRegistry: ToolRegistry,
     private readonly engineSettings: AiEngineSettingsService,
+    private readonly evolutionSettings: EvolutionSettingsService,
+    private readonly evolutionHttp: EvolutionHttpClient,
   ) {}
 
   @Get('overview')
@@ -83,6 +88,38 @@ export class SuperAdminController {
   })
   testAiEngine(@Body() dto: TestAiEngineDto) {
     return this.engineSettings.testConnection(dto.kind);
+  }
+
+  // ─── WhatsApp não oficial (servidor Evolution) ───────
+
+  @Get('evolution')
+  @ApiOperation({
+    summary:
+      'Endereço e chave do servidor Evolution da plataforma. A chave nunca volta em texto puro — só um preview e de onde o valor vem (ui/env).',
+  })
+  getEvolution() {
+    return this.evolutionSettings.getForAdmin();
+  }
+
+  @Patch('evolution')
+  @ApiOperation({
+    summary:
+      'Troca o servidor Evolution. String vazia limpa o override e volta pro env.',
+  })
+  updateEvolution(
+    @CurrentUser('id') actorId: string,
+    @Body() dto: UpdateEvolutionDto,
+  ) {
+    return this.service.updateEvolution(actorId, dto);
+  }
+
+  @Post('evolution/test')
+  @ApiOperation({
+    summary:
+      'Bate no servidor com a config salva. É o que separa "configurei" de "funciona" antes de um cliente tentar ler o QR.',
+  })
+  testEvolution() {
+    return this.evolutionHttp.testarConexao();
   }
 
   @Get('organizations')

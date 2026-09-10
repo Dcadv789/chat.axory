@@ -15,11 +15,13 @@ import { channelAccessService } from '../../settings/services/channel-access.ser
 import { membersService } from '../../settings/services/members.service';
 import { aiAgentsService } from '../../ai-agents/services/ai-agents.service';
 import { useChannelSync } from '../hooks/use-channel-sync';
+import { ConexaoWhatsappCard } from './conexao-whatsapp-card';
 import { useInstagramLogin } from '../hooks/use-instagram-login';
-import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon, ThreadsIcon } from '@/components/ui/icons';
+import { ZappfyIcon, MetaIcon, InstagramIcon, TelegramIcon, ThreadsIcon, WhatsappIcon } from '@/components/ui/icons';
 
 const channelTypeMap: Record<string, { label: string; icon: React.ElementType }> = {
   WHATSAPP_ZAPPFY: { label: 'WhatsApp (Zappfy)', icon: ZappfyIcon },
+  WHATSAPP_EVOLUTION: { label: 'WhatsApp não oficial', icon: WhatsappIcon },
   WHATSAPP_OFFICIAL: { label: 'WhatsApp Official', icon: MetaIcon },
   INSTAGRAM: { label: 'Instagram', icon: InstagramIcon },
   TELEGRAM: { label: 'Telegram', icon: TelegramIcon },
@@ -567,6 +569,11 @@ function DataTab({
           Remover
         </button>
       </div>
+
+      {/* WhatsApp não oficial: estado do pareamento e reconexão por QR. */}
+      {channel.type === 'WHATSAPP_EVOLUTION' && (
+        <ConexaoWhatsappCard channelId={channel.id} channelName={channel.name} />
+      )}
 
       {/* Sync section */}
       {sync.supported && (

@@ -123,6 +123,26 @@ export class UpdateOrganizationDto {
 
   @ApiPropertyOptional({
     description:
+      'Provedor (AiModelProvider) que atende o motor de TEXTO desta organização. Só vale quando axchatAiEnabled = false. null limpa a escolha.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  aiTextProviderId?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Provedor que atende o motor de VISÃO (leitura de imagem). Sem ele, imagem vira aviso textual — nunca cai na chave da plataforma.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  aiVisionProviderId?: string | null;
+
+  @ApiPropertyOptional({
+    description:
       'Lista de domínios permitidos em URLs que a IA pode mandar (ex: ["bravy.co", "trivapp.com.br"]). Quando preenchida, runtime guard bloqueia qualquer link com host fora da lista — IA é forçada a reescrever sem link inventado. Vazia/null = permissivo (só warning). Match é por sufixo: "bravy.co" autoriza "members.bravy.co".',
     nullable: true,
     type: [String],
