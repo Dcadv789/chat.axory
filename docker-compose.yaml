@@ -53,6 +53,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      # Coolify loads its shared runtime env file for every service.
+      DATABASE_URL: "unused"
       HOSTNAME: 0.0.0.0
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     expose:
@@ -70,6 +72,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3110
+      # Coolify loads its shared runtime env file for every service.
+      DATABASE_URL: "unused"
       CHAT_BULLQ_BASE_URL: ${CHAT_BULLQ_BASE_URL}
       CHAT_BULLQ_API_KEY: ${CHAT_BULLQ_API_KEY:-}
     expose:
