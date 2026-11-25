@@ -218,3 +218,17 @@ git push
 ```
 
 > Garanta no Coolify que **Automatic Deployment** (webhook do GitHub) esta ligado para a branch `main`.
+
+### Migrações do AxChat antes de atualizar a aplicação
+
+No ambiente AxChat do Coolify, o comando de build primeiro constrói as imagens dos três serviços normalmente. Em seguida, `ops/migrate-release.sh` executa `prisma migrate deploy` em um contêiner descartável da mesma imagem da API dessa revisão. A etapa termina antes de o Coolify trocar os contêineres da versão anterior. Se a migração falhar, o deploy é interrompido ainda nessa fase.
+
+Configure o comando de build do ambiente de produção seguindo este modelo. O Coolify injeta os caminhos do Compose e do arquivo de variáveis de build.
+
+```sh
+docker compose --project-name PROJETO_COOLIFY build --pull && sh ./ops/migrate-release.sh ./docker-compose.yaml /artifacts/build-time.env PROJETO_COOLIFY /caminho/privado/do/segredo coolify
+```
+
+O arquivo de segredo fica no servidor Docker e contém a URL de um papel de migração limitado a `axchat_db`. Ele é montado em modo somente leitura apenas no contêiner descartável. Deixe `DATABASE_URL` do ambiente de execução associada ao papel de runtime. O papel de runtime lê a tabela de histórico do Prisma e tem permissões de aplicação nas tabelas, inclusive nas novas tabelas criadas pelo migrador. Para ambientes locais, o Compose mantém a inicialização padrão.
+
+Escreva migrações compatíveis com a versão que ainda atende requisições e use transações quando a operação permitir. Depois de uma falha, inspecione o histórico e os efeitos da migração antes de corrigir e tentar novamente. Reverter a imagem da aplicação preserva as migrações já aplicadas; a reversão de schema segue o procedimento da própria migração.
